@@ -1,8 +1,9 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import Any, Awaitable, Callable, Dict, Optional, Type, TypeVar, Union, cast, overload
+from typing import Any, AsyncContextManager, Awaitable, Callable, Dict, Optional, Type, TypeVar, Union, cast, overload
 from fastedgy.app import FastEdgy
+from fastedgy.dependencies import depends
 from typing_extensions import Concatenate, ParamSpec
 
 P = ParamSpec("P")
@@ -414,6 +415,15 @@ class CliContext[S : BaseSettings = BaseSettings, A: FastEdgy = FastEdgy]:
             self._app = app_factory()
 
         return self._app
+
+    def initialize(self):
+        self.app.initialize()
+
+    def lifespan(self) -> AsyncContextManager:
+        return self.app.router.lifespan_context(self.app)
+
+    async def depends(self, call: Callable[..., T]) -> T:
+        return await depends(self.app, call)
 
 
 @group()

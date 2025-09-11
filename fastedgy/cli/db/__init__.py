@@ -10,7 +10,7 @@ import fastedgy.orm.migration # noqa: F401
 @cli.pass_cli_context
 def db(ctx: cli.CliContext):
     """Database management commands."""
-    ctx.app.initialize()
+    ctx.initialize()
 
 
 cli.register_commands_in_group("edgy.cli.operations", db)

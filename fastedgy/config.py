@@ -6,6 +6,7 @@ import os
 
 from pathlib import Path
 from typing import Type
+from urllib.parse import urlparse
 from pydantic import field_validator
 from pydantic_settings import BaseSettings as PydanticBaseSettings, SettingsConfigDict
 
@@ -107,11 +108,18 @@ class BaseSettings(PydanticBaseSettings):
     log_format: LogFormat | str = LogFormat.TEXT_LIGHT
     log_file: str = ''
 
+    database_url: str = ''
+    database_pool_size: int = 20
+    database_max_overflow: int = 10
+
 
     @classmethod
     def from_env_file(cls, env_file: str):
         """Create Settings with custom env file path."""
         return cls(_env_file=env_file)  # type: ignore
+
+    def initialize(self) -> None:
+        pass
 
     @property
     def project_path(self) -> str:
@@ -133,11 +141,21 @@ class BaseSettings(PydanticBaseSettings):
 
         return os.path.join(self.project_path, self.log_file)
 
+    @property
+    def db_name(self) -> str:
+        return urlparse(self.database_url).path.lstrip('/')
+
     @field_validator('log_format')
     def validate_log_format(cls, v):
         if isinstance(v, str) and v in [item.value for item in LogFormat]:
             return LogFormat(v)
         return v
+
+    @field_validator('database_url')
+    def validate_database_url(cls, v):
+        if v:
+            return v
+        raise ValueError('DATABASE_URL is required')
 
 
 _settings: BaseSettings | None = None

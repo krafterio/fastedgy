@@ -9,7 +9,7 @@ class ImportFromStringError(Exception):
     pass
 
 
-def import_from_string(import_str: Any) -> Any:
+def import_from_string[A: Any = Any](import_str: str | A) -> A:
     if not isinstance(import_str, str):
         return import_str
 

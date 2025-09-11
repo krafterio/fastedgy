@@ -2,6 +2,7 @@
 # MIT License (see LICENSE file).
 
 from typing import Any, Awaitable, Callable, Dict, Optional, Type, TypeVar, Union, cast, overload
+from fastedgy.app import FastEdgy
 from typing_extensions import Concatenate, ParamSpec
 
 P = ParamSpec("P")
@@ -148,25 +149,25 @@ def discover_cli_commands(package_name: str) -> None:
     prefix = package.__name__ + "."
 
     for _, module_name, is_pkg in pkgutil.iter_modules(package.__path__, prefix):
+        # Import the module and register any CLI commands
+        # Note: Commands using the decorator pattern are registered automatically
+        # when the module is imported
+        module = importlib.import_module(module_name)
+
+        # Find and register click.Group objects (from @click.group())
+        for name, obj in inspect.getmembers(module):
+            if isinstance(obj, click.Group) and obj not in _cli_groups.values():
+                group_name = getattr(obj, 'name', name)
+                _cli_groups[group_name] = obj
+
+            elif (isinstance(obj, click.Command) and not isinstance(obj, click.Group)
+                    and obj not in _cli_commands.values()):
+                command_name = getattr(obj, 'name', name)
+                _cli_commands[command_name] = obj
+
         if is_pkg:
             # Recursively discover commands in subpackages
             discover_cli_commands(module_name)
-        else:
-            # Import the module and register any CLI commands
-            # Note: Commands using the decorator pattern are registered automatically
-            # when the module is imported
-            module = importlib.import_module(module_name)
-
-            # Find and register click.Group objects (from @click.group())
-            for name, obj in inspect.getmembers(module):
-                if isinstance(obj, click.Group) and obj not in _cli_groups.values():
-                    group_name = getattr(obj, 'name', name)
-                    _cli_groups[group_name] = obj
-
-                elif (isinstance(obj, click.Command) and not isinstance(obj, click.Group)
-                      and obj not in _cli_commands.values()):
-                    command_name = getattr(obj, 'name', name)
-                    _cli_commands[command_name] = obj
 
 
 def find_group_name(root_group: click.Group, cmd: click.Command) -> str | None:
@@ -398,15 +399,15 @@ def pass_meta_key(
     return decorator
 
 
-class CliContext[S : BaseSettings]:
+class CliContext[S : BaseSettings = BaseSettings, A: FastEdgy = FastEdgy]:
     """CLI application context containing settings and app instance."""
 
     def __init__(self, settings: S):
         self.settings: S = settings
-        self._app: Any | None = None
+        self._app: A | None = None
 
     @property
-    def app(self) -> Any | None:
+    def app(self) -> A:
         if self._app is None:
             from fastedgy.importer import import_from_string
             app_factory = import_from_string(self.settings.app_factory)
@@ -422,6 +423,7 @@ def cli(ctx, env_file: str):
     """FastEdgy CLI"""
     from fastedgy.config import get_settings
     ctx.obj = CliContext(get_settings(env_file))
+    ctx.obj.settings.initialize()
 
 
 def main():

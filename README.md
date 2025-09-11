@@ -11,6 +11,10 @@ The base that makes web application development simple and fast with FastAPI and
 ## Installation
 
 ```
+uv add git+ssh://git@github.com/krafterio/fastedgy.git
+```
+Or
+```
 pip install git+ssh://git@github.com/krafterio/fastedgy.git
 ```
 
@@ -65,7 +69,7 @@ FastEdgy is released under the [MIT License][1].
 About
 -----
 
-KastEdgy was originally created by [Krafter][2].
+FastEdgy was originally created by [Krafter][2].
 
 [1]: LICENSE
 [2]: https://krafter.io

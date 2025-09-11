@@ -1,8 +1,7 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from fastedgy.cli import cli
+if __name__ == "__main__":
+    from fastedgy.cli import main
 
-__all__ = [
-    "cli",
-]
+    main()

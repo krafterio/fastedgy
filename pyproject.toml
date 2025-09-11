@@ -8,6 +8,7 @@ description = "The base that makes web application development simple and fast w
 authors = [
     {name = "Krafter", email = "developer@krafter.io"},
 ]
+readme = "README.md"
 requires-python = ">=3.13"
 dynamic = [
     "version"

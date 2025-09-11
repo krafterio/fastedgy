@@ -58,7 +58,12 @@ class FastEdgy[S : BaseSettings = BaseSettings](FastAPI):
         separate_input_output_schemas: bool = True,
         **extra: Any,
     ) -> None:
+        from edgy import Instance, monkay
         settings = get_settings()
+
+        monkay.settings.migration_directory = settings.db_migration_path
+        monkay.set_instance(Instance(registry=settings.db_registry), apply_extensions=False)
+        monkay.evaluate_settings(on_conflict="keep")
 
         super().__init__(
             debug=debug,
@@ -106,12 +111,10 @@ class FastEdgy[S : BaseSettings = BaseSettings](FastAPI):
         )
 
         self.state.settings = settings
-        self.state.db = Database(
-            settings.database_url,
-            pool_size=settings.database_pool_size,
-            max_overflow=settings.database_max_overflow,
-        )
-        self.state.db_registry = Registry(self.state.db)
+        self.state.db = settings.db
+        self.state.db_registry = settings.db_registry
+
+        monkay.set_instance(Instance(registry=settings.db_registry, app=self))
 
     @property
     def settings(self) -> BaseSettings:

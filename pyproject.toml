@@ -14,9 +14,11 @@ dependencies = [
     "edgy[postgres]~=0.33",
     "fastapi~=0.115",
     "pydantic~=2.11",
+    "pydantic[email]~=2.11",
     "pydantic-settings~=2.10",
     "rich ~= 14.1",
     "rich-click ~= 1.8",
+    "sqlparse~=0.5",
     "uvicorn[standard]~=0.34",
 ]
 

@@ -1,6 +1,7 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+from functools import cached_property
 import sys
 import os
 
@@ -9,6 +10,7 @@ from typing import Type
 from urllib.parse import urlparse
 from pydantic import field_validator
 from pydantic_settings import BaseSettings as PydanticBaseSettings, SettingsConfigDict
+from edgy import Database, Registry
 
 from fastedgy.logger import LogLevel, LogOutput, LogFormat
 
@@ -142,8 +144,24 @@ class BaseSettings(PydanticBaseSettings):
         return os.path.join(self.project_path, self.log_file)
 
     @property
+    def db_migration_path(self) -> str:
+        return os.path.join(self.server_path, "migrations")
+
+    @property
     def db_name(self) -> str:
         return urlparse(self.database_url).path.lstrip('/')
+
+    @cached_property
+    def db(self) -> Database:
+        return Database(
+            self.database_url,
+            pool_size=self.database_pool_size,
+            max_overflow=self.database_max_overflow,
+        )
+
+    @cached_property
+    def db_registry(self) -> Registry:
+        return Registry(self.db)
 
     @field_validator('log_format')
     def validate_log_format(cls, v):

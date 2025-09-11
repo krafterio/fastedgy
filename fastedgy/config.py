@@ -2,9 +2,14 @@
 # MIT License (see LICENSE file).
 
 import sys
+import os
+
 from pathlib import Path
+from typing import Type
+from pydantic import field_validator
 from pydantic_settings import BaseSettings as PydanticBaseSettings, SettingsConfigDict
 
+from fastedgy.logger import LogLevel, LogOutput, LogFormat
 
 SERVER_FILES = [
     "__init__.py",
@@ -92,7 +97,16 @@ class BaseSettings(PydanticBaseSettings):
     )
 
     app_factory: str = "main:app"
+
     title: str = "FastEdgy"
+
+    http_workers: int | None = None
+
+    log_level: LogLevel = LogLevel.INFO
+    log_output: LogOutput = LogOutput.CONSOLE
+    log_format: LogFormat | str = LogFormat.TEXT_LIGHT
+    log_file: str = ''
+
 
     @classmethod
     def from_env_file(cls, env_file: str):
@@ -109,8 +123,53 @@ class BaseSettings(PydanticBaseSettings):
         """Get the server directory path."""
         return _SERVER_PATH
 
+    @property
+    def log_path(self) -> str:
+        if not self.log_file:
+            return os.path.join(self.project_path, "logs", "server.log")
+
+        if os.path.isabs(self.log_file):
+            return self.log_file
+
+        return os.path.join(self.project_path, self.log_file)
+
+    @field_validator('log_format')
+    def validate_log_format(cls, v):
+        if isinstance(v, str) and v in [item.value for item in LogFormat]:
+            return LogFormat(v)
+        return v
+
+
+_settings: BaseSettings | None = None
+
+
+def get_settings(env_file: str | None = None):
+    global _settings
+
+    if _settings is None:
+        import hashlib
+        import os
+
+        sha = hashlib.sha256(__file__.encode()).hexdigest()[:12]
+        existing_env_file = f"FASTEDGY_ENV_FILE_{sha}"
+
+        if existing_env_file in os.environ:
+            env_file = os.environ[existing_env_file]
+        else:
+            if not env_file:
+                env_file = ".env"
+
+            os.environ[existing_env_file] = env_file
+
+        from fastedgy.config import BaseSettings, discover_settings_class
+        settings_class: Type[BaseSettings] = discover_settings_class()
+        _settings = settings_class.from_env_file(env_file)
+
+    return _settings
+
 
 __all__ = [
     "BaseSettings",
     "discover_settings_class",
+    "get_settings",
 ]

@@ -17,6 +17,8 @@ import pkgutil
 import rich_click as click
 
 from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
 from rich_click.decorators import _AnyCallable, CmdType, GrpType
 from functools import update_wrapper
 
@@ -268,7 +270,7 @@ def pass_context(f: "Callable[Concatenate[Context, P], R]") -> "Callable[P, R]":
     return cast(Callable[P, R], update_wrapper(wrapped_func, f))
 
 
-def pass_app(f: "Callable[Concatenate[CliApp, P], R]") -> "Callable[P, R]":
+def pass_cli_context(f: "Callable[Concatenate[CliContext, P], R]") -> "Callable[P, R]":
     """Similar to :func:`pass_context`, but only pass the object on the
     context onwards (:attr:`Context.obj`).  This is useful if that object
     represents the state of a nested system.
@@ -396,7 +398,7 @@ def pass_meta_key(
     return decorator
 
 
-class CliApp[S : BaseSettings]:
+class CliContext[S : BaseSettings]:
     """CLI application context containing settings and app instance."""
 
     def __init__(self, settings: S):
@@ -418,10 +420,8 @@ class CliApp[S : BaseSettings]:
 @pass_context
 def cli(ctx, env_file: str):
     """FastEdgy CLI"""
-    from fastedgy.config import BaseSettings, discover_settings_class
-
-    settings_class: Type[BaseSettings] = discover_settings_class()
-    ctx.obj = CliApp(settings_class.from_env_file(env_file))
+    from fastedgy.config import get_settings
+    ctx.obj = CliContext(get_settings(env_file))
 
 
 def main():
@@ -493,13 +493,13 @@ __all__ = [
     "get_text_stream",
     "open_file",
     # Custom
-    "CliApp",
+    "CliContext",
     "Command",
     "Group",
     "command",
     "group",
     "pass_context",
-    "pass_app",
+    "pass_cli_context",
     "make_pass_decorator",
     "pass_meta_key",
     "register_cli_commands",
@@ -508,6 +508,8 @@ __all__ = [
     "discover_cli_commands",
     # Console
     "console",
+    "Panel",
+    "Table",
     # App
     "getCliLogger",
     "cli",

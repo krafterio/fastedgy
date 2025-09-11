@@ -1,8 +1,9 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from fastedgy.cli import cli
+from fastedgy import cli, importer
 
 __all__ = [
     "cli",
+    "importer",
 ]

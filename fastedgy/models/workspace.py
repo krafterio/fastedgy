@@ -16,7 +16,7 @@ def generate_slug(length=10) -> str:
 
 class BaseWorkspace(BaseModel):
     class Meta:
-        tablename = "workspaces"
+        abstract = True
         label = "Espace de travail"
         label_plural = "Espaces de travail"
         indexes = [

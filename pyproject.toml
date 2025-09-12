@@ -10,16 +10,19 @@ dynamic = [
     "version"
 ]
 dependencies = [
+    "bcrypt ~= 4.3",
     "click ~= 8.2",
-    "edgy[postgres]~=0.33",
-    "fastapi~=0.115",
-    "pydantic~=2.11",
-    "pydantic[email]~=2.11",
-    "pydantic-settings~=2.10",
+    "edgy[postgres] ~= 0.33",
+    "fastapi ~= 0.115",
+    "passlib[bcrypt] ~= 1.7",
+    "pydantic ~= 2.11",
+    "pydantic[email] ~= 2.11",
+    "pydantic-settings ~= 2.10",
+    "python-jose[cryptography] ~= 3.5",
     "rich ~= 14.1",
     "rich-click ~= 1.8",
-    "sqlparse~=0.5",
-    "uvicorn[standard]~=0.34",
+    "sqlparse ~= 0.5",
+    "uvicorn[standard] ~= 0.34",
 ]
 
 [dependency-groups]

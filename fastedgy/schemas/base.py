@@ -39,3 +39,7 @@ class Pagination(BaseModel, Generic[M]):
 
 class List(Pagination, Generic[M]):
     pass
+
+
+class Message(BaseModel):
+    message: str

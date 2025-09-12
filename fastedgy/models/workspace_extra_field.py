@@ -46,7 +46,7 @@ EXTRA_FIELD_TYPE_OPTIONS = {
 
 class BaseWorkspaceExtraField(BaseModel, WorkspaceableMixin):
     class Meta:
-        tablename = "workspace_extra_fields"
+        abstract = True
         label = "Champs personnalisé"
         label_plural = "Champs personnalisés"
         unique_together = [

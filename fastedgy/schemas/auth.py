@@ -24,15 +24,15 @@ class UserRegister(BaseModel):
     password: str
 
 
-class PasswordForgotRequest(BaseModel):
+class ForgotPasswordRequest(BaseModel):
     email: EmailStr
 
 
-class PasswordResetRequest(BaseModel):
+class ResetPasswordRequest(BaseModel):
     token: str
     password: str
 
 
-class PasswordChangeRequest(BaseModel):
+class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str

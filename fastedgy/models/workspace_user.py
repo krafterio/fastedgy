@@ -18,7 +18,7 @@ class BaseWorkspaceUser(BaseModel):
     """Model for managing workspace users and their roles"""
 
     class Meta:
-        tablename = "workspace_users"
+        abstract = True
         label = "Utilisateur de l'espace de travail"
         label_plural = "Utilisateurs de l'espace de travail"
         unique_together = [("workspace", "user")]

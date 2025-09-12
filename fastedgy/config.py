@@ -114,6 +114,10 @@ class BaseSettings(PydanticBaseSettings):
     database_pool_size: int = 20
     database_max_overflow: int = 10
 
+    auth_secret_key: str = ''
+    auth_algorithm: str = 'HS256'
+    auth_access_token_expire_minutes: int = 15
+    auth_refresh_token_expire_days: int = 30
 
     @classmethod
     def from_env_file(cls, env_file: str):

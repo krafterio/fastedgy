@@ -7,7 +7,8 @@ from typing import TYPE_CHECKING, Union
 from starlette.requests import Request
 
 if TYPE_CHECKING:
-    from fastedgy.models.workspace_extra_field import BaseWorkspaceExtraField as WorkspaceExtraField, WorkspaceExtraModelType
+    from enum import Enum
+    from fastedgy.models.workspace_extra_field import BaseWorkspaceExtraField as WorkspaceExtraField
     from fastedgy.models.user import BaseUser as User
     from fastedgy.models.workspace import BaseWorkspace as Workspace
     from fastedgy.models.workspace_user import BaseWorkspaceUser as WorkspaceUser
@@ -65,7 +66,7 @@ def get_workspace_user() -> Union["WorkspaceUser", None]:
 
 
 def set_workspace_extra_fields(extra_fields: list["WorkspaceExtraField"] | None) -> None:
-    fields_map: dict["WorkspaceExtraModelType", list["WorkspaceExtraField"]] | None = None
+    fields_map: dict["Enum", list["WorkspaceExtraField"]] | None = None
 
     if extra_fields:
         fields_map = {}
@@ -85,7 +86,7 @@ def set_workspace_extra_fields(extra_fields: list["WorkspaceExtraField"] | None)
 
 
 def get_workspace_extra_fields(model_name: str | None = None) -> list["WorkspaceExtraField"]:
-    from fastedgy.models.workspace_extra_field import WorkspaceExtraModelType
+    from fastedgy.models.workspace_extra_field import Enum
 
     req = get_request()
     all_fields = []
@@ -95,7 +96,7 @@ def get_workspace_extra_fields(model_name: str | None = None) -> list["Workspace
         for fields in current_fields.values():
             all_fields.append(*fields)
     else:
-        name = WorkspaceExtraModelType[model_name]
+        name = Enum[model_name]
 
         if name in current_fields:
             all_fields.append(*current_fields[name])

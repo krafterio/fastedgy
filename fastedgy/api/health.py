@@ -5,10 +5,10 @@ from fastapi import APIRouter
 from fastedgy.schemas.health import HealthResult
 
 
-router = APIRouter()
+router = APIRouter(prefix="/health", tags=["health"])
 
 
-@router.get("/health", tags=["health"])
+@router.get("", tags=["health"])
 async def health_check() -> HealthResult:
     """
     Health check endpoint to verify the API is running.

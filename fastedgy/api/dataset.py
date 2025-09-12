@@ -9,17 +9,17 @@ from fastedgy.metadata_model import MetadataModelRegistry, TypeMapMetadataModels
 from fastedgy.metadata_model.generator import generate_class_name
 from fastedgy.schemas.dataset import Resequence, ResequenceResult
 
-router = APIRouter()
+router = APIRouter(prefix="/dataset", tags=["dataset"])
 
 
-@router.get("/dataset/metadatas")
+@router.get("/metadatas")
 async def get_metadata_models() -> TypeMapMetadataModels:
     meta_registry = get_service(MetadataModelRegistry)
 
     return await meta_registry.get_map_models()
 
 
-@router.put("/dataset/resequence")
+@router.put("/resequence")
 async def resequence(data: Resequence) -> ResequenceResult:
     meta_registry = get_service(MetadataModelRegistry)
     model_class = generate_class_name(data.model_name)

@@ -91,8 +91,8 @@ def process_vector_revision_directives(context, revision, directives):
 
     if vector_operations_found:
         # Add imports needed for vector operations
-        directives[0].imports.add("from core.orm.migration import enable_vector_extension")
-        directives[0].imports.add("import core")
+        directives[0].imports.add("from fastedgy.orm.migration import enable_vector_extension")
+        directives[0].imports.add("import fastedgy")
 
         # Insert enable_vector_extension call at the beginning of upgrade operations
         upgrade_ops.ops.insert(0, EnableVectorExtensionOperation())

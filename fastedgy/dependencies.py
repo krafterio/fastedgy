@@ -3,12 +3,30 @@
 
 from fastapi import FastAPI, Depends
 from contextlib import AsyncExitStack
-from typing import Callable, TypeVar, Any, MutableMapping, Type, cast
+from typing import Callable, TypeVar, Any, MutableMapping, Type, cast, Union, Generic, Dict
 from fastapi.dependencies.utils import get_dependant, solve_dependencies as base_solve_dependencies
 from starlette.requests import Request
 
 
 T = TypeVar('T')
+
+
+class Token(Generic[T]):
+    """Token for string-based service registration."""
+    def __init__(self, name: str):
+        self.name = name
+
+    def __repr__(self):
+        return f"Token({self.name})"
+
+    def __hash__(self):
+        return hash(("__token__", self.name))
+
+    def __eq__(self, other):
+        return isinstance(other, Token) and other.name == self.name
+
+
+ProviderKey = Union[Type[Any], Token[Any]]
 
 
 async def depends(app: FastAPI | None, call: Callable[..., T]) -> T:
@@ -46,17 +64,17 @@ async def solve_dependencies(app: FastAPI | None, request: Request | None, call:
 class ContainerService:
     """Container service for the application."""
     def __init__(self) -> None:
-        self._map: dict[Type[Any], Any] = {}
+        self._map: Dict[ProviderKey, Any] = {}
         # Support for FastAPI overrides
         self.dependency_overrides: MutableMapping[Any, Any] = {}
 
-    def register(self, key: Type[T], instance: T) -> T:
+    def register(self, key: ProviderKey, instance: T) -> T:
         if key not in self._map:
             self._map[key] = instance
 
         return self._map[key]
 
-    def get(self, key: Type[T]) -> T:
+    def get(self, key: ProviderKey) -> T:
         try:
             return cast(T, self._map[key])
         except KeyError as e:
@@ -70,26 +88,32 @@ def get_container_service() -> ContainerService:
     return container_service
 
 
-def register_service(instance: T, key: Type[T] | None = None) -> None:
+def register_service(instance: T, key: Union[Type[T], Token[T], str, None] = None) -> None:
     if key is None:
         key = type(instance)
+    elif isinstance(key, str):
+        key = Token(key)
 
     container_service.register(key, instance)
 
 
-def get_service(key: Type[T]) -> T:
+def get_service(key: Union[Type[T], Token[T], str]) -> T:
+    if isinstance(key, str):
+        key = Token(key)
     return container_service.get(key)
 
 
-def provide(cls: Type[T]) -> Callable[[ContainerService], T]:
+def provide(cls: Union[Type[T], Token[T], str]) -> Callable[[ContainerService], T]:
     """Use in FastAPI signatures: svc: Svc = Depends(provide(Svc))"""
     def dep(container: ContainerService = Depends(get_container_service)) -> T:
+        if isinstance(cls, str):
+            return container.get(Token(cls))
         return container.get(cls)
 
     return dep
 
 
-def Inject(cls: Type[T]) -> T:
+def Inject(cls: Union[Type[T], Token[T], str]) -> T:
     """Use in FastAPI signatures: svc: Svc = Inject(Svc)"""
     return Depends(provide(cls))
 
@@ -103,4 +127,6 @@ __all__ = [
     "get_service",
     "provide",
     "Inject",
+    "Token",
+    "ProviderKey",
 ]

@@ -42,3 +42,8 @@ async def register_user(
     context.set_user(user)
 
     return Message(message="User registered successfully")
+
+
+__all__ = [
+    "router",
+]

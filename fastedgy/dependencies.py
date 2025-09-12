@@ -16,6 +16,12 @@ class Token(Generic[T]):
     def __init__(self, name: str):
         self.name = name
 
+    def __class_getitem__(cls, item):
+        """Allow Token[SomeType]('name') syntax."""
+        class TypedToken(Token):
+            pass
+        return TypedToken
+
     def __repr__(self):
         return f"Token({self.name})"
 

@@ -2,6 +2,7 @@
 # MIT License (see LICENSE file).
 
 from typing import Annotated, cast, Optional, List, Dict, Any, Union, Type, Sequence, Callable, Coroutine
+from fastedgy.dependencies import register_service
 from typing_extensions import Doc, deprecated
 from fastapi import FastAPI, routing, Depends
 from fastapi.datastructures import Default
@@ -830,6 +831,10 @@ class FastEdgy[S : BaseSettings = BaseSettings](FastAPI):
             format=settings.log_format,
             log_file=settings.log_path,
         )
+
+        register_service(settings)
+        register_service(settings.db)
+        register_service(settings.db_registry)
 
         self.state.settings = settings
         self.state.db = settings.db

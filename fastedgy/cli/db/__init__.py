@@ -14,3 +14,8 @@ def db(ctx: cli.CliContext):
 
 
 cli.register_commands_in_group("edgy.cli.operations", db)
+
+
+__all__ = [
+    "db",
+]

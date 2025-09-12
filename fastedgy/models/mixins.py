@@ -116,3 +116,9 @@ class BlameableMixin(Model):
             self.updated_by = current_user
 
         return await super().save(force_insert, values, force_save)
+
+
+__all__ = [
+    "WorkspaceableMixin",
+    "BlameableMixin",
+]

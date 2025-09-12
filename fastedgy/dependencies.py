@@ -51,8 +51,10 @@ class ContainerService:
         self.dependency_overrides: MutableMapping[Any, Any] = {}
 
     def register(self, key: Type[T], instance: T) -> T:
-        self._map[key] = instance
-        return instance
+        if key not in self._map:
+            self._map[key] = instance
+
+        return self._map[key]
 
     def get(self, key: Type[T]) -> T:
         try:
@@ -90,3 +92,15 @@ def provide(cls: Type[T]) -> Callable[[ContainerService], T]:
 def Inject(cls: Type[T]) -> T:
     """Use in FastAPI signatures: svc: Svc = Inject(Svc)"""
     return Depends(provide(cls))
+
+
+__all__ = [
+    "depends",
+    "solve_dependencies",
+    "ContainerService",
+    "get_container_service",
+    "register_service",
+    "get_service",
+    "provide",
+    "Inject",
+]

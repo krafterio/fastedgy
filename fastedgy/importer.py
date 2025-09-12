@@ -35,3 +35,9 @@ def import_from_string[A: Any = Any](import_str: str | A) -> A:
         raise ImportFromStringError(message.format(attrs_str=attrs_str, module_str=module_str))
 
     return instance
+
+
+__all__ = [
+    "ImportFromStringError",
+    "import_from_string",
+]

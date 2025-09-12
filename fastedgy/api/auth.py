@@ -123,3 +123,9 @@ async def change_password(
     await current_user.save()
 
     return Message(message="Password changed successfully")
+
+
+__all__ = [
+    "router",
+    "public_router",
+]

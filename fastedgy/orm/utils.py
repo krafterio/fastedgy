@@ -10,6 +10,18 @@ from edgy import ForeignKey, ManyToMany, Model
 from sqlalchemy.orm import ColumnProperty
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 
+
+def find_primary_key_field(model_cls: type[Model] | Model) -> str | None:
+    for field_name, field_info in model_cls.meta.fields.items():
+        if hasattr(field_info, 'primary_key') and field_info.primary_key:
+            return field_name
+
+    if 'id' in model_cls.meta.fields:
+        return 'id'
+
+    return None
+
+
 def extract_field_names(record: dict, parent_field: str = '') -> list[str]:
     fields = []
 
@@ -108,3 +120,11 @@ async def get_value_from_path(instance: Model, path: str) -> Any | None:
         return value
 
     return await _resolve(instance, path.split('.'))
+
+
+__all__ = [
+    "find_primary_key_field",
+    "extract_field_names",
+    "get_columns",
+    "get_value_from_path",
+]

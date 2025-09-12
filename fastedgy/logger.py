@@ -154,3 +154,17 @@ def setup_logging(
         file_handler.setLevel(logging.NOTSET)
         file_handler.addFilter(db_connection_filter)
         root_logger.addHandler(file_handler)
+
+
+__all__ = [
+    "setup_logging",
+    "LogLevel",
+    "LogOutput",
+    "LogFormat",
+    "TextFormatter",
+    "TextLightFormatter",
+    "JsonFormatter",
+    "DatabaseConnectionFilter",
+    "StdoutFilter",
+    "StderrFilter",
+]

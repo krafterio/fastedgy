@@ -30,3 +30,8 @@ class BaseUser(BaseModel):
             return initials[:6]
 
         return instance.email[0].upper() if instance.email else ""
+
+
+__all__ = [
+    "BaseUser",
+]

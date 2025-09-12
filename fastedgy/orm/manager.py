@@ -26,3 +26,10 @@ def filter_by_workspace(queryset: QuerySet) -> QuerySet:
             queryset = queryset.filter(workspace=workspace)
 
     return queryset
+
+
+__all__ = [
+    "WorkspaceableManager",
+    "WorkspaceableRedirectManager",
+    "filter_by_workspace",
+]

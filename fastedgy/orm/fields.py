@@ -154,3 +154,11 @@ class VectorField(FieldFactory, list):
         dimensions = kwargs.get("dimensions")
         if dimensions is not None and (not isinstance(dimensions, int) or dimensions <= 0):
             raise ValueError("dimensions must be a positive integer")
+
+
+__all__ = [
+    "HTMLField",
+    "PhoneField",
+    "Vector",
+    "VectorField",
+]

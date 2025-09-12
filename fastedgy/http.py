@@ -13,3 +13,8 @@ class ContextRequestMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
         finally:
             reset_request(token)
+
+
+__all__ = [
+    "ContextRequestMiddleware",
+]

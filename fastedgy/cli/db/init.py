@@ -14,7 +14,7 @@ from fastedgy.cli.db import db
 
 
 FASTEDGY_TEMPLATE_NAME = "fastedgy"
-FASTEDGY_TEMPLATE_DIR = Path(__file__).parent.parent / "templates"
+FASTEDGY_TEMPLATE_DIR = Path(__file__).parent / "templates"
 
 
 @add_migration_directory_option
@@ -48,3 +48,8 @@ async def init(ctx: CliContext, template: str | None, package: bool):
     config.config_file_name = os.path.join(directory, "alembic.ini")
 
     command.init(config, directory, template, package)
+
+
+__all__ = [
+    "init",
+]

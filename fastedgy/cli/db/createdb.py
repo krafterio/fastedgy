@@ -49,3 +49,8 @@ async def createdb(ctx: CliContext):
         console.print(f"[green]Database '{dbname}' created successfully.[/green]")
 
     await db_admin.disconnect()
+
+
+__all__ = [
+    "createdb",
+]

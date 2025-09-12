@@ -117,3 +117,9 @@ class BaseView(Model):
     @abstractmethod
     def view_query(cls) -> Selectable:
         pass
+
+
+__all__ = [
+    "BaseModel",
+    "BaseView",
+]

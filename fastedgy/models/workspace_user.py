@@ -25,3 +25,8 @@ class BaseWorkspaceUser(BaseModel):
 
     workspace: Union["Workspace", None] = fields.ForeignKey('Workspace', on_delete='CASCADE', related_name='workspace_users', label="Espace de travail") # type: ignore
     user: Union["User", None] = fields.ForeignKey('User', on_delete='CASCADE', related_name='workspace_memberships', label="Utilisateur") # type: ignore
+
+
+__all__ = [
+    "BaseWorkspaceUser",
+]

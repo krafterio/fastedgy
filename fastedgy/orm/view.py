@@ -251,3 +251,15 @@ def compile_refresh_materialized_view(element, compiler):
         concurrently='CONCURRENTLY ' if element.concurrently else '',
         name=compiler.dialect.identifier_preparer.quote(element.name),
     )
+
+
+__all__ = [
+    "CreateView",
+    "DropView",
+    "RefreshMaterializedView",
+    "TableView",
+    "create_table_from_selectable",
+    "create_materialized_view",
+    "create_view",
+    "refresh_materialized_view",
+]

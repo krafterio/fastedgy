@@ -926,3 +926,12 @@ def disable_vector_extension() -> None:
         connection.execute(text("DROP EXTENSION IF EXISTS vector CASCADE"))
     except Exception:
         pass
+
+
+__all__ = [
+    "fastedgy_process_revision_directives",
+    "process_enum_revision_directives",
+    "process_vector_revision_directives",
+    "enable_vector_extension",
+    "disable_vector_extension",
+]

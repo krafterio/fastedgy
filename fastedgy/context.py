@@ -75,10 +75,10 @@ def set_workspace_extra_fields(extra_fields: list["WorkspaceExtraField"] | None)
             if not field.model:
                 continue
 
-            if field.model not in fields_map:
-                fields_map[field.model] = []
+            if field.model.value not in fields_map:
+                fields_map[field.model.value] = []
 
-            fields_map[field.model].append(field)
+            fields_map[field.model.value].append(field)
 
     req = get_request()
     if req:
@@ -96,10 +96,8 @@ def get_workspace_extra_fields(model_name: str | None = None) -> list["Workspace
         for fields in current_fields.values():
             all_fields.append(*fields)
     else:
-        name = Enum[model_name]
-
-        if name in current_fields:
-            all_fields.append(*current_fields[name])
+        if model_name in current_fields:
+            all_fields.append(*current_fields[model_name])
 
     return all_fields
 
@@ -108,3 +106,19 @@ def get_map_workspace_extra_fields(model_name: str) -> dict[str, "WorkspaceExtra
     fields = get_workspace_extra_fields(model_name)
 
     return {str(field.name): field for field in fields}
+
+
+__all__ = [
+    "set_request",
+    "get_request",
+    "reset_request",
+    "set_user",
+    "get_user",
+    "set_workspace",
+    "get_workspace",
+    "set_workspace_user",
+    "get_workspace_user",
+    "set_workspace_extra_fields",
+    "get_workspace_extra_fields",
+    "get_map_workspace_extra_fields",
+]

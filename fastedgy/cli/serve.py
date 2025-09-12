@@ -4,7 +4,6 @@
 from fastedgy.cli import command, option, pass_cli_context, CliContext
 
 
-
 @command()
 @option('--host', default='0.0.0.0', help='Server host.')
 @option('--port', default=8000, help='Server port.')
@@ -42,3 +41,8 @@ def serve(ctx: CliContext, host: str, port: int, http_workers: int | None, reloa
         workers=http_workers,
         log_level=ctx.settings.log_level,
     )
+
+
+__all__ = [
+    "serve",
+]

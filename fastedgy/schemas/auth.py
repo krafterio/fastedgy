@@ -36,3 +36,14 @@ class ResetPasswordRequest(BaseModel):
 class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str
+
+
+__all__ = [
+    "Token",
+    "TokenRefresh",
+    "UserLogin",
+    "UserRegister",
+    "ForgotPasswordRequest",
+    "ResetPasswordRequest",
+    "ChangePasswordRequest",
+]

@@ -3,6 +3,7 @@
 
 from typing import cast, Optional, List, Dict, Any, Union, Type, Sequence, Callable, Coroutine
 from fastapi import FastAPI, routing, Depends
+from fastedgy.http import ContextRequestMiddleware
 from fastedgy.logger import setup_logging
 from starlette.routing import BaseRoute
 from starlette.middleware import Middleware
@@ -115,6 +116,8 @@ class FastEdgy[S : BaseSettings = BaseSettings](FastAPI):
         self.state.db_registry = settings.db_registry
 
         monkay.set_instance(Instance(registry=settings.db_registry, app=self))
+
+        self.add_middleware(ContextRequestMiddleware)
 
     @property
     def settings(self) -> BaseSettings:

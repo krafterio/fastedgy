@@ -2,11 +2,13 @@
 # MIT License (see LICENSE file).
 
 from abc import abstractmethod
-from typing import Optional
+from typing import ClassVar, Optional
 
-from edgy import Model, fields
+from edgy import Manager, Model, fields
+from edgy.core.db.models.managers import BaseManager
 from datetime import datetime
 
+from fastedgy.orm.manager import WorkspaceableManager, WorkspaceableRedirectManager
 from pydantic import ConfigDict
 
 from sqlalchemy import MetaData, Selectable, Table
@@ -28,6 +30,10 @@ class BaseModel(Model):
     model_config = ConfigDict(
         extra='ignore',
     )
+
+    query: ClassVar[BaseManager] = WorkspaceableManager()
+    query_related: ClassVar[BaseManager] = WorkspaceableRedirectManager(redirect_name="query")
+    global_query: ClassVar[BaseManager] = Manager()
 
 
 class BaseView(Model):
@@ -89,6 +95,10 @@ class BaseView(Model):
         registry = get_settings().db_registry
         exclude_secrets = True
         is_view = True
+
+    query: ClassVar[BaseManager] = WorkspaceableManager()
+    query_related: ClassVar[BaseManager] = WorkspaceableRedirectManager(redirect_name="query")
+    global_query: ClassVar[BaseManager] = Manager()
 
     @classmethod
     def build(

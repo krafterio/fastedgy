@@ -121,6 +121,13 @@ class BaseSettings(PydanticBaseSettings):
 
     data_path: str | None = None
 
+    smtp_host: str = ''
+    smtp_port: int = 587
+    smtp_use_tls: bool = True
+    smtp_username: str = ''
+    smtp_password: str = ''
+    smtp_default_from: str = ''
+
     @classmethod
     def from_env_file(cls, env_file: str):
         """Create Settings with custom env file path."""
@@ -155,6 +162,10 @@ class BaseSettings(PydanticBaseSettings):
             return self.data_path
 
         return os.path.join(self.project_path, self.data_path)
+
+    @cached_property
+    def mail_template_path(self) -> str:
+        return os.path.join(self.project_path, "templates")
 
     @cached_property
     def db_migration_path(self) -> str:

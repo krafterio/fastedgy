@@ -3,6 +3,15 @@ revision = 3
 requires-python = ">=3.13"
 
 [[package]]
+name = "aiosmtplib"
+version = "4.0.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/0f/e1/cc58e0be242f0b410707e001ed22c689435964fcaab42108887426e44fff/aiosmtplib-4.0.2.tar.gz", hash = "sha256:f0b4933e7270a8be2b588761e5b12b7334c11890ee91987c2fb057e72f566da6", size = 61052, upload-time = "2025-08-25T02:39:07.249Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f1/2f/db9414bbeacee48ab0c7421a0319b361b7c15b5c3feebcd38684f5d5f849/aiosmtplib-4.0.2-py3-none-any.whl", hash = "sha256:72491f96e6de035c28d29870186782eccb2f651db9c5f8a32c9db689327f5742", size = 27048, upload-time = "2025-08-25T02:39:06.089Z" },
+]
+
+[[package]]
 name = "alembic"
 version = "1.16.5"
 source = { registry = "https://pypi.org/simple" }
@@ -337,6 +346,7 @@ wheels = [
 name = "fastedgy"
 source = { editable = "." }
 dependencies = [
+    { name = "aiosmtplib" },
     { name = "bcrypt" },
     { name = "click" },
     { name = "dill" },
@@ -344,6 +354,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "html2text" },
     { name = "httpx" },
+    { name = "jinja2" },
     { name = "openpyxl" },
     { name = "passlib", extra = ["bcrypt"] },
     { name = "pydantic", extra = ["email"] },
@@ -364,6 +375,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "aiosmtplib", specifier = "~=4.0" },
     { name = "bcrypt", specifier = "~=4.3" },
     { name = "click", specifier = "~=8.2" },
     { name = "dill", specifier = "~=0.4" },
@@ -371,6 +383,7 @@ requires-dist = [
     { name = "fastapi", specifier = "~=0.115" },
     { name = "html2text", specifier = "~=2025.4" },
     { name = "httpx", specifier = "~=0.28" },
+    { name = "jinja2", specifier = "~=3.1" },
     { name = "openpyxl", specifier = "~=3.1" },
     { name = "passlib", extras = ["bcrypt"], specifier = "~=1.7" },
     { name = "pydantic", specifier = "~=2.11" },
@@ -480,6 +493,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/f1/70/7703c29685631f5a7590aa73f1f1d3fa9a380e654b86af429e0934a32f7d/idna-3.10.tar.gz", hash = "sha256:12f65c9b470abda6dc35cf8e63cc574b1c52b11df2c86030af0ac09b01b13ea9", size = 190490, upload-time = "2024-09-15T18:07:39.745Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/76/c6/c88e154df9c4e1a2a66ccf0005a88dfb2650c1dffb6f5ce603dfbd452ce3/idna-3.10-py3-none-any.whl", hash = "sha256:946d195a0d259cbba61165e88e65941f16e9b36ea6ddb97f00452bae8b1287d3", size = 70442, upload-time = "2024-09-15T18:07:37.964Z" },
+]
+
+[[package]]
+name = "jinja2"
+version = "3.1.6"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "markupsafe" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/df/bf/f7da0350254c0ed7c72f3e33cef02e048281fec7ecec5f032d4aac52226b/jinja2-3.1.6.tar.gz", hash = "sha256:0137fb05990d35f1275a587e9aee6d56da821fc83491a0fb838183be43f66d6d", size = 245115, upload-time = "2025-03-05T20:05:02.478Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/62/a1/3d680cbfd5f4b8f15abc1d571870c5fc3e594bb582bc3b64ea099db13e56/jinja2-3.1.6-py3-none-any.whl", hash = "sha256:85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67", size = 134899, upload-time = "2025-03-05T20:05:00.369Z" },
 ]
 
 [[package]]

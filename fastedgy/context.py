@@ -28,6 +28,24 @@ def reset_request(token: Token) -> None:
     _current_request.reset(token)
 
 
+def set_locale(locale: str) -> None:
+    req = get_request()
+    if req:
+        req.state.locale = locale
+
+
+def get_locale() -> str:
+    from fastedgy.dependencies import get_service
+    from fastedgy.config import BaseSettings
+
+    req = get_request()
+
+    if req and hasattr(req.state, "locale"):
+        return req.state.locale
+
+    return get_service(BaseSettings).fallback_locale
+
+
 def set_user(user: Union["User", None]) -> None:
     req = get_request()
     if req:
@@ -111,6 +129,8 @@ __all__ = [
     "set_request",
     "get_request",
     "reset_request",
+    "set_locale",
+    "get_locale",
     "set_user",
     "get_user",
     "set_workspace",

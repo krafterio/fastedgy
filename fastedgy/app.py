@@ -11,6 +11,7 @@ from fastedgy.config import BaseSettings, init_settings
 from fastedgy.dependencies import Token, get_service, register_service
 from fastedgy.logger import setup_logging
 from fastedgy.http import ContextRequestMiddleware
+from fastedgy.i18n import LocaleMiddleware, I18n
 from fastedgy.orm import Registry, Database
 from fastedgy.orm.registry import register_lazy_models
 from starlette.routing import BaseRoute
@@ -844,9 +845,12 @@ class FastEdgy[S : BaseSettings = BaseSettings](FastAPI):
 
         register_service(db)
         register_service(db_registry)
+
         monkay.set_instance(Instance(registry=db_registry, app=self))
         register_lazy_models(db_registry)
 
+        # Add middlewares (order matters: Context first, then Locale)
+        self.add_middleware(LocaleMiddleware)
         self.add_middleware(ContextRequestMiddleware)
 
     def initialize(self) -> None:

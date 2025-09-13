@@ -99,34 +99,47 @@ class BaseSettings(PydanticBaseSettings):
         extra='ignore',
     )
 
+    # App factory
     app_factory: str = "main:app"
 
+    # App
     title: str = "FastEdgy"
 
+    # HTTP
     http_workers: int | None = None
 
+    # Logging
     log_level: LogLevel = LogLevel.INFO
     log_output: LogOutput = LogOutput.CONSOLE
     log_format: LogFormat | str = LogFormat.TEXT_LIGHT
     log_file: str = ''
 
+    # Database
     database_url: str = ''
     database_pool_size: int = 20
     database_max_overflow: int = 10
 
+    # Auth
     auth_secret_key: str = ''
     auth_algorithm: str = 'HS256'
     auth_access_token_expire_minutes: int = 15
     auth_refresh_token_expire_days: int = 30
 
+    # Storage
     data_path: str | None = None
 
+    # Mail
     smtp_host: str = ''
     smtp_port: int = 587
     smtp_use_tls: bool = True
     smtp_username: str = ''
     smtp_password: str = ''
     smtp_default_from: str = ''
+
+    # I18n
+    fallback_locale: str = 'en'
+    available_locales: list[str] = ['en']
+    translations_paths: list[str] = []
 
     @classmethod
     def from_env_file(cls, env_file: str):
@@ -174,6 +187,26 @@ class BaseSettings(PydanticBaseSettings):
     @cached_property
     def db_name(self) -> str:
         return urlparse(self.database_url).path.lstrip('/')
+
+    @cached_property
+    def computed_translations_paths(self) -> list[str]:
+        paths = []
+
+        # 1. Fastedgy built-in translations (lowest priority)
+        fastedgy_translations = os.path.join(os.path.dirname(__file__), "translations")
+
+        if os.path.exists(fastedgy_translations):
+            paths.append(fastedgy_translations)
+
+        # 2. Project translations (higher priority)
+        project_translations = os.path.join(self.project_path, "translations")
+        if os.path.exists(project_translations):
+            paths.append(project_translations)
+
+        # 3. Custom translations paths (highest priority)
+        paths.extend(self.translations_paths)
+
+        return paths
 
     @field_validator('log_format')
     def validate_log_format(cls, v):

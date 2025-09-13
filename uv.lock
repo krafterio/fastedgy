@@ -233,6 +233,15 @@ postgresql = [
 ]
 
 [[package]]
+name = "dill"
+version = "0.4.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/12/80/630b4b88364e9a8c8c5797f4602d0f76ef820909ee32f0bacb9f90654042/dill-0.4.0.tar.gz", hash = "sha256:0633f1d2df477324f53a895b02c901fb961bdbf65a17122586ea7019292cbcf0", size = 186976, upload-time = "2025-04-16T00:41:48.867Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/50/3d/9373ad9c56321fdab5b41197068e1d8c25883b3fea29dd361f9b55116869/dill-0.4.0-py3-none-any.whl", hash = "sha256:44f54bf6412c2c8464c14e8243eb163690a9800dbe2c367330883b19c7561049", size = 119668, upload-time = "2025-04-16T00:41:47.671Z" },
+]
+
+[[package]]
 name = "dnspython"
 version = "2.8.0"
 source = { registry = "https://pypi.org/simple" }
@@ -321,6 +330,7 @@ source = { editable = "." }
 dependencies = [
     { name = "bcrypt" },
     { name = "click" },
+    { name = "dill" },
     { name = "edgy", extra = ["postgres"] },
     { name = "fastapi" },
     { name = "html2text" },
@@ -346,6 +356,7 @@ dev = [
 requires-dist = [
     { name = "bcrypt", specifier = "~=4.3" },
     { name = "click", specifier = "~=8.2" },
+    { name = "dill", specifier = "~=0.4" },
     { name = "edgy", extras = ["postgres"], specifier = "~=0.33" },
     { name = "fastapi", specifier = "~=0.115" },
     { name = "html2text", specifier = "~=2025.4" },

@@ -1,13 +1,13 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import Any
+from typing import Any, cast
 from fastapi import APIRouter, HTTPException
 
 from fastedgy.dependencies import get_service
 from fastedgy.metadata_model import MetadataModelRegistry, TypeMapMetadataModels
 from fastedgy.metadata_model.generator import generate_class_name
-from fastedgy.orm import Model
+from fastedgy.orm import Model, Registry
 from fastedgy.schemas.dataset import Resequence, ResequenceResult
 
 router = APIRouter(prefix="/dataset", tags=["dataset"])
@@ -23,12 +23,14 @@ async def get_metadata_models() -> TypeMapMetadataModels:
 @router.put("/resequence")
 async def resequence(data: Resequence) -> ResequenceResult:
     meta_registry = get_service(MetadataModelRegistry)
-    model_class_name = generate_class_name(data.model_name)
-    model_class = cast(type[Model], meta_registry.get_model(model_class_name))
-    records = []
 
     if not meta_registry.is_registered(data.model_name):
         raise HTTPException(status_code=400, detail=f"Model '{data.model_name}' not found")
+
+    registery = get_service(Registry)
+    model_class_name = generate_class_name(data.model_name)
+    model_class = cast(type[Model], registery.get_model(model_class_name))
+    records = []
 
     if data.ids:
         group_update = _prepare_group_update(

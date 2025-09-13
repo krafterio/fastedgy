@@ -4,8 +4,7 @@
 import string
 import random
 
-from edgy import fields, Index
-
+from fastedgy.orm import fields
 from fastedgy.models.base import BaseModel
 
 
@@ -20,8 +19,8 @@ class BaseWorkspace(BaseModel):
         label = "Espace de travail"
         label_plural = "Espaces de travail"
         indexes = [
-            Index(fields=["name"]),
-            Index(fields=["slug"]),
+            fields.Index(fields=["name"]),
+            fields.Index(fields=["slug"]),
         ]
 
     name: str | None = fields.CharField(max_length=255, null=True, label="Nom")  # type: ignore

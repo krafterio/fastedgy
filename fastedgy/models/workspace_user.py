@@ -3,9 +3,7 @@
 
 from typing import TYPE_CHECKING, Union
 
-from edgy import fields
-from enum import Enum
-
+from fastedgy.orm import fields
 from fastedgy.models.base import BaseModel
 
 

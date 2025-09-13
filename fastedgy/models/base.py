@@ -4,16 +4,15 @@
 from abc import abstractmethod
 from typing import ClassVar, Optional
 
-from edgy import Manager, Model, fields
-from edgy.core.db.models.managers import BaseManager
 from datetime import datetime
 
-from fastedgy.orm.manager import WorkspaceableManager, WorkspaceableRedirectManager
+from fastedgy.orm import Model, fields
+from fastedgy.orm.manager import Manager, BaseManager, WorkspaceableManager, WorkspaceableRedirectManager
+from fastedgy.orm.view import create_view
+
 from pydantic import ConfigDict
 
 from sqlalchemy import MetaData, Selectable, Table
-
-from fastedgy.orm.view import create_view
 
 
 class BaseModel(Model):
@@ -46,7 +45,7 @@ class BaseView(Model):
     Example usage:
 
     ```python
-    from edgy import fields
+    from fastedgy.orm import fields
     from sqlalchemy import literal, null, select, Selectable
     from models.contact import Contact
     from models.user import User

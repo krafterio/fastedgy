@@ -3,8 +3,7 @@
 
 from enum import Enum
 
-from edgy import fields
-
+from fastedgy.orm import fields
 from fastedgy.models.base import BaseModel
 from fastedgy.models.mixins import WorkspaceableMixin
 

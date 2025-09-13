@@ -3,7 +3,8 @@
 
 from typing import Literal, TypeAlias
 
-from edgy import QuerySet, Model
+from fastedgy.orm import Model
+from fastedgy.orm.query import QuerySet
 from fastapi.params import Query, Header
 
 

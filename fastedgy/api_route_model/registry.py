@@ -2,18 +2,22 @@
 # MIT License (see LICENSE file).
 
 from collections import defaultdict
+
 from enum import Enum
+
 from typing import Type, Any, Callable, Union, Sequence
-from edgy import Model
+
 from fastapi.params import Depends
 from fastapi.routing import APIRoute
 from fastapi.types import IncEx
 from fastapi.datastructures import DefaultPlaceholder
+
+from fastedgy.api_route_model.view_transformer import BaseViewTransformer
+from fastedgy.dependencies import register_service, Token
+from fastedgy.orm import Model
+
 from starlette.responses import Response
 from starlette.routing import BaseRoute
-
-from fastedgy.dependencies import register_service, Token
-from fastedgy.api_route_model.view_transformer import BaseViewTransformer
 
 
 class RouteModelActionOptions(dict):

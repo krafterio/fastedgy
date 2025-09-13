@@ -6,7 +6,7 @@ from typing import Any
 import sqlalchemy as sa
 from inspect import isclass
 
-from edgy import ForeignKey, ManyToMany, Model
+from fastedgy.orm import fields, Model
 from sqlalchemy.orm import ColumnProperty
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 
@@ -111,7 +111,7 @@ async def get_value_from_path(instance: Model, path: str) -> Any | None:
 
             return await _resolve(value, rest or ['id'])
 
-        if field and isinstance(field, (ForeignKey, ManyToMany)):
+        if field and isinstance(field, (fields.ForeignKey, fields.ManyToMany)):
             return await _resolve(value, rest or ['id'])
 
         if rest:

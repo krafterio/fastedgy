@@ -2,8 +2,8 @@
 # MIT License (see LICENSE file).
 
 from datetime import datetime
-from edgy import fields
 
+from fastedgy.orm import fields
 from fastedgy.models.base import BaseModel
 
 

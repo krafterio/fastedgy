@@ -3,9 +3,12 @@
 
 from typing import Literal, TypeAlias
 
-from edgy import (
+from fastedgy.orm.query import (
     Q,
     not_,
+)
+from fastedgy.orm.fields import (
+    BaseFieldType,
     IntegerField,
     BooleanField,
     CharField,
@@ -26,11 +29,10 @@ from edgy import (
     OneToOne,
     TimeField,
     UUIDField,
+    VectorField,
 )
-from edgy.core.db.fields import BaseFieldType
-from sqlalchemy import null
 
-from fastedgy.orm.fields import VectorField
+from sqlalchemy import null
 
 
 FilterOperator: TypeAlias = Literal[

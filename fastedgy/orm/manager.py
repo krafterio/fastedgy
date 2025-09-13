@@ -1,9 +1,10 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from edgy import fields, QuerySet, Manager, RedirectManager
+from edgy.core.db.models.managers import Manager, RedirectManager, BaseManager
 
 from fastedgy import context
+from fastedgy.orm.fields import ForeignKey
 
 
 class WorkspaceableManager(Manager):
@@ -19,7 +20,7 @@ class WorkspaceableRedirectManager(RedirectManager):
 def filter_by_workspace(queryset: QuerySet) -> QuerySet:
     workspace_field = queryset.model_class.fields.get('workspace')
 
-    if workspace_field and isinstance(workspace_field, fields.ForeignKey) and workspace_field.target.__name__ == 'Workspace':
+    if workspace_field and isinstance(workspace_field, ForeignKey) and workspace_field.target.__name__ == 'Workspace':
         workspace = context.get_workspace()
 
         if workspace and queryset.model_class.__name__ not in ['Workspace', 'WorkspaceUser', 'UserPresence']:
@@ -29,6 +30,9 @@ def filter_by_workspace(queryset: QuerySet) -> QuerySet:
 
 
 __all__ = [
+    "BaseManager",
+    "Manager",
+    "RedirectManager",
     "WorkspaceableManager",
     "WorkspaceableRedirectManager",
     "filter_by_workspace",

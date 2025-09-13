@@ -3,11 +3,11 @@
 
 from typing import Any
 
-from edgy import QuerySet, Model
-from edgy.core.db.fields import BaseFieldType
-from edgy.core.db.models.types import BaseModelType
 from fastapi.params import Query, Header
 
+from fastedgy.orm import Model, BaseModelType
+from fastedgy.orm.fields import BaseFieldType
+from fastedgy.orm.query import QuerySet
 from fastedgy.orm.utils import extract_field_names
 from fastedgy.api_route_model.params.order_by import inject_order_by
 

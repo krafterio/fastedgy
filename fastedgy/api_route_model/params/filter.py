@@ -5,9 +5,11 @@ from typing import Any, get_args, cast, Callable, Type
 from dataclasses import dataclass
 import json
 
-from edgy import (
-    QuerySet,
-    Model,
+from fastapi.params import Query, Header
+
+from fastedgy.orm import Model
+from fastedgy.orm.fields import (
+    BaseFieldType,
     IntegerField,
     DateField,
     DateTimeField,
@@ -17,10 +19,6 @@ from edgy import (
     ManyToMany,
     OneToOne,
 )
-from edgy.core.db.fields import BaseFieldType
-from fastapi.params import Query, Header
-from sqlalchemy import null
-
 from fastedgy.orm.filter import (
     get_filter_operators,
     FilterOperator,
@@ -29,6 +27,7 @@ from fastedgy.orm.filter import (
     FILTER_DICT_OPERATORS_SQL,
     FILTER_OPERATORS_SQL_UNPACK,
 )
+from fastedgy.orm.query import QuerySet
 from fastedgy.orm.utils import find_primary_key_field
 
 

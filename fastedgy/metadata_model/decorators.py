@@ -2,8 +2,8 @@
 # MIT License (see LICENSE file).
 
 from typing import Type, Callable, TypeVar
-from edgy import Model
 
+from fastedgy.orm import Model
 from fastedgy.dependencies import get_service
 from fastedgy.metadata_model import MetadataModelRegistry
 

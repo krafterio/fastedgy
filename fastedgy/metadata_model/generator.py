@@ -3,12 +3,11 @@
 
 import re
 
-from edgy import Model, ForeignKey, ManyToMany
-from edgy.core.db.fields import BaseFieldType
-
 from fastedgy import context
-from fastedgy.orm.utils import find_primary_key_field
+from fastedgy.orm import Model
+from fastedgy.orm.fields import BaseFieldType, ForeignKey, ManyToMany
 from fastedgy.orm.filter import get_filter_operators, FILTER_FIELD_TYPE_NAME_MAP
+from fastedgy.orm.utils import find_primary_key_field
 from fastedgy.schemas.dataset import MetadataModel, MetadataField
 
 

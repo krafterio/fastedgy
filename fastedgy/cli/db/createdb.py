@@ -25,7 +25,7 @@ threading._DeleteDummyThreadOnDel.__del__ = _safe_del # type: ignore
 @cli.pass_cli_context
 async def createdb(ctx: CliContext):
     """Create the database"""
-    from edgy import Database
+    from fastedgy.orm import Database
     from sqlalchemy.engine.url import make_url
 
     db_url = make_url(ctx.settings.database_url).set(database="postgres")

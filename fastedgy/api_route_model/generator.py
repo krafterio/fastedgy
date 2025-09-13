@@ -4,10 +4,11 @@
 import logging
 
 from typing import Type
+
 from fastapi import APIRouter
-from edgy import Model
 
 from fastedgy.dependencies import get_service
+from fastedgy.orm import Model
 from fastedgy.api_route_model.registry import ADMIN_ROUTE_MODEL_REGISTRY_TOKEN, RouteModelRegistry
 from fastedgy.api_route_model.actions import ApiRouteActionRegistry
 

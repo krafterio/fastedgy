@@ -1,7 +1,7 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from edgy import Model
+from fastedgy.orm import Model
 from fastedgy.schemas.dataset import MetadataField
 from fastedgy.metadata_model.generator import generate_metadata_field
 

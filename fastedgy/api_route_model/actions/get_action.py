@@ -3,15 +3,17 @@
 
 from typing import Callable, Coroutine, Any
 
-from edgy import ObjectNotFound, QuerySet
 from fastapi import APIRouter, HTTPException, Path
-from starlette.requests import Request
 
-from fastedgy.dependencies import get_service
 from fastedgy.api_route_model.actions import BaseApiRouteAction, generate_output_model
 from fastedgy.api_route_model.params import FieldSelectorHeader, filter_selected_fields, optimize_query_filter_fields
 from fastedgy.api_route_model.registry import TypeModel, RouteModelActionOptions, ViewTransformerRegistry
 from fastedgy.api_route_model.view_transformer import BaseViewTransformer, GetViewTransformer
+from fastedgy.dependencies import get_service
+from fastedgy.orm.query import QuerySet
+from fastedgy.orm.exceptions import ObjectNotFound
+
+from starlette.requests import Request
 
 
 class GetApiRouteAction(BaseApiRouteAction):

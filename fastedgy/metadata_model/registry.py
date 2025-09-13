@@ -1,10 +1,9 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from edgy import Model
-
 from fastedgy.dependencies import register_service
 from fastedgy.metadata_model.generator import generate_metadata_model, add_inverse_relations
+from fastedgy.orm import Model
 from fastedgy.schemas.dataset import MetadataModel
 
 TypeMetadataModels = dict[Model, MetadataModel]
@@ -23,7 +22,7 @@ class MetadataModelRegistry:
 
         for model_cls in self._lazy_models:
             self._models[model_cls] = await generate_metadata_model(model_cls)
-            self._map_names[model_cls.meta.tablename] = model_cls
+            self._map_names[str(model_cls.meta.tablename)] = model_cls
 
         add_inverse_relations(self._models)
 

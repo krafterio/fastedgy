@@ -3,18 +3,19 @@
 
 from typing import Callable, Coroutine, Any, cast
 
-from edgy import QuerySet
 from fastapi import APIRouter, Query, HTTPException
-from starlette.requests import Request
 
 from fastedgy.api_route_model.actions import BaseApiRouteAction, generate_output_model
 from fastedgy.api_route_model.params import inject_order_by, OrderByQuery, FieldSelectorHeader, filter_selected_fields, \
     optimize_query_filter_fields, FilterHeader, filter_query, InvalidFilterError
-from fastedgy.dependencies import get_service
 from fastedgy.api_route_model.registry import TypeModel, RouteModelActionOptions, ViewTransformerRegistry
 from fastedgy.api_route_model.view_transformer import BaseViewTransformer, PrePaginateViewTransformer, PostPaginateViewTransformer, \
     GetViewTransformer, GetViewsTransformer
+from fastedgy.dependencies import get_service
+from fastedgy.orm.query import QuerySet
 from fastedgy.schemas.base import Pagination
+
+from starlette.requests import Request
 
 
 class ListApiRouteAction(BaseApiRouteAction):

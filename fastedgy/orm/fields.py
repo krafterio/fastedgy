@@ -1,18 +1,54 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from edgy import fields
+from edgy.core.db.fields import (
+    CompositeField,
+    ComputedField,
+    BigIntegerField,
+    BinaryField,
+    BooleanField,
+    CharChoiceField,
+    CharField,
+    ChoiceField,
+    DateField,
+    DateTimeField,
+    DecimalField,
+    DurationField,
+    EmailField,
+    FloatField,
+    IntegerField,
+    IPAddressField,
+    JSONField,
+    PasswordField,
+    SmallIntegerField,
+    TextField,
+    TimeField,
+    URLField,
+    UUIDField,
+    ExcludeField,
+    FileField,
+    ForeignKey,
+    ImageField,
+    ManyToMany,
+    ManyToManyField,
+    OneToOne,
+    OneToOneField,
+    PlaceholderField,
+    PGArrayField,
+    RefForeignKey,
+)
 from edgy.core.db.fields.factories import FieldFactory
 from edgy.core.db.fields.types import BaseFieldType
+from edgy.core.db.datastructures import Index, UniqueConstraint
 from sqlalchemy.types import UserDefinedType
 from sqlalchemy.dialects.postgresql.base import ischema_names
 from typing import Any, Iterable, Sequence
 
 
-class HTMLField(fields.TextField): ...
+class HTMLField(TextField): ...
 
 
-class PhoneField(fields.CharField): ...
+class PhoneField(CharField): ...
 
 
 class Vector(UserDefinedType):
@@ -157,6 +193,44 @@ class VectorField(FieldFactory, list):
 
 
 __all__ = [
+    "FieldFactory",
+    "BaseFieldType",
+    "Index",
+    "UniqueConstraint",
+    "CompositeField",
+    "ComputedField",
+    "BigIntegerField",
+    "BinaryField",
+    "BooleanField",
+    "CharChoiceField",
+    "CharField",
+    "ChoiceField",
+    "DateField",
+    "DateTimeField",
+    "DecimalField",
+    "DurationField",
+    "EmailField",
+    "FloatField",
+    "IntegerField",
+    "IPAddressField",
+    "JSONField",
+    "PasswordField",
+    "SmallIntegerField",
+    "TextField",
+    "TimeField",
+    "URLField",
+    "UUIDField",
+    "ExcludeField",
+    "FileField",
+    "ForeignKey",
+    "ImageField",
+    "ManyToMany",
+    "ManyToManyField",
+    "OneToOne",
+    "OneToOneField",
+    "PlaceholderField",
+    "PGArrayField",
+    "RefForeignKey",
     "HTMLField",
     "PhoneField",
     "Vector",

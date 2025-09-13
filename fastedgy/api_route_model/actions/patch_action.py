@@ -3,19 +3,22 @@
 
 from typing import Callable, Any, Coroutine
 
-from edgy import ObjectNotFound, QuerySet
 from fastapi import APIRouter, HTTPException, Path, Body
 from fastapi.exceptions import RequestValidationError
-from pydantic import ValidationError
-from pydantic_core import ErrorDetails
-from sqlalchemy.exc import DBAPIError
-from starlette.requests import Request
 
 from fastedgy.dependencies import get_service
+from fastedgy.orm.exceptions import ObjectNotFound
+from fastedgy.orm.query import QuerySet
 from fastedgy.api_route_model.actions import BaseApiRouteAction, generate_input_patch_model, generate_output_model, clean_empty_strings
 from fastedgy.api_route_model.params import FieldSelectorHeader, filter_selected_fields, optimize_query_filter_fields
 from fastedgy.api_route_model.registry import TypeModel, RouteModelActionOptions, ViewTransformerRegistry
 from fastedgy.api_route_model.view_transformer import BaseViewTransformer, GetViewTransformer, PostSaveTransformer, PreSaveTransformer
+
+from pydantic import ValidationError
+from pydantic_core import ErrorDetails
+
+from sqlalchemy.exc import DBAPIError
+from starlette.requests import Request
 
 
 class PatchApiRouteAction(BaseApiRouteAction):

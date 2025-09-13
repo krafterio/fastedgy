@@ -2,10 +2,10 @@
 # MIT License (see LICENSE file).
 
 from typing import Type, Callable, TypeVar
-from edgy import Model
 
 from fastedgy.api_route_model.registry import ADMIN_ROUTE_MODEL_REGISTRY_TOKEN, RouteModelRegistry, RouteModelOptions
 from fastedgy.dependencies import get_service
+from fastedgy.orm import Model
 
 
 M = TypeVar('M', bound=Type[Model])

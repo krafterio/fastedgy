@@ -2,7 +2,7 @@
 # MIT License (see LICENSE file).
 
 from abc import abstractmethod
-from typing import ClassVar, Optional
+from typing import ClassVar, Optional, Union, TYPE_CHECKING
 
 from datetime import datetime
 
@@ -13,6 +13,9 @@ from fastedgy.orm.view import create_view
 from pydantic import ConfigDict
 
 from sqlalchemy import MetaData, Selectable, Table
+
+if TYPE_CHECKING:
+    from fastedgy.orm.query import QuerySet
 
 
 class BaseModel(Model):
@@ -31,9 +34,9 @@ class BaseModel(Model):
         extra='ignore',
     )
 
-    query: ClassVar[BaseManager] = WorkspaceableManager()
-    query_related: ClassVar[BaseManager] = WorkspaceableRedirectManager(redirect_name="query")
-    global_query: ClassVar[BaseManager] = Manager()
+    query: ClassVar[Union[WorkspaceableManager, 'QuerySet']] = WorkspaceableManager()
+    query_related: ClassVar[Union[WorkspaceableRedirectManager, 'QuerySet']] = WorkspaceableRedirectManager(redirect_name="query")
+    global_query: ClassVar[Union[Manager, 'QuerySet']] = Manager()
 
 
 class BaseView(Model):
@@ -97,9 +100,9 @@ class BaseView(Model):
         exclude_secrets = True
         is_view = True
 
-    query: ClassVar[BaseManager] = WorkspaceableManager()
-    query_related: ClassVar[BaseManager] = WorkspaceableRedirectManager(redirect_name="query")
-    global_query: ClassVar[BaseManager] = Manager()
+    query: ClassVar[Union[WorkspaceableManager, 'QuerySet']] = WorkspaceableManager()
+    query_related: ClassVar[Union[WorkspaceableRedirectManager, 'QuerySet']] = WorkspaceableRedirectManager(redirect_name="query")
+    global_query: ClassVar[Union[Manager, 'QuerySet']] = Manager()
 
     @classmethod
     def build(

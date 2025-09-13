@@ -3,6 +3,7 @@
 
 from typing import Any, AsyncContextManager, Awaitable, Callable, Dict, Optional, Type, TypeVar, Union, cast, overload
 from fastedgy.app import FastEdgy
+from fastedgy.dependencies import Token
 from typing_extensions import Concatenate, ParamSpec
 
 P = ParamSpec("P")
@@ -288,6 +289,25 @@ def pass_cli_context(f: "Callable[Concatenate[CliContext, P], R]") -> "Callable[
     return cast(Callable[P, R], update_wrapper(wrapped_func, f))
 
 
+def initialize_app(f: "Callable[P, R]") -> "Callable[P, R]":
+    """Automatically initialize the application.
+    """
+    if inspect.iscoroutinefunction(inspect.unwrap(f)):
+        async def async_func(*args: "P.args", **kwargs: "P.kwargs") -> "R":
+            ctx = get_current_context().obj
+            ctx.app.initialize()
+            return await f(*args, **kwargs)
+        wrapped_func = async_func
+    else:
+        def sync_func(*args: "P.args", **kwargs: "P.kwargs") -> "R":
+            ctx = get_current_context().obj
+            ctx.app.initialize()
+            return f(*args, **kwargs)
+        wrapped_func = sync_func
+
+    return cast(Callable[P, R], update_wrapper(wrapped_func, f))
+
+
 def make_pass_decorator(
     object_type: Type[T], ensure: bool = False
 ) -> Callable[["Callable[Concatenate[T, P], R]"], "Callable[P, R]"]:
@@ -419,10 +439,10 @@ class CliContext[S : BaseSettings = BaseSettings, A: FastEdgy = FastEdgy]:
         return self.app.router.lifespan_context(self.app)
 
     def has(self, key: Union[Type[T], Token[T], str]) -> bool:
-        return self.app.has(key)
+        return self.app.has_service(key)
 
     def get(self, key: Union[Type[T], Token[T], str]) -> T:
-        return self.app.get(key)
+        return self.app.get_service(key)
 
 
 @group()
@@ -510,6 +530,7 @@ __all__ = [
     "group",
     "pass_context",
     "pass_cli_context",
+    "initialize_app",
     "make_pass_decorator",
     "pass_meta_key",
     "register_cli_commands",

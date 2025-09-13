@@ -7,6 +7,7 @@ import fastedgy.orm.migration # noqa: F401
 
 
 @cli.group(name="db")
+@cli.initialize_app
 def db():
     """Database management commands."""
     pass

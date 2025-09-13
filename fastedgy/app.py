@@ -843,30 +843,20 @@ class FastEdgy[S : BaseSettings = BaseSettings](FastAPI):
 
         register_service(db)
         register_service(db_registry)
-
         monkay.set_instance(Instance(registry=db_registry, app=self))
 
         self.add_middleware(ContextRequestMiddleware)
 
-    @property
-    def settings(self) -> BaseSettings:
-        return self.get(BaseSettings)
-
-    @property
-    def db(self) -> Database:
-        return self.get(Database)
-
-    @property
-    def db_registry(self) -> Registry:
-        return self.get(Registry)
+    def initialize(self) -> None:
+        pass
 
     def register(self, instance: T, key: Union[Type[T], Token[T], str, None] = None) -> None:
         register_service(instance, key)
 
-    def has(self, key: Union[Type[T], Token[T], str]) -> bool:
+    def has_service(self, key: Union[Type[T], Token[T], str]) -> bool:
         return has_service(key)
 
-    def get(self, key: Union[Type[T], Token[T], str]) -> T:
+    def get_service(self, key: Union[Type[T], Token[T], str]) -> T:
         return get_service(key)
 
 

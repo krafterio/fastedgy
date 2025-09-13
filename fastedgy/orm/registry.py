@@ -31,6 +31,11 @@ def register_lazy_models(registry: Registry) -> None:
     """
     global _lazy_models
 
+    from edgy.core.db.context_vars import FALLBACK_TARGET_REGISTRY
+
+    if FALLBACK_TARGET_REGISTRY.get() is None:
+        FALLBACK_TARGET_REGISTRY.set(registry)
+
     for model_class in _lazy_models:
         if not model_class.meta.abstract:
             register_model(registry, model_class)

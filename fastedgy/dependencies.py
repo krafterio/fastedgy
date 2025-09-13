@@ -80,11 +80,18 @@ class ContainerService:
         # Support for FastAPI overrides
         self.dependency_overrides: MutableMapping[Any, Any] = {}
 
-    def register(self, key: ProviderKey, instance: T) -> T:
-        if key not in self._map:
+    def register(self, key: ProviderKey, instance: T, force: bool = False) -> T:
+        if force or key not in self._map:
             self._map[key] = instance
 
         return self._map[key]
+
+    def unregister(self, key: ProviderKey) -> None:
+        if key in self._map:
+            del self._map[key]
+
+    def has(self, key: ProviderKey) -> bool:
+        return key in self._map
 
     def get(self, key: ProviderKey) -> T:
         try:
@@ -100,17 +107,22 @@ def get_container_service() -> ContainerService:
     return container_service
 
 
-def register_service(instance: T, key: Union[Type[T], Token[T], str, None] = None) -> None:
+def register_service(instance: T, key: Union[Type[T], Token[T], str, None] = None, force: bool = False) -> None:
     instance_type_key = _normalize_key(type(instance))
     provided_key = _normalize_key(type(instance) if key is None else key)
 
     container_service.register(provided_key, instance)
 
     if instance_type_key != provided_key:
-        container_service.register(instance_type_key, instance)
+        container_service.register(instance_type_key, instance, force)
+
+
+def unregister_service(key: Union[Type[T], Token[T], str]) -> None:
+    container_service.unregister(_normalize_key(key))
+
 
 def has_service(key: Union[Type[T], Token[T], str]) -> bool:
-    return _normalize_key(key) in container_service._map
+    return container_service.has(_normalize_key(key))
 
 
 def get_service(key: Union[Type[T], Token[T], str]) -> T:

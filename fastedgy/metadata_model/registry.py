@@ -87,7 +87,7 @@ class MetadataModelRegistry:
         raise ValueError(f"Model {metadata.name} does not exist")
 
 
-register_service(MetadataModelRegistry())
+register_service(lambda: MetadataModelRegistry(), MetadataModelRegistry)
 
 __all__ = [
     "MetadataModelRegistry",

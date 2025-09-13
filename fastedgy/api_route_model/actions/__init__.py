@@ -169,7 +169,7 @@ class ApiRouteActionRegistry:
         return list(self._actions.keys())
 
 
-register_service(ApiRouteActionRegistry())
+register_service(lambda: ApiRouteActionRegistry(), ApiRouteActionRegistry)
 
 
 __all__ = [

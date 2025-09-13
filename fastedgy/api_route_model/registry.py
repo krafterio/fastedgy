@@ -132,9 +132,9 @@ class ViewTransformerRegistry:
 ADMIN_ROUTE_MODEL_REGISTRY_TOKEN = Token[RouteModelRegistry]("admin_route_model_registry")
 
 
-register_service(RouteModelRegistry())
-register_service(RouteModelRegistry(), ADMIN_ROUTE_MODEL_REGISTRY_TOKEN)
-register_service(ViewTransformerRegistry())
+register_service(lambda: RouteModelRegistry(), RouteModelRegistry)
+register_service(lambda: RouteModelRegistry(), ADMIN_ROUTE_MODEL_REGISTRY_TOKEN)
+register_service(lambda: ViewTransformerRegistry(), ViewTransformerRegistry)
 
 
 __all__ = [

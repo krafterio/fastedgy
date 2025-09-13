@@ -10,6 +10,7 @@ from fastedgy.orm import Model, fields
 from fastedgy.orm.query import QuerySet
 from fastedgy.orm.manager import Manager, WorkspaceableManager, WorkspaceableRedirectManager
 from fastedgy.orm.view import create_view
+from fastedgy.orm.registry import lazy_register_model
 
 from pydantic import ConfigDict
 
@@ -22,11 +23,12 @@ class BaseModel(Model):
     updated_at: datetime | None = fields.DateTimeField(default_factory=datetime.now, auto_now=True, label="Mis à jour le") # type: ignore
 
     class Meta:
-        from fastedgy.orm import Registry
-        from fastedgy.dependencies import get_service
         abstract = True
-        registry = get_service(Registry)
         exclude_secrets = True
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        lazy_register_model(cls)
 
     model_config = ConfigDict(
         extra='ignore',
@@ -91,12 +93,13 @@ class BaseView(Model):
     ```
     """
     class Meta:
-        from fastedgy.orm import Registry
-        from fastedgy.dependencies import get_service
         abstract = True
-        registry = get_service(Registry)
         exclude_secrets = True
         is_view = True
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        lazy_register_model(cls)
 
     query: ClassVar[Union[WorkspaceableManager, 'QuerySet']] = WorkspaceableManager()
     query_related: ClassVar[Union[WorkspaceableRedirectManager, 'QuerySet']] = WorkspaceableRedirectManager(redirect_name="query")

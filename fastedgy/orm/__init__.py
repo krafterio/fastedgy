@@ -10,6 +10,7 @@ from edgy import (
 )
 from edgy.core.db.models.types import BaseModelType
 
+
 __all__ = [
     "Database",
     "Registry",

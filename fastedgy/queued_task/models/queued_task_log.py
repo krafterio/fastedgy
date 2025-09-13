@@ -30,8 +30,8 @@ class QueuedTaskLogMixin(BaseModel):
 
     class Meta:
         abstract = True
-        label = "Log Task Queue"
-        label_plural = "Logs Task Queue"
+        label = "Log des tâches en file d'attente"
+        label_plural = "Logs des tâches en file d'attente"
         indexes = [
             fields.Index(fields=["task", "logged_at"], name="idx_queued_task_logs_task_date"),
             fields.Index(fields=["log_type", "logged_at"], name="idx_queued_task_logs_type_date"),

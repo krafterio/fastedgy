@@ -32,8 +32,8 @@ class QueuedTaskMixin(BaseModel):
 
     class Meta: # type: ignore
         abstract = True
-        label = "Queued Task"
-        label_plural = "Queued Tasks"
+        label = "Tâche en file d'attente"
+        label_plural = "Tâches en file d'attente"
         indexes = [
             fields.Index(fields=["state", "date_enqueued"], name="idx_queued_tasks_state_date"),
             fields.Index(fields=["parent_task"], name="idx_queued_tasks_parent"),

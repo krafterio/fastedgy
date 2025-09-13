@@ -3,6 +3,7 @@
 
 from enum import Enum
 
+from fastedgy.models.queued_task import OrderByList
 from fastedgy.orm import fields
 from fastedgy.models.base import BaseModel
 from fastedgy.models.mixins import WorkspaceableMixin
@@ -48,6 +49,7 @@ class BaseWorkspaceExtraField(BaseModel, WorkspaceableMixin):
         abstract = True
         label = "Champs personnalisé"
         label_plural = "Champs personnalisés"
+        default_order_by: OrderByList = [("label", "asc")]
         unique_together = [
             ("workspace", "name"),
         ]

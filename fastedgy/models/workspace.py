@@ -4,6 +4,7 @@
 import string
 import random
 
+from fastedgy.api_route_model.params import OrderByList
 from fastedgy.orm import fields
 from fastedgy.models.base import BaseModel
 
@@ -18,6 +19,7 @@ class BaseWorkspace(BaseModel):
         abstract = True
         label = "Espace de travail"
         label_plural = "Espaces de travail"
+        default_order_by: OrderByList = [("name", "asc")]
         indexes = [
             fields.Index(fields=["name"]),
             fields.Index(fields=["slug"]),

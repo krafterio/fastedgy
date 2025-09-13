@@ -17,8 +17,8 @@ class QueuedTaskWorkerMixin(Model):
 
     class Meta:
         abstract = True
-        label = "Queued Task Worker"
-        label_plural = "Queued Task Workers"
+        label = "Worker des tâches en file d'attente"
+        label_plural = "Workers des tâches en file d'attente"
         unique_together = [("server_name",)]
         indexes = [
             fields.Index(fields=["is_running", "last_heartbeat"], name="idx_queued_task_workers_running_heartbeat"),

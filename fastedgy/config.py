@@ -119,6 +119,8 @@ class BaseSettings(PydanticBaseSettings):
     auth_access_token_expire_minutes: int = 15
     auth_refresh_token_expire_days: int = 30
 
+    data_path: str | None = None
+
     @classmethod
     def from_env_file(cls, env_file: str):
         """Create Settings with custom env file path."""
@@ -143,6 +145,16 @@ class BaseSettings(PydanticBaseSettings):
             return self.log_file
 
         return os.path.join(self.project_path, self.log_file)
+
+    @cached_property
+    def storage_data_path(self) -> str:
+        if not self.data_path:
+            return os.path.join(self.project_path, "data")
+
+        if os.path.isabs(self.data_path):
+            return self.data_path
+
+        return os.path.join(self.project_path, self.data_path)
 
     @cached_property
     def db_migration_path(self) -> str:

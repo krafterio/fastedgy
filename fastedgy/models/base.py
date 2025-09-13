@@ -22,9 +22,10 @@ class BaseModel(Model):
     updated_at: datetime | None = fields.DateTimeField(default_factory=datetime.now, auto_now=True, label="Mis à jour le") # type: ignore
 
     class Meta:
-        from fastedgy.config import get_settings
+        from fastedgy.orm import Registry
+        from fastedgy.dependencies import get_service
         abstract = True
-        registry = get_settings().db_registry
+        registry = get_service(Registry)
         exclude_secrets = True
 
     model_config = ConfigDict(
@@ -90,9 +91,10 @@ class BaseView(Model):
     ```
     """
     class Meta:
-        from fastedgy.config import get_settings
+        from fastedgy.orm import Registry
+        from fastedgy.dependencies import get_service
         abstract = True
-        registry = get_settings().db_registry
+        registry = get_service(Registry)
         exclude_secrets = True
         is_view = True
 

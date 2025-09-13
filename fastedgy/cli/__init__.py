@@ -416,9 +416,6 @@ class CliContext[S : BaseSettings = BaseSettings, A: FastEdgy = FastEdgy]:
 
         return self._app
 
-    def initialize(self):
-        self.app.initialize()
-
     def lifespan(self) -> AsyncContextManager:
         return self.app.router.lifespan_context(self.app)
 
@@ -431,9 +428,8 @@ class CliContext[S : BaseSettings = BaseSettings, A: FastEdgy = FastEdgy]:
 @pass_context
 def cli(ctx, env_file: str):
     """FastEdgy CLI"""
-    from fastedgy.config import get_settings
-    ctx.obj = CliContext(get_settings(env_file))
-    ctx.obj.settings.initialize()
+    from fastedgy.config import init_settings
+    ctx.obj = CliContext(init_settings(env_file))
 
 
 def main():

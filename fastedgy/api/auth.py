@@ -4,8 +4,10 @@
 from typing import TYPE_CHECKING, Type, cast
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-from fastedgy.config import get_settings
+from fastedgy.config import BaseSettings
+from fastedgy.dependencies import Inject
 from fastedgy.depends.security import authenticate_user, create_access_token, create_refresh_token, get_current_user, hash_password
+from fastedgy.orm import Registry
 from fastedgy.schemas.auth import ChangePasswordRequest, ResetPasswordRequest, Token, TokenRefresh
 from fastedgy.schemas.base import Message
 from jose import jwt, JWTError
@@ -21,7 +23,7 @@ public_router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @public_router.post("/token")
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()) -> Token:
+async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), settings: BaseSettings = Inject(BaseSettings)) -> Token:
     user = await authenticate_user(form_data.username, form_data.password)
 
     if not user:
@@ -31,7 +33,6 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    settings = get_settings()
     access_token_expires = timedelta(minutes=settings.auth_access_token_expire_minutes)
     access_token = create_access_token(
         data={"sub": user.email},
@@ -46,8 +47,7 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     )
 
 @public_router.post("/refresh")
-async def refresh_access_token(token_data: TokenRefresh) -> Token:
-    settings = get_settings()
+async def refresh_access_token(token_data: TokenRefresh, settings: BaseSettings = Inject(BaseSettings)) -> Token:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate refresh token",
@@ -81,11 +81,9 @@ async def refresh_access_token(token_data: TokenRefresh) -> Token:
 
 
 @public_router.post("/password/reset")
-async def password_reset(data: ResetPasswordRequest) -> Message:
+async def password_reset(data: ResetPasswordRequest, registry: Registry = Inject(Registry)) -> Message:
     from fastedgy.models.user import BaseUser as User
-    settings = get_settings()
-    db_reg = settings.db_registry
-    User = cast(Type["User"], db_reg.get_model('User'))
+    User = cast(Type["User"], registry.get_model('User'))
 
     user = await User.query.filter( # type: ignore
         User.columns.reset_pwd_token == data.token,
@@ -106,12 +104,11 @@ async def password_reset(data: ResetPasswordRequest) -> Message:
 @router.post("/password/change")
 async def change_password(
     data: ChangePasswordRequest,
-    current_user: "User" = Depends(get_current_user)
+    current_user: "User" = Depends(get_current_user),
+    registry: Registry = Inject(Registry)
 ) -> Message:
     from fastedgy.models.user import BaseUser as User
-    settings = get_settings()
-    db_reg = settings.db_registry
-    User = cast(Type["User"], db_reg.get_model('User'))
+    User = cast(Type["User"], registry.get_model('User'))
 
     if not current_user.verify_password(data.current_password):
         raise HTTPException(

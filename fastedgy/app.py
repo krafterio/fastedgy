@@ -1,23 +1,26 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import Annotated, cast, Optional, List, Dict, Any, Union, Type, Sequence, Callable, Coroutine
-from fastedgy.dependencies import register_service
-from typing_extensions import Doc, deprecated
+from edgy import Instance, monkay
 from fastapi import FastAPI, routing, Depends
-from fastapi.datastructures import Default
-from fastapi.responses import JSONResponse
-from fastapi.utils import generate_unique_id
 from fastapi.applications import AppType
-from fastedgy.http import ContextRequestMiddleware
+from fastapi.datastructures import Default
+from fastapi.responses import Response, JSONResponse
+from fastapi.utils import generate_unique_id
+from fastedgy.config import BaseSettings, init_settings
+from fastedgy.dependencies import Token, get_service, register_service
 from fastedgy.logger import setup_logging
+from fastedgy.http import ContextRequestMiddleware
+from fastedgy.orm import Registry, Database
 from starlette.routing import BaseRoute
 from starlette.middleware import Middleware
-from fastapi.responses import Response
 from starlette.types import Lifespan
 from starlette.requests import Request
-from fastedgy.config import BaseSettings, get_settings
-from edgy import Database, Registry
+from typing import Annotated, TypeVar, Optional, List, Dict, Any, Union, Type, Sequence, Callable, Coroutine
+from typing_extensions import Doc, deprecated
+
+
+T = TypeVar('T')
 
 
 class FastEdgy[S : BaseSettings = BaseSettings](FastAPI):
@@ -780,11 +783,17 @@ class FastEdgy[S : BaseSettings = BaseSettings](FastAPI):
             ),
         ],
     ) -> None:
-        from edgy import Instance, monkay
-        settings = get_settings()
+        settings = init_settings()
+
+        db = Database(
+            settings.database_url,
+            pool_size=settings.database_pool_size,
+            max_overflow=settings.database_max_overflow,
+        )
+        db_registry = Registry(db)
 
         monkay.settings.migration_directory = settings.db_migration_path
-        monkay.set_instance(Instance(registry=settings.db_registry), apply_extensions=False)
+        monkay.set_instance(Instance(registry=db_registry), apply_extensions=False)
         monkay.evaluate_settings(on_conflict="keep")
 
         super().__init__(
@@ -832,41 +841,30 @@ class FastEdgy[S : BaseSettings = BaseSettings](FastAPI):
             log_file=settings.log_path,
         )
 
-        register_service(settings)
-        register_service(settings.db)
-        register_service(settings.db_registry)
+        register_service(db)
+        register_service(db_registry)
 
-        self.state.settings = settings
-        self.state.db = settings.db
-        self.state.db_registry = settings.db_registry
-
-        monkay.set_instance(Instance(registry=settings.db_registry, app=self))
+        monkay.set_instance(Instance(registry=db_registry, app=self))
 
         self.add_middleware(ContextRequestMiddleware)
 
     @property
     def settings(self) -> BaseSettings:
-        if not hasattr(self.state, 'settings'):
-            raise ValueError("Settings not found in the application state")
-
-        return cast(S, self.state.settings)
+        return self.get(BaseSettings)
 
     @property
     def db(self) -> Database:
-        if not hasattr(self.state, 'db'):
-            raise ValueError("Database not found in the application state")
-
-        return cast(Database, self.state.db)
+        return self.get(Database)
 
     @property
     def db_registry(self) -> Registry:
-        if not hasattr(self.state, 'db_registry'):
-            raise ValueError("Registry not found in the application state")
+        return self.get(Registry)
 
-        return cast(Registry, self.state.db_registry)
+    def register(self, instance: T, key: Union[Type[T], Token[T], str, None] = None) -> None:
+        register_service(instance, key)
 
-    def initialize(self):
-        pass
+    def get(self, key: Union[Type[T], Token[T], str]) -> T:
+        return get_service(key)
 
 
 __all__ = [

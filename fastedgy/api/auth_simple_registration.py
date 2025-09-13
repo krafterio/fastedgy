@@ -4,8 +4,9 @@
 from typing import TYPE_CHECKING, Type, cast
 from fastapi import APIRouter, HTTPException, status
 from fastedgy import context
-from fastedgy.config import get_settings
+from fastedgy.orm import Registry
 from fastedgy.depends.security import hash_password
+from fastedgy.dependencies import Inject
 from fastedgy.schemas.auth import UserRegister
 from fastedgy.schemas.base import Message
 
@@ -18,11 +19,10 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/register")
 async def register_user(
-    user_data: UserRegister
+    user_data: UserRegister,
+    registry: Registry = Inject(Registry),
 ) -> Message:
-    settings = get_settings()
-    db_reg = settings.db_registry
-    user_model = cast(Type["User"], db_reg.get_model('User'))
+    user_model = cast(Type["User"], registry.get_model('User'))
 
     existing_user = await user_model.query.filter(email=user_data.email).first() # type: ignore
     if existing_user:

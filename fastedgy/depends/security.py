@@ -2,13 +2,18 @@
 # MIT License (see LICENSE file).
 
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Annotated, Union
+from fastedgy.dependencies import get_service
+from fastedgy.models.user import BaseUser
+from fastedgy.models.workspace import BaseWorkspace
 from jose import JWTError, jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from fastedgy.config import get_settings
 from fastedgy import context
+from fastedgy.config import BaseSettings
+from fastedgy.orm import Registry
 from passlib.context import CryptContext
+
 
 if TYPE_CHECKING:
     from fastedgy.models.user import BaseUser as User
@@ -33,7 +38,7 @@ def verify_password(password: str, verify_password: str) -> bool:
 
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None):
-    settings = get_settings()
+    settings = get_service(BaseSettings)
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
@@ -45,7 +50,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
 
 
 def create_refresh_token(data: dict):
-    settings = get_settings()
+    settings = get_service(BaseSettings)
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + timedelta(days=settings.auth_refresh_token_expire_days)
     to_encode.update({"exp": expire, "type": "refresh"})
@@ -54,8 +59,8 @@ def create_refresh_token(data: dict):
 
 
 async def authenticate_user(email: str, password: str):
-    settings = get_settings()
-    db_reg = settings.db_registry
+    settings = get_service(BaseSettings)
+    db_reg = get_service(Registry)
     user = await db_reg.get_model('User').query.filter(email=email).first() # type: ignore
 
     if not user or not verify_password(user.password, password):
@@ -69,7 +74,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> "User":
     if user:
         return user
 
-    settings = get_settings()
+    settings = get_service(BaseSettings)
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -85,7 +90,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> "User":
     except JWTError:
         raise credentials_exception
 
-    db_reg = settings.db_registry
+    db_reg = get_service(Registry)
     user = await db_reg.get_model('User').query.filter(email=email).first() # type: ignore
 
     if user is None:
@@ -96,7 +101,10 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> "User":
     return user
 
 
-async def get_current_workspace(current_user = Depends(get_current_user)) -> Union["Workspace", None]:
+type CurrentUser[U: BaseUser = BaseUser] = Annotated[U, Depends(get_current_user)]
+
+
+async def get_current_workspace(current_user: CurrentUser) -> Union["Workspace", None]:
     workspace = context.get_workspace()
     workspace_user = context.get_workspace_user()
 
@@ -109,8 +117,7 @@ async def get_current_workspace(current_user = Depends(get_current_user)) -> Uni
     if not workspace_name:
         return None
 
-    settings = get_settings()
-    db_reg = settings.db_registry
+    db_reg = get_service(Registry)
     workspace_user = await db_reg.get_model('WorkspaceUser').query.select_related('workspace').filter(user=current_user, workspace__slug=workspace_name).first() # type: ignore
 
     if not workspace_user or not workspace_user.workspace:
@@ -126,6 +133,9 @@ async def get_current_workspace(current_user = Depends(get_current_user)) -> Uni
     return workspace
 
 
+type CurrentWorkspace[W: BaseWorkspace = BaseWorkspace] = Annotated[W, Depends(get_current_workspace)]
+
+
 __all__ = [
     "oauth2_scheme",
     "oauth2_scheme_optional",
@@ -136,4 +146,6 @@ __all__ = [
     "authenticate_user",
     "get_current_user",
     "get_current_workspace",
+    "CurrentUser",
+    "CurrentWorkspace",
 ]

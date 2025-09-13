@@ -2,7 +2,6 @@
 # MIT License (see LICENSE file).
 
 import re
-from fastedgy.config import get_settings
 import sqlparse
 import inspect
 import sqlalchemy as sa
@@ -18,6 +17,8 @@ from alembic.operations.ops import UpgradeOps
 from sqlalchemy import text
 from sqlalchemy.dialects import postgresql
 
+from fastedgy.dependencies import get_service
+from fastedgy.orm import Registry
 from fastedgy.orm.view import TableView
 
 
@@ -174,8 +175,7 @@ def _fix_column_enum_type(column, enums_being_created):
 @comparators.dispatch_for("schema")
 def compare_view(autogen_context: AutogenContext, upgrade_ops: UpgradeOps, schemas) -> None:
     # Define all views from the database
-    settings = get_settings()
-    registry = settings.db_registry
+    registry = get_service(Registry)
     db_views = defaultdict()
 
     for sch in schemas:
@@ -348,8 +348,7 @@ def _remove_redundant_aliases(match):
 @comparators.dispatch_for("schema")
 def compare_enums(autogen_context: AutogenContext, upgrade_ops: UpgradeOps, schemas) -> None:
     # Get all enums from the database
-    settings = get_settings()
-    registry = settings.db_registry
+    registry = get_service(Registry)
     db_enums = {}
 
     for sch in schemas:

@@ -28,7 +28,7 @@ async def createdb(ctx: CliContext):
     from edgy import Database
     from sqlalchemy.engine.url import make_url
 
-    db_url = make_url(ctx.app.state.settings.database_url).set(database="postgres")
+    db_url = make_url(ctx.settings.database_url).set(database="postgres")
     admin_database_url = (
         f"{db_url.drivername}://"
         f"{db_url.username}:{db_url.password}@"

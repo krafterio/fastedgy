@@ -1,18 +1,18 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from functools import cached_property
 import sys
 import os
 
+from functools import cached_property
 from pathlib import Path
-from typing import Type
+from typing import Annotated, Type
 from urllib.parse import urlparse
+from fastedgy.dependencies import Inject, get_service, has_service
+from fastedgy.logger import LogLevel, LogOutput, LogFormat
 from pydantic import field_validator
 from pydantic_settings import BaseSettings as PydanticBaseSettings, SettingsConfigDict
-from edgy import Database, Registry
 
-from fastedgy.logger import LogLevel, LogOutput, LogFormat
 
 SERVER_FILES = [
     "__init__.py",
@@ -124,9 +124,6 @@ class BaseSettings(PydanticBaseSettings):
         """Create Settings with custom env file path."""
         return cls(_env_file=env_file)  # type: ignore
 
-    def initialize(self) -> None:
-        pass
-
     @property
     def project_path(self) -> str:
         """Get the project root path."""
@@ -137,7 +134,7 @@ class BaseSettings(PydanticBaseSettings):
         """Get the server directory path."""
         return _SERVER_PATH
 
-    @property
+    @cached_property
     def log_path(self) -> str:
         if not self.log_file:
             return os.path.join(self.project_path, "logs", "server.log")
@@ -147,25 +144,13 @@ class BaseSettings(PydanticBaseSettings):
 
         return os.path.join(self.project_path, self.log_file)
 
-    @property
+    @cached_property
     def db_migration_path(self) -> str:
         return os.path.join(self.server_path, "migrations")
 
-    @property
+    @cached_property
     def db_name(self) -> str:
         return urlparse(self.database_url).path.lstrip('/')
-
-    @cached_property
-    def db(self) -> Database:
-        return Database(
-            self.database_url,
-            pool_size=self.database_pool_size,
-            max_overflow=self.database_max_overflow,
-        )
-
-    @cached_property
-    def db_registry(self) -> Registry:
-        return Registry(self.db)
 
     @field_validator('log_format')
     def validate_log_format(cls, v):
@@ -180,13 +165,8 @@ class BaseSettings(PydanticBaseSettings):
         raise ValueError('DATABASE_URL is required')
 
 
-_settings: BaseSettings | None = None
-
-
-def get_settings(env_file: str | None = None):
-    global _settings
-
-    if _settings is None:
+def init_settings(env_file: str | None = None):
+    if not has_service(BaseSettings):
         import hashlib
         import os
 
@@ -203,13 +183,21 @@ def get_settings(env_file: str | None = None):
 
         from fastedgy.config import BaseSettings, discover_settings_class
         settings_class: Type[BaseSettings] = discover_settings_class()
-        _settings = settings_class.from_env_file(env_file)
 
-    return _settings
+        settings = settings_class.from_env_file(env_file)
+        register_service(settings, BaseSettings)
+
+        return settings
+
+    return get_service(BaseSettings)
+
+
+type Settings[S: BaseSettings = BaseSettings] = Annotated[S, Inject(BaseSettings)]
 
 
 __all__ = [
     "BaseSettings",
     "discover_settings_class",
-    "get_settings",
+    "init_settings",
+    "Settings",
 ]

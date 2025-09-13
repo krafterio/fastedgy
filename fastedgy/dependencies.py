@@ -12,24 +12,30 @@ T = TypeVar('T')
 
 
 class Token(Generic[T]):
-    """Token for string-based service registration."""
-    def __init__(self, name: str):
-        self.name = name
+    """Token for service registration using string names or class types."""
+    def __init__(self, key: Union[str, Type[Any]]):
+        self.key = key
+        self.name = key if isinstance(key, str) else key.__name__
 
     def __class_getitem__(cls, item):
-        """Allow Token[SomeType]('name') syntax."""
         class TypedToken(Token):
             pass
         return TypedToken
 
     def __repr__(self):
-        return f"Token({self.name})"
+        if isinstance(self.key, str):
+            return f"Token({self.key!r})"
+        else:
+            return f"Token({self.key.__name__})"
 
     def __hash__(self):
-        return hash(("__token__", self.name))
+        if isinstance(self.key, str):
+            return hash(("__token__", self.key))
+        else:
+            return hash(("__token__", self.key))
 
     def __eq__(self, other):
-        return isinstance(other, Token) and other.name == self.name
+        return isinstance(other, Token) and other.key == self.key
 
 
 ProviderKey = Union[Type[Any], Token[Any]]
@@ -95,26 +101,26 @@ def get_container_service() -> ContainerService:
 
 
 def register_service(instance: T, key: Union[Type[T], Token[T], str, None] = None) -> None:
-    if key is None:
-        key = type(instance)
-    elif isinstance(key, str):
-        key = Token(key)
+    instance_type_key = _normalize_key(type(instance))
+    provided_key = _normalize_key(type(instance) if key is None else key)
 
-    container_service.register(key, instance)
+    container_service.register(provided_key, instance)
+
+    if instance_type_key != provided_key:
+        container_service.register(instance_type_key, instance)
+
+def has_service(key: Union[Type[T], Token[T], str]) -> bool:
+    return _normalize_key(key) in container_service._map
 
 
 def get_service(key: Union[Type[T], Token[T], str]) -> T:
-    if isinstance(key, str):
-        key = Token(key)
-    return container_service.get(key)
+    return container_service.get(_normalize_key(key))
 
 
 def provide(cls: Union[Type[T], Token[T], str]) -> Callable[[ContainerService], T]:
     """Use in FastAPI signatures: svc: Svc = Depends(provide(Svc))"""
     def dep(container: ContainerService = Depends(get_container_service)) -> T:
-        if isinstance(cls, str):
-            return container.get(Token(cls))
-        return container.get(cls)
+        return container.get(_normalize_key(cls))
 
     return dep
 
@@ -122,6 +128,13 @@ def provide(cls: Union[Type[T], Token[T], str]) -> Callable[[ContainerService], 
 def Inject(cls: Union[Type[T], Token[T], str]) -> T:
     """Use in FastAPI signatures: svc: Svc = Inject(Svc)"""
     return Depends(provide(cls))
+
+
+def _normalize_key(key: Union[Type[Any], Token[Any], str]) -> Union[Token[Any], Type[Any]]:
+    if isinstance(key, str) or isinstance(key, type):
+        return Token(key)
+
+    return key
 
 
 __all__ = [

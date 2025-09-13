@@ -4,6 +4,7 @@
 from edgy.core.db.models.managers import Manager, RedirectManager, BaseManager
 
 from fastedgy import context
+from fastedgy.orm.query import QuerySet
 from fastedgy.orm.fields import ForeignKey
 
 

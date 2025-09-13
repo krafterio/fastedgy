@@ -1,7 +1,7 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import TYPE_CHECKING, Type, cast
+from typing import TYPE_CHECKING, cast
 from fastapi import APIRouter, HTTPException, status
 from fastedgy import context
 from fastedgy.orm import Registry
@@ -22,9 +22,9 @@ async def register_user(
     user_data: UserRegister,
     registry: Registry = Inject(Registry),
 ) -> Message:
-    user_model = cast(Type["User"], registry.get_model('User'))
+    user_model = cast(type["User"], registry.get_model('User'))
 
-    existing_user = await user_model.query.filter(email=user_data.email).first() # type: ignore
+    existing_user = await user_model.query.filter(email=user_data.email).first()
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

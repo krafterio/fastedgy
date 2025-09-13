@@ -122,7 +122,7 @@ class BaseSettings(PydanticBaseSettings):
     @classmethod
     def from_env_file(cls, env_file: str):
         """Create Settings with custom env file path."""
-        return cls(_env_file=env_file)  # type: ignore
+        return cls(_env_file=env_file)
 
     @property
     def project_path(self) -> str:

@@ -2,20 +2,18 @@
 # MIT License (see LICENSE file).
 
 from abc import abstractmethod
-from typing import ClassVar, Optional, Union, TYPE_CHECKING
+from typing import ClassVar, Optional, Union
 
 from datetime import datetime
 
 from fastedgy.orm import Model, fields
-from fastedgy.orm.manager import Manager, BaseManager, WorkspaceableManager, WorkspaceableRedirectManager
+from fastedgy.orm.query import QuerySet
+from fastedgy.orm.manager import Manager, WorkspaceableManager, WorkspaceableRedirectManager
 from fastedgy.orm.view import create_view
 
 from pydantic import ConfigDict
 
 from sqlalchemy import MetaData, Selectable, Table
-
-if TYPE_CHECKING:
-    from fastedgy.orm.query import QuerySet
 
 
 class BaseModel(Model):
@@ -34,9 +32,9 @@ class BaseModel(Model):
         extra='ignore',
     )
 
-    query: ClassVar[Union[WorkspaceableManager, 'QuerySet']] = WorkspaceableManager()
-    query_related: ClassVar[Union[WorkspaceableRedirectManager, 'QuerySet']] = WorkspaceableRedirectManager(redirect_name="query")
-    global_query: ClassVar[Union[Manager, 'QuerySet']] = Manager()
+    query: ClassVar[Union[WorkspaceableManager, QuerySet]] = WorkspaceableManager()
+    query_related: ClassVar[Union[WorkspaceableRedirectManager, QuerySet]] = WorkspaceableRedirectManager(redirect_name="query")
+    global_query: ClassVar[Union[Manager, QuerySet]] = Manager()
 
 
 class BaseView(Model):

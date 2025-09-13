@@ -25,7 +25,7 @@ def api_route_model(
     """
     def decorator(model_cls: M) -> M:
         rmr = get_service(RouteModelRegistry)
-        rmr.register_model(model_cls, kwargs)  # type: ignore
+        rmr.register_model(model_cls, kwargs)
 
         return model_cls
 
@@ -46,7 +46,7 @@ def admin_api_route_model(
     """
     def decorator(model_cls: M) -> M:
         armr = get_service(ADMIN_ROUTE_MODEL_REGISTRY_TOKEN)
-        armr.register_model(model_cls, kwargs) # type: ignore
+        armr.register_model(model_cls, kwargs)
 
         return model_cls
 

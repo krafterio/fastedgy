@@ -1,12 +1,12 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import TYPE_CHECKING, Type, cast
+from typing import TYPE_CHECKING, cast
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from fastedgy.config import BaseSettings
 from fastedgy.dependencies import Inject
-from fastedgy.depends.security import authenticate_user, create_access_token, create_refresh_token, get_current_user, hash_password
+from fastedgy.depends.security import CurrentUser, authenticate_user, create_access_token, create_refresh_token, hash_password
 from fastedgy.orm import Registry
 from fastedgy.schemas.auth import ChangePasswordRequest, ResetPasswordRequest, Token, TokenRefresh
 from fastedgy.schemas.base import Message
@@ -63,7 +63,7 @@ async def refresh_access_token(token_data: TokenRefresh, settings: BaseSettings 
     except JWTError:
         raise credentials_exception
 
-    user = await User.query.filter(email=email).first() # type: ignore
+    user = await User.query.filter(email=email).first()
     if user is None:
         raise credentials_exception
 
@@ -83,9 +83,9 @@ async def refresh_access_token(token_data: TokenRefresh, settings: BaseSettings 
 @public_router.post("/password/reset")
 async def password_reset(data: ResetPasswordRequest, registry: Registry = Inject(Registry)) -> Message:
     from fastedgy.models.user import BaseUser as User
-    User = cast(Type["User"], registry.get_model('User'))
+    User = cast(type["User"], registry.get_model('User'))
 
-    user = await User.query.filter( # type: ignore
+    user = await User.query.filter(
         User.columns.reset_pwd_token == data.token,
         User.columns.reset_pwd_expires_at >= datetime.now()
     ).first()
@@ -104,12 +104,8 @@ async def password_reset(data: ResetPasswordRequest, registry: Registry = Inject
 @router.post("/password/change")
 async def change_password(
     data: ChangePasswordRequest,
-    current_user: "User" = Depends(get_current_user),
-    registry: Registry = Inject(Registry)
+    current_user: "User" = CurrentUser,
 ) -> Message:
-    from fastedgy.models.user import BaseUser as User
-    User = cast(Type["User"], registry.get_model('User'))
-
     if not current_user.verify_password(data.current_password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

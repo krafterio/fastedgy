@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException
 from fastedgy.dependencies import get_service
 from fastedgy.metadata_model import MetadataModelRegistry, TypeMapMetadataModels
 from fastedgy.metadata_model.generator import generate_class_name
+from fastedgy.orm import Model
 from fastedgy.schemas.dataset import Resequence, ResequenceResult
 
 router = APIRouter(prefix="/dataset", tags=["dataset"])
@@ -22,7 +23,8 @@ async def get_metadata_models() -> TypeMapMetadataModels:
 @router.put("/resequence")
 async def resequence(data: Resequence) -> ResequenceResult:
     meta_registry = get_service(MetadataModelRegistry)
-    model_class = generate_class_name(data.model_name)
+    model_class_name = generate_class_name(data.model_name)
+    model_class = cast(type[Model], meta_registry.get_model(model_class_name))
     records = []
 
     if not meta_registry.is_registered(data.model_name):
@@ -47,7 +49,7 @@ async def resequence(data: Resequence) -> ResequenceResult:
                 detail="No action requested. Please provide group_field or sequence_field for resequencing"
             )
 
-        existing_records = await model_class.query.filter(model_class.columns.id.in_(data.ids)).all() # type: ignore
+        existing_records = await model_class.query.filter(model_class.columns.id.in_(data.ids)).all()
 
         if len(existing_records) != len(data.ids):
             raise HTTPException(
@@ -55,7 +57,7 @@ async def resequence(data: Resequence) -> ResequenceResult:
                 detail="Some IDs in the target list do not exist"
             )
 
-        async with model_class.query.database.transaction(): # type: ignore
+        async with model_class.query.database.transaction():
             records_by_id = {record.id: record for record in existing_records}
             sequence_index = 0
 

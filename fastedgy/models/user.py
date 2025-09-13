@@ -10,7 +10,6 @@ from fastedgy.models.base import BaseModel
 class BaseUser(BaseModel):
     class Meta:  # type: ignore
         abstract = True
-        tablename = "users"
         label = "Utilisateur"
         label_plural = "Utilisateurs"
 

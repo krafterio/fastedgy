@@ -8,7 +8,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import Annotated, Type
 from urllib.parse import urlparse
-from fastedgy.dependencies import Inject, get_service, has_service
+from fastedgy.dependencies import Inject, get_service, has_service, register_service
 from fastedgy.logger import LogLevel, LogOutput, LogFormat
 from pydantic import field_validator
 from pydantic_settings import BaseSettings as PydanticBaseSettings, SettingsConfigDict
@@ -181,7 +181,6 @@ def init_settings(env_file: str | None = None):
 
             os.environ[existing_env_file] = env_file
 
-        from fastedgy.config import BaseSettings, discover_settings_class
         settings_class: Type[BaseSettings] = discover_settings_class()
 
         settings = settings_class.from_env_file(env_file)

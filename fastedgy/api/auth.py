@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from fastedgy.config import BaseSettings
 from fastedgy.dependencies import Inject
-from fastedgy.depends.security import CurrentUser, authenticate_user, create_access_token, create_refresh_token, hash_password
+from fastedgy.depends.security import authenticate_user, create_access_token, create_refresh_token, get_current_user, hash_password
 from fastedgy.orm import Registry
 from fastedgy.schemas.auth import ChangePasswordRequest, ResetPasswordRequest, Token, TokenRefresh
 from fastedgy.schemas.base import Message
@@ -104,7 +104,7 @@ async def password_reset(data: ResetPasswordRequest, registry: Registry = Inject
 @router.post("/password/change")
 async def change_password(
     data: ChangePasswordRequest,
-    current_user: "User" = CurrentUser,
+    current_user: "User" = Depends(get_current_user),
 ) -> Message:
     if not current_user.verify_password(data.current_password):
         raise HTTPException(

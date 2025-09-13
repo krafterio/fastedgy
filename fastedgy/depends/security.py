@@ -2,10 +2,8 @@
 # MIT License (see LICENSE file).
 
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Annotated, Union
+from typing import TYPE_CHECKING, Union, cast
 from fastedgy.dependencies import get_service
-from fastedgy.models.user import BaseUser
-from fastedgy.models.workspace import BaseWorkspace
 from jose import JWTError, jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -18,6 +16,7 @@ from passlib.context import CryptContext
 if TYPE_CHECKING:
     from fastedgy.models.user import BaseUser as User
     from fastedgy.models.workspace import BaseWorkspace as Workspace
+    from fastedgy.models.workspace_user import BaseWorkspaceUser as WorkspaceUser
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
@@ -59,9 +58,9 @@ def create_refresh_token(data: dict):
 
 
 async def authenticate_user(email: str, password: str):
-    settings = get_service(BaseSettings)
     db_reg = get_service(Registry)
-    user = await db_reg.get_model('User').query.filter(email=email).first() # type: ignore
+    User = cast(type['User'], db_reg.get_model('User'))
+    user = await User.query.filter(email=email).first()
 
     if not user or not verify_password(user.password, password):
         return False
@@ -91,7 +90,8 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> "User":
         raise credentials_exception
 
     db_reg = get_service(Registry)
-    user = await db_reg.get_model('User').query.filter(email=email).first() # type: ignore
+    User = cast(type['User'], db_reg.get_model('User'))
+    user = await User.query.filter(email=email).first()
 
     if user is None:
         raise credentials_exception
@@ -101,10 +101,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> "User":
     return user
 
 
-type CurrentUser[U: BaseUser = BaseUser] = Annotated[U, Depends(get_current_user)]
-
-
-async def get_current_workspace(current_user: CurrentUser) -> Union["Workspace", None]:
+async def get_current_workspace(current_user=Depends(get_current_user)) -> Union["Workspace", None]:
     workspace = context.get_workspace()
     workspace_user = context.get_workspace_user()
 
@@ -118,7 +115,9 @@ async def get_current_workspace(current_user: CurrentUser) -> Union["Workspace",
         return None
 
     db_reg = get_service(Registry)
-    workspace_user = await db_reg.get_model('WorkspaceUser').query.select_related('workspace').filter(user=current_user, workspace__slug=workspace_name).first() # type: ignore
+    Workspace = cast(type['Workspace'], db_reg.get_model('Workspace'))
+    WorkspaceUser = cast(type['WorkspaceUser'], db_reg.get_model('WorkspaceUser'))
+    workspace_user = await WorkspaceUser.query.select_related('workspace').filter(user=current_user, workspace__slug=workspace_name).first()
 
     if not workspace_user or not workspace_user.workspace:
         raise HTTPException(
@@ -126,14 +125,11 @@ async def get_current_workspace(current_user: CurrentUser) -> Union["Workspace",
             detail="Aucun workspace trouvé",
         )
 
-    workspace = await db_reg.get_model('Workspace').query.get(id=workspace_user.workspace.id) # type: ignore
+    workspace = await Workspace.query.get(id=workspace_user.workspace.id) # type: ignore
     context.set_workspace(workspace)
     context.set_workspace_user(workspace_user)
 
     return workspace
-
-
-type CurrentWorkspace[W: BaseWorkspace = BaseWorkspace] = Annotated[W, Depends(get_current_workspace)]
 
 
 __all__ = [
@@ -146,6 +142,4 @@ __all__ = [
     "authenticate_user",
     "get_current_user",
     "get_current_workspace",
-    "CurrentUser",
-    "CurrentWorkspace",
 ]

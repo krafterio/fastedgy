@@ -3,7 +3,6 @@
 
 from typing import Any, AsyncContextManager, Awaitable, Callable, Dict, Optional, Type, TypeVar, Union, cast, overload
 from fastedgy.app import FastEdgy
-from fastedgy.dependencies import depends
 from typing_extensions import Concatenate, ParamSpec
 
 P = ParamSpec("P")
@@ -419,8 +418,11 @@ class CliContext[S : BaseSettings = BaseSettings, A: FastEdgy = FastEdgy]:
     def lifespan(self) -> AsyncContextManager:
         return self.app.router.lifespan_context(self.app)
 
-    async def depends(self, call: Callable[..., T]) -> T:
-        return await depends(self.app, call)
+    def has(self, key: Union[Type[T], Token[T], str]) -> bool:
+        return self.app.has(key)
+
+    def get(self, key: Union[Type[T], Token[T], str]) -> T:
+        return self.app.get(key)
 
 
 @group()

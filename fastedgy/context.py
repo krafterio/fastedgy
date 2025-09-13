@@ -4,24 +4,23 @@
 from contextvars import ContextVar, Token
 from typing import TYPE_CHECKING, Union
 
-from starlette.requests import Request
-
 if TYPE_CHECKING:
     from enum import Enum
+    from fastedgy.http import Request
     from fastedgy.models.workspace_extra_field import BaseWorkspaceExtraField as WorkspaceExtraField
     from fastedgy.models.user import BaseUser as User
     from fastedgy.models.workspace import BaseWorkspace as Workspace
     from fastedgy.models.workspace_user import BaseWorkspaceUser as WorkspaceUser
 
 
-_current_request: ContextVar[Request | None] = ContextVar("current_request", default=None)
+_current_request: ContextVar[Union["Request", None]] = ContextVar("current_request", default=None)
 
 
-def set_request(request: Request | None) -> Token:
+def set_request(request: Union["Request", None]) -> Token:
     return _current_request.set(request)
 
 
-def get_request() -> Request | None:
+def get_request() -> Union["Request", None]:
     return _current_request.get()
 
 

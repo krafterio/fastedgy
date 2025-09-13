@@ -10,10 +10,9 @@ from fastedgy.api_route_model.params import FieldSelectorHeader, filter_selected
 from fastedgy.api_route_model.registry import TypeModel, RouteModelActionOptions, ViewTransformerRegistry
 from fastedgy.api_route_model.view_transformer import BaseViewTransformer, GetViewTransformer
 from fastedgy.dependencies import get_service
+from fastedgy.http import Request
 from fastedgy.orm.query import QuerySet
 from fastedgy.orm.exceptions import ObjectNotFound
-
-from starlette.requests import Request
 
 
 class GetApiRouteAction(BaseApiRouteAction):

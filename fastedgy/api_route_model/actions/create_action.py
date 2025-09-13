@@ -8,9 +8,9 @@ from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError, BaseModel
 from pydantic_core import ErrorDetails
 from sqlalchemy.exc import DBAPIError
-from starlette.requests import Request
 
 from fastedgy.dependencies import get_service
+from fastedgy.http import Request
 from fastedgy.api_route_model.actions import BaseApiRouteAction, generate_input_create_model, generate_output_model, clean_empty_strings
 from fastedgy.api_route_model.params import FieldSelectorHeader, filter_selected_fields
 from fastedgy.api_route_model.registry import TypeModel, RouteModelActionOptions, ViewTransformerRegistry

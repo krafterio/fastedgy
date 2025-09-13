@@ -5,12 +5,11 @@ from abc import ABC, abstractmethod
 
 from typing import Any
 
+from fastedgy.http import Request
 from fastedgy.orm.query import QuerySet
 from fastedgy.schemas.base import Pagination
 
 from pydantic import BaseModel
-
-from starlette.requests import Request
 
 
 class BaseViewTransformer(ABC):

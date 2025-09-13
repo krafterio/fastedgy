@@ -12,10 +12,9 @@ from fastedgy.api_route_model.registry import TypeModel, RouteModelActionOptions
 from fastedgy.api_route_model.view_transformer import BaseViewTransformer, PrePaginateViewTransformer, PostPaginateViewTransformer, \
     GetViewTransformer, GetViewsTransformer
 from fastedgy.dependencies import get_service
+from fastedgy.http import Request
 from fastedgy.orm.query import QuerySet
 from fastedgy.schemas.base import Pagination
-
-from starlette.requests import Request
 
 
 class ListApiRouteAction(BaseApiRouteAction):

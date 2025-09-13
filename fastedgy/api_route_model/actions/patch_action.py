@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Path, Body
 from fastapi.exceptions import RequestValidationError
 
 from fastedgy.dependencies import get_service
+from fastedgy.http import Request
 from fastedgy.orm.exceptions import ObjectNotFound
 from fastedgy.orm.query import QuerySet
 from fastedgy.api_route_model.actions import BaseApiRouteAction, generate_input_patch_model, generate_output_model, clean_empty_strings
@@ -18,7 +19,6 @@ from pydantic import ValidationError
 from pydantic_core import ErrorDetails
 
 from sqlalchemy.exc import DBAPIError
-from starlette.requests import Request
 
 
 class PatchApiRouteAction(BaseApiRouteAction):

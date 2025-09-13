@@ -3,6 +3,7 @@
 
 from fastedgy.dependencies import register_service
 from fastedgy.metadata_model.generator import generate_metadata_model, add_inverse_relations
+from fastedgy.models.base import BaseModel
 from fastedgy.orm import Model
 from fastedgy.schemas.dataset import MetadataModel
 
@@ -74,7 +75,7 @@ class MetadataModelRegistry:
 
         raise ValueError(f"Model {str(model_cls)} not found in metadata registry")
 
-    async def get_model_from_metadata(self, metadata: MetadataModel | str) -> Model:
+    async def get_model_from_metadata(self, metadata: MetadataModel | str) -> type[BaseModel]:
         await self.load_models()
 
         if isinstance(metadata, str):

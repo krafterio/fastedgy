@@ -2,13 +2,12 @@
 # MIT License (see LICENSE file).
 
 from typing import TYPE_CHECKING, cast
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordRequestForm
+from fastapi import APIRouter, Body, Depends, HTTPException, status
 from fastedgy.config import BaseSettings
 from fastedgy.dependencies import Inject
 from fastedgy.depends.security import authenticate_user, create_access_token, create_refresh_token, get_current_user, hash_password
 from fastedgy.orm import Registry
-from fastedgy.schemas.auth import ChangePasswordRequest, ResetPasswordRequest, Token, TokenRefresh
+from fastedgy.schemas.auth import ChangePasswordRequest, LoginRequest, ResetPasswordRequest, Token, TokenRefresh
 from fastedgy.schemas.base import Message
 from jose import jwt, JWTError
 from datetime import datetime, timedelta
@@ -23,7 +22,7 @@ public_router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @public_router.post("/token")
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), settings: BaseSettings = Inject(BaseSettings)) -> Token:
+async def login_for_access_token(form_data: LoginRequest = Body(), settings: BaseSettings = Inject(BaseSettings)) -> Token:
     user = await authenticate_user(form_data.username, form_data.password)
 
     if not user:

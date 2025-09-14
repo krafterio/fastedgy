@@ -504,7 +504,10 @@ def cli(ctx, env_file: str):
 
 
 def main():
-    discover_cli_commands("cli")
+    try:
+        discover_cli_commands("cli")
+    except Exception:
+        pass
     register_cli_commands(cli)
     cli()
 

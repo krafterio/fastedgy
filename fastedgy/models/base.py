@@ -8,7 +8,11 @@ from datetime import datetime
 
 from fastedgy.orm import Model, fields
 from fastedgy.orm.query import QuerySet
-from fastedgy.orm.manager import Manager, WorkspaceableManager, WorkspaceableRedirectManager
+from fastedgy.orm.manager import (
+    Manager,
+    WorkspaceableManager,
+    WorkspaceableRedirectManager,
+)
 from fastedgy.orm.view import create_view
 from fastedgy.orm.registry import lazy_register_model
 
@@ -18,9 +22,13 @@ from sqlalchemy import MetaData, Selectable, Table
 
 
 class BaseModel(Model):
-    id: int | None = fields.IntegerField(primary_key=True, label="ID") # type: ignore
-    created_at: datetime | None = fields.DateTimeField(default_factory=datetime.now, read_only=True, auto_now_add=True, label="Créé le") # type: ignore
-    updated_at: datetime | None = fields.DateTimeField(default_factory=datetime.now, auto_now=True, label="Mis à jour le") # type: ignore
+    id: int | None = fields.IntegerField(primary_key=True, label="ID")  # type: ignore
+    created_at: datetime | None = fields.DateTimeField(
+        default_factory=datetime.now, read_only=True, auto_now_add=True, label="Créé le"
+    )  # type: ignore
+    updated_at: datetime | None = fields.DateTimeField(
+        default_factory=datetime.now, auto_now=True, label="Mis à jour le"
+    )  # type: ignore
 
     class Meta:
         abstract = True
@@ -31,11 +39,13 @@ class BaseModel(Model):
         lazy_register_model(cls)
 
     model_config = ConfigDict(
-        extra='ignore',
+        extra="ignore",
     )
 
     query: ClassVar[Union[WorkspaceableManager, QuerySet]] = WorkspaceableManager()
-    query_related: ClassVar[Union[WorkspaceableRedirectManager, QuerySet]] = WorkspaceableRedirectManager(redirect_name="query")
+    query_related: ClassVar[Union[WorkspaceableRedirectManager, QuerySet]] = (
+        WorkspaceableRedirectManager(redirect_name="query")
+    )
     global_query: ClassVar[Union[Manager, QuerySet]] = Manager()
 
 
@@ -92,6 +102,7 @@ class BaseView(Model):
             return user_select.union(contact_select)
     ```
     """
+
     class Meta:
         abstract = True
         exclude_secrets = True
@@ -101,15 +112,17 @@ class BaseView(Model):
         super().__init_subclass__(**kwargs)
         lazy_register_model(cls)
 
-    query: ClassVar[Union[WorkspaceableManager, 'QuerySet']] = WorkspaceableManager()
-    query_related: ClassVar[Union[WorkspaceableRedirectManager, 'QuerySet']] = WorkspaceableRedirectManager(redirect_name="query")
-    global_query: ClassVar[Union[Manager, 'QuerySet']] = Manager()
+    query: ClassVar[Union[WorkspaceableManager, "QuerySet"]] = WorkspaceableManager()
+    query_related: ClassVar[Union[WorkspaceableRedirectManager, "QuerySet"]] = (
+        WorkspaceableRedirectManager(redirect_name="query")
+    )
+    global_query: ClassVar[Union[Manager, "QuerySet"]] = Manager()
 
     @classmethod
     def build(
-            cls,
-            schema: Optional[str] = None,
-            metadata: Optional[MetaData] = None,
+        cls,
+        schema: Optional[str] = None,
+        metadata: Optional[MetaData] = None,
     ) -> Table:
         return create_view(
             name=cls.meta.tablename,

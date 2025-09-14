@@ -33,14 +33,27 @@ class QueuedTaskLogMixin(BaseModel):
         label = "Log des tâches en file d'attente"
         label_plural = "Logs des tâches en file d'attente"
         indexes = [
-            fields.Index(fields=["task", "logged_at"], name="idx_queued_task_logs_task_date"),
-            fields.Index(fields=["log_type", "logged_at"], name="idx_queued_task_logs_type_date"),
+            fields.Index(
+                fields=["task", "logged_at"], name="idx_queued_task_logs_task_date"
+            ),
+            fields.Index(
+                fields=["log_type", "logged_at"], name="idx_queued_task_logs_type_date"
+            ),
             fields.Index(fields=["logged_at"], name="idx_queued_task_logs_date"),
         ]
 
-    task: "QueuedTask" = fields.ForeignKey("QueuedTask", on_delete="CASCADE", label="Tâche", related_name="logs")
-    log_type: QueuedTaskLogType = fields.ChoiceField(choices=QueuedTaskLogType, label="Type de log")
-    logged_at: datetime | None = fields.DateTimeField(default_factory=datetime.now, read_only=True, auto_now_add=True, label="Horodatage")  # type: ignore
+    task: "QueuedTask" = fields.ForeignKey(
+        "QueuedTask", on_delete="CASCADE", label="Tâche", related_name="logs"
+    )
+    log_type: QueuedTaskLogType = fields.ChoiceField(
+        choices=QueuedTaskLogType, label="Type de log"
+    )
+    logged_at: datetime | None = fields.DateTimeField(
+        default_factory=datetime.now,
+        read_only=True,
+        auto_now_add=True,
+        label="Horodatage",
+    )  # type: ignore
     name: Optional[str] = fields.CharField(max_length=255, null=True, label="Nom")
     message: Optional[str] = fields.TextField(null=True, label="Message")
     info: Optional[str] = fields.TextField(null=True, label="Informations")

@@ -1,7 +1,17 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Callable, ParamSpec, cast, Protocol
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    List,
+    Optional,
+    Callable,
+    ParamSpec,
+    cast,
+    Protocol,
+)
 
 from datetime import datetime
 
@@ -26,13 +36,13 @@ if TYPE_CHECKING:
     from fastedgy.models.queued_task import BaseQueuedTask as QueuedTask
 
 
-
 P = ParamSpec("P")
-logger = logging.getLogger('queued_tasks')
+logger = logging.getLogger("queued_tasks")
 
 
 class SerializableCallable(Protocol):
     """Protocol for functions that can be serialized for queues tasks"""
+
     __module__: str
     __name__: str
 
@@ -43,11 +53,11 @@ class SerializableCallable(Protocol):
 class TaskCreationRequest:
     """Request for creating a task in the creation queue"""
 
-    ref: 'QueuedTaskRef'
+    ref: "QueuedTaskRef"
     func: Callable
     args: List[Any]
     kwargs: Dict[str, Any]
-    parent_ref: Optional['QueuedTaskRef'] = None
+    parent_ref: Optional["QueuedTaskRef"] = None
 
     def __post_init__(self):
         if self.args is None:
@@ -64,15 +74,19 @@ class QueuedTasks:
         self._creation_task: Optional[asyncio.Task] = None
         self.hook_registry = get_service(QueueHookRegistry)
 
-    def add_task(self, func: Callable[P, Any], parent: QueuedTaskRef | None = None,
-                 *args: P.args, **kwargs: P.kwargs
+    def add_task(
+        self,
+        func: Callable[P, Any],
+        parent: QueuedTaskRef | None = None,
+        *args: P.args,
+        **kwargs: P.kwargs,
     ) -> QueuedTaskRef:
         """
         Add task to queue - supports both regular functions and local functions.
         Returns a QueuedTaskRef for task control and dependency management.
         """
         # Validation: No instance methods
-        if hasattr(func, '__self__'):
+        if hasattr(func, "__self__"):
             raise ValueError(f"Instance methods are not supported: {func}")
 
         # Validation: Serializable arguments
@@ -90,7 +104,7 @@ class QueuedTasks:
             func=func,
             args=list(args),
             kwargs=dict(kwargs),
-            parent_ref=parent
+            parent_ref=parent,
         )
 
         # Add to creation queue
@@ -133,9 +147,13 @@ class QueuedTasks:
                         if request.parent_ref:
                             # Wait for parent to be created
                             parent_id = await request.parent_ref.get_task_id()
-                            task_id = await self._create_task_for_request(request, parent_id)
+                            task_id = await self._create_task_for_request(
+                                request, parent_id
+                            )
                             request.ref._set_task_id(task_id)
-                            logger.debug(f"Created task {task_id} (parent: {parent_id})")
+                            logger.debug(
+                                f"Created task {task_id} (parent: {parent_id})"
+                            )
                     except Exception as e:
                         logger.error(f"Failed to create task with parent: {e}")
                         request.ref._set_creation_error(e)
@@ -145,7 +163,9 @@ class QueuedTasks:
         finally:
             self._creation_task = None
 
-    async def _create_task_for_request(self, request: TaskCreationRequest, parent_id: Optional[int] = None) -> int:
+    async def _create_task_for_request(
+        self, request: TaskCreationRequest, parent_id: Optional[int] = None
+    ) -> int:
         """Create a task in database from a creation request"""
         func = request.func
         args = request.args
@@ -157,10 +177,11 @@ class QueuedTasks:
         function_name = None
         serialized_function = None
 
-        if hasattr(func, '__module__') and hasattr(func, '__name__'):
+        if hasattr(func, "__module__") and hasattr(func, "__name__"):
             try:
                 # Test if function can be imported
                 import importlib
+
                 module = importlib.import_module(func.__module__)
                 getattr(module, func.__name__)
                 # If we reach here, function is importable
@@ -191,17 +212,19 @@ class QueuedTasks:
             serialized_function=serialized_function,
             args=args,
             kwargs=kwargs,
-            parent_task=parent_task
+            parent_task=parent_task,
         )
 
         return task.id or 0
 
-    async def add_task_async(self, func: Callable[P, Any], *args: P.args, **kwargs: P.kwargs) -> "QueuedTask":
+    async def add_task_async(
+        self, func: Callable[P, Any], *args: P.args, **kwargs: P.kwargs
+    ) -> "QueuedTask":
         """
         Async version of add_task - creates task immediately and returns it
         """
         # Validation: No instance methods
-        if hasattr(func, '__self__'):
+        if hasattr(func, "__self__"):
             raise ValueError(f"Instance methods are not supported: {func}")
 
         # Validation: Serializable arguments
@@ -213,7 +236,9 @@ class QueuedTasks:
         serializable_func = cast(SerializableCallable, func)
         return await self._create_queued_task(serializable_func, args, kwargs)
 
-    async def _create_queued_task(self, func: SerializableCallable, args: tuple, kwargs: dict):
+    async def _create_queued_task(
+        self, func: SerializableCallable, args: tuple, kwargs: dict
+    ):
         """Create queued task - supports both regular and local functions"""
         try:
             # Try to determine if function can be imported normally
@@ -222,10 +247,11 @@ class QueuedTasks:
             function_name = None
             serialized_function = None
 
-            if hasattr(func, '__module__') and hasattr(func, '__name__'):
+            if hasattr(func, "__module__") and hasattr(func, "__name__"):
                 try:
                     # Test if function can be imported
                     import importlib
+
                     module = importlib.import_module(func.__module__)
                     getattr(module, func.__name__)
                     # If we reach here, function is importable
@@ -241,39 +267,45 @@ class QueuedTasks:
             if is_local_function:
                 # Serialize the function with dill
                 serialized_function = dill.dumps(func)
-                logger.debug(f"Serialized local function: {getattr(func, '__name__', 'unnamed')}")
+                logger.debug(
+                    f"Serialized local function: {getattr(func, '__name__', 'unnamed')}"
+                )
 
             task = await self.create_task(
                 module_name=module_name,
                 function_name=function_name,
                 serialized_function=serialized_function,
                 args=list(args),
-                kwargs=dict(kwargs)
+                kwargs=dict(kwargs),
             )
 
             return task
         except Exception as e:
-            func_name = getattr(func, '__name__', 'unnamed')
+            func_name = getattr(func, "__name__", "unnamed")
             logger.error(f"Error creating queued task for {func_name}: {e}")
             raise
 
     async def create_task(
-            self,
-            module_name: Optional[str] = None,
-            function_name: Optional[str] = None,
-            serialized_function: Optional[bytes] = None,
-            args: Optional[List[Any]] = None,
-            kwargs: Optional[Dict[str, Any]] = None,
-            context: Optional[Dict[str, Any]] = None,
-            name: Optional[str] = None,
-            parent_task: Optional["QueuedTask"] = None
+        self,
+        module_name: Optional[str] = None,
+        function_name: Optional[str] = None,
+        serialized_function: Optional[bytes] = None,
+        args: Optional[List[Any]] = None,
+        kwargs: Optional[Dict[str, Any]] = None,
+        context: Optional[Dict[str, Any]] = None,
+        name: Optional[str] = None,
+        parent_task: Optional["QueuedTask"] = None,
     ) -> "QueuedTask":
         """Create a new task in the queue"""
         # Validation: must have either module/function or serialized function
         if not serialized_function and (not module_name or not function_name):
-            raise ValueError("Must provide either (module_name, function_name) or serialized_function")
+            raise ValueError(
+                "Must provide either (module_name, function_name) or serialized_function"
+            )
 
-        QueuedTask = cast(type["QueuedTask"], get_service(Registry).get_model("QueuedTask"))
+        QueuedTask = cast(
+            type["QueuedTask"], get_service(Registry).get_model("QueuedTask")
+        )
         task = QueuedTask(
             name=name,
             module_name=module_name,
@@ -284,7 +316,7 @@ class QueuedTasks:
             context=context or {},
             parent_task=parent_task,
             state=QueuedTaskState.enqueued,
-            date_enqueued=datetime.now()
+            date_enqueued=datetime.now(),
         )
 
         await self.hook_registry.trigger_pre_create(task)
@@ -296,15 +328,15 @@ class QueuedTasks:
         return task
 
     async def create_child_task(
-            self,
-            parent_task_id: int,
-            module_name: Optional[str] = None,
-            function_name: Optional[str] = None,
-            serialized_function: Optional[bytes] = None,
-            args: Optional[List[Any]] = None,
-            kwargs: Optional[Dict[str, Any]] = None,
-            context: Optional[Dict[str, Any]] = None,
-            name: Optional[str] = None,
+        self,
+        parent_task_id: int,
+        module_name: Optional[str] = None,
+        function_name: Optional[str] = None,
+        serialized_function: Optional[bytes] = None,
+        args: Optional[List[Any]] = None,
+        kwargs: Optional[Dict[str, Any]] = None,
+        context: Optional[Dict[str, Any]] = None,
+        name: Optional[str] = None,
     ) -> "QueuedTask":
         """Create a child task that depends on a parent task"""
         parent_task = await self.get_task_by_id(parent_task_id)
@@ -319,15 +351,15 @@ class QueuedTasks:
             kwargs=kwargs,
             context=context,
             name=name,
-            parent_task=parent_task
+            parent_task=parent_task,
         )
 
     async def add_child_task_async(
-            self,
-            parent_task_id: int,
-            func: Callable[P, Any],
-            *args: P.args,
-            **kwargs: P.kwargs
+        self,
+        parent_task_id: int,
+        func: Callable[P, Any],
+        *args: P.args,
+        **kwargs: P.kwargs,
     ) -> "QueuedTask":
         """Add a child task using a function (async version)"""
         parent_task = await self.get_task_by_id(parent_task_id)
@@ -335,7 +367,7 @@ class QueuedTasks:
             raise ValueError(f"Parent task {parent_task_id} not found")
 
         # Validation: No instance methods
-        if hasattr(func, '__self__'):
+        if hasattr(func, "__self__"):
             raise ValueError(f"Instance methods are not supported: {func}")
 
         # Validation: Serializable arguments
@@ -350,10 +382,11 @@ class QueuedTasks:
         function_name = None
         serialized_function = None
 
-        if hasattr(func, '__module__') and hasattr(func, '__name__'):
+        if hasattr(func, "__module__") and hasattr(func, "__name__"):
             try:
                 # Test if function can be imported
                 import importlib
+
                 module = importlib.import_module(func.__module__)
                 getattr(module, func.__name__)
                 # If we reach here, function is importable
@@ -376,7 +409,7 @@ class QueuedTasks:
             serialized_function=serialized_function,
             args=list(args),
             kwargs=dict(kwargs),
-            parent_task=parent_task
+            parent_task=parent_task,
         )
 
     async def retry_task(self, task_id: int) -> "QueuedTask":
@@ -411,7 +444,9 @@ class QueuedTasks:
             return task
         else:
             # Clone the task for done/failed/cancelled states
-            QueuedTask = cast(type["QueuedTask"], get_service(Registry).get_model("QueuedTask"))
+            QueuedTask = cast(
+                type["QueuedTask"], get_service(Registry).get_model("QueuedTask")
+            )
             cloned_task = QueuedTask(
                 name=f"{task.name}_retry",
                 module_name=task.module_name,
@@ -421,7 +456,7 @@ class QueuedTasks:
                 context=task.context.copy() if task.context else {},
                 parent_task=task.parent_task,
                 state=QueuedTaskState.enqueued,
-                date_enqueued=datetime.now()
+                date_enqueued=datetime.now(),
             )
             await cloned_task.save()
             return cloned_task
@@ -434,7 +469,9 @@ class QueuedTasks:
 
     async def get_task_by_id(self, task_id: int) -> Optional["QueuedTask"]:
         """Get task by ID"""
-        return await QueuedTask.query.filter(QueuedTask.columns.id == task_id).get_or_none()
+        return await QueuedTask.query.filter(
+            QueuedTask.columns.id == task_id
+        ).get_or_none()
 
     async def get_task_status(self, task_id: int) -> Optional[Dict[str, Any]]:
         """Get task status"""
@@ -463,7 +500,7 @@ class QueuedTasks:
             "is_finished": task.is_finished,
             "is_active": task.is_active,
             "can_be_restarted": task.can_be_restarted,
-            "can_be_cancelled": task.can_be_cancelled
+            "can_be_cancelled": task.can_be_cancelled,
         }
 
 

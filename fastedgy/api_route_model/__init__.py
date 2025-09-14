@@ -6,8 +6,8 @@ from fastedgy.api_route_model.registry import TypeModel, TypeModels, RouteModelO
 
 
 __all__ = [
-    'TypeModel',
-    'TypeModels',
-    'RouteModelOptions',
-    'api_route_model',
+    "TypeModel",
+    "TypeModels",
+    "RouteModelOptions",
+    "api_route_model",
 ]

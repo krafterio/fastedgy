@@ -3,12 +3,16 @@
 
 from typing import Type, Callable, TypeVar
 
-from fastedgy.api_route_model.registry import ADMIN_ROUTE_MODEL_REGISTRY_TOKEN, RouteModelRegistry, RouteModelOptionsValue
+from fastedgy.api_route_model.registry import (
+    ADMIN_ROUTE_MODEL_REGISTRY_TOKEN,
+    RouteModelRegistry,
+    RouteModelOptionsValue,
+)
 from fastedgy.dependencies import get_service
 from fastedgy.orm import Model
 
 
-M = TypeVar('M', bound=Type[Model])
+M = TypeVar("M", bound=Type[Model])
 
 
 def api_route_model(
@@ -23,6 +27,7 @@ def api_route_model(
     Returns:
         The decorated model class
     """
+
     def decorator(model_cls: M) -> M:
         rmr = get_service(RouteModelRegistry)
         rmr.register_model(model_cls, kwargs)
@@ -44,6 +49,7 @@ def admin_api_route_model(
     Returns:
         The decorated model class
     """
+
     def decorator(model_cls: M) -> M:
         armr = get_service(ADMIN_ROUTE_MODEL_REGISTRY_TOKEN)
         armr.register_model(model_cls, kwargs)

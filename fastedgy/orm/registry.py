@@ -18,7 +18,11 @@ def register_model(registry: Registry, model: type[Model]):
 
 
 def lazy_register_model(model_class: type) -> None:
-    if hasattr(model_class, 'meta') and hasattr(model_class.meta, 'abstract') and not model_class.meta.abstract:
+    if (
+        hasattr(model_class, "meta")
+        and hasattr(model_class.meta, "abstract")
+        and not model_class.meta.abstract
+    ):
         _lazy_models.add(model_class)
 
 

@@ -22,10 +22,12 @@ from fastedgy.queued_task.services.worker_pool import WorkerPool
 
 if TYPE_CHECKING:
     from fastedgy.models.queued_task import BaseQueuedTask as QueuedTask
-    from fastedgy.models.queued_task_worker import BaseQueuedTaskWorker as QueuedTaskWorker
+    from fastedgy.models.queued_task_worker import (
+        BaseQueuedTaskWorker as QueuedTaskWorker,
+    )
 
 
-logger = logging.getLogger('queued_task.manager')
+logger = logging.getLogger("queued_task.manager")
 
 
 class QueueWorkerManager:
@@ -39,7 +41,9 @@ class QueueWorkerManager:
     - Task distribution
     """
 
-    def __init__(self, max_workers: Optional[int] = None, server_name: Optional[str] = None):
+    def __init__(
+        self, max_workers: Optional[int] = None, server_name: Optional[str] = None
+    ):
         self.config = get_service(QueuedTaskConfig)
         self.database = get_service(Database)
         self.max_workers = max_workers or self.config.max_workers
@@ -56,7 +60,7 @@ class QueueWorkerManager:
             "tasks_processed": 0,
             "tasks_failed": 0,
             "notifications_received": 0,
-            "polling_cycles": 0
+            "polling_cycles": 0,
         }
 
     async def start_workers(self, max_workers: Optional[int] = None) -> None:
@@ -95,9 +99,13 @@ class QueueWorkerManager:
 
         # Start all manager tasks
         self.manager_tasks = [
-            asyncio.create_task(self._notification_listener(), name="notification_listener"),
+            asyncio.create_task(
+                self._notification_listener(), name="notification_listener"
+            ),
             asyncio.create_task(self._fallback_polling(), name="fallback_polling"),
-            asyncio.create_task(self._cleanup_idle_workers(), name="cleanup_idle_workers"),
+            asyncio.create_task(
+                self._cleanup_idle_workers(), name="cleanup_idle_workers"
+            ),
             asyncio.create_task(self._heartbeat_task(), name="heartbeat_task"),
         ]
 
@@ -108,7 +116,7 @@ class QueueWorkerManager:
             # Wait for either all manager tasks to complete or shutdown signal
             done, pending = await asyncio.wait(
                 self.manager_tasks + [asyncio.create_task(self.shutdown_event.wait())],
-                return_when=asyncio.FIRST_COMPLETED
+                return_when=asyncio.FIRST_COMPLETED,
             )
 
             # Cancel pending tasks
@@ -157,14 +165,18 @@ class QueueWorkerManager:
             logger.info("PostgreSQL NOTIFY/LISTEN disabled in config")
             return
 
-        logger.info(f"Starting PostgreSQL notification listener on channel '{self.config.notify_channel}'")
+        logger.info(
+            f"Starting PostgreSQL notification listener on channel '{self.config.notify_channel}'"
+        )
 
         try:
             # Use database connection for LISTEN
             async with self.database.connection():
                 # Execute LISTEN command using Edgy
                 await self.database.execute(f"LISTEN {self.config.notify_channel}")
-                logger.debug(f"Started listening on channel '{self.config.notify_channel}'")
+                logger.debug(
+                    f"Started listening on channel '{self.config.notify_channel}'"
+                )
 
                 # Keep connection alive and check for notifications
                 # Note: This is a simplified approach since Edgy doesn't have native NOTIFY support
@@ -188,7 +200,7 @@ class QueueWorkerManager:
         try:
             self.stats["notifications_received"] += 1
 
-            task_id = task_info.get('task_id')
+            task_id = task_info.get("task_id")
             logger.debug(f"📨 Processing notification for task {task_id}")
 
             # Process pending tasks immediately
@@ -199,7 +211,9 @@ class QueueWorkerManager:
 
     async def _fallback_polling(self) -> None:
         """Fallback polling to ensure no tasks are missed"""
-        logger.info(f"Starting fallback polling every {self.config.fallback_polling_interval}s")
+        logger.info(
+            f"Starting fallback polling every {self.config.fallback_polling_interval}s"
+        )
 
         while self.is_running:
             try:
@@ -247,7 +261,8 @@ class QueueWorkerManager:
 
                 # Start task execution in background
                 logger.debug(
-                    f"Assigning task {task.id} to worker {worker.worker_id} (parent: {task.parent_task.id if task.parent_task else 'None'})")
+                    f"Assigning task {task.id} to worker {worker.worker_id} (parent: {task.parent_task.id if task.parent_task else 'None'})"
+                )
                 asyncio.create_task(self._execute_task_with_worker(worker, task))
 
         except Exception as e:
@@ -260,12 +275,18 @@ class QueueWorkerManager:
         - No parent_task OR parent_task.state = done
         - Returns only ONE task to avoid race conditions
         """
-        QueuedTask = cast(type["QueuedTask"], get_service(Registry).get_model("QueuedTask"))
+        QueuedTask = cast(
+            type["QueuedTask"], get_service(Registry).get_model("QueuedTask")
+        )
         try:
             # Get enqueued tasks one by one, ordered by priority
-            enqueued_tasks = await QueuedTask.query.filter(
-                QueuedTask.columns.state == QueuedTaskState.enqueued
-            ).order_by("date_enqueued").all()
+            enqueued_tasks = (
+                await QueuedTask.query.filter(
+                    QueuedTask.columns.state == QueuedTaskState.enqueued
+                )
+                .order_by("date_enqueued")
+                .all()
+            )
 
             for task in enqueued_tasks:
                 if task.parent_task is None:
@@ -280,18 +301,27 @@ class QueueWorkerManager:
 
                     if parent and parent.state == QueuedTaskState.done:
                         # Parent is done, task is ready
-                        logger.debug(f"Task {task.id} ready (parent {parent.id} is done)")
+                        logger.debug(
+                            f"Task {task.id} ready (parent {parent.id} is done)"
+                        )
                         return task
-                    elif parent and parent.state in [QueuedTaskState.failed, QueuedTaskState.cancelled]:
+                    elif parent and parent.state in [
+                        QueuedTaskState.failed,
+                        QueuedTaskState.cancelled,
+                    ]:
                         # Parent failed/cancelled, cascade to child
-                        logger.info(f"Task {task.id} cascading failure from parent {parent.id} ({parent.state})")
+                        logger.info(
+                            f"Task {task.id} cascading failure from parent {parent.id} ({parent.state})"
+                        )
                         await self._cascade_parent_failure(task, parent)
                         # Continue to next task (this one is now failed)
                         continue
                     else:
                         # Parent not ready, task must wait
                         parent_state = parent.state if parent else "not_found"
-                        logger.debug(f"Task {task.id} waiting (parent {task.parent_task.id} is {parent_state})")
+                        logger.debug(
+                            f"Task {task.id} waiting (parent {task.parent_task.id} is {parent_state})"
+                        )
                         # Continue to next task
                         continue
 
@@ -309,12 +339,18 @@ class QueueWorkerManager:
         - No parent_task OR parent_task.state = done
         - Uses atomic checks to avoid race conditions
         """
-        QueuedTask = cast(type["QueuedTask"], get_service(Registry).get_model("QueuedTask"))
+        QueuedTask = cast(
+            type["QueuedTask"], get_service(Registry).get_model("QueuedTask")
+        )
         try:
             # Get all enqueued tasks ordered by priority (date_enqueued)
-            enqueued_tasks = await QueuedTask.query.filter(
-                QueuedTask.columns.state == QueuedTaskState.enqueued
-            ).order_by("date_enqueued").all()
+            enqueued_tasks = (
+                await QueuedTask.query.filter(
+                    QueuedTask.columns.state == QueuedTaskState.enqueued
+                )
+                .order_by("date_enqueued")
+                .all()
+            )
 
             ready_tasks = []
             processed_parent_ids = set()  # Track parents we've already checked
@@ -324,7 +360,9 @@ class QueueWorkerManager:
                 # This prevents race conditions where multiple children of the same parent
                 # are assigned before the parent state can be updated
                 if task.parent_task and task.parent_task.id in processed_parent_ids:
-                    logger.debug(f"Task {task.id} skipped (parent {task.parent_task.id} already being processed)")
+                    logger.debug(
+                        f"Task {task.id} skipped (parent {task.parent_task.id} already being processed)"
+                    )
                     continue
 
                 if task.parent_task is None:
@@ -339,28 +377,41 @@ class QueueWorkerManager:
 
                     if parent and parent.state == QueuedTaskState.done:
                         # Parent is done, task is ready
-                        logger.debug(f"Task {task.id} ready (parent {parent.id} is done)")
+                        logger.debug(
+                            f"Task {task.id} ready (parent {parent.id} is done)"
+                        )
                         ready_tasks.append(task)
                         # Mark this parent as processed so siblings can also be included
                         processed_parent_ids.add(parent.id)
-                    elif parent and parent.state in [QueuedTaskState.failed, QueuedTaskState.cancelled]:
+                    elif parent and parent.state in [
+                        QueuedTaskState.failed,
+                        QueuedTaskState.cancelled,
+                    ]:
                         # Parent failed/cancelled, cascade to child
-                        logger.info(f"Task {task.id} cascading failure from parent {parent.id} ({parent.state})")
+                        logger.info(
+                            f"Task {task.id} cascading failure from parent {parent.id} ({parent.state})"
+                        )
                         await self._cascade_parent_failure(task, parent)
                         # Don't add to ready_tasks, this task is now failed
                     else:
                         # Parent not ready (enqueued, doing, etc.), task must wait
                         parent_state = parent.state if parent else "not_found"
-                        logger.debug(f"Task {task.id} waiting (parent {task.parent_task.id} is {parent_state})")
+                        logger.debug(
+                            f"Task {task.id} waiting (parent {task.parent_task.id} is {parent_state})"
+                        )
 
-            logger.debug(f"Found {len(ready_tasks)} ready tasks out of {len(enqueued_tasks)} enqueued")
+            logger.debug(
+                f"Found {len(ready_tasks)} ready tasks out of {len(enqueued_tasks)} enqueued"
+            )
             return ready_tasks
 
         except Exception as e:
             logger.error(f"Error getting ready tasks: {e}")
             return []
 
-    async def _cascade_parent_failure(self, child_task: "QueuedTask", parent_task: "QueuedTask") -> None:
+    async def _cascade_parent_failure(
+        self, child_task: "QueuedTask", parent_task: "QueuedTask"
+    ) -> None:
         """
         Cascade parent failure to child tasks
         """
@@ -369,13 +420,15 @@ class QueueWorkerManager:
                 child_task.mark_as_failed(
                     exception_name="ParentTaskFailed",
                     exception_message=f"Parent task {parent_task.id} failed",
-                    exception_info=f"Parent task '{parent_task.name}' failed, cascading to child"
+                    exception_info=f"Parent task '{parent_task.name}' failed, cascading to child",
                 )
             elif parent_task.state == QueuedTaskState.cancelled:
                 child_task.mark_as_cancelled()
 
             await child_task.save()
-            logger.info(f"Cascaded parent {parent_task.state} to child task {child_task.id}")
+            logger.info(
+                f"Cascaded parent {parent_task.state} to child task {child_task.id}"
+            )
 
             # Recursively cascade to grandchildren
             await self._cascade_to_children(child_task)
@@ -387,7 +440,9 @@ class QueueWorkerManager:
         """
         Recursively cascade task state to all children
         """
-        QueuedTask = cast(type["QueuedTask"], get_service(Registry).get_model("QueuedTask"))
+        QueuedTask = cast(
+            type["QueuedTask"], get_service(Registry).get_model("QueuedTask")
+        )
         try:
             children = await QueuedTask.query.filter(
                 QueuedTask.columns.parent_task == parent_task.id
@@ -400,13 +455,15 @@ class QueueWorkerManager:
                         child.mark_as_failed(
                             exception_name="ParentTaskFailed",
                             exception_message=f"Parent task {parent_task.id} failed",
-                            exception_info=f"Parent task '{parent_task.name}' failed, cascading to child"
+                            exception_info=f"Parent task '{parent_task.name}' failed, cascading to child",
                         )
                     elif parent_task.state == QueuedTaskState.cancelled:
                         child.mark_as_cancelled()
 
                     await child.save()
-                    logger.info(f"Cascaded {parent_task.state} to child task {child.id} (was {child.state})")
+                    logger.info(
+                        f"Cascaded {parent_task.state} to child task {child.id} (was {child.state})"
+                    )
 
                     # If child was doing, we should ideally signal the worker to stop
                     # For now, the worker will complete but the final state will be overridden
@@ -489,7 +546,9 @@ class QueueWorkerManager:
                 logger.info(f"Task {task.id} completed by worker {worker.worker_id}")
             else:
                 self.stats["tasks_failed"] += 1
-                logger.error(f"Task {task.id} failed in worker {worker.worker_id}: {result.get('error')}")
+                logger.error(
+                    f"Task {task.id} failed in worker {worker.worker_id}: {result.get('error')}"
+                )
 
         except Exception as e:
             self.stats["tasks_failed"] += 1
@@ -521,13 +580,16 @@ class QueueWorkerManager:
                 "polling_interval": self.config.polling_interval,
                 "fallback_polling_interval": self.config.fallback_polling_interval,
                 "worker_idle_timeout": self.config.worker_idle_timeout,
-            }
+            },
         }
 
     async def _register_server(self) -> None:
         """Register this server in the database"""
 
-        QueuedTaskWorker = cast(type["QueuedTaskWorker"], get_service(Registry).get_model("QueuedTaskWorker"))
+        QueuedTaskWorker = cast(
+            type["QueuedTaskWorker"],
+            get_service(Registry).get_model("QueuedTaskWorker"),
+        )
         try:
             # Try to get existing record for this server
             self.worker_status_record = await QueuedTaskWorker.query.filter(
@@ -540,12 +602,12 @@ class QueueWorkerManager:
                 await self.worker_status_record.save()
             else:
                 # Create new record
-                queued_task_worker = QueuedTaskWorker( # type: ignore
+                queued_task_worker = QueuedTaskWorker(  # type: ignore
                     server_name=self.server_name,
                     max_workers=self.max_workers,
                     is_running=True,
                     started_at=datetime.now(),
-                    last_heartbeat=datetime.now()
+                    last_heartbeat=datetime.now(),
                 )
                 await queued_task_worker.save()
                 self.worker_status_record = queued_task_worker
@@ -593,13 +655,13 @@ class QueueWorkerManager:
                     idle_workers = self.worker_pool.idle_workers.qsize()
 
                     self.worker_status_record.update_stats(
-                        active=busy_workers,
-                        idle=idle_workers,
-                        is_running=True
+                        active=busy_workers, idle=idle_workers, is_running=True
                     )
                     await self.worker_status_record.save()
 
-                    logger.debug(f"💓 Heartbeat: {busy_workers} active, {idle_workers} idle workers")
+                    logger.debug(
+                        f"Heartbeat: {busy_workers} active, {idle_workers} idle workers"
+                    )
 
             except asyncio.CancelledError:
                 logger.debug("Heartbeat task cancelled")
@@ -613,13 +675,16 @@ class QueueWorkerManager:
         try:
             # Get all alive AND running servers (heartbeat within last 2 minutes and is_running=True)
             alive_servers = await QueuedTaskWorker.query.filter(
-                QueuedTaskWorker.columns.last_heartbeat >= datetime.now() - timedelta(minutes=2),
-                QueuedTaskWorker.columns.is_running == True
+                QueuedTaskWorker.columns.last_heartbeat
+                >= datetime.now() - timedelta(minutes=2),
+                QueuedTaskWorker.columns.is_running == True,
             ).all()
 
             total_servers = len(alive_servers)
             total_max_workers = sum(server.max_workers for server in alive_servers)
-            total_active_workers = sum(server.active_workers for server in alive_servers)
+            total_active_workers = sum(
+                server.active_workers for server in alive_servers
+            )
             total_idle_workers = sum(server.idle_workers for server in alive_servers)
 
             return {
@@ -639,7 +704,7 @@ class QueueWorkerManager:
                         "last_heartbeat": server.last_heartbeat,
                     }
                     for server in alive_servers
-                ]
+                ],
             }
 
         except Exception as e:
@@ -650,7 +715,7 @@ class QueueWorkerManager:
                 "active_workers": 0,
                 "idle_workers": 0,
                 "total_workers": 0,
-                "servers_detail": []
+                "servers_detail": [],
             }
 
 

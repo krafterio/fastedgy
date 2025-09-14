@@ -6,6 +6,6 @@ from fastedgy.queued_task.models.queued_task import QueuedTaskMixin
 
 
 class BaseQueuedTask(QueuedTaskMixin):
-    class Meta: # type: ignore
+    class Meta:  # type: ignore
         abstract = True
         default_order_by: OrderByList = [("date_enqueued", "desc"), ("state", "asc")]

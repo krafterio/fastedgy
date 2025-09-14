@@ -28,7 +28,10 @@ async def status(ctx: CliContext):
 
             table.add_row("Pending Tasks", str(pending_count))
             table.add_row("Active Servers", str(global_stats["servers"]))
-            table.add_row("Total Workers", f"{global_stats['total_workers']}/{global_stats['max_workers']}")
+            table.add_row(
+                "Total Workers",
+                f"{global_stats['total_workers']}/{global_stats['max_workers']}",
+            )
             table.add_row("Active Workers", str(global_stats["active_workers"]))
             table.add_row("Idle Workers", str(global_stats["idle_workers"]))
 
@@ -46,7 +49,10 @@ async def clear(ctx: CliContext):
         try:
             from fastedgy.models.queued_task import BaseQueuedTask
             from fastedgy.queued_task.models.queued_task import QueuedTaskState
-            QueuedTask = cast(type["BaseQueuedTask"], ctx.get(Registry).get_model("QueuedTask"))
+
+            QueuedTask = cast(
+                type["BaseQueuedTask"], ctx.get(Registry).get_model("QueuedTask")
+            )
 
             # Delete all enqueued tasks
             deleted_count = await QueuedTask.query.filter(
@@ -90,16 +96,28 @@ async def stats(ctx: CliContext):
         try:
             from fastedgy.models.queued_task import BaseQueuedTask
             from fastedgy.queued_task.models.queued_task import QueuedTaskState
-            QueuedTask = cast(type["BaseQueuedTask"], ctx.get(Registry).get_model("QueuedTask"))
+
+            QueuedTask = cast(
+                type["BaseQueuedTask"], ctx.get(Registry).get_model("QueuedTask")
+            )
 
             # Get task counts by state
             total_tasks = await QueuedTask.query.count()
-            enqueued_tasks = await QueuedTask.query.filter(QueuedTask.columns.state == QueuedTaskState.enqueued).count()
-            doing_tasks = await QueuedTask.query.filter(QueuedTask.columns.state == QueuedTaskState.doing).count()
-            done_tasks = await QueuedTask.query.filter(QueuedTask.columns.state == QueuedTaskState.done).count()
-            failed_tasks = await QueuedTask.query.filter(QueuedTask.columns.state == QueuedTaskState.failed).count()
+            enqueued_tasks = await QueuedTask.query.filter(
+                QueuedTask.columns.state == QueuedTaskState.enqueued
+            ).count()
+            doing_tasks = await QueuedTask.query.filter(
+                QueuedTask.columns.state == QueuedTaskState.doing
+            ).count()
+            done_tasks = await QueuedTask.query.filter(
+                QueuedTask.columns.state == QueuedTaskState.done
+            ).count()
+            failed_tasks = await QueuedTask.query.filter(
+                QueuedTask.columns.state == QueuedTaskState.failed
+            ).count()
             cancelled_tasks = await QueuedTask.query.filter(
-                QueuedTask.columns.state == QueuedTaskState.cancelled).count()
+                QueuedTask.columns.state == QueuedTaskState.cancelled
+            ).count()
 
             # Get global worker stats
             global_stats = await QueueWorkerManager.get_global_stats()
@@ -122,7 +140,10 @@ async def stats(ctx: CliContext):
             table.add_row("", "")
             table.add_row("=== WORKERS ===", "")
             table.add_row("Active Servers", str(global_stats["servers"]))
-            table.add_row("Total Workers", f"{global_stats['total_workers']}/{global_stats['max_workers']}")
+            table.add_row(
+                "Total Workers",
+                f"{global_stats['total_workers']}/{global_stats['max_workers']}",
+            )
             table.add_row("Active Workers", str(global_stats["active_workers"]))
             table.add_row("Idle Workers", str(global_stats["idle_workers"]))
 
@@ -144,12 +165,18 @@ async def retry(ctx: CliContext, task_ids):
             for task_id in task_ids:
                 try:
                     retried_task = await service.retry_task(task_id)
-                    console.print(f"[green]Task {task_id} retried with new ID: {retried_task.id}[/green]")
+                    console.print(
+                        f"[green]Task {task_id} retried with new ID: {retried_task.id}[/green]"
+                    )
                     retried_count += 1
                 except Exception as e:
-                    console.print(f"[red]Failed to retry task {task_id}: {str(e)}[/red]")
+                    console.print(
+                        f"[red]Failed to retry task {task_id}: {str(e)}[/red]"
+                    )
 
-            console.print(f"[cyan]Successfully retried {retried_count}/{len(task_ids)} tasks[/cyan]")
+            console.print(
+                f"[cyan]Successfully retried {retried_count}/{len(task_ids)} tasks[/cyan]"
+            )
 
         except Exception as e:
             console.print(f"[red]Error retrying tasks: {str(e)}[/red]")
@@ -162,7 +189,11 @@ async def servers(ctx: CliContext):
     async with ctx.lifespan():
         try:
             from fastedgy.models.queued_task_worker import BaseQueuedTaskWorker
-            QueuedTaskWorker = cast(type["BaseQueuedTaskWorker"], ctx.get(Registry).get_model("QueuedTaskWorker"))
+
+            QueuedTaskWorker = cast(
+                type["BaseQueuedTaskWorker"],
+                ctx.get(Registry).get_model("QueuedTaskWorker"),
+            )
 
             servers = await QueuedTaskWorker.query.all()
 
@@ -179,7 +210,11 @@ async def servers(ctx: CliContext):
             table.add_column("Last Heartbeat", style="white")
 
             for server in servers:
-                status = "🟢 Running" if server.is_running and server.is_alive else "🔴 Stopped"
+                status = (
+                    "🟢 Running"
+                    if server.is_running and server.is_alive
+                    else "🔴 Stopped"
+                )
                 workers = f"{server.total_workers}/{server.max_workers}"
 
                 table.add_row(
@@ -188,7 +223,9 @@ async def servers(ctx: CliContext):
                     workers,
                     str(server.active_workers),
                     str(server.idle_workers),
-                    server.last_heartbeat.strftime("%Y-%m-%d %H:%M:%S") if server.last_heartbeat else "Never"
+                    server.last_heartbeat.strftime("%Y-%m-%d %H:%M:%S")
+                    if server.last_heartbeat
+                    else "Never",
                 )
 
             console.print(table)

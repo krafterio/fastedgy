@@ -30,44 +30,84 @@ class QueuedTaskMixin(BaseModel):
     This provides all the queues task logic without registering as a model.
     """
 
-    class Meta: # type: ignore
+    class Meta:  # type: ignore
         abstract = True
         label = "Tâche en file d'attente"
         label_plural = "Tâches en file d'attente"
         indexes = [
-            fields.Index(fields=["state", "date_enqueued"], name="idx_queued_tasks_state_date"),
+            fields.Index(
+                fields=["state", "date_enqueued"], name="idx_queued_tasks_state_date"
+            ),
             fields.Index(fields=["parent_task"], name="idx_queued_tasks_parent"),
-            fields.Index(fields=["parent_task", "state"], name="idx_queued_tasks_parent_state"),
+            fields.Index(
+                fields=["parent_task", "state"], name="idx_queued_tasks_parent_state"
+            ),
             fields.Index(fields=["state"], name="idx_queued_tasks_state"),
-            fields.Index(fields=["date_enqueued"], name="idx_queued_tasks_date_enqueued"),
+            fields.Index(
+                fields=["date_enqueued"], name="idx_queued_tasks_date_enqueued"
+            ),
             fields.Index(fields=["date_ended"], name="idx_queued_tasks_date_ended"),
         ]
 
-    name: Optional[str] = fields.CharField(max_length=255, null=True, label="Nom de la tâche") # type: ignore
-    module_name: Optional[str] = fields.CharField(max_length=255, null=True, label="Nom du module") # type: ignore
-    function_name: Optional[str] = fields.CharField(max_length=255, null=True, label="Nom de la fonction") # type: ignore
-    serialized_function: Optional[bytes] = fields.BinaryField(null=True, label="Fonction sérialisée") # type: ignore
-    state: QueuedTaskState = fields.ChoiceField(choices=QueuedTaskState, default=QueuedTaskState.enqueued, label="État") # type: ignore
+    name: Optional[str] = fields.CharField(
+        max_length=255, null=True, label="Nom de la tâche"
+    )  # type: ignore
+    module_name: Optional[str] = fields.CharField(
+        max_length=255, null=True, label="Nom du module"
+    )  # type: ignore
+    function_name: Optional[str] = fields.CharField(
+        max_length=255, null=True, label="Nom de la fonction"
+    )  # type: ignore
+    serialized_function: Optional[bytes] = fields.BinaryField(
+        null=True, label="Fonction sérialisée"
+    )  # type: ignore
+    state: QueuedTaskState = fields.ChoiceField(
+        choices=QueuedTaskState, default=QueuedTaskState.enqueued, label="État"
+    )  # type: ignore
 
-    args: list = fields.JSONField(default=[], label="Arguments positionnels") # type: ignore
-    kwargs: dict = fields.JSONField(default={}, label="Arguments nommés") # type: ignore
-    context: dict = fields.JSONField(default={}, label="Contexte de la tâche") # type: ignore
+    args: list = fields.JSONField(default=[], label="Arguments positionnels")  # type: ignore
+    kwargs: dict = fields.JSONField(default={}, label="Arguments nommés")  # type: ignore
+    context: dict = fields.JSONField(default={}, label="Contexte de la tâche")  # type: ignore
 
-    parent_task: Optional["QueuedTask"] = fields.ForeignKey("QueuedTask", on_delete="CASCADE", null=True, label="Task parent") # type: ignore
+    parent_task: Optional["QueuedTask"] = fields.ForeignKey(
+        "QueuedTask", on_delete="CASCADE", null=True, label="Task parent"
+    )  # type: ignore
 
-    exception_name: Optional[str] = fields.CharField(max_length=255, null=True, label="Nom de l'exception") # type: ignore
-    exception_message: Optional[str] = fields.TextField(null=True, label="Message d'exception") # type: ignore
-    exception_info: Optional[str] = fields.TextField(null=True, label="Informations d'exception") # type: ignore
+    exception_name: Optional[str] = fields.CharField(
+        max_length=255, null=True, label="Nom de l'exception"
+    )  # type: ignore
+    exception_message: Optional[str] = fields.TextField(
+        null=True, label="Message d'exception"
+    )  # type: ignore
+    exception_info: Optional[str] = fields.TextField(
+        null=True, label="Informations d'exception"
+    )  # type: ignore
 
-    execution_time: float = fields.FloatField(default=0.0, label="Temps d'exécution (secondes)") # type: ignore
+    execution_time: float = fields.FloatField(
+        default=0.0, label="Temps d'exécution (secondes)"
+    )  # type: ignore
 
-    date_enqueued: Optional[datetime] = fields.DateTimeField(null=True, label="Date de mise en queue") # type: ignore
-    date_started: Optional[datetime] = fields.DateTimeField(null=True, label="Date de démarrage") # type: ignore
-    date_stopped: Optional[datetime] = fields.DateTimeField(null=True, label="Date d'arrêt") # type: ignore
-    date_ended: Optional[datetime] = fields.DateTimeField(null=True, label="Date de fin") # type: ignore
-    date_done: Optional[datetime] = fields.DateTimeField(null=True, label="Date de succès") # type: ignore
-    date_cancelled: Optional[datetime] = fields.DateTimeField(null=True, label="Date d'annulation") # type: ignore
-    date_failed: Optional[datetime] = fields.DateTimeField(null=True, label="Date d'échec") # type: ignore
+    date_enqueued: Optional[datetime] = fields.DateTimeField(
+        null=True, label="Date de mise en queue"
+    )  # type: ignore
+    date_started: Optional[datetime] = fields.DateTimeField(
+        null=True, label="Date de démarrage"
+    )  # type: ignore
+    date_stopped: Optional[datetime] = fields.DateTimeField(
+        null=True, label="Date d'arrêt"
+    )  # type: ignore
+    date_ended: Optional[datetime] = fields.DateTimeField(
+        null=True, label="Date de fin"
+    )  # type: ignore
+    date_done: Optional[datetime] = fields.DateTimeField(
+        null=True, label="Date de succès"
+    )  # type: ignore
+    date_cancelled: Optional[datetime] = fields.DateTimeField(
+        null=True, label="Date d'annulation"
+    )  # type: ignore
+    date_failed: Optional[datetime] = fields.DateTimeField(
+        null=True, label="Date d'échec"
+    )  # type: ignore
 
     async def save(
         self: Model,
@@ -87,27 +127,32 @@ class QueuedTaskMixin(BaseModel):
         self._compute_date_ended()
         self._compute_execution_time()
 
-        return super().save(force_insert, values, force_save) # type: ignore
+        return super().save(force_insert, values, force_save)  # type: ignore
 
     def _compute_date_ended(self):
         """Automatically compute end date based on the last significant date"""
-        if hasattr(self, 'date_done') and self.date_done:
+        if hasattr(self, "date_done") and self.date_done:
             self.date_ended = self.date_done
-        elif hasattr(self, 'date_cancelled') and self.date_cancelled:
+        elif hasattr(self, "date_cancelled") and self.date_cancelled:
             self.date_ended = self.date_cancelled
-        elif hasattr(self, 'date_failed') and self.date_failed:
+        elif hasattr(self, "date_failed") and self.date_failed:
             self.date_ended = self.date_failed
-        elif hasattr(self, 'date_stopped') and self.date_stopped:
+        elif hasattr(self, "date_stopped") and self.date_stopped:
             self.date_ended = self.date_stopped
         else:
             self.date_ended = None
 
     def _compute_execution_time(self):
         """Automatically compute execution time"""
-        if hasattr(self, 'date_started') and self.date_started and hasattr(self, 'date_ended') and self.date_ended:
+        if (
+            hasattr(self, "date_started")
+            and self.date_started
+            and hasattr(self, "date_ended")
+            and self.date_ended
+        ):
             delta = self.date_ended - self.date_started
             self.execution_time = delta.total_seconds()
-        elif hasattr(self, 'execution_time') and self.execution_time is None:
+        elif hasattr(self, "execution_time") and self.execution_time is None:
             self.execution_time = 0.0
 
     def mark_as_doing(self):
@@ -128,7 +173,12 @@ class QueuedTaskMixin(BaseModel):
         self.state = QueuedTaskState.done
         self.date_done = datetime.now()
 
-    def mark_as_failed(self, exception_name: str | None = None, exception_message: str | None = None, exception_info: str | None = None):
+    def mark_as_failed(
+        self,
+        exception_name: str | None = None,
+        exception_message: str | None = None,
+        exception_info: str | None = None,
+    ):
         """Mark task as failed"""
         self.state = QueuedTaskState.failed
         self.date_failed = datetime.now()
@@ -175,19 +225,34 @@ class QueuedTaskMixin(BaseModel):
     @property
     def is_finished(self) -> bool:
         """Check if task is in a final state"""
-        return hasattr(self, 'state') and self.state in [QueuedTaskState.done, QueuedTaskState.failed, QueuedTaskState.cancelled]
+        return hasattr(self, "state") and self.state in [
+            QueuedTaskState.done,
+            QueuedTaskState.failed,
+            QueuedTaskState.cancelled,
+        ]
 
     @property
     def is_active(self) -> bool:
         """Check if task is active (running or waiting)"""
-        return hasattr(self, 'state') and self.state in [QueuedTaskState.enqueued, QueuedTaskState.waiting, QueuedTaskState.doing]
+        return hasattr(self, "state") and self.state in [
+            QueuedTaskState.enqueued,
+            QueuedTaskState.waiting,
+            QueuedTaskState.doing,
+        ]
 
     @property
     def can_be_restarted(self) -> bool:
         """Check if task can be restarted"""
-        return hasattr(self, 'state') and self.state in [QueuedTaskState.stopped, QueuedTaskState.failed]
+        return hasattr(self, "state") and self.state in [
+            QueuedTaskState.stopped,
+            QueuedTaskState.failed,
+        ]
 
     @property
     def can_be_cancelled(self) -> bool:
         """Check if task can be cancelled"""
-        return hasattr(self, 'state') and self.state in [QueuedTaskState.enqueued, QueuedTaskState.waiting, QueuedTaskState.doing]
+        return hasattr(self, "state") and self.state in [
+            QueuedTaskState.enqueued,
+            QueuedTaskState.waiting,
+            QueuedTaskState.doing,
+        ]

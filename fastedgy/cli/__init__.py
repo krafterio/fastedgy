@@ -1,7 +1,19 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import Any, AsyncContextManager, Awaitable, Callable, Dict, Optional, Type, TypeVar, Union, cast, overload
+from typing import (
+    Any,
+    AsyncContextManager,
+    Awaitable,
+    Callable,
+    Dict,
+    Optional,
+    Type,
+    TypeVar,
+    Union,
+    cast,
+    overload,
+)
 from typing_extensions import Concatenate, ParamSpec
 
 P = ParamSpec("P")
@@ -108,17 +120,20 @@ _cli_commands: Dict[str, click.Command] = {}
 logger = logging.getLogger("cli.command")
 console = Console()
 
+
 def getCliLogger(suffix: str) -> logging.Logger:
     return logger.getChild(suffix)
 
 
-def register_commands_in_group(package_name : str, cli_group: click.Group) -> None:
+def register_commands_in_group(package_name: str, cli_group: click.Group) -> None:
     """
     Register all CLI commands in the given package in the given CLI group.
     """
     package = importlib.import_module(package_name)
 
-    for _, module_name, is_pkg in pkgutil.iter_modules(package.__path__, package.__name__ + "."):
+    for _, module_name, is_pkg in pkgutil.iter_modules(
+        package.__path__, package.__name__ + "."
+    ):
         if not is_pkg:
             module = importlib.import_module(module_name)
 
@@ -162,12 +177,15 @@ def discover_cli_commands(package_name: str) -> None:
         # Find and register click.Group objects (from @click.group())
         for name, obj in inspect.getmembers(module):
             if isinstance(obj, click.Group) and obj not in _cli_groups.values():
-                group_name = getattr(obj, 'name', name)
+                group_name = getattr(obj, "name", name)
                 _cli_groups[group_name] = obj
 
-            elif (isinstance(obj, click.Command) and not isinstance(obj, click.Group)
-                    and obj not in _cli_commands.values()):
-                command_name = getattr(obj, 'name', name)
+            elif (
+                isinstance(obj, click.Command)
+                and not isinstance(obj, click.Group)
+                and obj not in _cli_commands.values()
+            ):
+                command_name = getattr(obj, "name", name)
                 _cli_commands[command_name] = obj
 
         if is_pkg:
@@ -199,9 +217,11 @@ class Command(RichCommand):
 
 
 class Group(RichGroup):
-    def command(self, *args: Any, **kwargs: Any) -> Union[Callable[[Callable[..., Any]], Command], Command]:
+    def command(
+        self, *args: Any, **kwargs: Any
+    ) -> Union[Callable[[Callable[..., Any]], Command], Command]:
         def decorator(f: Callable[..., Any]) -> Command:
-            kwargs.setdefault('cls', Command)
+            kwargs.setdefault("cls", Command)
 
             return cast(Command, super(Group, self).command(*args, **kwargs)(f))
 
@@ -246,7 +266,9 @@ def group(
 
 # variant: with optional string name, no cls argument provided.
 @overload
-def group(name: Optional[str] = ..., cls: None = None, **attrs: Any) -> Callable[[_AnyCallable], RichGroup]: ...
+def group(
+    name: Optional[str] = ..., cls: None = None, **attrs: Any
+) -> Callable[[_AnyCallable], RichGroup]: ...
 
 
 def group(
@@ -265,12 +287,16 @@ def pass_context(f: "Callable[Concatenate[Context, P], R]") -> "Callable[P, R]":
     object as first argument.
     """
     if inspect.iscoroutinefunction(inspect.unwrap(f)):
+
         async def async_func(*args: "P.args", **kwargs: "P.kwargs") -> "R":
             return await f(get_current_context(), *args, **kwargs)
+
         wrapped_func = async_func
     else:
+
         def sync_func(*args: "P.args", **kwargs: "P.kwargs") -> "R":
             return f(get_current_context(), *args, **kwargs)
+
         wrapped_func = sync_func
 
     return cast(Callable[P, R], update_wrapper(wrapped_func, f))
@@ -282,31 +308,38 @@ def pass_cli_context(f: "Callable[Concatenate[CliContext, P], R]") -> "Callable[
     represents the state of a nested system.
     """
     if inspect.iscoroutinefunction(inspect.unwrap(f)):
+
         async def async_func(*args: "P.args", **kwargs: "P.kwargs") -> "R":
             return await f(get_current_context().obj, *args, **kwargs)
+
         wrapped_func = async_func
     else:
+
         def sync_func(*args: "P.args", **kwargs: "P.kwargs") -> "R":
             return f(get_current_context().obj, *args, **kwargs)
+
         wrapped_func = sync_func
 
     return cast(Callable[P, R], update_wrapper(wrapped_func, f))
 
 
 def initialize_app(f: "Callable[P, R]") -> "Callable[P, R]":
-    """Automatically initialize the application.
-    """
+    """Automatically initialize the application."""
     if inspect.iscoroutinefunction(inspect.unwrap(f)):
+
         async def async_func(*args: "P.args", **kwargs: "P.kwargs") -> "R":
             ctx = get_current_context().obj
             ctx.app.initialize()
             return await f(*args, **kwargs)
+
         wrapped_func = async_func
     else:
+
         def sync_func(*args: "P.args", **kwargs: "P.kwargs") -> "R":
             ctx = get_current_context().obj
             ctx.app.initialize()
             return f(*args, **kwargs)
+
         wrapped_func = sync_func
 
     return cast(Callable[P, R], update_wrapper(wrapped_func, f))
@@ -339,6 +372,7 @@ def make_pass_decorator(
 
     def decorator(f: "Callable[Concatenate[T, P], R]") -> "Callable[P, R]":
         if inspect.iscoroutinefunction(inspect.unwrap(f)):
+
             async def async_func(*args: "P.args", **kwargs: "P.kwargs") -> "R":
                 ctx = get_current_context()
 
@@ -356,8 +390,10 @@ def make_pass_decorator(
                     )
 
                 return await cast(Awaitable[R], ctx.invoke(f, obj, *args, **kwargs))
+
             wrapped_func = async_func
         else:
+
             def sync_func(*args: "P.args", **kwargs: "P.kwargs") -> "R":
                 ctx = get_current_context()
 
@@ -375,6 +411,7 @@ def make_pass_decorator(
                     )
 
                 return ctx.invoke(f, obj, *args, **kwargs)
+
             wrapped_func = sync_func
 
         return cast(Callable[P, R], update_wrapper(wrapped_func, f))
@@ -399,16 +436,20 @@ def pass_meta_key(
 
     def decorator(f: "Callable[Concatenate[Any, P], R]") -> "Callable[P, R]":
         if inspect.iscoroutinefunction(inspect.unwrap(f)):
+
             async def async_func(*args: "P.args", **kwargs: "P.kwargs") -> R:
                 ctx = get_current_context()
                 obj = ctx.meta[key]
                 return await cast(Awaitable[R], ctx.invoke(f, obj, *args, **kwargs))
+
             wrapped_func = async_func
         else:
+
             def sync_func(*args: "P.args", **kwargs: "P.kwargs") -> R:
                 ctx = get_current_context()
                 obj = ctx.meta[key]
                 return ctx.invoke(f, obj, *args, **kwargs)
+
             wrapped_func = sync_func
 
         return cast(Callable[P, R], update_wrapper(wrapped_func, f))
@@ -423,7 +464,7 @@ def pass_meta_key(
     return decorator
 
 
-class CliContext[S : BaseSettings = BaseSettings, A: FastEdgy = FastEdgy]:
+class CliContext[S: BaseSettings = BaseSettings, A: FastEdgy = FastEdgy]:
     """CLI application context containing settings and app instance."""
 
     def __init__(self, settings: S):
@@ -434,6 +475,7 @@ class CliContext[S : BaseSettings = BaseSettings, A: FastEdgy = FastEdgy]:
     def app(self) -> A:
         if self._app is None:
             from fastedgy.importer import import_from_string
+
             app_factory = import_from_string(self.settings.app_factory)
             self._app = app_factory()
 
@@ -450,11 +492,14 @@ class CliContext[S : BaseSettings = BaseSettings, A: FastEdgy = FastEdgy]:
 
 
 @group()
-@option("--env-file", default=".env", help="The environment file to use (default: .env).")
+@option(
+    "--env-file", default=".env", help="The environment file to use (default: .env)."
+)
 @pass_context
 def cli(ctx, env_file: str):
     """FastEdgy CLI"""
     from fastedgy.config import init_settings
+
     ctx.obj = CliContext(init_settings(env_file))
 
 

@@ -55,13 +55,9 @@ class TableView(Table):
     def selectable(self) -> ReturnsRows:
         return self._selectable
 
+
 def create_table_from_selectable(
-    name,
-    selectable,
-    indexes=None,
-    metadata=None,
-    aliases=None,
-    **kwargs
+    name, selectable, indexes=None, metadata=None, aliases=None, **kwargs
 ):
     if indexes is None:
         indexes = []
@@ -74,10 +70,7 @@ def create_table_from_selectable(
 
     args = [
         Column(
-            c.name,
-            c.type,
-            key=aliases.get(c.name, c.name),
-            primary_key=c.primary_key
+            c.name, c.type, key=aliases.get(c.name, c.name), primary_key=c.primary_key
         )
         for c in get_columns(selectable)
     ] + indexes
@@ -91,14 +84,8 @@ def create_table_from_selectable(
     return table
 
 
-def create_materialized_view(
-    name,
-    selectable,
-    metadata,
-    indexes=None,
-    aliases=None
-):
-    """ Create a view on a given metadata
+def create_materialized_view(name, selectable, metadata, indexes=None, aliases=None):
+    """Create a view on a given metadata
 
     :param name: The name of the view to create.
     :param selectable: An SQLAlchemy selectable e.g. a select() statement.
@@ -119,25 +106,19 @@ def create_materialized_view(
         selectable=selectable,
         indexes=indexes,
         metadata=None,
-        aliases=aliases
+        aliases=aliases,
     )
 
     event.listen(
-        metadata,
-        'after_create',
-        CreateView(name, selectable, materialized=True)
+        metadata, "after_create", CreateView(name, selectable, materialized=True)
     )
 
-    @event.listens_for(metadata, 'after_create')
+    @event.listens_for(metadata, "after_create")
     def create_indexes(target, connection, **kw):
         for idx in table.indexes:
             idx.create(connection)
 
-    event.listen(
-        metadata,
-        'before_drop',
-        DropView(name, materialized=True)
-    )
+    event.listen(metadata, "before_drop", DropView(name, materialized=True))
     return table
 
 
@@ -148,7 +129,7 @@ def create_view(
     cascade_on_drop=True,
     replace=False,
 ):
-    """ Create a view on a given metadata
+    """Create a view on a given metadata
 
     :param name: The name of the view to create.
     :param selectable: An SQLAlchemy selectable e.g. a select() statement.
@@ -183,9 +164,7 @@ def create_view(
 
     """
     table = create_table_from_selectable(
-        name=name,
-        selectable=selectable,
-        metadata=None
+        name=name, selectable=selectable, metadata=None
     )
 
     if not metadata:
@@ -193,26 +172,22 @@ def create_view(
 
     event.listen(
         metadata,
-        'after_create',
+        "after_create",
         CreateView(name, selectable, replace=replace),
     )
 
-    @event.listens_for(metadata, 'after_create')
+    @event.listens_for(metadata, "after_create")
     def create_indexes(target, connection, **kw):
         for idx in table.indexes:
             idx.create(connection)
 
-    event.listen(
-        metadata,
-        'before_drop',
-        DropView(name, cascade=cascade_on_drop)
-    )
+    event.listen(metadata, "before_drop", DropView(name, cascade=cascade_on_drop))
 
     return table
 
 
 def refresh_materialized_view(session, name, concurrently=False):
-    """ Refreshes an already existing materialized view
+    """Refreshes an already existing materialized view
 
     :param session: An SQLAlchemy Session instance.
     :param name: The name of the materialized view to refresh.
@@ -228,9 +203,9 @@ def refresh_materialized_view(session, name, concurrently=False):
 
 @compiler.compiles(CreateView)
 def compile_create_view(element, compiler, **kw):
-    return 'CREATE {}{}VIEW {} AS {}'.format(
-        'OR REPLACE ' if element.replace else '',
-        'MATERIALIZED ' if element.materialized else '',
+    return "CREATE {}{}VIEW {} AS {}".format(
+        "OR REPLACE " if element.replace else "",
+        "MATERIALIZED " if element.materialized else "",
         compiler.dialect.identifier_preparer.quote(element.name),
         compiler.sql_compiler.process(element.selectable, literal_binds=True),
     )
@@ -238,17 +213,17 @@ def compile_create_view(element, compiler, **kw):
 
 @compiler.compiles(DropView)
 def compile_drop_view(element, compiler, **kw):
-    return 'DROP {}VIEW IF EXISTS {} {}'.format(
-        'MATERIALIZED ' if element.materialized else '',
+    return "DROP {}VIEW IF EXISTS {} {}".format(
+        "MATERIALIZED " if element.materialized else "",
         compiler.dialect.identifier_preparer.quote(element.name),
-        'CASCADE' if element.cascade else ''
+        "CASCADE" if element.cascade else "",
     )
 
 
 @compiler.compiles(RefreshMaterializedView)
 def compile_refresh_materialized_view(element, compiler):
-    return 'REFRESH MATERIALIZED VIEW {concurrently}{name}'.format(
-        concurrently='CONCURRENTLY ' if element.concurrently else '',
+    return "REFRESH MATERIALIZED VIEW {concurrently}{name}".format(
+        concurrently="CONCURRENTLY " if element.concurrently else "",
         name=compiler.dialect.identifier_preparer.quote(element.name),
     )
 

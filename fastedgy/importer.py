@@ -15,7 +15,9 @@ def import_from_string[A: Any = Any](import_str: str | A) -> A:
 
     module_str, _, attrs_str = import_str.partition(":")
     if not module_str or not attrs_str:
-        message = 'Import string "{import_str}" must be in format "<module>:<attribute>".'
+        message = (
+            'Import string "{import_str}" must be in format "<module>:<attribute>".'
+        )
         raise ImportFromStringError(message.format(import_str=import_str))
 
     try:
@@ -32,7 +34,9 @@ def import_from_string[A: Any = Any](import_str: str | A) -> A:
             instance = getattr(instance, attr_str)
     except AttributeError:
         message = 'Attribute "{attrs_str}" not found in module "{module_str}".'
-        raise ImportFromStringError(message.format(attrs_str=attrs_str, module_str=module_str))
+        raise ImportFromStringError(
+            message.format(attrs_str=attrs_str, module_str=module_str)
+        )
 
     return instance
 

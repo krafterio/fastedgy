@@ -9,7 +9,9 @@ from fastedgy.i18n import I18nExtractor
 
 @trans.command()
 @argument("locale", type=str, required=False)
-@option("--package", type=str, help="Target a specific package instead of the main project")
+@option(
+    "--package", type=str, help="Target a specific package instead of the main project"
+)
 @pass_cli_context
 def extract(ctx: CliContext, locale: str | None = None, package: str | None = None):
     """Extract translatable strings and update .po files."""
@@ -18,7 +20,9 @@ def extract(ctx: CliContext, locale: str | None = None, package: str | None = No
 
     pkg_info = f" for package '{package}'" if package else ""
     if locale:
-        console.print(f"[blue]Extracting translations for locale: {locale}{pkg_info}[/blue]")
+        console.print(
+            f"[blue]Extracting translations for locale: {locale}{pkg_info}[/blue]"
+        )
     else:
         console.print(f"[blue]Extracting translations for all locales{pkg_info}[/blue]")
 

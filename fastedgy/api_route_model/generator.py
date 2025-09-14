@@ -9,14 +9,19 @@ from fastapi import APIRouter
 
 from fastedgy.dependencies import get_service
 from fastedgy.orm import Model
-from fastedgy.api_route_model.registry import ADMIN_ROUTE_MODEL_REGISTRY_TOKEN, RouteModelRegistry
+from fastedgy.api_route_model.registry import (
+    ADMIN_ROUTE_MODEL_REGISTRY_TOKEN,
+    RouteModelRegistry,
+)
 from fastedgy.api_route_model.actions import ApiRouteActionRegistry
 
 
-logger = logging.getLogger('api_route_model.generator')
+logger = logging.getLogger("api_route_model.generator")
 
 
-def generate_router_for_model(registry: RouteModelRegistry, model_cls: Type[Model], tags: bool = True) -> APIRouter | None:
+def generate_router_for_model(
+    registry: RouteModelRegistry, model_cls: Type[Model], tags: bool = True
+) -> APIRouter | None:
     """
     Generate a FastAPI router for a model.
 
@@ -29,7 +34,9 @@ def generate_router_for_model(registry: RouteModelRegistry, model_cls: Type[Mode
         A FastAPI router with CRUD endpoints
     """
     if not registry.is_model_registered(model_cls):
-        logger.warning(f"Model {model_cls.__name__} is not registered, skipping router generation")
+        logger.warning(
+            f"Model {model_cls.__name__} is not registered, skipping router generation"
+        )
         return None
 
     options = registry.get_model_options(model_cls)

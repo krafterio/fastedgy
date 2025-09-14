@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from fastedgy.models.queued_task import BaseQueuedTask as QueuedTask
 
 
-logger = logging.getLogger('queued_task.hooks')
+logger = logging.getLogger("queued_task.hooks")
 
 
 class QueueHookRegistry:
@@ -43,7 +43,6 @@ class QueueHookRegistry:
         self.on_post_run_hooks.append(func)
         logger.debug(f"Registered on_post_run hook: {func.__name__}")
 
-
     async def trigger_pre_create(self, task: "QueuedTask") -> None:
         """Trigger all pre create hooks"""
         for hook in self.on_pre_create_hooks:
@@ -68,14 +67,15 @@ class QueueHookRegistry:
             except Exception as e:
                 logger.error(f"Error in on_pre_run hook {hook.__name__}: {e}")
 
-    async def trigger_post_run(self, task: "QueuedTask", result: Any = None, error: Exception | None = None) -> None:
+    async def trigger_post_run(
+        self, task: "QueuedTask", result: Any = None, error: Exception | None = None
+    ) -> None:
         """Trigger all post run hooks"""
         for hook in self.on_post_run_hooks:
             try:
                 await hook(task, result=result, error=error)
             except Exception as e:
                 logger.error(f"Error in on_post_run hook {hook.__name__}: {e}")
-
 
     def clear_all_hooks(self) -> None:
         """Clear all registered hooks (useful for testing)"""
@@ -108,7 +108,9 @@ def on_pre_run(func: Callable[["QueuedTask"], Awaitable[None]]) -> Callable:
     return func
 
 
-def on_post_run(func: Callable[["QueuedTask", Any, Optional[Exception]], Awaitable[None]]) -> Callable:
+def on_post_run(
+    func: Callable[["QueuedTask", Any, Optional[Exception]], Awaitable[None]],
+) -> Callable:
     """Decorator to register a function to run after task execution"""
     registry = get_service(QueueHookRegistry)
     registry.register_post_run(func)

@@ -31,7 +31,9 @@ class FieldSelectorHeader(Header):
         )
 
 
-def parse_field_selector_input(model_cls: type[BaseModelType], fields_expr: str | None) -> dict[str, Any] | None:
+def parse_field_selector_input(
+    model_cls: type[BaseModelType], fields_expr: str | None
+) -> dict[str, Any] | None:
     """
     Parse a fields expression into a structured dictionary.
     """
@@ -60,12 +62,16 @@ def parse_field_selector_input(model_cls: type[BaseModelType], fields_expr: str 
                 from fastedgy.metadata_model.generator import generate_metadata_name
 
                 extra_field_name = field_path[0][6:]
-                extra_fields = context.get_map_workspace_extra_fields(generate_metadata_name(model_cls))
+                extra_fields = context.get_map_workspace_extra_fields(
+                    generate_metadata_name(model_cls)
+                )
 
                 if extra_field_name in extra_fields:
                     result[field_path[0]] = True
             else:
-                _add_field_selector(current, current_model.meta.fields.get(field_path[0]))
+                _add_field_selector(
+                    current, current_model.meta.fields.get(field_path[0])
+                )
         else:
             parent_path = field_path[:-1]
             last_field = field_path[-1]
@@ -82,7 +88,7 @@ def parse_field_selector_input(model_cls: type[BaseModelType], fields_expr: str 
                     elif isinstance(current[field_name], dict):
                         current = current[field_name]
                     else:
-                        current[field_name] = {'id': True}
+                        current[field_name] = {"id": True}
                         current = current[field_name]
 
                     if field and hasattr(field, "target"):
@@ -106,7 +112,9 @@ def parse_field_selector_input(model_cls: type[BaseModelType], fields_expr: str 
     return result
 
 
-def clean_field_names_from_input(model_cls: type[BaseModelType], fields_expr: str | None) -> list[str]:
+def clean_field_names_from_input(
+    model_cls: type[BaseModelType], fields_expr: str | None
+) -> list[str]:
     fields = [part.strip() for part in fields_expr.split(",")]
     fields_map = parse_field_selector_input(model_cls, fields_expr)
     valid_fields = extract_field_names(fields_map)
@@ -114,7 +122,9 @@ def clean_field_names_from_input(model_cls: type[BaseModelType], fields_expr: st
     return [field for field in fields if field in valid_fields]
 
 
-async def filter_fields(data: dict, data_obj: Model, fields_map: dict, target: dict) -> None:
+async def filter_fields(
+    data: dict, data_obj: Model, fields_map: dict, target: dict
+) -> None:
     """Filter data recursively based on the field selector."""
     for field_name, field_value in fields_map.items():
         # Si le champ est une structure imbriquée
@@ -127,7 +137,9 @@ async def filter_fields(data: dict, data_obj: Model, fields_map: dict, target: d
                 nested_obj = getattr(data_obj, field_name, None) if data_obj else None
 
                 if isinstance(nested_data, dict):
-                    await filter_fields(nested_data, nested_obj, field_value, target[field_name])
+                    await filter_fields(
+                        nested_data, nested_obj, field_value, target[field_name]
+                    )
 
                     if not target[field_name]:
                         target[field_name] = None
@@ -138,8 +150,17 @@ async def filter_fields(data: dict, data_obj: Model, fields_map: dict, target: d
                     for i, item in enumerate(nested_data):
                         if isinstance(item, dict):
                             target[field_name].append({})
-                            nested_item_obj = nested_obj[i] if nested_obj and i < len(nested_obj) else None
-                            await filter_fields(item, nested_item_obj, field_value, target[field_name][i])
+                            nested_item_obj = (
+                                nested_obj[i]
+                                if nested_obj and i < len(nested_obj)
+                                else None
+                            )
+                            await filter_fields(
+                                item,
+                                nested_item_obj,
+                                field_value,
+                                target[field_name][i],
+                            )
                         else:
                             target[field_name].append(item)
 
@@ -151,7 +172,9 @@ async def filter_fields(data: dict, data_obj: Model, fields_map: dict, target: d
 
                         if isinstance(nested_data, dict):
                             target[field_name] = {}
-                            await filter_fields(nested_data, nested_obj, field_value, target[field_name])
+                            await filter_fields(
+                                nested_data, nested_obj, field_value, target[field_name]
+                            )
 
                             if not target[field_name]:
                                 target[field_name] = None
@@ -160,10 +183,15 @@ async def filter_fields(data: dict, data_obj: Model, fields_map: dict, target: d
                             target[field_name] = []
 
                             for i, obj_item in enumerate(nested_obj):
-                                if hasattr(obj_item, 'model_dump'):
+                                if hasattr(obj_item, "model_dump"):
                                     item_data = obj_item.model_dump()
                                     target[field_name].append({})
-                                    filter_fields(item_data, obj_item, field_value, target[field_name][i])
+                                    filter_fields(
+                                        item_data,
+                                        obj_item,
+                                        field_value,
+                                        target[field_name][i],
+                                    )
                                 else:
                                     target[field_name].append(obj_item)
                 else:
@@ -176,8 +204,10 @@ async def filter_fields(data: dict, data_obj: Model, fields_map: dict, target: d
                     target[field_name] = []
                     queryset = nested_obj.limit(1000).all()
 
-                    if hasattr(nested_obj, 'Meta'):
-                        order_by_input = getattr(nested_obj.Meta, 'default_order_by', None)
+                    if hasattr(nested_obj, "Meta"):
+                        order_by_input = getattr(
+                            nested_obj.Meta, "default_order_by", None
+                        )
 
                         if order_by_input:
                             queryset = inject_order_by(queryset, order_by_input)
@@ -187,7 +217,9 @@ async def filter_fields(data: dict, data_obj: Model, fields_map: dict, target: d
                     for obj_item in items:
                         item_data = obj_item.model_dump()
                         target[field_name].append({})
-                        await filter_fields(item_data, obj_item, field_value[0], target[field_name][-1])
+                        await filter_fields(
+                            item_data, obj_item, field_value[0], target[field_name][-1]
+                        )
                 else:
                     target[field_name] = []
         else:
@@ -252,12 +284,14 @@ def optimize_query_filter_fields(query: QuerySet, fields_expr: str | None) -> Qu
     return query
 
 
-def _add_field_selector(fields: dict[str, Any], field: BaseFieldType, force: bool = False):
+def _add_field_selector(
+    fields: dict[str, Any], field: BaseFieldType, force: bool = False
+):
     if field and (not field.exclude or force):
         if hasattr(field, "target"):
-            field_val = {'id': True}
+            field_val = {"id": True}
         elif hasattr(field, "related_from"):
-            field_val = [{'id': True}]
+            field_val = [{"id": True}]
         else:
             field_val = True
 

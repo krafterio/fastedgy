@@ -24,6 +24,7 @@ from fastedgy.config import BaseSettings
 @dataclass
 class ExtractorResult:
     """Result object for extraction operations."""
+
     success: bool
     message: str = ""
     error: str = ""
@@ -51,7 +52,7 @@ class I18nExtractor:
                 pkg_info = f" for package '{package}'" if package else ""
                 return ExtractorResult(
                     success=False,
-                    error=f"Translation file for locale '{locale}' already exists{pkg_info}: {po_file}. Use 'extract' to update existing translations."
+                    error=f"Translation file for locale '{locale}' already exists{pkg_info}: {po_file}. Use 'extract' to update existing translations.",
                 )
 
             catalog = self._create_catalog(locale)
@@ -59,7 +60,7 @@ class I18nExtractor:
             for message in messages:
                 catalog.add(message)
 
-            with open(po_file, 'wb') as f:
+            with open(po_file, "wb") as f:
                 write_po(f, catalog, sort_by_file=True, ignore_obsolete=True)
 
             self._post_process_po_file(po_file, locale)
@@ -70,7 +71,7 @@ class I18nExtractor:
                 success=True,
                 message=f"Created {po_file} with {len(messages)} strings to translate{pkg_info}",
                 files_created=[po_file],
-                strings_found=len(messages)
+                strings_found=len(messages),
             )
 
         except FileNotFoundError as e:
@@ -78,7 +79,9 @@ class I18nExtractor:
         except Exception as e:
             return ExtractorResult(success=False, error=f"Unexpected error: {e}")
 
-    def extract(self, locale: str | None = None, package: str | None = None) -> ExtractorResult:
+    def extract(
+        self, locale: str | None = None, package: str | None = None
+    ) -> ExtractorResult:
         """Extract translatable strings and update .po files."""
         try:
             scan_path, translations_dir = self._resolve_package_paths(package)
@@ -91,13 +94,13 @@ class I18nExtractor:
 
                     return ExtractorResult(
                         success=False,
-                        error=f"No translations directory found{pkg_info}. Run 'init' first."
+                        error=f"No translations directory found{pkg_info}. Run 'init' first.",
                     )
 
                 locales = []
 
                 for filename in os.listdir(translations_dir):
-                    if filename.endswith('.po'):
+                    if filename.endswith(".po"):
                         locales.append(filename[:-3])
 
                 if not locales:
@@ -105,7 +108,7 @@ class I18nExtractor:
 
                     return ExtractorResult(
                         success=False,
-                        error=f"No .po files found{pkg_info}. Run 'init <locale>' first."
+                        error=f"No .po files found{pkg_info}. Run 'init <locale>' first.",
                     )
 
             messages = self._extract_messages(scan_path)
@@ -116,7 +119,7 @@ class I18nExtractor:
                 po_file = os.path.join(translations_dir, f"{loc}.po")
 
                 if os.path.exists(po_file):
-                    with open(po_file, 'rb') as f:
+                    with open(po_file, "rb") as f:
                         catalog = read_po(f, locale=loc)
 
                     catalog.revision_date = datetime.now()
@@ -130,7 +133,7 @@ class I18nExtractor:
                         catalog.add(message)
                         added_count += 1
 
-                with open(po_file, 'wb') as f:
+                with open(po_file, "wb") as f:
                     write_po(f, catalog, sort_by_file=True, ignore_obsolete=True)
 
                 self._post_process_po_file(po_file, loc)
@@ -139,7 +142,9 @@ class I18nExtractor:
                 total_added += added_count
 
             pkg_info = f" for package '{package}'" if package else ""
-            result_message = f"Updated {len(locales)} locale(s){pkg_info}: {', '.join(locales)}"
+            result_message = (
+                f"Updated {len(locales)} locale(s){pkg_info}: {', '.join(locales)}"
+            )
 
             if total_added > 0:
                 result_message += f" (+{total_added} new strings)"
@@ -149,7 +154,7 @@ class I18nExtractor:
                 message=result_message,
                 files_updated=files_updated,
                 strings_found=len(messages),
-                strings_added=total_added
+                strings_added=total_added,
             )
 
         except FileNotFoundError as e:
@@ -166,14 +171,16 @@ class I18nExtractor:
         """
         if not package:
             # Default: use project paths
-            return self.settings.server_path, os.path.join(self.settings.project_path, "translations")
+            return self.settings.server_path, os.path.join(
+                self.settings.project_path, "translations"
+            )
 
         # Try to import the package to get its path
         try:
             spec = importlib.util.find_spec(package)
 
             if spec and spec.origin:
-                if spec.origin.endswith('__init__.py'):
+                if spec.origin.endswith("__init__.py"):
                     package_path = os.path.dirname(spec.origin)
                 else:
                     package_path = os.path.dirname(spec.origin)
@@ -201,7 +208,9 @@ class I18nExtractor:
 
             return package_path, translations_dir
 
-        raise FileNotFoundError(f"Package '{package}' not found. Check the package name and ensure it's installed or available.")
+        raise FileNotFoundError(
+            f"Package '{package}' not found. Check the package name and ensure it's installed or available."
+        )
 
     def _extract_messages(self, server_path: str) -> Set[str]:
         """Extract translatable messages from Python files."""
@@ -214,13 +223,13 @@ class I18nExtractor:
         ]
 
         for root, dirs, files in os.walk(server_path):
-            dirs[:] = [d for d in dirs if not d.startswith(('.', '__pycache__'))]
+            dirs[:] = [d for d in dirs if not d.startswith((".", "__pycache__"))]
 
             for file in files:
-                if file.endswith('.py'):
+                if file.endswith(".py"):
                     filepath = os.path.join(root, file)
                     try:
-                        with open(filepath, 'r', encoding='utf-8') as f:
+                        with open(filepath, "r", encoding="utf-8") as f:
                             content = f.read()
 
                         for pattern in patterns:
@@ -247,19 +256,19 @@ class I18nExtractor:
     def _post_process_po_file(self, po_file: str, locale: str) -> None:
         """Post-process .po file to clean headers manually."""
         plural_forms = {
-            'en': 'nplurals=2; plural=(n != 1);',
-            'fr': 'nplurals=2; plural=(n > 1);',
-            'es': 'nplurals=2; plural=(n != 1);',
-            'de': 'nplurals=2; plural=(n != 1);',
-            'it': 'nplurals=2; plural=(n != 1);',
-            'pt': 'nplurals=2; plural=(n != 1);',
-            'ru': 'nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);',
-            'ja': 'nplurals=1; plural=0;',
-            'zh': 'nplurals=1; plural=0;',
-            'ar': 'nplurals=6; plural=(n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 && n%100<=99 ? 4 : 5);',
+            "en": "nplurals=2; plural=(n != 1);",
+            "fr": "nplurals=2; plural=(n > 1);",
+            "es": "nplurals=2; plural=(n != 1);",
+            "de": "nplurals=2; plural=(n != 1);",
+            "it": "nplurals=2; plural=(n != 1);",
+            "pt": "nplurals=2; plural=(n != 1);",
+            "ru": "nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);",
+            "ja": "nplurals=1; plural=0;",
+            "zh": "nplurals=1; plural=0;",
+            "ar": "nplurals=6; plural=(n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 && n%100<=99 ? 4 : 5);",
         }
 
-        with open(po_file, 'r', encoding='utf-8') as f:
+        with open(po_file, "r", encoding="utf-8") as f:
             content = f.read()
 
         pot_creation_match = re.search(r'"POT-Creation-Date: ([^"]+)"', content)
@@ -287,9 +296,11 @@ msgstr ""
 
             clean_content += f'"Content-Type: text/plain; charset=utf-8\\n"\n'
             clean_content += f'"Language: {locale}\\n"\n'
-            clean_content += f'"{plural_forms.get(locale, "nplurals=2; plural=(n != 1);")}\\n"\n'
-            clean_content += '\n'
+            clean_content += (
+                f'"{plural_forms.get(locale, "nplurals=2; plural=(n != 1);")}\\n"\n'
+            )
+            clean_content += "\n"
             clean_content += messages_part
 
-            with open(po_file, 'w', encoding='utf-8') as f:
+            with open(po_file, "w", encoding="utf-8") as f:
                 f.write(clean_content)

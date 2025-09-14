@@ -11,28 +11,28 @@ from fastedgy.orm.utils import find_primary_key_field
 from fastedgy.schemas.dataset import MetadataModel, MetadataField
 
 
-class MetadataFieldError(Exception):...
+class MetadataFieldError(Exception): ...
 
 
 def generate_metadata_name(model_cls: type[Model] | Model) -> str:
     class_name = model_cls.__name__
-    return re.sub(r'(?<!^)(?=[A-Z])', '_', class_name).lower()
+    return re.sub(r"(?<!^)(?=[A-Z])", "_", class_name).lower()
 
 
 def generate_class_name(metadata_name: str) -> str:
-    return re.sub(r'_', ' ', metadata_name).title().replace(' ', '')
+    return re.sub(r"_", " ", metadata_name).title().replace(" ", "")
 
 
 async def generate_metadata_model(model_cls: Model) -> MetadataModel:
     class_name = model_cls.__name__
     name = generate_metadata_name(model_cls)
-    label = re.sub(r'(?<!^)(?=[A-Z])', ' ', class_name)
+    label = re.sub(r"(?<!^)(?=[A-Z])", " ", class_name)
     label_plural = f"{label}s"
 
-    if hasattr(model_cls.Meta, 'label'):
+    if hasattr(model_cls.Meta, "label"):
         label = model_cls.Meta.label
 
-    if hasattr(model_cls.Meta, 'label_plural'):
+    if hasattr(model_cls.Meta, "label_plural"):
         label_plural = model_cls.Meta.label_plural
 
     fields = await generate_metadata_fields(model_cls)
@@ -56,7 +56,9 @@ async def generate_metadata_model(model_cls: Model) -> MetadataModel:
 async def generate_metadata_fields(model_cls: Model) -> dict[str, MetadataField]:
     fields = {}
     for field_name, field_info in model_cls.meta.fields.items():
-        if not field_info.exclude or (hasattr(field_info, 'is_m2m') and field_info.is_m2m):
+        if not field_info.exclude or (
+            hasattr(field_info, "is_m2m") and field_info.is_m2m
+        ):
             fields[field_name] = generate_metadata_field(model_cls, field_info)
 
     await add_extra_fields(model_cls, fields)
@@ -83,7 +85,9 @@ async def add_extra_fields(model_cls: Model, fields: dict[str, MetadataField]) -
             required=extra_field.required,
             searchable=True,
             extra=True,
-            filter_operators=get_filter_operators_for_extra_field(extra_field.field_type),
+            filter_operators=get_filter_operators_for_extra_field(
+                extra_field.field_type
+            ),
             target=None,
         )
 
@@ -105,19 +109,21 @@ def generate_metadata_field_type(field: BaseFieldType) -> str:
 
     field_type = type(field).__name__
 
-    if field_type == 'FieldFactoryMeta':
+    if field_type == "FieldFactoryMeta":
         field_type = field.__name__
 
     field_type = field_type[:-5] if field_type.endswith("Field") else field_type
 
-    return re.sub(r'(?<!^)(?=[A-Z])', '_', field_type).lower()
+    return re.sub(r"(?<!^)(?=[A-Z])", "_", field_type).lower()
 
 
 def generate_metadata_field(model_cls: Model, field: BaseFieldType) -> MetadataField:
-    name_parts = field.name.split('_')
+    name_parts = field.name.split("_")
     label = name_parts[0].capitalize()
     if len(name_parts) > 1:
-        label = ' '.join([name_parts[0].capitalize()] + [word.lower() for word in name_parts[1:]])
+        label = " ".join(
+            [name_parts[0].capitalize()] + [word.lower() for word in name_parts[1:]]
+        )
 
     field_type = generate_metadata_field_type(field)
     readonly = field.read_only
@@ -130,10 +136,16 @@ def generate_metadata_field(model_cls: Model, field: BaseFieldType) -> MetadataF
     target_model = field.target if field and hasattr(field, "target") else None
     label = field.label if field and hasattr(field, "label") else label
     filter_operators = get_filter_operators(field)
-    searchable = field.searchable if field and hasattr(field, "searchable") else len(filter_operators) > 0
+    searchable = (
+        field.searchable
+        if field and hasattr(field, "searchable")
+        else len(filter_operators) > 0
+    )
 
     if searchable and not filter_operators:
-        raise MetadataFieldError(f"Metadata field {field.name} must have a filter operator if searchable is enabled")
+        raise MetadataFieldError(
+            f"Metadata field {field.name} must have a filter operator if searchable is enabled"
+        )
 
     return MetadataField(
         name=field.name,
@@ -144,7 +156,7 @@ def generate_metadata_field(model_cls: Model, field: BaseFieldType) -> MetadataF
         searchable=searchable,
         extra=False,
         filter_operators=filter_operators,
-        target=generate_metadata_name(target_model) if target_model else None
+        target=generate_metadata_name(target_model) if target_model else None,
     )
 
 
@@ -172,12 +184,18 @@ def add_inverse_relations(models: dict[Model, MetadataModel]) -> None:
             target_metadata = models[target_model_cls]
 
             if isinstance(original_field, ForeignKey):
-                _add_one_to_many_relation(original_field, model_cls, metadata_model, target_metadata)
+                _add_one_to_many_relation(
+                    original_field, model_cls, metadata_model, target_metadata
+                )
             elif isinstance(original_field, ManyToMany):
-                _add_many_to_many_relation(original_field, model_cls, metadata_model, target_metadata)
+                _add_many_to_many_relation(
+                    original_field, model_cls, metadata_model, target_metadata
+                )
 
 
-def _find_model_by_metadata_name(models: dict[Model, MetadataModel], metadata_name: str) -> Model | None:
+def _find_model_by_metadata_name(
+    models: dict[Model, MetadataModel], metadata_name: str
+) -> Model | None:
     """Find a Model class by its metadata name."""
     for model_cls, metadata_model in models.items():
         if metadata_model.name == metadata_name:
@@ -189,17 +207,17 @@ def _add_one_to_many_relation(
     foreign_key_field: ForeignKey,
     source_model_cls: Model,
     source_metadata: MetadataModel,
-    target_metadata: MetadataModel
+    target_metadata: MetadataModel,
 ) -> None:
     """Add one-to-many inverse relation to target metadata."""
-    related_name = getattr(foreign_key_field, 'related_name', None)
-    if not related_name or related_name.endswith('_set'):
+    related_name = getattr(foreign_key_field, "related_name", None)
+    if not related_name or related_name.endswith("_set"):
         return
 
     if related_name in target_metadata.fields:
         return
 
-    if hasattr(source_model_cls.Meta, 'label_plural'):
+    if hasattr(source_model_cls.Meta, "label_plural"):
         source_label_plural = source_model_cls.Meta.label_plural
     else:
         source_label_plural = f"{source_metadata.label}s"
@@ -207,13 +225,13 @@ def _add_one_to_many_relation(
     target_metadata.fields[related_name] = MetadataField(
         name=related_name,
         label=source_label_plural,
-        type=FILTER_FIELD_TYPE_NAME_MAP['OneToMany'],
+        type=FILTER_FIELD_TYPE_NAME_MAP["OneToMany"],
         readonly=True,
         required=False,
         searchable=True,
         extra=False,
-        filter_operators=get_filter_operators('OneToMany'),
-        target=source_metadata.name
+        filter_operators=get_filter_operators("OneToMany"),
+        target=source_metadata.name,
     )
 
 
@@ -221,17 +239,17 @@ def _add_many_to_many_relation(
     many_to_many_field: ManyToMany,
     source_model_cls: Model,
     source_metadata: MetadataModel,
-    target_metadata: MetadataModel
+    target_metadata: MetadataModel,
 ) -> None:
     """Add many-to-many inverse relation to target metadata."""
-    back_populates = getattr(many_to_many_field, 'back_populates', None)
+    back_populates = getattr(many_to_many_field, "back_populates", None)
     if not back_populates:
         return
 
     if back_populates in target_metadata.fields:
         return
 
-    if hasattr(source_model_cls.Meta, 'label_plural'):
+    if hasattr(source_model_cls.Meta, "label_plural"):
         source_label_plural = source_model_cls.Meta.label_plural
     else:
         source_label_plural = f"{source_metadata.label}s"
@@ -245,7 +263,7 @@ def _add_many_to_many_relation(
         searchable=True,
         extra=False,
         filter_operators=get_filter_operators(ManyToMany),
-        target=source_metadata.name
+        target=source_metadata.name,
     )
 
 

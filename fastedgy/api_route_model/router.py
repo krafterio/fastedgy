@@ -4,13 +4,16 @@
 import logging
 
 from fastapi import APIRouter
-from fastedgy.api_route_model.generator import get_all_generated_routers, get_all_generated_admin_routers
+from fastedgy.api_route_model.generator import (
+    get_all_generated_routers,
+    get_all_generated_admin_routers,
+)
 from fastedgy.api_route_model.registry import RouteModelRegistry
 from fastedgy.dependencies import get_service
 from fastedgy.metadata_model import MetadataModelRegistry
 
 
-logger = logging.getLogger('api_route_model.router')
+logger = logging.getLogger("api_route_model.router")
 
 
 def register_api_route_models(api_router: APIRouter) -> None:

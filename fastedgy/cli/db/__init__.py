@@ -3,7 +3,7 @@
 
 from fastedgy import cli
 
-import fastedgy.orm.migration # noqa: F401
+import fastedgy.orm.migration  # noqa: F401
 
 
 @cli.group(name="db")

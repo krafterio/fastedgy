@@ -5,12 +5,14 @@ from fastedgy.cli import command, option, pass_cli_context, CliContext
 
 
 @command()
-@option('--host', default='0.0.0.0', help='Server host.')
-@option('--port', default=8000, help='Server port.')
-@option('--http-workers', default=None, help='Number of HTTP workers.')
-@option('--reload/--no-reload', default=True, help='Enable/disable hot reload.')
+@option("--host", default="0.0.0.0", help="Server host.")
+@option("--port", default=8000, help="Server port.")
+@option("--http-workers", default=None, help="Number of HTTP workers.")
+@option("--reload/--no-reload", default=True, help="Enable/disable hot reload.")
 @pass_cli_context
-def serve(ctx: CliContext, host: str, port: int, http_workers: int | None, reload: bool):
+def serve(
+    ctx: CliContext, host: str, port: int, http_workers: int | None, reload: bool
+):
     """Start the development server."""
     import uvicorn
     from fastedgy.cli import console, Table, Panel
@@ -25,7 +27,7 @@ def serve(ctx: CliContext, host: str, port: int, http_workers: int | None, reloa
     table.add_row("Host", host)
     table.add_row("Port", str(port))
     table.add_row("Mode", "development" if reload else "production")
-    table.add_row("HTTP Workers", str(http_workers or 'auto'))
+    table.add_row("HTTP Workers", str(http_workers or "auto"))
     table.add_row("Log Level", ctx.settings.log_level.value)
     table.add_row("Log Output", ctx.settings.log_output.value)
     table.add_row("URL", f"http://{host}:{port}")

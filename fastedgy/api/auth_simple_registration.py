@@ -22,13 +22,12 @@ async def register_user(
     user_data: UserRegisterRequest = Body(),
     registry: Registry = Inject(Registry),
 ) -> Message:
-    user_model = cast(type["User"], registry.get_model('User'))
+    user_model = cast(type["User"], registry.get_model("User"))
 
     existing_user = await user_model.query.filter(email=user_data.email).first()
     if existing_user:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered"
         )
 
     hashed_password = hash_password(user_data.password)

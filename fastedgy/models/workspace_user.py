@@ -21,8 +21,18 @@ class BaseWorkspaceUser(BaseModel):
         label_plural = "Utilisateurs de l'espace de travail"
         unique_together = [("workspace", "user")]
 
-    workspace: Union["Workspace", None] = fields.ForeignKey('Workspace', on_delete='CASCADE', related_name='workspace_users', label="Espace de travail") # type: ignore
-    user: Union["User", None] = fields.ForeignKey('User', on_delete='CASCADE', related_name='workspace_memberships', label="Utilisateur") # type: ignore
+    workspace: Union["Workspace", None] = fields.ForeignKey(
+        "Workspace",
+        on_delete="CASCADE",
+        related_name="workspace_users",
+        label="Espace de travail",
+    )  # type: ignore
+    user: Union["User", None] = fields.ForeignKey(
+        "User",
+        on_delete="CASCADE",
+        related_name="workspace_memberships",
+        label="Utilisateur",
+    )  # type: ignore
 
 
 __all__ = [

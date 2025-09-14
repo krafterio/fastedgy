@@ -54,10 +54,12 @@ class BaseWorkspaceExtraField(BaseModel, WorkspaceableMixin):
             ("workspace", "name"),
         ]
 
-    label: str | None = fields.CharField(max_length=255, label="Label") # type: ignore
-    name: str | None = fields.CharField(max_length=40, label="Nom technique") # type: ignore
-    field_type: WorkspaceExtraFieldType | None = fields.ChoiceField(WorkspaceExtraFieldType, label="Type") # type: ignore
-    required: bool = fields.BooleanField(default=False, label="Requis") # type: ignore
+    label: str | None = fields.CharField(max_length=255, label="Label")  # type: ignore
+    name: str | None = fields.CharField(max_length=40, label="Nom technique")  # type: ignore
+    field_type: WorkspaceExtraFieldType | None = fields.ChoiceField(
+        WorkspaceExtraFieldType, label="Type"
+    )  # type: ignore
+    required: bool = fields.BooleanField(default=False, label="Requis")  # type: ignore
 
 
 __all__ = [

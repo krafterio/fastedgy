@@ -26,7 +26,7 @@ class WorkspaceableMixin(Model):
         abstract = True
 
     model_config = ConfigDict(
-        extra='ignore',
+        extra="ignore",
     )
 
     workspace = fields.ForeignKey(
@@ -60,11 +60,17 @@ class WorkspaceableMixin(Model):
                 exclude=True,
             )
 
-    async def save(self: Model, force_insert: bool = False, values: dict[str, Any] | set[str] | None = None,
-                   force_save: bool | None = None) -> Model:
+    async def save(
+        self: Model,
+        force_insert: bool = False,
+        values: dict[str, Any] | set[str] | None = None,
+        force_save: bool | None = None,
+    ) -> Model:
         workspace = context.get_workspace()
 
-        if workspace and (not hasattr(self, "workspace") or self.workspace != workspace):
+        if workspace and (
+            not hasattr(self, "workspace") or self.workspace != workspace
+        ):
             self.workspace = workspace
 
         return await super().save(force_insert, values, force_save)
@@ -87,15 +93,11 @@ class BlameableMixin(Model):
         abstract = True
 
     model_config = ConfigDict(
-        extra='ignore',
+        extra="ignore",
     )
 
     created_by = fields.ForeignKey(
-        "User",
-        on_delete="SET NULL",
-        null=True,
-        related_name=False,
-        label="Créé par"
+        "User", on_delete="SET NULL", null=True, related_name=False, label="Créé par"
     )
 
     updated_by = fields.ForeignKey(
@@ -103,11 +105,15 @@ class BlameableMixin(Model):
         on_delete="SET NULL",
         null=True,
         related_name=False,
-        label="Mis à jour par"
+        label="Mis à jour par",
     )
 
-    async def save(self: Model, force_insert: bool = False, values: dict[str, Any] | set[str] | None = None,
-                   force_save: bool | None = None) -> Model:
+    async def save(
+        self: Model,
+        force_insert: bool = False,
+        values: dict[str, Any] | set[str] | None = None,
+        force_save: bool | None = None,
+    ) -> Model:
         current_user = context.get_user()
 
         if current_user:

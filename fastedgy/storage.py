@@ -33,7 +33,9 @@ class Storage:
 
         return Path(os.path.join(self.settings.storage_data_path, workspace_id))
 
-    def get_directory_path(self, path: str, ensure_exists: bool = True, global_storage: bool = False) -> Path:
+    def get_directory_path(
+        self, path: str, ensure_exists: bool = True, global_storage: bool = False
+    ) -> Path:
         dir_path = self.get_base_path(global_storage)
 
         safe_custom_path = Path(path.strip("/")).parts
@@ -44,7 +46,9 @@ class Storage:
 
         return dir_path
 
-    def get_file_path(self, path: str, ensure_exists: bool = True, global_storage: bool = False) -> Path:
+    def get_file_path(
+        self, path: str, ensure_exists: bool = True, global_storage: bool = False
+    ) -> Path:
         path_parts = Path(path.strip("/")).parts
         directory_path = ""
         filename = path
@@ -56,7 +60,9 @@ class Storage:
             if directory_parts:
                 directory_path = "/".join(directory_parts)
 
-        directory_path = self.get_directory_path(directory_path, ensure_exists, global_storage)
+        directory_path = self.get_directory_path(
+            directory_path, ensure_exists, global_storage
+        )
 
         return directory_path.joinpath(filename)
 
@@ -65,7 +71,13 @@ class Storage:
 
         return str(file_path.relative_to(data_path))
 
-    async def upload(self, file: UploadFile, directory_path: str, filename: str | None = None, global_storage: bool = False) -> str:
+    async def upload(
+        self,
+        file: UploadFile,
+        directory_path: str,
+        filename: str | None = None,
+        global_storage: bool = False,
+    ) -> str:
         if not file.filename:
             raise ValueError("Nom de fichier manquant")
 
@@ -81,13 +93,17 @@ class Storage:
 
         if ext not in self.ALLOWED_EXTENSIONS:
             allowed_ext_str = ", ".join(self.ALLOWED_EXTENSIONS)
-            raise ValueError(f"Extension de fichier non autorisée. Extensions acceptées: {allowed_ext_str}")
+            raise ValueError(
+                f"Extension de fichier non autorisée. Extensions acceptées: {allowed_ext_str}"
+            )
 
         if not filename:
-            filename = str(uuid.uuid4()) + '.{ext}'
+            filename = str(uuid.uuid4()) + ".{ext}"
 
-        path = os.path.join(directory_path, filename.replace('{ext}', ext))
-        file_path = self.get_file_path(path, ensure_exists=True, global_storage=global_storage)
+        path = os.path.join(directory_path, filename.replace("{ext}", ext))
+        file_path = self.get_file_path(
+            path, ensure_exists=True, global_storage=global_storage
+        )
         relative_path = self.get_relative_path(file_path, global_storage=global_storage)
 
         content = await file.read()
@@ -97,24 +113,34 @@ class Storage:
 
         return relative_path
 
-    async def upload_from_base64(self, data: str, directory_path: str, filename: str | None = None, global_storage: bool = False) -> str:
+    async def upload_from_base64(
+        self,
+        data: str,
+        directory_path: str,
+        filename: str | None = None,
+        global_storage: bool = False,
+    ) -> str:
         if not data.startswith("data:"):
             raise ValueError("Le contenu n'est pas une data URL")
 
         header, base64_data = data.split(",", 1)
         content_type = header.split(";")[0][5:]
         ext = mimetypes.guess_extension(content_type) or ".bin"
-        ext = ext.lstrip('.')
+        ext = ext.lstrip(".")
 
         if ext not in self.ALLOWED_EXTENSIONS:
             allowed_ext_str = ", ".join(self.ALLOWED_EXTENSIONS)
-            raise ValueError(f"Extension de fichier non autorisée. Extensions acceptées: {allowed_ext_str}")
+            raise ValueError(
+                f"Extension de fichier non autorisée. Extensions acceptées: {allowed_ext_str}"
+            )
 
         if not filename:
-            filename = str(uuid.uuid4()) + '.{ext}'
+            filename = str(uuid.uuid4()) + ".{ext}"
 
-        path = os.path.join(directory_path, filename.replace('{ext}', ext))
-        file_path = self.get_file_path(path, ensure_exists=True, global_storage=global_storage)
+        path = os.path.join(directory_path, filename.replace("{ext}", ext))
+        file_path = self.get_file_path(
+            path, ensure_exists=True, global_storage=global_storage
+        )
         relative_path = self.get_relative_path(file_path, global_storage=global_storage)
 
         content = base64.b64decode(base64_data)
@@ -129,7 +155,9 @@ class Storage:
             if not file_path:
                 return True
 
-            path = self.get_file_path(file_path, ensure_exists=False, global_storage=global_storage)
+            path = self.get_file_path(
+                file_path, ensure_exists=False, global_storage=global_storage
+            )
 
             if not os.path.exists(path):
                 return True
@@ -148,31 +176,42 @@ class Storage:
 
         return False
 
-    async def download_and_upload(self, file_url: str, directory_path: str, filename: str | None = None, global_storage: bool = False) -> str:
+    async def download_and_upload(
+        self,
+        file_url: str,
+        directory_path: str,
+        filename: str | None = None,
+        global_storage: bool = False,
+    ) -> str:
         try:
             import httpx
+
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.get(file_url)
                 response.raise_for_status()
 
-                content_type = response.headers.get('content-type', '')
-                if not content_type.startswith('image/'):
+                content_type = response.headers.get("content-type", "")
+                if not content_type.startswith("image/"):
                     raise ValueError("L'URL ne pointe pas vers une image")
 
                 ext_map = {
-                    'image/jpeg': 'jpg',
-                    'image/jpg': 'jpg',
-                    'image/png': 'png',
-                    'image/gif': 'gif'
+                    "image/jpeg": "jpg",
+                    "image/jpg": "jpg",
+                    "image/png": "png",
+                    "image/gif": "gif",
                 }
-                ext = ext_map.get(content_type, 'jpg')
+                ext = ext_map.get(content_type, "jpg")
 
                 if not filename:
-                    filename = str(uuid.uuid4()) + '.{ext}'
+                    filename = str(uuid.uuid4()) + ".{ext}"
 
-                path = os.path.join(directory_path, filename.replace('{ext}', ext))
-                file_path = self.get_file_path(path, ensure_exists=True, global_storage=global_storage)
-                relative_path = self.get_relative_path(file_path, global_storage=global_storage)
+                path = os.path.join(directory_path, filename.replace("{ext}", ext))
+                file_path = self.get_file_path(
+                    path, ensure_exists=True, global_storage=global_storage
+                )
+                relative_path = self.get_relative_path(
+                    file_path, global_storage=global_storage
+                )
 
                 with open(file_path, "wb") as f:
                     f.write(response.content)

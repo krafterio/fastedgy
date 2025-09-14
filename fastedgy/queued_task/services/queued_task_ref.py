@@ -17,7 +17,7 @@ class QueuedTaskRef:
     The task may not be created in database yet.
     """
 
-    def __init__(self, service: 'QueuedTasks'):
+    def __init__(self, service: "QueuedTasks"):
         self._service = service
         self._task_id: Optional[int] = None
         self._creation_future: Optional[asyncio.Future[int]] = asyncio.Future()
@@ -57,14 +57,18 @@ class QueuedTaskRef:
             raise RuntimeError(f"Task {task_id} not found")
 
         # Poll until task is done
-        while task.state not in [QueuedTaskState.done, QueuedTaskState.failed, QueuedTaskState.cancelled]:
+        while task.state not in [
+            QueuedTaskState.done,
+            QueuedTaskState.failed,
+            QueuedTaskState.cancelled,
+        ]:
             await asyncio.sleep(0.5)
             task = await self._service.get_task_by_id(task_id)
             if not task:
                 raise RuntimeError(f"Task {task_id} disappeared")
 
         if task.state == QueuedTaskState.done:
-            return task.result if hasattr(task, 'result') else None
+            return task.result if hasattr(task, "result") else None
         elif task.state == QueuedTaskState.failed:
             raise RuntimeError(f"Task failed: {task.exception_message}")
         else:  # cancelled

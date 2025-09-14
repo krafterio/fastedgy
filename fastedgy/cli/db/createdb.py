@@ -10,7 +10,9 @@ from fastedgy.cli.db import db
 
 
 # Monkey-patch to ignore _DeleteDummyThreadOnDel exception at process termination with Python 3.13
-_old = threading._DeleteDummyThreadOnDel.__del__ # type: ignore
+_old = threading._DeleteDummyThreadOnDel.__del__  # type: ignore
+
+
 def _safe_del(self):
     if sys and sys.is_finalizing():
         return
@@ -18,7 +20,9 @@ def _safe_del(self):
         _old(self)
     except Exception:
         pass
-threading._DeleteDummyThreadOnDel.__del__ = _safe_del # type: ignore
+
+
+threading._DeleteDummyThreadOnDel.__del__ = _safe_del  # type: ignore
 
 
 @db.command()
@@ -40,7 +44,9 @@ async def createdb(ctx: CliContext):
 
     db_admin = Database(admin_database_url)
     await db_admin.connect()
-    result = await db_admin.execute("SELECT 1 FROM pg_database WHERE datname=:dbn", {"dbn": dbname})
+    result = await db_admin.execute(
+        "SELECT 1 FROM pg_database WHERE datname=:dbn", {"dbn": dbname}
+    )
 
     if result:
         console.print(f"[yellow]Database '{dbname}' already exists.[/yellow]")

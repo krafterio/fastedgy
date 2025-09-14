@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     from fastedgy.models.queued_task import BaseQueuedTask as QueuedTask
 
 
-logger = logging.getLogger('queued_task.worker')
+logger = logging.getLogger("queued_task.worker")
 logger.setLevel(logging.DEBUG)
 
 
@@ -56,10 +56,14 @@ class QueueWorker:
         self.is_busy = True
         self.last_activity = datetime.now()
 
-        QueuedTask = cast(type["QueuedTask"], get_service(Registry).get_model("QueuedTask"))
+        QueuedTask = cast(
+            type["QueuedTask"], get_service(Registry).get_model("QueuedTask")
+        )
 
         try:
-            logger.info(f"Worker {self.worker_id} starting task {task.id}: {task.module_name}.{task.function_name}")
+            logger.info(
+                f"Worker {self.worker_id} starting task {task.id}: {task.module_name}.{task.function_name}"
+            )
 
             # FIRST CHECK: Verify parent is still valid before starting
             if task.parent_task:
@@ -69,11 +73,13 @@ class QueueWorker:
 
                 if not parent or parent.state != QueuedTaskState.done:
                     parent_state = parent.state if parent else "not_found"
-                    logger.warning(f"Parent task {task.parent_task.id} is {parent_state}, aborting child {task.id}")
+                    logger.warning(
+                        f"Parent task {task.parent_task.id} is {parent_state}, aborting child {task.id}"
+                    )
                     task.mark_as_failed(
                         exception_name="ParentTaskNotReady",
                         exception_message=f"Parent task {task.parent_task.id} is {parent_state}",
-                        exception_info="Parent task is not in 'done' state, cannot execute child"
+                        exception_info="Parent task is not in 'done' state, cannot execute child",
                     )
                     await task.save()
 
@@ -81,7 +87,7 @@ class QueueWorker:
                         "status": "error",
                         "error": f"Parent task {task.parent_task.id} not ready",
                         "worker_id": self.worker_id,
-                        "task_id": task.id
+                        "task_id": task.id,
                     }
 
             # Mark task as doing
@@ -106,11 +112,13 @@ class QueueWorker:
 
                 if parent and parent.state != QueuedTaskState.done:
                     # Parent failed/cancelled while we were executing, mark as failed
-                    logger.warning(f"Parent task {parent.id} is {parent.state}, marking child {task.id} as failed")
+                    logger.warning(
+                        f"Parent task {parent.id} is {parent.state}, marking child {task.id} as failed"
+                    )
                     task.mark_as_failed(
                         exception_name="ParentTaskFailed",
                         exception_message=f"Parent task {parent.id} is {parent.state}",
-                        exception_info=f"Parent task changed state to {parent.state} during child execution"
+                        exception_info=f"Parent task changed state to {parent.state} during child execution",
                     )
                     await task.save()
 
@@ -118,7 +126,7 @@ class QueueWorker:
                         "status": "error",
                         "error": f"Parent task {parent.id} failed",
                         "worker_id": self.worker_id,
-                        "task_id": task.id
+                        "task_id": task.id,
                     }
 
             # Mark task as done
@@ -126,14 +134,15 @@ class QueueWorker:
             task.mark_as_done()
             await task.save()
 
-
-            logger.info(f"Worker {self.worker_id} completed task {task.id} successfully")
+            logger.info(
+                f"Worker {self.worker_id} completed task {task.id} successfully"
+            )
 
             return {
                 "status": "success",
                 "result": result,
                 "worker_id": self.worker_id,
-                "task_id": task.id
+                "task_id": task.id,
             }
 
         except Exception as e:
@@ -141,7 +150,7 @@ class QueueWorker:
             task.mark_as_failed(
                 exception_name=type(e).__name__,
                 exception_message=str(e),
-                exception_info=traceback.format_exc()
+                exception_info=traceback.format_exc(),
             )
             await task.save()
 
@@ -153,7 +162,7 @@ class QueueWorker:
                 "status": "error",
                 "error": str(e),
                 "worker_id": self.worker_id,
-                "task_id": task.id
+                "task_id": task.id,
             }
 
         finally:
@@ -170,24 +179,32 @@ class QueueWorker:
             logger.debug(f"Deserializing local function for task {task.id}")
             try:
                 func = dill.loads(task.serialized_function)
-                logger.debug(f"Function deserialized: {func}, is_coroutine: {asyncio.iscoroutinefunction(func)}")
+                logger.debug(
+                    f"Function deserialized: {func}, is_coroutine: {asyncio.iscoroutinefunction(func)}"
+                )
             except Exception as e:
                 raise RuntimeError(f"Failed to deserialize function: {e}")
         else:
             # Load from module
-            logger.debug(f"Loading module '{task.module_name}' and function '{task.function_name}'")
+            logger.debug(
+                f"Loading module '{task.module_name}' and function '{task.function_name}'"
+            )
             try:
                 module = importlib.import_module(str(task.module_name))
                 logger.debug(f"Module loaded: {module}")
                 func = getattr(module, str(task.function_name))
-                logger.debug(f"Function loaded: {func}, is_coroutine: {asyncio.iscoroutinefunction(func)}")
+                logger.debug(
+                    f"Function loaded: {func}, is_coroutine: {asyncio.iscoroutinefunction(func)}"
+                )
             except ImportError as e:
                 raise ImportError(f"Cannot import module '{task.module_name}': {e}")
             except AttributeError as e:
-                raise AttributeError(f"Function '{task.function_name}' not found in module '{task.module_name}': {e}")
+                raise AttributeError(
+                    f"Function '{task.function_name}' not found in module '{task.module_name}': {e}"
+                )
 
         if not callable(func):
-            func_name = getattr(func, '__name__', 'unnamed')
+            func_name = getattr(func, "__name__", "unnamed")
             raise TypeError(f"'{func_name}' is not callable")
 
         # Set up task context

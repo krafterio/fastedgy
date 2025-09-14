@@ -24,26 +24,27 @@ class DeleteApiRouteAction(BaseApiRouteAction):
 
     @classmethod
     def register_route(
-        cls,
-        router: APIRouter,
-        model_cls: TypeModel,
-        options: RouteModelActionOptions
+        cls, router: APIRouter, model_cls: TypeModel, options: RouteModelActionOptions
     ) -> None:
         """Register the delete route."""
-        router.add_api_route(**{
-            "path": "/{item_id}",
-            "endpoint": generate_delete_item(model_cls),
-            "methods": ["DELETE"],
-            "summary": f"Delete {model_cls.__name__}",
-            "description": f"Delete a {model_cls.__name__} by its ID",
-            "status_code": 204,
-            **options,
-        })
+        router.add_api_route(
+            **{
+                "path": "/{item_id}",
+                "endpoint": generate_delete_item(model_cls),
+                "methods": ["DELETE"],
+                "summary": f"Delete {model_cls.__name__}",
+                "description": f"Delete a {model_cls.__name__} by its ID",
+                "status_code": 204,
+                **options,
+            }
+        )
 
 
-def generate_delete_item[M = TypeModel](model_cls: M) -> Callable[[int], Coroutine[Any, Any, None]]:
+def generate_delete_item[M = TypeModel](
+    model_cls: M,
+) -> Callable[[int], Coroutine[Any, Any, None]]:
     async def delete_item(
-            item_id: int = Path(..., description="Item ID"),
+        item_id: int = Path(..., description="Item ID"),
     ) -> None:
         return await delete_item_action(
             model_cls,
@@ -65,10 +66,12 @@ async def delete_item_action[M = TypeModel](
 
         await item.delete()
     except DBAPIError as e:
-        if "SerializationError" in str(e.orig.__class__.__name__) or "could not serialize access" in str(e):
+        if "SerializationError" in str(
+            e.orig.__class__.__name__
+        ) or "could not serialize access" in str(e):
             raise HTTPException(
                 status_code=429,
-                detail="La ressource est actuellement utilisée par une autre opération. Veuillez réessayer dans quelques instants."
+                detail="La ressource est actuellement utilisée par une autre opération. Veuillez réessayer dans quelques instants.",
             )
         raise e
     except ObjectNotFound:
@@ -76,12 +79,9 @@ async def delete_item_action[M = TypeModel](
     except ValidationError as e:
         raise RequestValidationError(e.errors())
     except ValueError as e:
-        raise RequestValidationError([ErrorDetails(
-            msg=str(e),
-            type='value_error',
-            loc=('body',),
-            input=None
-        )])
+        raise RequestValidationError(
+            [ErrorDetails(msg=str(e), type="value_error", loc=("body",), input=None)]
+        )
 
     return None
 

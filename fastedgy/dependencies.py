@@ -3,16 +3,30 @@
 
 from fastapi import FastAPI, Depends
 from contextlib import AsyncExitStack
-from typing import Callable, TypeVar, Any, MutableMapping, Type, cast, Union, Generic, Dict
-from fastapi.dependencies.utils import get_dependant, solve_dependencies as base_solve_dependencies
+from typing import (
+    Callable,
+    TypeVar,
+    Any,
+    MutableMapping,
+    Type,
+    cast,
+    Union,
+    Generic,
+    Dict,
+)
+from fastapi.dependencies.utils import (
+    get_dependant,
+    solve_dependencies as base_solve_dependencies,
+)
 from starlette.requests import Request
 
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class Token(Generic[T]):
     """Token for service registration using string names or class types."""
+
     def __init__(self, key: Union[str, Type[Any]]):
         self.key = key
         self.name = key if isinstance(key, str) else key.__name__
@@ -20,6 +34,7 @@ class Token(Generic[T]):
     def __class_getitem__(cls, item):
         class TypedToken(Token):
             pass
+
         return TypedToken
 
     def __repr__(self):
@@ -47,15 +62,22 @@ async def depends(app: FastAPI | None, call: Callable[..., T]) -> T:
     return call(**values)
 
 
-async def solve_dependencies(app: FastAPI | None, request: Request | None, call: Callable[..., T], skip_error: bool = False) -> dict[str, Any]:
+async def solve_dependencies(
+    app: FastAPI | None,
+    request: Request | None,
+    call: Callable[..., T],
+    skip_error: bool = False,
+) -> dict[str, Any]:
     if not request:
-        request = Request({
-            "type": "http",
-            "method": "GET",
-            "path": "/",
-            "query_string": b"",
-            "headers": [],
-        })
+        request = Request(
+            {
+                "type": "http",
+                "method": "GET",
+                "path": "/",
+                "query_string": b"",
+                "headers": [],
+            }
+        )
     dependant = get_dependant(path="", call=call)
     exit_stack = AsyncExitStack()
     solved = await base_solve_dependencies(
@@ -75,12 +97,15 @@ async def solve_dependencies(app: FastAPI | None, request: Request | None, call:
 
 class ContainerService:
     """Container service for the application."""
+
     def __init__(self) -> None:
         self._map: Dict[ProviderKey, Union[Any, Callable[[], Any]]] = {}
         # Support for FastAPI overrides
         self.dependency_overrides: MutableMapping[Any, Any] = {}
 
-    def register(self, key: ProviderKey, instance: Union[T, Callable[[], T]], force: bool = False) -> None:
+    def register(
+        self, key: ProviderKey, instance: Union[T, Callable[[], T]], force: bool = False
+    ) -> None:
         if force or key not in self._map:
             self._map[key] = instance
 
@@ -113,7 +138,11 @@ def get_container_service() -> ContainerService:
     return container_service
 
 
-def register_service(instance: Union[T, Callable[[], T]], key: Union[Type[T], Token[T], str, None] = None, force: bool = False) -> None:
+def register_service(
+    instance: Union[T, Callable[[], T]],
+    key: Union[Type[T], Token[T], str, None] = None,
+    force: bool = False,
+) -> None:
     if callable(instance):
         if key is None:
             raise ValueError("Key must be provided when registering a callable")
@@ -144,6 +173,7 @@ def get_service(key: Union[Type[T], Token[T], str]) -> T:
 
 def provide(cls: Union[Type[T], Token[T], str]) -> Callable[[ContainerService], T]:
     """Use in FastAPI signatures: svc: Svc = Depends(provide(Svc))"""
+
     def dep(container: ContainerService = Depends(get_container_service)) -> T:
         return container.get(_normalize_key(cls))
 
@@ -155,7 +185,9 @@ def Inject(cls: Union[Type[T], Token[T], str]) -> T:
     return Depends(provide(cls))
 
 
-def _normalize_key(key: Union[Type[Any], Token[Any], str]) -> Union[Token[Any], Type[Any]]:
+def _normalize_key(
+    key: Union[Type[Any], Token[Any], str],
+) -> Union[Token[Any], Type[Any]]:
     if isinstance(key, str) or isinstance(key, type):
         return Token(key)
 

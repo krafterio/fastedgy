@@ -10,8 +10,8 @@ from fastedgy.metadata_model.decorators import metadata_model
 
 
 __all__ = [
-    'metadata_model',
-    'TypeMetadataModels',
-    'TypeMapMetadataModels',
-    'MetadataModelRegistry',
+    "metadata_model",
+    "TypeMetadataModels",
+    "TypeMapMetadataModels",
+    "MetadataModelRegistry",
 ]

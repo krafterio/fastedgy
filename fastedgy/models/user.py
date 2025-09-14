@@ -17,8 +17,17 @@ class BaseUser(BaseModel):
     name: str | None = fields.CharField(max_length=255, null=True, label="Nom")  # type: ignore
     password: str | None = fields.PasswordField(exclude=True, label="Mot de passe")  # type: ignore
     initials: str | None = fields.ComputedField(getter="get_initials", label="Initials")  # type: ignore
-    reset_pwd_token: str | None = fields.CharField(max_length=255, null=True, exclude=True, label="Token de réinitialisation de mot de passe")  # type: ignore
-    reset_pwd_expires_at: datetime | None = fields.DateTimeField(null=True, exclude=True, label="Date d'expiration du token de réinitialisation de mot de passe")  # type: ignore
+    reset_pwd_token: str | None = fields.CharField(
+        max_length=255,
+        null=True,
+        exclude=True,
+        label="Token de réinitialisation de mot de passe",
+    )  # type: ignore
+    reset_pwd_expires_at: datetime | None = fields.DateTimeField(
+        null=True,
+        exclude=True,
+        label="Date d'expiration du token de réinitialisation de mot de passe",
+    )  # type: ignore
 
     @classmethod
     def get_initials(cls, field, instance, owner=None) -> str:

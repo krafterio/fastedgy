@@ -57,7 +57,7 @@ class Mail:
         self.settings = settings
         self.jinja_env = Environment(
             loader=FileSystemLoader(self._template_path),
-            autoescape=select_autoescape(['html', 'xml']),
+            autoescape=select_autoescape(["html", "xml"]),
             undefined=SilentUndefined,
             trim_blocks=True,
             lstrip_blocks=True,
@@ -76,16 +76,28 @@ class Mail:
     def _template_path(self) -> str:
         return self.settings.mail_template_path
 
-    def render_template(self, template_name: str, tpl_part: TemplatePart, context: dict, strict: bool = False) -> str | None:
+    def render_template(
+        self,
+        template_name: str,
+        tpl_part: TemplatePart,
+        context: dict,
+        strict: bool = False,
+    ) -> str | None:
         logger.debug(f"Rendering template {template_name}, part {tpl_part.value}")
         template = self.jinja_env.get_template(template_name)
 
         if tpl_part.value not in template.blocks:
             if strict:
-                logger.error(f"Template '{template_name}' is missing required '{tpl_part.value}' block")
-                raise ValueError(f"Template '{template_name}' is missing required '{tpl_part.value}' block")
+                logger.error(
+                    f"Template '{template_name}' is missing required '{tpl_part.value}' block"
+                )
+                raise ValueError(
+                    f"Template '{template_name}' is missing required '{tpl_part.value}' block"
+                )
 
-            logger.warning(f"Template '{template_name}' doesn't have '{tpl_part.value}' block")
+            logger.warning(
+                f"Template '{template_name}' doesn't have '{tpl_part.value}' block"
+            )
             return None
 
         tpl_context = template.new_context(context)
@@ -93,7 +105,9 @@ class Mail:
 
         return "".join(block(tpl_context)).strip() or None
 
-    async def generate_email_template(self, template_name: str, tpl_vals: dict, email_parts: EmailMessage | dict) -> EmailMessage:
+    async def generate_email_template(
+        self, template_name: str, tpl_vals: dict, email_parts: EmailMessage | dict
+    ) -> EmailMessage:
         logger.debug(f"Generating email from template {template_name}")
         if isinstance(email_parts, dict):
             email = EmailMessage()
@@ -102,9 +116,15 @@ class Mail:
         else:
             email = email_parts
 
-        subject: str | None = self.render_template(template_name, TemplatePart.SUBJECT, tpl_vals)
-        html_content: str | None = self.render_template(template_name, TemplatePart.BODY_HTML, tpl_vals)
-        text_content: str | None = self.render_template(template_name, TemplatePart.BODY_TEXT, tpl_vals)
+        subject: str | None = self.render_template(
+            template_name, TemplatePart.SUBJECT, tpl_vals
+        )
+        html_content: str | None = self.render_template(
+            template_name, TemplatePart.BODY_HTML, tpl_vals
+        )
+        text_content: str | None = self.render_template(
+            template_name, TemplatePart.BODY_TEXT, tpl_vals
+        )
 
         if not text_content and html_content:
             logger.debug("Converting HTML content to text")
@@ -114,26 +134,28 @@ class Mail:
         email.make_alternative()
 
         if subject:
-            email['Subject'] = subject
+            email["Subject"] = subject
 
         if text_content:
-            email.add_alternative(text_content, subtype='plain')
+            email.add_alternative(text_content, subtype="plain")
 
         if html_content:
-            email.add_alternative(html_content, subtype='html')
+            email.add_alternative(html_content, subtype="html")
 
         return email
 
-    async def send_template(self, template_name: str, tpl_vals: dict, email_parts: EmailMessage | dict) -> None:
+    async def send_template(
+        self, template_name: str, tpl_vals: dict, email_parts: EmailMessage | dict
+    ) -> None:
         logger.debug(f"Sending email using template {template_name}")
         email = await self.generate_email_template(template_name, tpl_vals, email_parts)
         await self.send(email)
 
     async def send(self, email: EmailMessage) -> None:
-        if not email['From']:
-            email['From'] = self.settings.smtp_default_from
+        if not email["From"]:
+            email["From"] = self.settings.smtp_default_from
 
-        recipients = email.get('To', '')
+        recipients = email.get("To", "")
         logger.debug(f"Sending email to {recipients}")
 
         try:
@@ -159,27 +181,27 @@ class SilentUndefined(Undefined):
         return self
 
     def __str__(self):
-        return ''
+        return ""
 
 
 def clean_markdown_residuals(text: str) -> str:
     """Cleans residual Markdown characters from text"""
     # Remove # characters from headings
-    text = re.sub(r'^#+\s*', '', text, flags=re.MULTILINE)
+    text = re.sub(r"^#+\s*", "", text, flags=re.MULTILINE)
     # Remove * and _ characters for emphasis
-    text = re.sub(r'([*_]{1,2})(\S.*?\S|[^\s])\1', r'\2', text)
+    text = re.sub(r"([*_]{1,2})(\S.*?\S|[^\s])\1", r"\2", text)
     # Remove ` characters for code
-    text = re.sub(r'`([^`]*)`', r'\1', text)
+    text = re.sub(r"`([^`]*)`", r"\1", text)
     # Remove > characters for blockquotes
-    text = re.sub(r'^>\s*', '', text, flags=re.MULTILINE)
+    text = re.sub(r"^>\s*", "", text, flags=re.MULTILINE)
     # Remove [] and () characters for links
-    text = re.sub(r'\[(.*?)\]\(.*?\)', r'\1', text)
+    text = re.sub(r"\[(.*?)\]\(.*?\)", r"\1", text)
     # Remove horizontal separators
-    text = re.sub(r'^-{3,}$', '', text, flags=re.MULTILINE)
+    text = re.sub(r"^-{3,}$", "", text, flags=re.MULTILINE)
 
     # Preserve list bullets and numbers, but format them properly
     # Transform "- Item" to "• Item"
-    text = re.sub(r'^\s*[-*+]\s+', '• ', text, flags=re.MULTILINE)
+    text = re.sub(r"^\s*[-*+]\s+", "• ", text, flags=re.MULTILINE)
     # Keep list numbers as is, "1. Item" remains "1. Item"
 
     return text

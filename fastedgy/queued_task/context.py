@@ -16,15 +16,13 @@ if TYPE_CHECKING:
 
 # Context variable to hold the current queues task
 current_queued_task: ContextVar[Optional["QueuedTask"]] = ContextVar(
-    'current_queued_task',
-    default=None
+    "current_queued_task", default=None
 )
 
 
 # Context variable to hold the execution context (always available)
 current_execution_context: ContextVar[Dict[str, Any]] = ContextVar(
-    'current_execution_context',
-    default={}
+    "current_execution_context", default={}
 )
 
 
@@ -58,7 +56,7 @@ def get_context(path: str, default: Any = None) -> Any:
     if not context:
         return default
 
-    paths = path.split('.')
+    paths = path.split(".")
     value = context
 
     for key in paths:
@@ -85,10 +83,14 @@ def set_context(path: str, value: Any, auto_commit: bool = True) -> None:
         set_context('progress', 50, auto_commit=False)  # No DB save
     """
     # Get current context or create new one
-    context = current_execution_context.get().copy() if current_execution_context.get() else {}
+    context = (
+        current_execution_context.get().copy()
+        if current_execution_context.get()
+        else {}
+    )
 
     # Navigate and create nested structure
-    paths = path.split('.')
+    paths = path.split(".")
     nested_context = context
 
     # Create nested dictionaries for all but the last key
@@ -113,14 +115,18 @@ def set_context(path: str, value: Any, auto_commit: bool = True) -> None:
                 pass
 
 
-async def _update_task_context_async(task: "QueuedTask", context: Dict[str, Any]) -> None:
+async def _update_task_context_async(
+    task: "QueuedTask", context: Dict[str, Any]
+) -> None:
     """Update task context in database asynchronously"""
     try:
         # Update the task context field
         db = get_service(Database)
-        query = task.__class__.query.table.update().where(
-            task.__class__.query.table.c.id == task.id
-        ).values(context=context)
+        query = (
+            task.__class__.query.table.update()
+            .where(task.__class__.query.table.c.id == task.id)
+            .values(context=context)
+        )
 
         await db.execute(query)
         task.context = context
@@ -129,12 +135,16 @@ async def _update_task_context_async(task: "QueuedTask", context: Dict[str, Any]
         # Log to the queued task logger if available
         try:
             from fastedgy.queued_task.logging import getLogger
-            logger = getLogger('queued_task.context')
+
+            logger = getLogger("queued_task.context")
             logger.error(f"Failed to update task context in database: {e}")
         except ImportError:
             # Fallback to standard logging
             import logging
-            logging.getLogger('queued_task.context').error(f"Failed to update task context: {e}")
+
+            logging.getLogger("queued_task.context").error(
+                f"Failed to update task context: {e}"
+            )
 
 
 def clear_context() -> None:
@@ -172,7 +182,11 @@ def set_full_context(context: Dict[str, Any], auto_commit: bool = True) -> None:
 class TaskContext:
     """Context manager for setting the current task and execution context"""
 
-    def __init__(self, task: Optional["QueuedTask"], execution_context: Optional[Dict[str, Any]] = None):
+    def __init__(
+        self,
+        task: Optional["QueuedTask"],
+        execution_context: Optional[Dict[str, Any]] = None,
+    ):
         self.task = task
         self.execution_context = execution_context or (task.context if task else {})
         self.task_token = None
@@ -180,7 +194,9 @@ class TaskContext:
 
     def __enter__(self):
         self.task_token = current_queued_task.set(self.task)
-        self.context_token = current_execution_context.set(self.execution_context.copy())
+        self.context_token = current_execution_context.set(
+            self.execution_context.copy()
+        )
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):

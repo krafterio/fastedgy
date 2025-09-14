@@ -6,5 +6,5 @@ from fastedgy.models.base import BaseModel
 
 
 class BaseQueuedTaskWorker(QueuedTaskWorkerMixin, BaseModel):
-    class Meta: # type: ignore
+    class Meta:  # type: ignore
         abstract = True

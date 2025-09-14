@@ -45,7 +45,7 @@ class LocaleMiddleware(BaseHTTPMiddleware):
             if locale in settings.available_locales:
                 return locale
 
-            language = locale.split('-')[0]
+            language = locale.split("-")[0]
 
             if language in settings.available_locales:
                 return language
@@ -56,8 +56,8 @@ class LocaleMiddleware(BaseHTTPMiddleware):
         """Parse Accept-Language header and return ordered list of (locale, quality)."""
         locales = []
 
-        for item in header.split(','):
-            parts = item.strip().split(';q=')
+        for item in header.split(","):
+            parts = item.strip().split(";q=")
             locale = parts[0].strip()
             quality = 1.0 if len(parts) == 1 else float(parts[1])
             locales.append((locale, quality))

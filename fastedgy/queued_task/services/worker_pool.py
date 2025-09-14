@@ -14,7 +14,7 @@ from fastedgy.queued_task.config import QueuedTaskConfig
 from fastedgy.queued_task.services.queue_worker import QueueWorker
 
 
-logger = logging.getLogger('queued_task.worker_pool')
+logger = logging.getLogger("queued_task.worker_pool")
 
 
 class WorkerPool:
@@ -56,11 +56,15 @@ class WorkerPool:
             worker_id = f"worker_{uuid.uuid4().hex[:8]}"
             worker = QueueWorker(worker_id)
             self.busy_workers[worker_id] = worker
-            logger.info(f"Created new worker {worker_id} (total: {total_workers + 1}/{self.max_workers})")
+            logger.info(
+                f"Created new worker {worker_id} (total: {total_workers + 1}/{self.max_workers})"
+            )
             return worker
 
         # Pool is full
-        logger.warning(f"Worker pool is full ({self.max_workers} workers), task will wait")
+        logger.warning(
+            f"Worker pool is full ({self.max_workers} workers), task will wait"
+        )
         return None
 
     async def return_worker(self, worker: QueueWorker) -> None:
@@ -81,7 +85,9 @@ class WorkerPool:
         timeout_task = asyncio.create_task(self._worker_idle_timeout(worker))
         self.worker_timeout_tasks[worker.worker_id] = timeout_task
 
-        logger.debug(f"Worker {worker.worker_id} returned to idle pool (timeout in {self.config.worker_idle_timeout}s)")
+        logger.debug(
+            f"Worker {worker.worker_id} returned to idle pool (timeout in {self.config.worker_idle_timeout}s)"
+        )
 
     async def _worker_idle_timeout(self, worker: QueueWorker) -> None:
         """
@@ -106,7 +112,9 @@ class WorkerPool:
 
                     self.idle_workers = new_queue
 
-                    logger.info(f"Worker {worker.worker_id} removed due to idle timeout")
+                    logger.info(
+                        f"Worker {worker.worker_id} removed due to idle timeout"
+                    )
 
                 except Exception as e:
                     logger.error(f"Error removing idle worker {worker.worker_id}: {e}")
@@ -125,7 +133,7 @@ class WorkerPool:
             "busy_workers": len(self.busy_workers),
             "idle_workers": self.idle_workers.qsize(),
             "total_workers": len(self.busy_workers) + self.idle_workers.qsize(),
-            "pending_timeouts": len(self.worker_timeout_tasks)
+            "pending_timeouts": len(self.worker_timeout_tasks),
         }
 
     async def shutdown(self) -> None:
@@ -138,7 +146,9 @@ class WorkerPool:
 
         # Wait for timeout tasks to complete
         if self.worker_timeout_tasks:
-            await asyncio.gather(*self.worker_timeout_tasks.values(), return_exceptions=True)
+            await asyncio.gather(
+                *self.worker_timeout_tasks.values(), return_exceptions=True
+            )
 
         self.worker_timeout_tasks.clear()
         self.busy_workers.clear()

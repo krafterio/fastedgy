@@ -68,6 +68,7 @@ class Vector(UserDefinedType):
     def bind_processor(self, dialect):
         def process(value):
             return self._coerce(value)
+
         return process
 
     def result_processor(self, dialect, coltype):
@@ -86,9 +87,12 @@ class Vector(UserDefinedType):
 
                     return [float(x.strip()) for x in inner.split(",")]
             return value
+
         return process
 
-    def _coerce(self, value: Iterable[float] | Sequence[float] | str | None) -> str | None:
+    def _coerce(
+        self, value: Iterable[float] | Sequence[float] | str | None
+    ) -> str | None:
         if value is None:
             return None
 
@@ -103,7 +107,7 @@ class Vector(UserDefinedType):
 
     class comparator_factory(UserDefinedType.Comparator):
         def l1_distance(self, other: Iterable[float]):
-            return self.expr.op('<+>')(other)
+            return self.expr.op("<+>")(other)
 
         def l1_distance_lt(self, other: Iterable[float], thresh: float):
             return self.l1_distance(other) < thresh
@@ -118,7 +122,7 @@ class Vector(UserDefinedType):
             return self.l1_distance(other) >= thresh
 
         def l2_distance(self, other: Iterable[float]):
-            return self.expr.op('<->')(other)
+            return self.expr.op("<->")(other)
 
         def l2_distance_lt(self, other: Iterable[float], thresh: float):
             return self.l2_distance(other) < thresh
@@ -133,7 +137,7 @@ class Vector(UserDefinedType):
             return self.l2_distance(other) >= thresh
 
         def cosine_distance(self, other: Iterable[float]):
-            return self.expr.op('<=>')(other)
+            return self.expr.op("<=>")(other)
 
         def cosine_distance_lt(self, other: Iterable[float], thresh: float):
             return self.cosine_distance(other) < thresh
@@ -148,7 +152,7 @@ class Vector(UserDefinedType):
             return self.cosine_distance(other) >= thresh
 
         def inner_product(self, other: Iterable[float]):
-            return self.expr.op('<#>')(other)
+            return self.expr.op("<#>")(other)
 
         def inner_product_lt(self, other: Iterable[float], thresh: float):
             return self.inner_product(other) < thresh
@@ -163,7 +167,7 @@ class Vector(UserDefinedType):
             return self.inner_product(other) >= thresh
 
 
-ischema_names['vector'] = Vector
+ischema_names["vector"] = Vector
 
 
 class VectorField(FieldFactory, list):
@@ -177,7 +181,11 @@ class VectorField(FieldFactory, list):
     ) -> BaseFieldType:
         kwargs = {
             **kwargs,
-            **{k: v for k, v in locals().items() if k not in ["cls", "__class__", "kwargs"]},
+            **{
+                k: v
+                for k, v in locals().items()
+                if k not in ["cls", "__class__", "kwargs"]
+            },
         }
         return super().__new__(cls, **kwargs)
 
@@ -188,7 +196,9 @@ class VectorField(FieldFactory, list):
     @classmethod
     def validate(cls, kwargs: dict[str, Any]) -> None:
         dimensions = kwargs.get("dimensions")
-        if dimensions is not None and (not isinstance(dimensions, int) or dimensions <= 0):
+        if dimensions is not None and (
+            not isinstance(dimensions, int) or dimensions <= 0
+        ):
             raise ValueError("dimensions must be a positive integer")
 
 

@@ -64,7 +64,9 @@ class RouteModelRegistry:
     def __init__(self):
         self._models: TypeModels = {}
 
-    def register_model(self, model_cls: TypeModel, options: RouteModelOptions | None = None):
+    def register_model(
+        self, model_cls: TypeModel, options: RouteModelOptions | None = None
+    ):
         """
         Register a model for auto-generating routes.
 
@@ -85,7 +87,9 @@ class RouteModelRegistry:
     def get_model_options(self, model_cls: TypeModel) -> RouteModelOptions:
         """Get the options for a registered model."""
         if not self.is_model_registered(model_cls):
-            raise ValueError(f"Model {model_cls.__name__} is not registered in route model registry")
+            raise ValueError(
+                f"Model {model_cls.__name__} is not registered in route model registry"
+            )
 
         return self._models[model_cls]
 
@@ -93,19 +97,35 @@ class RouteModelRegistry:
 class ViewTransformerRegistry:
     """Registry for api route view transformers."""
 
-    _transformers: defaultdict[TypeModel | None, list[BaseViewTransformer]] = defaultdict(lambda: [])
+    _transformers: defaultdict[TypeModel | None, list[BaseViewTransformer]] = (
+        defaultdict(lambda: [])
+    )
 
-    def register_transformer(self, transformer: BaseViewTransformer, model_cls: TypeModel | None = None):
+    def register_transformer(
+        self, transformer: BaseViewTransformer, model_cls: TypeModel | None = None
+    ):
         if not callable(transformer):
-            raise ValueError("Transformer must be callable or BaseViewTransformer instance")
+            raise ValueError(
+                "Transformer must be callable or BaseViewTransformer instance"
+            )
 
         self._transformers[model_cls].append(transformer())
 
-    def has_transformers[T = BaseViewTransformer](self, transformer_cls: Type[T], model_cls: TypeModel, transformers: list[BaseViewTransformer] | None = None) -> bool:
+    def has_transformers[T = BaseViewTransformer](
+        self,
+        transformer_cls: Type[T],
+        model_cls: TypeModel,
+        transformers: list[BaseViewTransformer] | None = None,
+    ) -> bool:
         return len(self.get_transformers(transformer_cls, model_cls, transformers)) > 0
 
-    def get_transformers[T = BaseViewTransformer](self, transformer_cls: Type[T], model_cls: TypeModel, transformers: list[BaseViewTransformer] | None = None) -> list[T]:
-        if not bool(getattr(transformer_cls, '__abstractmethods__', False)):
+    def get_transformers[T = BaseViewTransformer](
+        self,
+        transformer_cls: Type[T],
+        model_cls: TypeModel,
+        transformers: list[BaseViewTransformer] | None = None,
+    ) -> list[T]:
+        if not bool(getattr(transformer_cls, "__abstractmethods__", False)):
             raise ValueError(f"Model {model_cls.__name__} is not abstract")
 
         final_transformers = []
@@ -121,7 +141,9 @@ class ViewTransformerRegistry:
             if transformers:
                 for tmp_transformer_cls in transformers:
                     if not callable(tmp_transformer_cls):
-                        raise ValueError("Transformer must be callable or BaseViewTransformer instance")
+                        raise ValueError(
+                            "Transformer must be callable or BaseViewTransformer instance"
+                        )
 
                     tmp_transformer = tmp_transformer_cls()
                     if issubclass(type(tmp_transformer), transformer_cls):
@@ -130,7 +152,9 @@ class ViewTransformerRegistry:
         return final_transformers
 
 
-ADMIN_ROUTE_MODEL_REGISTRY_TOKEN = Token[RouteModelRegistry]("admin_route_model_registry")
+ADMIN_ROUTE_MODEL_REGISTRY_TOKEN = Token[RouteModelRegistry](
+    "admin_route_model_registry"
+)
 
 
 register_service(lambda: RouteModelRegistry(), RouteModelRegistry)

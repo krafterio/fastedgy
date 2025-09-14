@@ -55,7 +55,7 @@ def _find_server_path() -> str:
 
     try:
         for child in current.iterdir():
-            if child.is_dir() and not child.name.startswith('.'):
+            if child.is_dir() and not child.name.startswith("."):
                 for file_name in SERVER_FILES:
                     if (child / file_name).exists():
                         return str(child)
@@ -95,8 +95,8 @@ def discover_settings_class():
 class BaseSettings(PydanticBaseSettings):
     model_config = SettingsConfigDict(
         case_sensitive=False,
-        env_prefix='',
-        extra='ignore',
+        env_prefix="",
+        extra="ignore",
     )
 
     # App factory
@@ -112,16 +112,16 @@ class BaseSettings(PydanticBaseSettings):
     log_level: LogLevel = LogLevel.INFO
     log_output: LogOutput = LogOutput.CONSOLE
     log_format: LogFormat | str = LogFormat.TEXT_LIGHT
-    log_file: str = ''
+    log_file: str = ""
 
     # Database
-    database_url: str = ''
+    database_url: str = ""
     database_pool_size: int = 20
     database_max_overflow: int = 10
 
     # Auth
-    auth_secret_key: str = ''
-    auth_algorithm: str = 'HS256'
+    auth_secret_key: str = ""
+    auth_algorithm: str = "HS256"
     auth_access_token_expire_minutes: int = 15
     auth_refresh_token_expire_days: int = 30
 
@@ -129,16 +129,16 @@ class BaseSettings(PydanticBaseSettings):
     data_path: str | None = None
 
     # Mail
-    smtp_host: str = ''
+    smtp_host: str = ""
     smtp_port: int = 587
     smtp_use_tls: bool = True
-    smtp_username: str = ''
-    smtp_password: str = ''
-    smtp_default_from: str = ''
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_default_from: str = ""
 
     # I18n
-    fallback_locale: str = 'en'
-    available_locales: list[str] = ['en']
+    fallback_locale: str = "en"
+    available_locales: list[str] = ["en"]
     translations_paths: list[str] = []
 
     @classmethod
@@ -186,7 +186,7 @@ class BaseSettings(PydanticBaseSettings):
 
     @cached_property
     def db_name(self) -> str:
-        return urlparse(self.database_url).path.lstrip('/')
+        return urlparse(self.database_url).path.lstrip("/")
 
     @cached_property
     def computed_translations_paths(self) -> list[str]:
@@ -208,17 +208,17 @@ class BaseSettings(PydanticBaseSettings):
 
         return paths
 
-    @field_validator('log_format')
+    @field_validator("log_format")
     def validate_log_format(cls, v):
         if isinstance(v, str) and v in [item.value for item in LogFormat]:
             return LogFormat(v)
         return v
 
-    @field_validator('database_url')
+    @field_validator("database_url")
     def validate_database_url(cls, v):
         if v:
             return v
-        raise ValueError('DATABASE_URL is required')
+        raise ValueError("DATABASE_URL is required")
 
 
 def init_settings(env_file: str | None = None):

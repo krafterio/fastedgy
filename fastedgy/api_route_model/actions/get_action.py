@@ -6,9 +6,20 @@ from typing import Callable, Coroutine, Any
 from fastapi import APIRouter, HTTPException, Path
 
 from fastedgy.api_route_model.actions import BaseApiRouteAction, generate_output_model
-from fastedgy.api_route_model.params import FieldSelectorHeader, filter_selected_fields, optimize_query_filter_fields
-from fastedgy.api_route_model.registry import TypeModel, RouteModelActionOptions, ViewTransformerRegistry
-from fastedgy.api_route_model.view_transformer import BaseViewTransformer, GetViewTransformer
+from fastedgy.api_route_model.params import (
+    FieldSelectorHeader,
+    filter_selected_fields,
+    optimize_query_filter_fields,
+)
+from fastedgy.api_route_model.registry import (
+    TypeModel,
+    RouteModelActionOptions,
+    ViewTransformerRegistry,
+)
+from fastedgy.api_route_model.view_transformer import (
+    BaseViewTransformer,
+    GetViewTransformer,
+)
 from fastedgy.dependencies import get_service
 from fastedgy.http import Request
 from fastedgy.orm.query import QuerySet
@@ -22,27 +33,28 @@ class GetApiRouteAction(BaseApiRouteAction):
 
     @classmethod
     def register_route(
-        cls,
-        router: APIRouter,
-        model_cls: TypeModel,
-        options: RouteModelActionOptions
+        cls, router: APIRouter, model_cls: TypeModel, options: RouteModelActionOptions
     ) -> None:
         """Register the get route."""
-        router.add_api_route(**{
-            "path": "/{item_id}",
-            "endpoint": generate_get_item(model_cls),
-            "methods": ["GET"],
-            "summary": f"Get {model_cls.__name__}",
-            "description": f"Retrieve a single {model_cls.__name__} by its ID",
-            **options,
-        })
+        router.add_api_route(
+            **{
+                "path": "/{item_id}",
+                "endpoint": generate_get_item(model_cls),
+                "methods": ["GET"],
+                "summary": f"Get {model_cls.__name__}",
+                "description": f"Retrieve a single {model_cls.__name__} by its ID",
+                **options,
+            }
+        )
 
 
-def generate_get_item[M = TypeModel](model_cls: M) -> Callable[[Request, int], Coroutine[Any, Any, M]]:
+def generate_get_item[M = TypeModel](
+    model_cls: M,
+) -> Callable[[Request, int], Coroutine[Any, Any, M]]:
     async def get_item(
-            request: Request,
-            item_id: int = Path(..., description="Item ID"),
-            fields: str | None = FieldSelectorHeader(),
+        request: Request,
+        item_id: int = Path(..., description="Item ID"),
+        fields: str | None = FieldSelectorHeader(),
     ) -> generate_output_model(model_cls) | dict[str, Any]:
         return await get_item_action(
             request,
@@ -71,7 +83,9 @@ async def get_item_action[M = TypeModel](
     try:
         item = await query.get()
 
-        return await view_item_action(request, model_cls, item, fields, transformers, transformers_ctx)
+        return await view_item_action(
+            request, model_cls, item, fields, transformers, transformers_ctx
+        )
     except ObjectNotFound:
         raise HTTPException(status_code=404, detail=f"{model_cls.__name__} not found")
 
@@ -88,8 +102,12 @@ async def view_item_action[M = TypeModel](
     item_dump = await filter_selected_fields(item, fields)
     vtr = get_service(ViewTransformerRegistry)
 
-    for transformer in vtr.get_transformers(GetViewTransformer, model_cls, transformers):
-        item_dump = await transformer.get_view(request, item, item_dump, transformers_ctx)
+    for transformer in vtr.get_transformers(
+        GetViewTransformer, model_cls, transformers
+    ):
+        item_dump = await transformer.get_view(
+            request, item, item_dump, transformers_ctx
+        )
 
     return item_dump
 

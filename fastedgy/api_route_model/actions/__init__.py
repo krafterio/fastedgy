@@ -9,7 +9,11 @@ from fastapi import APIRouter
 from fastedgy.dependencies import register_service
 from pydantic import create_model
 
-from fastedgy.api_route_model.registry import RouteModelOptions, RouteModelActionOptions, TypeModel
+from fastedgy.api_route_model.registry import (
+    RouteModelOptions,
+    RouteModelActionOptions,
+    TypeModel,
+)
 
 
 def generate_output_model[M = TypeModel](model_cls: M) -> type[M]:
@@ -19,7 +23,7 @@ def generate_output_model[M = TypeModel](model_cls: M) -> type[M]:
         if not field.exclude:
             fields[field_name] = (field.field_type, field)
 
-    return create_model(f'{model_cls.__name__}', **fields)
+    return create_model(f"{model_cls.__name__}", **fields)
 
 
 def generate_input_create_model[M = TypeModel](model_cls: M) -> type[M]:
@@ -32,7 +36,7 @@ def generate_input_create_model[M = TypeModel](model_cls: M) -> type[M]:
                 field_type = optional_field_type(field.field_type)
             fields[field_name] = (field_type, field)
 
-    return create_model(f'{model_cls.__name__}Create', **fields)
+    return create_model(f"{model_cls.__name__}Create", **fields)
 
 
 def generate_input_patch_model[M = TypeModel](model_cls: M) -> type[M]:
@@ -47,7 +51,7 @@ def generate_input_patch_model[M = TypeModel](model_cls: M) -> type[M]:
             py_field.field_type = optional_field_type(field.field_type)
             fields[field_name] = (py_field.field_type, py_field)
 
-    return create_model(f'{model_cls.__name__}Update', **fields)
+    return create_model(f"{model_cls.__name__}Update", **fields)
 
 
 def optional_field_type(field_type):
@@ -80,10 +84,7 @@ class BaseApiRouteAction(ABC):
     @classmethod
     @abstractmethod
     def register_route(
-            cls,
-            router: APIRouter,
-            model_cls: TypeModel,
-            options: RouteModelActionOptions
+        cls, router: APIRouter, model_cls: TypeModel, options: RouteModelActionOptions
     ) -> None:
         """
         Register this action's route to the FastAPI router.

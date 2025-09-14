@@ -13,8 +13,15 @@ from typing import Callable, Coroutine, Any
 from fastapi import APIRouter, Query, HTTPException, Response
 
 from fastedgy.api_route_model.actions import BaseApiRouteAction
-from fastedgy.api_route_model.params import inject_order_by, OrderByQuery, FieldSelectorHeader, \
-    optimize_query_filter_fields, FilterHeader, filter_query, InvalidFilterError
+from fastedgy.api_route_model.params import (
+    inject_order_by,
+    OrderByQuery,
+    FieldSelectorHeader,
+    optimize_query_filter_fields,
+    FilterHeader,
+    filter_query,
+    InvalidFilterError,
+)
 from fastedgy.api_route_model.params.field_selector import clean_field_names_from_input
 from fastedgy.api_route_model.registry import TypeModel, RouteModelActionOptions
 from fastedgy.metadata_model.utils import get_field_label_from_path
@@ -31,39 +38,40 @@ class ExportApiRouteAction(BaseApiRouteAction):
 
     @classmethod
     def register_route(
-        cls,
-        router: APIRouter,
-        model_cls: TypeModel,
-        options: RouteModelActionOptions
+        cls, router: APIRouter, model_cls: TypeModel, options: RouteModelActionOptions
     ) -> None:
         """Register the export route."""
-        router.add_api_route(**{
-            "path": "/export",
-            "endpoint": generate_export_items(model_cls),
-            "methods": ["GET"],
-            "summary": f"Export {model_cls.__name__} items",
-            "description": f"Retrieve a export of {model_cls.__name__} items",
-            "responses": {
-                200: {
-                    "content": {
-                        "application/octet-stream": {
-                            "schema": {"type": "string", "format": "binary"},
+        router.add_api_route(
+            **{
+                "path": "/export",
+                "endpoint": generate_export_items(model_cls),
+                "methods": ["GET"],
+                "summary": f"Export {model_cls.__name__} items",
+                "description": f"Retrieve a export of {model_cls.__name__} items",
+                "responses": {
+                    200: {
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {"type": "string", "format": "binary"},
+                            },
                         },
                     },
                 },
-            },
-            **options,
-        })
+                **options,
+            }
+        )
 
 
-def generate_export_items[M = TypeModel](model_cls: type[M]) -> Callable[[str, int, int, str, str, str, int], Coroutine[Any, Any, Response]]:
+def generate_export_items[M = TypeModel](
+    model_cls: type[M],
+) -> Callable[[str, int, int, str, str, str, int], Coroutine[Any, Any, Response]]:
     async def export_items(
-            format: str = Query('csv', description="Export format (csv, xlsx, ods)"),
-            limit: int | None = Query(None),
-            offset: int = Query(0, ge=0),
-            order_by: str | None = OrderByQuery(),
-            fields: str | None = FieldSelectorHeader(),
-            filters: str | None = FilterHeader(),
+        format: str = Query("csv", description="Export format (csv, xlsx, ods)"),
+        limit: int | None = Query(None),
+        offset: int = Query(0, ge=0),
+        order_by: str | None = OrderByQuery(),
+        fields: str | None = FieldSelectorHeader(),
+        filters: str | None = FilterHeader(),
     ) -> StreamingResponse:
         query = model_cls.query
 
@@ -102,15 +110,18 @@ async def export_items_action[M = TypeModel](
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
         if filters:
-            raise HTTPException(status_code=422, detail='Invalid filters')
+            raise HTTPException(status_code=422, detail="Invalid filters")
         else:
             raise e
 
     field_names = clean_field_names_from_input(model_cls, fields)
 
-    if not field_names or len(field_names) == 1 and field_names[0] == 'id':
-        field_names = [field_name for field_name, field in model_cls.meta.fields.items()
-                       if not field.exclude and not hasattr(field, 'target')]
+    if not field_names or len(field_names) == 1 and field_names[0] == "id":
+        field_names = [
+            field_name
+            for field_name, field in model_cls.meta.fields.items()
+            if not field.exclude and not hasattr(field, "target")
+        ]
 
     data_rows = []
 
@@ -122,16 +133,24 @@ async def export_items_action[M = TypeModel](
 
         data_rows.append(row_data)
 
-    field_labels = [get_field_label_from_path(model_cls, field_name) for field_name in field_names]
+    field_labels = [
+        get_field_label_from_path(model_cls, field_name) for field_name in field_names
+    ]
 
-    if format.lower() == 'csv':
-        return generate_csv_export(field_labels, data_rows, f"{model_cls.__name__}_export.csv")
+    if format.lower() == "csv":
+        return generate_csv_export(
+            field_labels, data_rows, f"{model_cls.__name__}_export.csv"
+        )
 
-    if format.lower() == 'xlsx':
-        return generate_xlsx_export(field_labels, data_rows, f"{model_cls.__name__}_export.xlsx")
+    if format.lower() == "xlsx":
+        return generate_xlsx_export(
+            field_labels, data_rows, f"{model_cls.__name__}_export.xlsx"
+        )
 
-    if format.lower() == 'ods':
-        return generate_ods_export(field_labels, data_rows, f"{model_cls.__name__}_export.ods")
+    if format.lower() == "ods":
+        return generate_ods_export(
+            field_labels, data_rows, f"{model_cls.__name__}_export.ods"
+        )
 
     raise HTTPException(status_code=400, detail=f"Unsupported export format: {format}")
 
@@ -141,9 +160,9 @@ def format_value(value: Any) -> str | None:
     if value is None:
         return None
     elif isinstance(value, date):
-        return value.strftime('%d/%m/%Y')
+        return value.strftime("%d/%m/%Y")
     elif isinstance(value, datetime):
-        return value.strftime('%d/%m/%Y %H:%M:%S')
+        return value.strftime("%d/%m/%Y %H:%M:%S")
     elif isinstance(value, bool):
         return str(value).lower()
     elif isinstance(value, (int, float)):
@@ -153,7 +172,7 @@ def format_value(value: Any) -> str | None:
     else:
         # Clean HTML tags from text values using html2text
         text_value = str(value)
-        if '<' in text_value and '>' in text_value:
+        if "<" in text_value and ">" in text_value:
             h = html2text.HTML2Text()
             h.ignore_links = True
             h.ignore_images = True
@@ -161,7 +180,9 @@ def format_value(value: Any) -> str | None:
         return text_value
 
 
-def generate_csv_export(field_names: list[str], data_rows: list[list[str]], filename: str) -> StreamingResponse:
+def generate_csv_export(
+    field_names: list[str], data_rows: list[list[str]], filename: str
+) -> StreamingResponse:
     """Generate a CSV export file."""
     output = io.StringIO()
     writer = csv.writer(output)
@@ -171,11 +192,13 @@ def generate_csv_export(field_names: list[str], data_rows: list[list[str]], file
     return StreamingResponse(
         iter([output.getvalue()]),
         media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
 
-def generate_xlsx_export(field_names: list[str], data_rows: list[list[str]], filename: str) -> StreamingResponse:
+def generate_xlsx_export(
+    field_names: list[str], data_rows: list[list[str]], filename: str
+) -> StreamingResponse:
     """Generate an XLSX export file."""
     try:
         import openpyxl
@@ -208,16 +231,20 @@ def generate_xlsx_export(field_names: list[str], data_rows: list[list[str]], fil
     return StreamingResponse(
         output,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
 
-def generate_ods_export(field_names: list[str], data_rows: list[list[str]], filename: str) -> StreamingResponse:
+def generate_ods_export(
+    field_names: list[str], data_rows: list[list[str]], filename: str
+) -> StreamingResponse:
     """Generate an ODS export file."""
     try:
         from pyexcel_ods3 import save_data
     except ImportError:
-        raise HTTPException(status_code=500, detail="pyexcel-ods3 library is not installed")
+        raise HTTPException(
+            status_code=500, detail="pyexcel-ods3 library is not installed"
+        )
 
     # Prepare data for pyexcel-ods3
     sheet_data = [field_names]  # Header row
@@ -241,7 +268,7 @@ def generate_ods_export(field_names: list[str], data_rows: list[list[str]], file
     return StreamingResponse(
         output,
         media_type="application/vnd.oasis.opendocument.spreadsheet",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
 

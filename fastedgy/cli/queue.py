@@ -26,7 +26,7 @@ async def clear(ctx: cli.CliContext):
 
 
 @queue.command()
-@cli.argument('task_id', type=int)
+@cli.argument("task_id", type=int)
 @cli.pass_cli_context
 async def retry(ctx: cli.CliContext, task_id: int):
     """Retry a task by ID (clone if done, re-enqueue if stopped)."""
@@ -41,7 +41,9 @@ async def servers(ctx: cli.CliContext):
 
 
 @queue.command()
-@cli.option('--workers', default=-1, help='Number of workers to start (-1 = auto detect)')
+@cli.option(
+    "--workers", default=-1, help="Number of workers to start (-1 = auto detect)"
+)
 @cli.pass_cli_context
 async def start(ctx: cli.CliContext, workers: int):
     """Start queue workers only (no HTTP server)."""

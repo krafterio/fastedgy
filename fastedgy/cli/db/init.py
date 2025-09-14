@@ -20,7 +20,10 @@ FASTEDGY_TEMPLATE_DIR = Path(__file__).parent / "templates"
 @add_migration_directory_option
 @db.command()
 @cli.option(
-    "-t", "--template", default=None, help=('Repository template to use (default is "fastedgy")')
+    "-t",
+    "--template",
+    default=None,
+    help=('Repository template to use (default is "fastedgy")'),
 )
 @cli.option(
     "--package",

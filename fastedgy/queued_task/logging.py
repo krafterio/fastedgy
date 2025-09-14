@@ -37,7 +37,9 @@ class QueuedTaskLogger(logging.Logger):
             loop = asyncio.get_running_loop()
 
             if loop and not loop.is_closed():
-                asyncio.create_task(self._log_to_db_async(level, message, *args, **kwargs))
+                asyncio.create_task(
+                    self._log_to_db_async(level, message, *args, **kwargs)
+                )
         except RuntimeError:
             # No event loop available - skip database logging silently
             pass
@@ -53,7 +55,9 @@ class QueuedTaskLogger(logging.Logger):
             return
 
         try:
-            from fastedgy.models.queued_task_log import BaseQueuedTaskLog as QueuedTaskLog
+            from fastedgy.models.queued_task_log import (
+                BaseQueuedTaskLog as QueuedTaskLog,
+            )
             from fastedgy.queued_task.models.queued_task_log import QueuedTaskLogType
 
             log_type = QueuedTaskLogType(level.lower())
@@ -72,7 +76,7 @@ class QueuedTaskLogger(logging.Logger):
                 name=self.name,
                 message=formatted_message,
                 info=str(kwargs) if kwargs else None,
-                logged_at=datetime.now()
+                logged_at=datetime.now(),
             )
             await queued_task_log.save()
 
@@ -117,7 +121,9 @@ class QueuedTaskLogger(logging.Logger):
     def exception(self, message: str, *args, exc_info=True, **kwargs) -> None:
         """Log exception with traceback"""
         if self.isEnabledFor(logging.ERROR):
-            self._log_with_db(logging.ERROR, message, *args, exc_info=exc_info, **kwargs)
+            self._log_with_db(
+                logging.ERROR, message, *args, exc_info=exc_info, **kwargs
+            )
 
 
 logging.setLoggerClass(QueuedTaskLogger)

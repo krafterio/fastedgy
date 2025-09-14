@@ -19,12 +19,20 @@ class WorkspaceableRedirectManager(RedirectManager):
 
 
 def filter_by_workspace(queryset: QuerySet) -> QuerySet:
-    workspace_field = queryset.model_class.fields.get('workspace')
+    workspace_field = queryset.model_class.fields.get("workspace")
 
-    if workspace_field and isinstance(workspace_field, ForeignKey) and workspace_field.target.__name__ == 'Workspace':
+    if (
+        workspace_field
+        and isinstance(workspace_field, ForeignKey)
+        and workspace_field.target.__name__ == "Workspace"
+    ):
         workspace = context.get_workspace()
 
-        if workspace and queryset.model_class.__name__ not in ['Workspace', 'WorkspaceUser', 'UserPresence']:
+        if workspace and queryset.model_class.__name__ not in [
+            "Workspace",
+            "WorkspaceUser",
+            "UserPresence",
+        ]:
             queryset = queryset.filter(workspace=workspace)
 
     return queryset

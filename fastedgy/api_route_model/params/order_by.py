@@ -33,15 +33,17 @@ OrderByList: TypeAlias = list[OrderByTerm]
 OrderByInput: TypeAlias = str | OrderByList | None
 
 
-def inject_order_by(query: QuerySet, order_by: OrderByInput)-> QuerySet:
+def inject_order_by(query: QuerySet, order_by: OrderByInput) -> QuerySet:
     order_by_fields = parse_order_by(query.model_class, order_by)
 
     if order_by_fields:
-        formatted_fields = [('-' if direction == 'desc' else '') + field for field, direction in order_by_fields]
+        formatted_fields = [
+            ("-" if direction == "desc" else "") + field
+            for field, direction in order_by_fields
+        ]
         query = query.order_by(*formatted_fields)
 
     return query
-
 
 
 def parse_order_by(model_cls: type[Model], order_by_input: OrderByInput) -> OrderByList:
@@ -57,8 +59,8 @@ def parse_order_by(model_cls: type[Model], order_by_input: OrderByInput) -> Orde
     Returns:
         List of tuples (field_name, direction)
     """
-    if not order_by_input and hasattr(model_cls, 'Meta'):
-        order_by_input = getattr(model_cls.Meta, 'default_order_by', None)
+    if not order_by_input and hasattr(model_cls, "Meta"):
+        order_by_input = getattr(model_cls.Meta, "default_order_by", None)
 
     if not order_by_input:
         return []
@@ -68,22 +70,22 @@ def parse_order_by(model_cls: type[Model], order_by_input: OrderByInput) -> Orde
 
     order_terms = []
 
-    for term in order_by_input.split(','):
+    for term in order_by_input.split(","):
         term = term.strip()
 
         if not term:
             continue
 
         # Parse field and direction
-        if ':' in term:
-            field, direction = term.split(':', 1)
+        if ":" in term:
+            field, direction = term.split(":", 1)
             direction = direction.lower()
 
-            if direction not in ('asc', 'desc'):
-                direction = 'asc'
+            if direction not in ("asc", "desc"):
+                direction = "asc"
         else:
             field = term
-            direction = 'asc'
+            direction = "asc"
 
         # Validate field exists in model
         if _is_valid_field_path(model_cls, field):
@@ -103,7 +105,7 @@ def _is_valid_field_path(model_cls: type[Model], field_path: str) -> bool:
     Returns:
         True if valid, False otherwise
     """
-    parts = field_path.split('.')
+    parts = field_path.split(".")
     current_cls = model_cls
 
     try:
@@ -114,7 +116,7 @@ def _is_valid_field_path(model_cls: type[Model], field_path: str) -> bool:
             # Get the field type and check if it's a relation
             field = current_cls.meta.fields.get(part)
 
-            if hasattr(field, 'target'):
+            if hasattr(field, "target"):
                 current_cls = field.target
 
         return True

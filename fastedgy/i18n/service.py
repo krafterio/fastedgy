@@ -29,7 +29,7 @@ class I18n:
 
             if os.path.exists(po_file):
                 try:
-                    with open(po_file, 'rb') as f:
+                    with open(po_file, "rb") as f:
                         catalog = read_po(f, locale=locale)
 
                     if translations_path not in self._catalogs:
@@ -57,11 +57,19 @@ class I18n:
                     msg_obj = catalog[message]
 
                     if msg_obj.string and isinstance(msg_obj.string, (str, list)):
-                        translated = msg_obj.string[0] if isinstance(msg_obj.string, list) else msg_obj.string
+                        translated = (
+                            msg_obj.string[0]
+                            if isinstance(msg_obj.string, list)
+                            else msg_obj.string
+                        )
 
                         if translated and isinstance(translated, str):
                             try:
-                                return translated.format(**kwargs) if kwargs else translated
+                                return (
+                                    translated.format(**kwargs)
+                                    if kwargs
+                                    else translated
+                                )
                             except KeyError:
                                 # If formatting fails, fallback to original message
                                 pass
@@ -81,7 +89,7 @@ class I18n:
                 continue
 
             for filename in os.listdir(translations_path):
-                if filename.endswith('.po'):
+                if filename.endswith(".po"):
                     locale = filename[:-3]
                     available.add(locale)
 

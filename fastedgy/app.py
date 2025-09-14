@@ -18,14 +18,26 @@ from starlette.routing import BaseRoute
 from starlette.middleware import Middleware
 from starlette.types import Lifespan
 from starlette.requests import Request
-from typing import Annotated, TypeVar, Optional, List, Dict, Any, Union, Type, Sequence, Callable, Coroutine
+from typing import (
+    Annotated,
+    TypeVar,
+    Optional,
+    List,
+    Dict,
+    Any,
+    Union,
+    Type,
+    Sequence,
+    Callable,
+    Coroutine,
+)
 from typing_extensions import Doc, deprecated
 
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
-class FastEdgy[S : BaseSettings = BaseSettings](FastAPI):
+class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
     def __init__(
         self: AppType,
         *,
@@ -856,7 +868,9 @@ class FastEdgy[S : BaseSettings = BaseSettings](FastAPI):
     def initialize(self) -> None:
         pass
 
-    def register(self, instance: T, key: Union[Type[T], Token[T], str, None] = None) -> None:
+    def register(
+        self, instance: T, key: Union[Type[T], Token[T], str, None] = None
+    ) -> None:
         register_service(instance, key)
 
     def has_service(self, key: Union[Type[T], Token[T], str]) -> bool:

@@ -8,7 +8,7 @@ from fastedgy.dependencies import get_service
 from fastedgy.metadata_model import MetadataModelRegistry
 
 
-M = TypeVar('M', bound=Type[Model])
+M = TypeVar("M", bound=Type[Model])
 
 
 def metadata_model() -> Callable[[M], M]:
@@ -18,9 +18,10 @@ def metadata_model() -> Callable[[M], M]:
     Returns:
         The decorated model class
     """
+
     def decorator(model_cls: M) -> M:
         registry = get_service(MetadataModelRegistry)
-        registry.register_model(model_cls) # type: ignore
+        registry.register_model(model_cls)  # type: ignore
 
         return model_cls
 

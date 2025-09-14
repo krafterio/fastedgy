@@ -7,13 +7,17 @@ from typing import TYPE_CHECKING, Union
 if TYPE_CHECKING:
     from enum import Enum
     from fastedgy.http import Request
-    from fastedgy.models.workspace_extra_field import BaseWorkspaceExtraField as WorkspaceExtraField
+    from fastedgy.models.workspace_extra_field import (
+        BaseWorkspaceExtraField as WorkspaceExtraField,
+    )
     from fastedgy.models.user import BaseUser as User
     from fastedgy.models.workspace import BaseWorkspace as Workspace
     from fastedgy.models.workspace_user import BaseWorkspaceUser as WorkspaceUser
 
 
-_current_request: ContextVar[Union["Request", None]] = ContextVar("current_request", default=None)
+_current_request: ContextVar[Union["Request", None]] = ContextVar(
+    "current_request", default=None
+)
 
 
 def set_request(request: Union["Request", None]) -> Token:
@@ -79,10 +83,16 @@ def set_workspace_user(workspace_user: Union["WorkspaceUser", None]) -> None:
 def get_workspace_user() -> Union["WorkspaceUser", None]:
     req = get_request()
 
-    return req.state.workspace_user if req and hasattr(req.state, "workspace_user") else None
+    return (
+        req.state.workspace_user
+        if req and hasattr(req.state, "workspace_user")
+        else None
+    )
 
 
-def set_workspace_extra_fields(extra_fields: list["WorkspaceExtraField"] | None) -> None:
+def set_workspace_extra_fields(
+    extra_fields: list["WorkspaceExtraField"] | None,
+) -> None:
     fields_map: dict["Enum", list["WorkspaceExtraField"]] | None = None
 
     if extra_fields:
@@ -102,12 +112,18 @@ def set_workspace_extra_fields(extra_fields: list["WorkspaceExtraField"] | None)
         req.state.workspace_extra_fields = fields_map
 
 
-def get_workspace_extra_fields(model_name: str | None = None) -> list["WorkspaceExtraField"]:
+def get_workspace_extra_fields(
+    model_name: str | None = None,
+) -> list["WorkspaceExtraField"]:
     from fastedgy.models.workspace_extra_field import Enum
 
     req = get_request()
     all_fields = []
-    current_fields = (req.state.workspace_extra_fields if req and hasattr(req.state, "workspace_extra_fields") else None) or {}
+    current_fields = (
+        req.state.workspace_extra_fields
+        if req and hasattr(req.state, "workspace_extra_fields")
+        else None
+    ) or {}
 
     if not model_name:
         for fields in current_fields.values():

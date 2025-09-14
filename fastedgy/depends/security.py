@@ -20,7 +20,9 @@ if TYPE_CHECKING:
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
-oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/api/auth/token", auto_error=False)
+oauth2_scheme_optional = OAuth2PasswordBearer(
+    tokenUrl="/api/auth/token", auto_error=False
+)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -42,24 +44,32 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes=settings.auth_access_token_expire_minutes)
+        expire = datetime.now(timezone.utc) + timedelta(
+            minutes=settings.auth_access_token_expire_minutes
+        )
     to_encode.update({"exp": expire, "type": "access"})
-    encoded_jwt = jwt.encode(to_encode, settings.auth_secret_key, algorithm=settings.auth_algorithm)
+    encoded_jwt = jwt.encode(
+        to_encode, settings.auth_secret_key, algorithm=settings.auth_algorithm
+    )
     return encoded_jwt
 
 
 def create_refresh_token(data: dict):
     settings = get_service(BaseSettings)
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + timedelta(days=settings.auth_refresh_token_expire_days)
+    expire = datetime.now(timezone.utc) + timedelta(
+        days=settings.auth_refresh_token_expire_days
+    )
     to_encode.update({"exp": expire, "type": "refresh"})
-    encoded_jwt = jwt.encode(to_encode, settings.auth_secret_key, algorithm=settings.auth_algorithm)
+    encoded_jwt = jwt.encode(
+        to_encode, settings.auth_secret_key, algorithm=settings.auth_algorithm
+    )
     return encoded_jwt
 
 
 async def authenticate_user(email: str, password: str):
     db_reg = get_service(Registry)
-    User = cast(type['User'], db_reg.get_model('User'))
+    User = cast(type["User"], db_reg.get_model("User"))
     user = await User.query.filter(email=email).first()
 
     if not user or not verify_password(user.password, password):
@@ -80,7 +90,9 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> "User":
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        payload = jwt.decode(token, settings.auth_secret_key, algorithms=[settings.auth_algorithm])
+        payload = jwt.decode(
+            token, settings.auth_secret_key, algorithms=[settings.auth_algorithm]
+        )
         email: str = str(payload.get("sub"))
         token_type: str = str(payload.get("type"))
 
@@ -90,7 +102,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> "User":
         raise credentials_exception
 
     db_reg = get_service(Registry)
-    User = cast(type['User'], db_reg.get_model('User'))
+    User = cast(type["User"], db_reg.get_model("User"))
     user = await User.query.filter(email=email).first()
 
     if user is None:
@@ -101,7 +113,9 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> "User":
     return user
 
 
-async def get_current_workspace(current_user=Depends(get_current_user)) -> Union["Workspace", None]:
+async def get_current_workspace(
+    current_user=Depends(get_current_user),
+) -> Union["Workspace", None]:
     workspace = context.get_workspace()
     workspace_user = context.get_workspace_user()
 
@@ -109,15 +123,19 @@ async def get_current_workspace(current_user=Depends(get_current_user)) -> Union
         return workspace
 
     request = context.get_request()
-    workspace_name = request.path_params.get("workspace", None) # type: ignore
+    workspace_name = request.path_params.get("workspace", None)  # type: ignore
 
     if not workspace_name:
         return None
 
     db_reg = get_service(Registry)
-    Workspace = cast(type['Workspace'], db_reg.get_model('Workspace'))
-    WorkspaceUser = cast(type['WorkspaceUser'], db_reg.get_model('WorkspaceUser'))
-    workspace_user = await WorkspaceUser.query.select_related('workspace').filter(user=current_user, workspace__slug=workspace_name).first()
+    Workspace = cast(type["Workspace"], db_reg.get_model("Workspace"))
+    WorkspaceUser = cast(type["WorkspaceUser"], db_reg.get_model("WorkspaceUser"))
+    workspace_user = (
+        await WorkspaceUser.query.select_related("workspace")
+        .filter(user=current_user, workspace__slug=workspace_name)
+        .first()
+    )
 
     if not workspace_user or not workspace_user.workspace:
         raise HTTPException(
@@ -125,7 +143,7 @@ async def get_current_workspace(current_user=Depends(get_current_user)) -> Union
             detail="Aucun workspace trouvé",
         )
 
-    workspace = await Workspace.query.get(id=workspace_user.workspace.id) # type: ignore
+    workspace = await Workspace.query.get(id=workspace_user.workspace.id)  # type: ignore
     context.set_workspace(workspace)
     context.set_workspace_user(workspace_user)
 

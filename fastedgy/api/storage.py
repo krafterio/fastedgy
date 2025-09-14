@@ -24,11 +24,11 @@ router = APIRouter(prefix="/storage", tags=["storage"])
 
 @router.post("/upload/{model:str}/{model_id}/{field:str}")
 async def upload_file(
-        model: str,
-        field: str,
-        model_id: int,
-        file: UploadFile = File(...),
-        storage: Storage = Inject(Storage),
+    model: str,
+    field: str,
+    model_id: int,
+    file: UploadFile = File(...),
+    storage: Storage = Inject(Storage),
 ) -> str:
     try:
         record = await _get_record(model, field, model_id)
@@ -51,10 +51,10 @@ async def upload_file(
 
 @router.delete("/file/{model:str}/{model_id}/{field:str}")
 async def delete_file(
-        model: str,
-        field: str,
-        model_id: int,
-        storage: Storage = Inject(Storage),
+    model: str,
+    field: str,
+    model_id: int,
+    storage: Storage = Inject(Storage),
 ) -> None:
     try:
         record = await _get_record(model, field, model_id)
@@ -74,9 +74,9 @@ async def delete_file(
 
 @router.get("/download/{path:path}")
 async def download_file(
-        path: str,
-        force_download: bool = Query(False),
-        storage: Storage = Inject(Storage),
+    path: str,
+    force_download: bool = Query(False),
+    storage: Storage = Inject(Storage),
 ) -> Response:
     try:
         file_path = storage.get_file_path(path, ensure_exists=False)
@@ -96,8 +96,9 @@ async def download_file(
 
         headers = {
             "Content-Disposition": (
-                f"attachment; filename=\"{filename}\"" if force_download
-                else f"inline; filename=\"{filename}\""
+                f'attachment; filename="{filename}"'
+                if force_download
+                else f'inline; filename="{filename}"'
             ),
         }
 
@@ -110,13 +111,15 @@ async def download_file(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur lors du téléchargement: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Erreur lors du téléchargement: {str(e)}"
+        )
 
 
 async def _get_record(
-        model: str,
-        field: str,
-        model_id: int,
+    model: str,
+    field: str,
+    model_id: int,
 ) -> "BaseModel":
     meta_registry = get_service(MetadataModelRegistry)
 

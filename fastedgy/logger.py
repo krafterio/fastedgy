@@ -60,7 +60,9 @@ class TextLightFormatter(logging.Formatter):
         logging.INFO: lambda text: click.style(text, fg="green") if click else text,
         logging.WARNING: lambda text: click.style(text, fg="yellow") if click else text,
         logging.ERROR: lambda text: click.style(text, fg="red") if click else text,
-        logging.CRITICAL: lambda text: click.style(text, fg="bright_red") if click else text,
+        logging.CRITICAL: lambda text: click.style(text, fg="bright_red")
+        if click
+        else text,
     }
 
     def __init__(self):
@@ -97,11 +99,13 @@ class JsonFormatter(logging.Formatter):
 
 class DatabaseConnectionFilter(logging.Filter):
     def filter(self, record):
-        if not hasattr(record, 'msg'):
+        if not hasattr(record, "msg"):
             return True
 
         if isinstance(record.msg, str):
-            if record.msg.startswith("Connected to database") or record.msg.startswith("Disconnected from database"):
+            if record.msg.startswith("Connected to database") or record.msg.startswith(
+                "Disconnected from database"
+            ):
                 return False
 
             if "postgresql+asyncpg://" in record.msg:
@@ -111,10 +115,10 @@ class DatabaseConnectionFilter(logging.Filter):
 
 
 def setup_logging(
-        level: LogLevel = LogLevel.WARNING,
-        output: LogOutput = LogOutput.CONSOLE,
-        format: LogFormat | str = LogFormat.TEXT,
-        log_file: str | None = None,
+    level: LogLevel = LogLevel.WARNING,
+    output: LogOutput = LogOutput.CONSOLE,
+    format: LogFormat | str = LogFormat.TEXT,
+    log_file: str | None = None,
 ):
     root_logger = logging.getLogger()
     root_logger.setLevel(getattr(logging, level.value.upper()))

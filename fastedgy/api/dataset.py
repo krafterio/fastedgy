@@ -25,7 +25,9 @@ async def resequence(data: ResequenceRequest) -> Resequence:
     meta_registry = get_service(MetadataModelRegistry)
 
     if not meta_registry.is_registered(data.model_name):
-        raise HTTPException(status_code=400, detail=f"Model '{data.model_name}' not found")
+        raise HTTPException(
+            status_code=400, detail=f"Model '{data.model_name}' not found"
+        )
 
     registery = get_service(Registry)
     model_class_name = generate_class_name(data.model_name)
@@ -34,29 +36,26 @@ async def resequence(data: ResequenceRequest) -> Resequence:
 
     if data.ids:
         group_update = _prepare_group_update(
-            model_class,
-            data.group_field,
-            data.group_value
+            model_class, data.group_field, data.group_value
         )
 
         sequence_update = _prepare_sequence_update(
-            model_class,
-            data.sequence_field,
-            data.sequence_offset
+            model_class, data.sequence_field, data.sequence_offset
         )
 
         if not group_update and not sequence_update:
             raise HTTPException(
                 status_code=400,
-                detail="No action requested. Please provide group_field or sequence_field for resequencing"
+                detail="No action requested. Please provide group_field or sequence_field for resequencing",
             )
 
-        existing_records = await model_class.query.filter(model_class.columns.id.in_(data.ids)).all()
+        existing_records = await model_class.query.filter(
+            model_class.columns.id.in_(data.ids)
+        ).all()
 
         if len(existing_records) != len(data.ids):
             raise HTTPException(
-                status_code=400,
-                detail="Some IDs in the target list do not exist"
+                status_code=400, detail="Some IDs in the target list do not exist"
             )
 
         async with model_class.query.database.transaction():
@@ -91,14 +90,12 @@ async def resequence(data: ResequenceRequest) -> Resequence:
         sequence_offset=data.sequence_offset,
         group_field=data.group_field,
         group_value=data.group_value,
-        records=records
+        records=records,
     )
 
 
 def _prepare_group_update(
-    model_class: Any,
-    group_field: str | None,
-    group_value: Any | None
+    model_class: Any, group_field: str | None, group_value: Any | None
 ) -> dict[str, Any | None] | None:
     """Prepare data for group change"""
     if not group_field and group_value is None:
@@ -108,25 +105,24 @@ def _prepare_group_update(
         raise HTTPException(status_code=400, detail="group_field is required")
 
     if group_field not in model_class.fields:
-        raise HTTPException(status_code=400, detail=f"Field '{group_field}' not found on model")
+        raise HTTPException(
+            status_code=400, detail=f"Field '{group_field}' not found on model"
+        )
 
-    return {
-        "field": group_field,
-        "value": group_value
-    }
+    return {"field": group_field, "value": group_value}
 
 
 def _prepare_sequence_update(
-    model_class: Any,
-    sequence_field: str | None,
-    sequence_offset: int
+    model_class: Any, sequence_field: str | None, sequence_offset: int
 ) -> dict[str, Any] | None:
     """Prepare data for resequencing"""
     if not sequence_field:
         return None
 
     if sequence_field not in model_class.fields:
-        raise HTTPException(status_code=400, detail=f"Field '{sequence_field}' not found on model")
+        raise HTTPException(
+            status_code=400, detail=f"Field '{sequence_field}' not found on model"
+        )
 
     return {
         "field": sequence_field,

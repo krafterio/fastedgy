@@ -6,7 +6,7 @@ from typing import TypeVar, Generic
 from pydantic import BaseModel, computed_field
 
 
-M = TypeVar('M', bound=BaseModel)
+M = TypeVar("M", bound=BaseModel)
 
 
 class Pagination(BaseModel, Generic[M]):
@@ -26,6 +26,7 @@ class Pagination(BaseModel, Generic[M]):
         limit (int): Number of items per page.
         offset (int): Index of the first item in the current page.
     """
+
     items: list[M]
     total: int
     limit: int

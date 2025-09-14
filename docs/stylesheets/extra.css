@@ -1,11 +1,19 @@
+/* Light Mode */
 :root {
   --md-primary-fg-color: #0a0a0a;
   --md-primary-fg-color--light: #2a2a2a;
   --md-primary-fg-color--dark: #000000;
+  --md-typeset-a-color: #455a64;
+  --md-accent-fg-color: #455a64;
+  --md-accent-fg-color--transparent: rgba(69, 90, 100, 0.1);
 }
 
+/* Dark Mode */
 [data-md-color-scheme="slate"] {
   --md-primary-fg-color: #0a0a0a;
   --md-primary-fg-color--light: #2a2a2a;
   --md-primary-fg-color--dark: #000000;
+  --md-typeset-a-color: #b0bec5;
+  --md-accent-fg-color: #b0bec5;
+  --md-accent-fg-color--transparent: rgba(176, 190, 197, 0.1);
 }

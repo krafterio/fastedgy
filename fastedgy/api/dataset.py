@@ -8,7 +8,7 @@ from fastedgy.dependencies import get_service
 from fastedgy.metadata_model import MetadataModelRegistry, TypeMapMetadataModels
 from fastedgy.metadata_model.generator import generate_class_name
 from fastedgy.orm import Model, Registry
-from fastedgy.schemas.dataset import Resequence, ResequenceResult
+from fastedgy.schemas.dataset import ResequenceRequest, Resequence
 
 router = APIRouter(prefix="/dataset", tags=["dataset"])
 
@@ -21,7 +21,7 @@ async def get_metadata_models() -> TypeMapMetadataModels:
 
 
 @router.put("/resequence")
-async def resequence(data: Resequence) -> ResequenceResult:
+async def resequence(data: ResequenceRequest) -> Resequence:
     meta_registry = get_service(MetadataModelRegistry)
 
     if not meta_registry.is_registered(data.model_name):
@@ -85,7 +85,7 @@ async def resequence(data: Resequence) -> ResequenceResult:
 
                 records.append(updated_fields)
 
-    return ResequenceResult(
+    return Resequence(
         model_name=data.model_name,
         sequence_field=data.sequence_field,
         sequence_offset=data.sequence_offset,

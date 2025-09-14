@@ -7,7 +7,7 @@ from fastedgy import context
 from fastedgy.orm import Registry
 from fastedgy.depends.security import hash_password
 from fastedgy.dependencies import Inject
-from fastedgy.schemas.auth import UserRegister
+from fastedgy.schemas.auth import UserRegisterRequest
 from fastedgy.schemas.base import Message
 
 if TYPE_CHECKING:
@@ -19,7 +19,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/register")
 async def register_user(
-    user_data: UserRegister,
+    user_data: UserRegisterRequest,
     registry: Registry = Inject(Registry),
 ) -> Message:
     user_model = cast(type["User"], registry.get_model('User'))

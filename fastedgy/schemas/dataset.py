@@ -5,7 +5,7 @@ from typing import Any
 from pydantic import BaseModel
 
 
-class Resequence(BaseModel):
+class ResequenceRequest(BaseModel):
     """
     Schema for resequencing records within a list while allowing group reassignment.
 
@@ -30,7 +30,7 @@ class Resequence(BaseModel):
     ids: list[int]
 
 
-class ResequenceResult(BaseModel):
+class Resequence(BaseModel):
     """
     Schema for result resequence.
     """
@@ -64,8 +64,8 @@ class MetadataModel(BaseModel):
 
 
 __all__ = [
+    "ResequenceRequest",
     "Resequence",
-    "ResequenceResult",
     "MetadataField",
     "MetadataModel",
 ]

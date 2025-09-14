@@ -4,10 +4,10 @@
 from pydantic import BaseModel
 
 
-class HealthResult(BaseModel):
+class Health(BaseModel):
     status: str
 
 
 __all__ = [
-    "HealthResult",
+    "Health",
 ]

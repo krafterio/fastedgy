@@ -23,7 +23,7 @@ class UserLogin(BaseModel):
     password: str
 
 
-class UserRegister(BaseModel):
+class UserRegisterRequest(BaseModel):
     name: str | None = None
     email: EmailStr
     password: str
@@ -47,7 +47,7 @@ __all__ = [
     "Token",
     "TokenRefresh",
     "UserLogin",
-    "UserRegister",
+    "UserRegisterRequest",
     "ForgotPasswordRequest",
     "ResetPasswordRequest",
     "ChangePasswordRequest",

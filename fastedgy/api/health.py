@@ -2,18 +2,18 @@
 # MIT License (see LICENSE file).
 
 from fastapi import APIRouter
-from fastedgy.schemas.health import HealthResult
+from fastedgy.schemas.health import Health
 
 
 router = APIRouter(prefix="/health", tags=["health"])
 
 
 @router.get("", tags=["health"])
-async def health_check() -> HealthResult:
+async def health_check() -> Health:
     """
     Health check endpoint to verify the API is running.
     """
-    return HealthResult(status="ok")
+    return Health(status="ok")
 
 
 __all__ = [

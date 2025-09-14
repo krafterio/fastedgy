@@ -3,7 +3,7 @@
 
 from typing import Type, Callable, TypeVar
 
-from fastedgy.api_route_model.registry import ADMIN_ROUTE_MODEL_REGISTRY_TOKEN, RouteModelRegistry, RouteModelOptions
+from fastedgy.api_route_model.registry import ADMIN_ROUTE_MODEL_REGISTRY_TOKEN, RouteModelRegistry, RouteModelOptionsValue
 from fastedgy.dependencies import get_service
 from fastedgy.orm import Model
 
@@ -12,7 +12,7 @@ M = TypeVar('M', bound=Type[Model])
 
 
 def api_route_model(
-    **kwargs: RouteModelOptions,
+    **kwargs: RouteModelOptionsValue,
 ) -> Callable[[M], M]:
     """
     Decorator to mark a model for auto-generating API routes.
@@ -33,7 +33,7 @@ def api_route_model(
 
 
 def admin_api_route_model(
-    **kwargs: RouteModelOptions,
+    **kwargs: RouteModelOptionsValue,
 ) -> Callable[[M], M]:
     """
     Decorator to mark a model for auto-generating API routes for admin-users.

@@ -49,7 +49,8 @@ class RouteModelActionOptions(dict):
     generate_unique_id_function: Union[Callable[[APIRoute], str], DefaultPlaceholder]
 
 
-RouteModelOptions = dict[str, bool | RouteModelActionOptions]
+RouteModelOptionsValue = bool | RouteModelActionOptions
+RouteModelOptions = dict[str, RouteModelOptionsValue]
 TypeModel = Type[Model]
 TypeModels = dict[TypeModel, RouteModelOptions]
 
@@ -139,6 +140,7 @@ register_service(lambda: ViewTransformerRegistry(), ViewTransformerRegistry)
 
 __all__ = [
     "RouteModelActionOptions",
+    "RouteModelOptionsValue",
     "RouteModelOptions",
     "TypeModel",
     "TypeModels",

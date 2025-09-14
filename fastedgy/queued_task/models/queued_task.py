@@ -49,9 +49,9 @@ class QueuedTaskMixin(BaseModel):
     serialized_function: Optional[bytes] = fields.BinaryField(null=True, label="Fonction sérialisée") # type: ignore
     state: QueuedTaskState = fields.ChoiceField(choices=QueuedTaskState, default=QueuedTaskState.enqueued, label="État") # type: ignore
 
-    args: list = fields.JSONField(default=list, label="Arguments positionnels") # type: ignore
-    kwargs: dict = fields.JSONField(default=dict, label="Arguments nommés") # type: ignore
-    context: dict = fields.JSONField(default=dict, label="Contexte de la tâche") # type: ignore
+    args: list = fields.JSONField(default=[], label="Arguments positionnels") # type: ignore
+    kwargs: dict = fields.JSONField(default={}, label="Arguments nommés") # type: ignore
+    context: dict = fields.JSONField(default={}, label="Contexte de la tâche") # type: ignore
 
     parent_task: Optional["QueuedTask"] = fields.ForeignKey("QueuedTask", on_delete="CASCADE", null=True, label="Task parent") # type: ignore
 

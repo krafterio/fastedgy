@@ -17,6 +17,8 @@ from fastedgy.orm import Registry
 from fastedgy.schemas.auth import (
     ChangePasswordRequest,
     ForgotPasswordRequest,
+    ForgotPasswordValidate,
+    ForgotPasswordValidateRequest,
     LoginRequest,
     ResetPasswordRequest,
     Token,
@@ -168,6 +170,28 @@ async def password_forgot(
     )
 
     return Message(message="Password reset email sent")
+
+
+@public_router.post("/password/validate")
+async def password_forgot(
+    data: ForgotPasswordValidateRequest,
+    registry: Registry = Inject(Registry),
+) -> ForgotPasswordValidate:
+    from fastedgy.models.user import BaseUser as User
+
+    User = cast(type["User"], registry.get_model("User"))
+
+    user = await User.query.filter(
+        User.columns.reset_pwd_token == data.token,
+        User.columns.reset_pwd_expires_at >= datetime.now(),
+    ).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Token invalid or expired"
+        )
+
+    return ForgotPasswordValidate(email=user.email, valid=True)
 
 
 @router.post("/password/change")

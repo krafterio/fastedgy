@@ -32,7 +32,7 @@ def generate_input_create_model[M = TypeModel](model_cls: M) -> type[M]:
                 field_type = optional_field_type(field.field_type)
             fields[field_name] = (field_type, field)
 
-    return create_model(f'{model_cls.__name__}-Input', **fields)
+    return create_model(f'{model_cls.__name__}Create', **fields)
 
 
 def generate_input_patch_model[M = TypeModel](model_cls: M) -> type[M]:
@@ -47,7 +47,7 @@ def generate_input_patch_model[M = TypeModel](model_cls: M) -> type[M]:
             py_field.field_type = optional_field_type(field.field_type)
             fields[field_name] = (py_field.field_type, py_field)
 
-    return create_model(f'{model_cls.__name__}-InputUpdate', **fields)
+    return create_model(f'{model_cls.__name__}Update', **fields)
 
 
 def optional_field_type(field_type):

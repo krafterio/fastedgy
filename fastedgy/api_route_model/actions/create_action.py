@@ -45,7 +45,7 @@ def generate_create_item[M = TypeModel](model_cls: M) -> Callable[[Request, M], 
             request: Request,
             item_data: generate_input_create_model(model_cls) = Body(...),
             fields: str | None = FieldSelectorHeader(),
-    ) -> type[generate_output_model(model_cls)] | dict[str, Any]:
+    ) -> generate_output_model(model_cls) | dict[str, Any]:
         return await create_item_action(
             request,
             model_cls,
@@ -63,7 +63,7 @@ async def create_item_action[M = TypeModel](
     fields: str | None = None,
     transformers: list[BaseViewTransformer] | None = None,
     transformers_ctx: dict[str, Any] | None = None,
-) -> type[M] | dict[str, Any]:
+) -> Coroutine[Any, Any, M | dict[str, Any]]:
     transformers_ctx = transformers_ctx or {}
 
     try:

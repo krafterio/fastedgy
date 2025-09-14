@@ -43,7 +43,7 @@ def generate_get_item[M = TypeModel](model_cls: M) -> Callable[[Request, int], C
             request: Request,
             item_id: int = Path(..., description="Item ID"),
             fields: str | None = FieldSelectorHeader(),
-    ) -> type[generate_output_model(model_cls)] | dict[str, Any]:
+    ) -> generate_output_model(model_cls) | dict[str, Any]:
         return await get_item_action(
             request,
             model_cls,
@@ -62,7 +62,7 @@ async def get_item_action[M = TypeModel](
     fields: str | None = None,
     transformers: list[BaseViewTransformer] | None = None,
     transformers_ctx: dict[str, Any] | None = None,
-) -> type[M] | dict[str, Any]:
+) -> Coroutine[Any, Any, M | dict[str, Any]]:
     query = query or model_cls.query
     query = query.filter(id=item_id)
     query = optimize_query_filter_fields(query, fields)

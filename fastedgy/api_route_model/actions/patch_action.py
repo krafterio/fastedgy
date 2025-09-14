@@ -50,7 +50,7 @@ def generate_patch_item[M = TypeModel](model_cls: M) -> Callable[[Request, int, 
             item_id: int = Path(..., description="Item ID"),
             item_data: generate_input_patch_model(model_cls) = Body(),
             fields: str | None = FieldSelectorHeader(),
-    ) -> type[generate_output_model(model_cls)] | dict[str, Any]:
+    ) -> generate_output_model(model_cls) | dict[str, Any]:
         return await patch_item_action(
             request,
             model_cls,
@@ -71,7 +71,7 @@ async def patch_item_action[M = TypeModel](
     fields: str | None = None,
     transformers: list[BaseViewTransformer] | None = None,
     transformers_ctx: dict[str, Any] | None = None,
-) -> type[M] | dict[str, Any]:
+) -> Coroutine[Any, Any, M | dict[str, Any]]:
     query = query or model_cls.query
     query = query.filter(id=item_id)
     query = optimize_query_filter_fields(query, fields)

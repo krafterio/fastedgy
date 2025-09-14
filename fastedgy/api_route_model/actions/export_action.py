@@ -43,6 +43,15 @@ class ExportApiRouteAction(BaseApiRouteAction):
             "methods": ["GET"],
             "summary": f"Export {model_cls.__name__} items",
             "description": f"Retrieve a export of {model_cls.__name__} items",
+            "responses": {
+                200: {
+                    "content": {
+                        "application/octet-stream": {
+                            "schema": {"type": "string", "format": "binary"},
+                        },
+                    },
+                },
+            },
             **options,
         })
 
@@ -55,7 +64,7 @@ def generate_export_items[M = TypeModel](model_cls: type[M]) -> Callable[[str, i
             order_by: str | None = OrderByQuery(),
             fields: str | None = FieldSelectorHeader(),
             filters: str | None = FilterHeader(),
-    ) -> Response:
+    ) -> StreamingResponse:
         query = model_cls.query
 
         return await export_items_action(
@@ -81,7 +90,7 @@ async def export_items_action[M = TypeModel](
     order_by: str | None = None,
     fields: str | None = None,
     filters: str | None = None,
-) -> Response:
+) -> Coroutine[Any, Any, StreamingResponse]:
     try:
         query = query or model_cls.query
         query = filter_query(query, filters)
@@ -152,7 +161,7 @@ def format_value(value: Any) -> str | None:
         return text_value
 
 
-def generate_csv_export(field_names: list[str], data_rows: list[list[str]], filename: str) -> Response:
+def generate_csv_export(field_names: list[str], data_rows: list[list[str]], filename: str) -> StreamingResponse:
     """Generate a CSV export file."""
     output = io.StringIO()
     writer = csv.writer(output)
@@ -166,7 +175,7 @@ def generate_csv_export(field_names: list[str], data_rows: list[list[str]], file
     )
 
 
-def generate_xlsx_export(field_names: list[str], data_rows: list[list[str]], filename: str) -> Response:
+def generate_xlsx_export(field_names: list[str], data_rows: list[list[str]], filename: str) -> StreamingResponse:
     """Generate an XLSX export file."""
     try:
         import openpyxl
@@ -203,7 +212,7 @@ def generate_xlsx_export(field_names: list[str], data_rows: list[list[str]], fil
     )
 
 
-def generate_ods_export(field_names: list[str], data_rows: list[list[str]], filename: str) -> Response:
+def generate_ods_export(field_names: list[str], data_rows: list[list[str]], filename: str) -> StreamingResponse:
     """Generate an ODS export file."""
     try:
         from pyexcel_ods3 import save_data

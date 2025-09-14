@@ -16,6 +16,8 @@ from fastedgy.http import Request
 from fastedgy.orm.query import QuerySet
 from fastedgy.schemas.base import Pagination
 
+from pydantic import create_model
+
 
 class ListApiRouteAction(BaseApiRouteAction):
     """Action for listing model instances."""
@@ -48,7 +50,7 @@ def generate_list_items[M = TypeModel](model_cls: type[M]) -> Callable[[Request,
             order_by: str | None = OrderByQuery(),
             fields: str | None = FieldSelectorHeader(),
             filters: str | None = FilterHeader(),
-    ) -> Pagination[type[generate_output_model(model_cls)] | dict[str, Any]]:
+    ) -> create_model(model_cls.__name__ + 'List', __base__=Pagination[generate_output_model(model_cls) | dict[str, Any]]):
         return await list_items_action(
             request,
             model_cls,
@@ -73,7 +75,7 @@ async def list_items_action[M = TypeModel](
     filters: str | None = None,
     transformers: list[BaseViewTransformer] | None = None,
     transformers_ctx: dict[str, Any] | None = None,
-) -> Pagination[type[M] | dict[str, Any]]:
+) -> Coroutine[Any, Any, Pagination[M | dict[str, Any]]]:
     transformers_ctx = transformers_ctx or {}
     vtr = get_service(ViewTransformerRegistry)
 

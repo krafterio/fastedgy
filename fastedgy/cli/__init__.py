@@ -2,8 +2,6 @@
 # MIT License (see LICENSE file).
 
 from typing import Any, AsyncContextManager, Awaitable, Callable, Dict, Optional, Type, TypeVar, Union, cast, overload
-from fastedgy.app import FastEdgy
-from fastedgy.dependencies import Token
 from typing_extensions import Concatenate, ParamSpec
 
 P = ParamSpec("P")
@@ -16,16 +14,22 @@ import importlib
 import inspect
 import logging
 import pkgutil
-import rich_click as click
 
-from rich.console import Console
-from rich.panel import Panel
-from rich.table import Table
-from rich_click.decorators import _AnyCallable, CmdType, GrpType
 from functools import update_wrapper
 
 # Fastedgy imports
+from fastedgy.app import FastEdgy
 from fastedgy.config import BaseSettings
+from fastedgy.dependencies import Token
+
+# Rich Click
+import rich_click as click
+from rich_click.decorators import _AnyCallable, CmdType, GrpType
+
+# Rich
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
 
 # Click Core
 from rich_click import Argument as Argument, RichCommand, RichGroup

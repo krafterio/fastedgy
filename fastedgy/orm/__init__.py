@@ -9,6 +9,7 @@ from edgy import (
     ReflectModel,
 )
 from edgy.core.db.models.types import BaseModelType
+from fastedgy.orm import migration
 
 
 __all__ = [
@@ -18,4 +19,5 @@ __all__ = [
     "StrictModel",
     "ReflectModel",
     "BaseModelType",
+    "migration",
 ]

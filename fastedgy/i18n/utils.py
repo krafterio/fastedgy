@@ -30,6 +30,10 @@ def _t(message: str, **kwargs) -> str:
             return message
 
 
+_ = _t
+
+
 __all__ = [
     "_t",
+    "_",
 ]

@@ -2,6 +2,7 @@
 # MIT License (see LICENSE file).
 
 from typing import TYPE_CHECKING, cast
+from uuid import uuid4
 from fastapi import APIRouter, Body, Depends, HTTPException, status
 from fastedgy.config import BaseSettings
 from fastedgy.dependencies import Inject
@@ -15,12 +16,15 @@ from fastedgy.depends.security import (
 from fastedgy.orm import Registry
 from fastedgy.schemas.auth import (
     ChangePasswordRequest,
+    ForgotPasswordRequest,
     LoginRequest,
     ResetPasswordRequest,
     Token,
     TokenRefresh,
 )
 from fastedgy.schemas.base import Message
+from fastedgy.mail import Mail
+from fastedgy import context
 from jose import jwt, JWTError
 from datetime import datetime, timedelta
 
@@ -123,6 +127,47 @@ async def password_reset(
     await user.save()
 
     return Message(message="Password updated")
+
+
+@public_router.post("/password/forgot")
+async def password_forgot(
+    data: ForgotPasswordRequest,
+    settings: BaseSettings = Inject(BaseSettings),
+    registry: Registry = Inject(Registry),
+    mail: Mail = Inject(Mail),
+) -> Message:
+    from fastedgy.models.user import BaseUser as User
+
+    User = cast(type["User"], registry.get_model("User"))
+    user = await User.query.filter(email=data.email).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Email not found"
+        )
+
+    user.reset_pwd_token = str(uuid4())
+    user.reset_pwd_expires_at = datetime.now() + timedelta(hours=1)
+    await user.save()
+
+    recovery_url = (
+        f"{settings.base_url_app}/password/reset?token={user.reset_pwd_token}"
+    )
+
+    await mail.send_template(
+        f"emails/{context.get_locale()}/password_recovery.html",
+        {
+            "locale": context.get_locale(),
+            "email": user.email,
+            "recovery_url": recovery_url,
+            "base_url_app": settings.base_url_app,
+        },
+        {
+            "To": user.email,
+        },
+    )
+
+    return Message(message="Password reset email sent")
 
 
 @router.post("/password/change")

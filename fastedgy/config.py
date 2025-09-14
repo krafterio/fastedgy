@@ -104,6 +104,7 @@ class BaseSettings(PydanticBaseSettings):
 
     # App
     title: str = "FastEdgy"
+    base_url_app: str = ""
 
     # HTTP
     http_workers: int | None = None
@@ -178,7 +179,7 @@ class BaseSettings(PydanticBaseSettings):
 
     @cached_property
     def mail_template_path(self) -> str:
-        return os.path.join(self.project_path, "templates")
+        return os.path.join(self.server_path, "templates")
 
     @cached_property
     def db_migration_path(self) -> str:

@@ -2,7 +2,7 @@
 # MIT License (see LICENSE file).
 
 from typing import TYPE_CHECKING, cast
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Body, HTTPException, status
 from fastedgy import context
 from fastedgy.orm import Registry
 from fastedgy.depends.security import hash_password
@@ -19,7 +19,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/register")
 async def register_user(
-    user_data: UserRegisterRequest,
+    user_data: UserRegisterRequest = Body(),
     registry: Registry = Inject(Registry),
 ) -> Message:
     user_model = cast(type["User"], registry.get_model('User'))

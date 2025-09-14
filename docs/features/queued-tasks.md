@@ -154,7 +154,7 @@ async def create_dynamic_task(queued_tasks: QueuedTasks = Inject(QueuedTasks)):
     return {"task_id": await task_ref.get_task_id()}
 ```
 
-### 6. Task Lifecycle Hooks (Extension System)
+### 5. Task Lifecycle Hooks (Extension System)
 
 ```python
 from fastedgy import context
@@ -286,13 +286,13 @@ fastedgy queue servers
 
 ```bash
 # Start HTTP server only
-kt serve
+fastedgy serve
 
 # Start server with specific workers (advanced)
-kt serve --workers=3
+fastedgy serve --workers=3
 
 # Start only workers (no HTTP)
-kt serve --workers=3 --no-http
+fastedgy serve --workers=3 --no-http
 ```
 
 ## Monitoring and Debugging
@@ -441,8 +441,8 @@ async def batch_processing_task(items: list):
 ### Common Issues
 
 1. **Tasks stuck in "enqueued" state**
-    - Check if workers are running: `kt queue status`
-    - Start workers: `kt queue start --workers=3`
+    - Check if workers are running: `fastedgy queue status`
+    - Start workers: `fastedgy queue start --workers=3`
 
 2. **Task dependencies not working**
     - Verify parent task completed successfully

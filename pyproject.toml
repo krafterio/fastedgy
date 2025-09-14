@@ -37,6 +37,8 @@ dependencies = [
 [dependency-groups]
 dev = [
     "ruff >= 0.13",
+    "mkdocs-material >= 9.5",
+    "mkdocs-minify-plugin >= 0.8",
 ]
 
 [project.scripts]

@@ -1,7 +1,7 @@
-FastEdgy
---------
+# FastEdgy
 
-The base that makes web application development simple and fast with FastAPI and Edgy ORM.
+**FastEdgy** is a base that makes web application development simple and fast with
+[FastAPI](https://fastapi.tiangolo.com) and [Edgy ORM](https://edgy.dymmond.com).
 
 ## Features
 
@@ -19,15 +19,13 @@ The base that makes web application development simple and fast with FastAPI and
 - **Internationalization:** Use Babel to serve and extract translatable messages with CLI commands
 - **Authentication:** Adds basic API endpoints for authentication management
 
-## Documentation
-
-Documentation is available at [fastedgy.krafter.io](https://krafterio.github.io/fastedgy).
 
 ## Prerequisites
 
 - Python 3.13+
 - UV (Python Package Manager recommended, see the [installation doc](https://docs.astral.sh/uv/getting-started/installation))
 - PostgreSQL 15.0+
+
 
 ## Installation
 
@@ -101,7 +99,7 @@ About
 
 FastEdgy was originally created by [Krafter][2].
 
-[1]: LICENSE
+[1]: https://github.com/krafterio/fastedgy/blob/main/LICENSE
 [2]: https://krafter.io
 [3]: https://github.com/krafterio/fastedgy/issues
 [4]: https://github.com/krafterio/fastedgy/pulls

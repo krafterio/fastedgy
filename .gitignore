@@ -1,6 +1,7 @@
 __pycache__
 *.egg-info/
 /build/
+/site/
 /venv/
 /.venv/
 /.ruff_cache/

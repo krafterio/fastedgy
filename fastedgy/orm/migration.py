@@ -41,133 +41,6 @@ def fastedgy_process_revision_directives(context, revision, directives):
     process_vector_revision_directives(context, revision, directives)
 
 
-
-
-# ####################
-# Enum Post-Processing #
-# ####################
-
-def process_enum_revision_directives(context, revision, directives):
-    """
-    Post-process migration directives to fix enum column definitions.
-    """
-    if not directives:
-        return
-
-    upgrade_ops = directives[0].upgrade_ops
-    if not upgrade_ops:
-        return
-
-    # Find all enums that will be created in this migration
-    enums_being_created = set()
-    for op in upgrade_ops.ops:
-        if hasattr(op, '__class__') and op.__class__.__name__ == 'CreateEnumOperation':
-            if hasattr(op, 'enum_name'):
-                enums_being_created.add(op.enum_name)
-
-    if not enums_being_created:
-        return
-
-    # Process all operations to fix enum column types
-    _fix_enum_column_types(upgrade_ops.ops, enums_being_created)
-
-    # Add postgresql import to the migration
-    if enums_being_created:
-        directives[0].imports.add("from sqlalchemy.dialects import postgresql")
-
-
-def process_vector_revision_directives(context, revision, directives):
-    """
-    Post-process migration directives to handle vector columns and pgvector extension.
-    """
-    if not directives:
-        return
-
-    upgrade_ops = directives[0].upgrade_ops
-    if not upgrade_ops:
-        return
-
-    # Check if any operations use vector types
-    vector_operations_found = _check_for_vector_operations(upgrade_ops.ops)
-
-    if vector_operations_found:
-        # Add imports needed for vector operations
-        directives[0].imports.add("from fastedgy.orm.migration import enable_vector_extension")
-        directives[0].imports.add("import fastedgy")
-
-        # Insert enable_vector_extension call at the beginning of upgrade operations
-        upgrade_ops.ops.insert(0, EnableVectorExtensionOperation())
-
-
-def _check_for_vector_operations(ops):
-    """Recursively check if any operations use vector types"""
-    from alembic.operations.ops import AddColumnOp, CreateTableOp, AlterColumnOp
-
-    for op in ops:
-        if isinstance(op, AddColumnOp):
-            if _is_vector_column(op.column):
-                return True
-        elif isinstance(op, CreateTableOp):
-            for column in op.columns:
-                if _is_vector_column(column):
-                    return True
-        elif isinstance(op, AlterColumnOp):
-            if hasattr(op, 'modify_type') and op.modify_type and _is_vector_type(op.modify_type):
-                return True
-            if hasattr(op, 'existing_type') and op.existing_type and _is_vector_type(op.existing_type):
-                return True
-        elif hasattr(op, 'ops'):
-            if _check_for_vector_operations(op.ops):
-                return True
-    return False
-
-
-def _is_vector_column(column):
-    """Check if a column uses vector type"""
-    if not hasattr(column, 'type'):
-        return False
-
-    from fastedgy.orm.fields import Vector
-    return isinstance(column.type, Vector)
-
-
-def _is_vector_type(type_obj):
-    """Check if a type is a Vector type"""
-    if not type_obj:
-        return False
-
-    from fastedgy.orm.fields import Vector
-    return isinstance(type_obj, Vector)
-
-
-def _fix_enum_column_types(ops, enums_being_created):
-    """Recursively fix enum column types in all operations"""
-    from alembic.operations.ops import AddColumnOp, CreateTableOp
-
-    for op in ops:
-        if isinstance(op, AddColumnOp):
-            # Fix single column in AddColumnOp
-            _fix_column_enum_type(op.column, enums_being_created)
-        elif isinstance(op, CreateTableOp):
-            # Fix all columns in CreateTableOp
-            for column in op.columns:
-                _fix_column_enum_type(column, enums_being_created)
-        elif hasattr(op, 'ops'):
-            # Recursively process nested operations (like batch operations)
-            _fix_enum_column_types(op.ops, enums_being_created)
-
-
-def _fix_column_enum_type(column, enums_being_created):
-    """Fix a single column's enum type if it references an enum being created"""
-    if not hasattr(column, 'type') or not isinstance(column.type, sa.Enum):
-        return
-
-    enum_name = column.type.name
-    if enum_name and enum_name in enums_being_created:
-        # Replace sa.Enum with postgresql.ENUM reference
-        column.type = postgresql.ENUM(name=enum_name, create_type=False)
-
-
 # ############
 # View Model #
 # ############
@@ -344,6 +217,69 @@ def _remove_redundant_aliases(match):
 # #######
 # Enums #
 # #######
+
+def process_enum_revision_directives(context, revision, directives):
+    """
+    Post-process migration directives to fix enum column definitions.
+    """
+    if not directives:
+        return
+
+    upgrade_ops = directives[0].upgrade_ops
+    if not upgrade_ops:
+        return
+
+    # Find all enums that will be created in this migration
+    enums_being_created = set()
+    for op in upgrade_ops.ops:
+        if hasattr(op, '__class__') and op.__class__.__name__ == 'CreateEnumOperation':
+            if hasattr(op, 'enum_name'):
+                enums_being_created.add(op.enum_name)
+
+    if not enums_being_created:
+        return
+
+    # Process all operations to fix enum column types
+    _replace_enum_column_types(upgrade_ops.ops, enums_being_created)
+
+    # Add postgresql import to the migration
+    if enums_being_created:
+        directives[0].imports.add("from sqlalchemy.dialects import postgresql")
+        directives[0].imports.add("import fastedgy")
+
+
+def _replace_enum_column_types(ops, enums_being_created):
+    """Recursively replace enum column types in all operations"""
+    from alembic.operations.ops import AddColumnOp, CreateTableOp
+
+    for op in ops:
+        if isinstance(op, AddColumnOp):
+            # Replace single column in AddColumnOp
+            _replace_column_enum_by_reference_enum(op.column, enums_being_created)
+        elif isinstance(op, CreateTableOp):
+            # Replace all columns in CreateTableOp
+            for column in op.columns:
+                _replace_column_enum_by_reference_enum(column, enums_being_created)
+        elif hasattr(op, 'ops'):
+            # Recursively process nested operations (like batch operations)
+            _replace_enum_column_types(op.ops, enums_being_created)
+
+
+def _replace_column_enum_by_reference_enum(column, enums_being_created):
+    """Replace a single column's enum type if it references an enum being created"""
+    if not hasattr(column, 'type'):
+        return
+
+    if isinstance(column.type, sa.Enum):
+        enum_name = column.type.name
+        if enum_name:
+            column.type = ReferenceEnum(name=enum_name)
+    elif isinstance(column.type, postgresql.ENUM) and not isinstance(column.type, ReferenceEnum):
+        # Replace regular postgresql.ENUM with our custom type when it has a name
+        if hasattr(column.type, 'name') and column.type.name:
+            # Use our custom type that always renders with create_type=False
+            column.type = ReferenceEnum(name=column.type.name)
+
 
 @comparators.dispatch_for("schema")
 def compare_enums(autogen_context: AutogenContext, upgrade_ops: UpgradeOps, schemas) -> None:
@@ -577,6 +513,16 @@ def create_enum_value_mapping(*renames: tuple[str, str]) -> dict[str, str]:
         op.replace_enum('status', ['pending', 'published'], ['draft', 'active'], mapping)
     """
     return dict(renames)
+
+
+class ReferenceEnum(postgresql.ENUM):
+    """
+    Custom PostgreSQL ENUM type that always renders with create_type=False.
+    """
+
+    def __init__(self, *enums, **kwargs):
+        kwargs['create_type'] = False
+        super().__init__(*enums, **kwargs)
 
 
 @Operations.register_operation("replace_enum")
@@ -841,9 +787,92 @@ def render_rename_enum(_, operation: RenameEnumOperation) -> str:
     return f"op.rename_enum('{operation.old_name}', '{operation.new_name}')"
 
 
-# ####################
-# Vector Extension     #
-# ####################
+@renderers.dispatch_for(ReferenceEnum)
+def render_reference_enum(_, type_):
+    """Custom renderer for PostgreSQL ENUM that always includes create_type=False"""
+    args = []
+
+    if hasattr(type_, 'enums') and type_.enums:
+        enum_values = ', '.join(repr(val) for val in type_.enums)
+        args.append(enum_values)
+
+    if hasattr(type_, 'name') and type_.name:
+        args.append(f"name={repr(type_.name)}")
+
+    args.append("create_type=False")
+
+    args_str = ', '.join(args)
+
+    return f"postgresql.ENUM({args_str})"
+
+
+# ########
+# Vector #
+# ########
+
+def process_vector_revision_directives(context, revision, directives):
+    """
+    Post-process migration directives to handle vector columns and pgvector extension.
+    """
+    if not directives:
+        return
+
+    upgrade_ops = directives[0].upgrade_ops
+    if not upgrade_ops:
+        return
+
+    # Check if any operations use vector types
+    vector_operations_found = _check_for_vector_operations(upgrade_ops.ops)
+
+    if vector_operations_found:
+        # Add imports needed for vector operations
+        directives[0].imports.add("from fastedgy.orm.migration import enable_vector_extension")
+        directives[0].imports.add("import fastedgy")
+
+        # Insert enable_vector_extension call at the beginning of upgrade operations
+        upgrade_ops.ops.insert(0, EnableVectorExtensionOperation())
+
+
+def _check_for_vector_operations(ops):
+    """Recursively check if any operations use vector types"""
+    from alembic.operations.ops import AddColumnOp, CreateTableOp, AlterColumnOp
+
+    for op in ops:
+        if isinstance(op, AddColumnOp):
+            if _is_vector_column(op.column):
+                return True
+        elif isinstance(op, CreateTableOp):
+            for column in op.columns:
+                if _is_vector_column(column):
+                    return True
+        elif isinstance(op, AlterColumnOp):
+            if hasattr(op, 'modify_type') and op.modify_type and _is_vector_type(op.modify_type):
+                return True
+            if hasattr(op, 'existing_type') and op.existing_type and _is_vector_type(op.existing_type):
+                return True
+        elif hasattr(op, 'ops'):
+            if _check_for_vector_operations(op.ops):
+                return True
+    return False
+
+
+def _is_vector_column(column):
+    """Check if a column uses vector type"""
+    if not hasattr(column, 'type'):
+        return False
+
+    from fastedgy.orm.fields import Vector
+    return isinstance(column.type, Vector)
+
+
+def _is_vector_type(type_obj):
+    """Check if a type is a Vector type"""
+    if not type_obj:
+        return False
+
+    from fastedgy.orm.fields import Vector
+    return isinstance(type_obj, Vector)
+
 
 @Operations.register_operation("enable_vector_extension")
 class EnableVectorExtensionOperation(MigrateOperation):
@@ -890,10 +919,6 @@ def render_enable_vector_extension(_, operation: EnableVectorExtensionOperation)
 def render_disable_vector_extension(_, operation: DisableVectorExtensionOperation) -> str:
     return "disable_vector_extension()"
 
-
-# #########################
-# PostgreSQL Extensions   #
-# #########################
 
 def enable_vector_extension() -> None:
     """

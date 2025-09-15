@@ -7,8 +7,6 @@ import logging
 
 import html2text
 
-import os
-
 import re
 
 from email.message import EmailMessage
@@ -195,7 +193,7 @@ def clean_markdown_residuals(text: str) -> str:
     # Remove > characters for blockquotes
     text = re.sub(r"^>\s*", "", text, flags=re.MULTILINE)
     # Remove [] and () characters for links
-    text = re.sub(r"\[(.*?)\]\(.*?\)", r"\1", text)
+    text = re.sub(r"\[(.*?)]\(.*?\)", r"\1", text)
     # Remove horizontal separators
     text = re.sub(r"^-{3,}$", "", text, flags=re.MULTILINE)
 

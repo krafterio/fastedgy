@@ -11,7 +11,7 @@ from fastedgy.config import BaseSettings, init_settings
 from fastedgy.dependencies import Token, get_service, has_service, register_service
 from fastedgy.logger import setup_logging
 from fastedgy.http import ContextRequestMiddleware
-from fastedgy.i18n import LocaleMiddleware, I18n
+from fastedgy.i18n import LocaleMiddleware
 from fastedgy.orm import Registry, Database
 from fastedgy.orm.registry import register_lazy_models
 from starlette.routing import BaseRoute

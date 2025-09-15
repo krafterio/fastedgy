@@ -2,10 +2,10 @@
 # MIT License (see LICENSE file).
 
 from contextvars import ContextVar, Token
+from enum import Enum
 from typing import TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
-    from enum import Enum
     from fastedgy.http import Request
     from fastedgy.models.workspace_extra_field import (
         BaseWorkspaceExtraField as WorkspaceExtraField,
@@ -115,8 +115,6 @@ def set_workspace_extra_fields(
 def get_workspace_extra_fields(
     model_name: str | None = None,
 ) -> list["WorkspaceExtraField"]:
-    from fastedgy.models.workspace_extra_field import Enum
-
     req = get_request()
     all_fields = []
     current_fields = (

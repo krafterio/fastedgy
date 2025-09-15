@@ -252,6 +252,8 @@ type Settings[S: BaseSettings = BaseSettings] = Annotated[S, Inject(BaseSettings
 
 
 __all__ = [
+    "SERVER_FILES",
+    "SETTINGS_PACKAGES",
     "BaseSettings",
     "discover_settings_class",
     "init_settings",

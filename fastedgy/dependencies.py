@@ -200,6 +200,7 @@ __all__ = [
     "ContainerService",
     "get_container_service",
     "register_service",
+    "has_service",
     "get_service",
     "provide",
     "Inject",

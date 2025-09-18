@@ -5,10 +5,11 @@ import re
 
 from fastedgy import context
 from fastedgy.orm import Model
-from fastedgy.orm.fields import BaseFieldType, ForeignKey, ManyToMany
+from fastedgy.orm.fields import BaseFieldType, ForeignKey, ManyToMany, OneToOne
 from fastedgy.orm.filter import get_filter_operators, FILTER_FIELD_TYPE_NAME_MAP
 from fastedgy.orm.utils import find_primary_key_field
 from fastedgy.schemas.dataset import MetadataModel, MetadataField
+from pydantic_core import PydanticUndefined
 
 
 class MetadataFieldError(Exception): ...
@@ -127,7 +128,7 @@ def generate_metadata_field(model_cls: Model, field: BaseFieldType) -> MetadataF
 
     field_type = generate_metadata_field_type(field)
     readonly = field.read_only
-    has_default = field.default is not None
+    has_default = field.default is not None and field.default != PydanticUndefined
     required = not field.null and not field.read_only
 
     if find_primary_key_field(model_cls) == field.name:
@@ -189,6 +190,10 @@ def add_inverse_relations(models: dict[Model, MetadataModel]) -> None:
                 )
             elif isinstance(original_field, ManyToMany):
                 _add_many_to_many_relation(
+                    original_field, model_cls, metadata_model, target_metadata
+                )
+            elif isinstance(original_field, OneToOne):
+                _add_one_to_one_relation(
                     original_field, model_cls, metadata_model, target_metadata
                 )
 
@@ -257,12 +262,39 @@ def _add_many_to_many_relation(
     target_metadata.fields[back_populates] = MetadataField(
         name=back_populates,
         label=source_label_plural,
-        type=FILTER_FIELD_TYPE_NAME_MAP[ManyToMany],
+        type=FILTER_FIELD_TYPE_NAME_MAP["ManyToMany"],
         readonly=True,
         required=False,
         searchable=True,
         extra=False,
         filter_operators=get_filter_operators(ManyToMany),
+        target=source_metadata.name,
+    )
+
+
+def _add_one_to_one_relation(
+    one_to_one_field: OneToOne,
+    source_model_cls: Model,
+    source_metadata: MetadataModel,
+    target_metadata: MetadataModel,
+) -> None:
+    """Add one-to-one inverse relation to target metadata."""
+    related_name = getattr(one_to_one_field, "related_name", None)
+    if not related_name or related_name.endswith("_set"):
+        return
+
+    if related_name in target_metadata.fields:
+        return
+
+    target_metadata.fields[related_name] = MetadataField(
+        name=related_name,
+        label=source_metadata.label,
+        type=FILTER_FIELD_TYPE_NAME_MAP["OneToOne"],
+        readonly=True,
+        required=False,
+        searchable=True,
+        extra=False,
+        filter_operators=get_filter_operators(OneToOne),
         target=source_metadata.name,
     )
 

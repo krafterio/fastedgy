@@ -37,7 +37,7 @@ from edgy.core.db.fields import (
     PGArrayField,
     RefForeignKey,
 )
-from edgy.core.db.fields.factories import FieldFactory
+from edgy.core.db.fields.factories import FieldFactory, ForeignKeyFieldFactory
 from edgy.core.db.fields.types import BaseFieldType
 from edgy.core.db.datastructures import Index, UniqueConstraint
 from sqlalchemy.types import UserDefinedType
@@ -204,6 +204,7 @@ class VectorField(FieldFactory, list):
 
 __all__ = [
     "FieldFactory",
+    "ForeignKeyFieldFactory",
     "BaseFieldType",
     "Index",
     "UniqueConstraint",

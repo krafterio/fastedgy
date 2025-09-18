@@ -9,6 +9,8 @@ from fastedgy.orm.query import (
 )
 from fastedgy.orm.fields import (
     BaseFieldType,
+    ForeignKeyFieldFactory,
+    FieldFactory,
     IntegerField,
     BooleanField,
     CharField,
@@ -26,7 +28,7 @@ from fastedgy.orm.fields import (
     IPAddressField,
     JSONField,
     BinaryField,
-    OneToOne,
+    OneToOneField,
     TimeField,
     UUIDField,
     VectorField,
@@ -432,7 +434,7 @@ FILTER_OPERATORS_FIELD_MAP = {
         "is empty",
         "is not empty",
     ],
-    OneToOne: [
+    OneToOneField: [ # OneToOne extends OneToOneField
         "=",
         "!=",
         "in",
@@ -511,14 +513,16 @@ FILTER_FIELD_TYPE_NAME_MAP = {
     "JSONField": "json",
     "IPAddressField": "ipaddress",
     "OneToOne": "one2one",
+    "OneToOneField": "one2one",
     "RefForeignKey": "many2one_ref",
     "UUIDField": "uuid",
+    "ManyToMany": "many2many",
     "ManyToManyField": "many2many",
     "OneToMany": "one2many",
 }
 
 
-def get_filter_operators(field_info: BaseFieldType | str) -> list[str]:
+def get_filter_operators(field_info: BaseFieldType | FieldFactory | ForeignKeyFieldFactory | str) -> list[str]:
     if isinstance(field_info, str):
         return FILTER_OPERATORS_FIELD_MAP.get(field_info, [])
 
@@ -526,6 +530,9 @@ def get_filter_operators(field_info: BaseFieldType | str) -> list[str]:
 
     if field_type in FILTER_OPERATORS_FIELD_MAP:
         return FILTER_OPERATORS_FIELD_MAP[field_type]
+
+    if field_info in FILTER_OPERATORS_FIELD_MAP:
+        return FILTER_OPERATORS_FIELD_MAP[field_info]
 
     for map_field_type, allowed_operators in FILTER_OPERATORS_FIELD_MAP.items():
         if isinstance(field_info, str) and field_info == map_field_type:

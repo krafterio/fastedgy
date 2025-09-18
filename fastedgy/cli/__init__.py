@@ -36,7 +36,7 @@ from fastedgy.dependencies import Token
 
 # Rich Click
 import rich_click as click
-from rich_click.decorators import _AnyCallable, CmdType, GrpType
+from rich_click.decorators import _AnyCallable
 
 # Rich
 from rich.console import Console
@@ -111,6 +111,10 @@ from rich_click import get_app_dir as get_app_dir
 from rich_click import get_binary_stream as get_binary_stream
 from rich_click import get_text_stream as get_text_stream
 from rich_click import open_file as open_file
+
+
+CmdType = TypeVar("CmdType", bound=click.Command)
+G = TypeVar("G", bound=click.Group)
 
 
 _cli_groups: Dict[str, click.Group] = {}
@@ -249,9 +253,9 @@ def group(name: _AnyCallable) -> RichGroup: ...
 @overload
 def group(
     name: Optional[str],
-    cls: Type[GrpType],
+    cls: Type[G],
     **attrs: Any,
-) -> Callable[[_AnyCallable], GrpType]: ...
+) -> Callable[[_AnyCallable], G]: ...
 
 
 # variant: name omitted, cls _must_ be a keyword argument, @group(cmd=GroupCls, ...)
@@ -259,9 +263,9 @@ def group(
 def group(
     name: None = None,
     *,
-    cls: Type[GrpType],
+    cls: Type[G],
     **attrs: Any,
-) -> Callable[[_AnyCallable], GrpType]: ...
+) -> Callable[[_AnyCallable], G]: ...
 
 
 # variant: with optional string name, no cls argument provided.
@@ -273,9 +277,9 @@ def group(
 
 def group(
     name: Union[str, _AnyCallable, None] = None,
-    cls: Optional[Type[GrpType]] = None,
+    cls: Optional[Type[G]] = None,
     **attrs: Any,
-) -> Union[Group, Callable[[_AnyCallable], Union[RichGroup, GrpType]]]:
+) -> Union[Group, Callable[[_AnyCallable], Union[RichGroup, G]]]:
     if cls is None:
         cls = Group
 

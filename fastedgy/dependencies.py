@@ -186,17 +186,35 @@ def register_app(app: FastAPI) -> None:
 
 
 def register_service(
-    instance: Union[T, Callable[[], T]],
+    instance: Union[T, Callable[[], T], Type[T]],
     key: Union[Type[T], Token[T], str, None] = None,
     force: bool = False,
 ) -> None:
     if callable(instance):
-        if key is None:
-            raise ValueError("Key must be provided when registering a callable")
+        import inspect
 
-        provided_key = _normalize_key(key)
-        container_service.register(provided_key, instance)
+        if inspect.isclass(instance):
+            # Class with dependencies resolution: register_service(MyClass, key)
+            if key is None:
+                raise ValueError("Key must be provided when registering a class")
+
+            provided_key = _normalize_key(key)
+            def wrapper():
+                result = container_service._solve_dependencies(_normalize_key(instance))
+                if result is None:
+                    raise LookupError(f"Failed to auto-resolve {instance}")
+                return result
+
+            container_service.register(provided_key, wrapper)
+        else:
+            # Function/lambda: register_service(lambda: MyClass(), key)
+            if key is None:
+                raise ValueError("Key must be provided when registering a callable")
+
+            provided_key = _normalize_key(key)
+            container_service.register(provided_key, instance)
     else:
+        # Direct instance: register_service(my_instance, key)
         instance_type_key = _normalize_key(type(instance))
         provided_key = _normalize_key(type(instance) if key is None else key)
 

@@ -157,7 +157,7 @@ ADMIN_ROUTE_MODEL_REGISTRY_TOKEN = Token[RouteModelRegistry](
 )
 
 
-register_service(lambda: RouteModelRegistry(), ADMIN_ROUTE_MODEL_REGISTRY_TOKEN)
+register_service(RouteModelRegistry, ADMIN_ROUTE_MODEL_REGISTRY_TOKEN)
 
 
 __all__ = [

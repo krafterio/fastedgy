@@ -120,6 +120,12 @@ nav:
   - Features:
     - features/index.md
     - Core Features:
+      - Container Service:
+        - Overview: features/container-service/overview.md
+        - Getting Started: features/container-service/getting-started.md
+        - User Guide: features/container-service/guide.md
+        - Advanced Usage: features/container-service/advanced.md
+        - Technical Details: features/container-service/technical.md
       - Queued Tasks:
         - Overview: features/queued-tasks/overview.md
         - Getting Started: features/queued-tasks/getting-started.md

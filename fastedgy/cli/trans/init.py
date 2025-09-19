@@ -36,5 +36,5 @@ def init(ctx: CliContext, locale: str, package: str | None = None):
         console.print(f"[red]Error: {result.error}[/red]")
         if "already exists" in result.error:
             console.print(
-                f"[yellow]Use 'kt trans extract {locale}' to update existing translations[/yellow]"
+                f"[yellow]Use 'fastedgy trans extract {locale}' to update existing translations[/yellow]"
             )

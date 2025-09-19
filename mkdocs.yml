@@ -34,13 +34,17 @@ theme:
     - content.action.view
     - content.code.annotate
     - content.code.copy
+    - content.code.select
     - content.tooltips
+    - content.tabs.link
     - navigation.footer
     - navigation.indexes
     - navigation.sections
+    - navigation.prune
     - navigation.tabs
     - navigation.tabs.sticky
     - navigation.top
+    - navigation.path
     - search.highlight
     - search.share
     - search.suggest
@@ -89,7 +93,7 @@ markdown_extensions:
   - pymdownx.magiclink:
       normalize_issue_symbols: true
       repo_url_shorthand: true
-      user: francoispluchino
+      user: krafterio
       repo: fastedgy
   - pymdownx.mark
   - pymdownx.smartsymbols
@@ -115,4 +119,10 @@ nav:
   - FastEdgy: index.md
   - Features:
     - features/index.md
-    - Queued Tasks: features/queued-tasks.md
+    - Core Features:
+      - Queued Tasks:
+        - Overview: features/queued-tasks/overview.md
+        - Getting Started: features/queued-tasks/getting-started.md
+        - User Guide: features/queued-tasks/guide.md
+        - Advanced Usage: features/queued-tasks/advanced.md
+        - Technical Details: features/queued-tasks/technical.md

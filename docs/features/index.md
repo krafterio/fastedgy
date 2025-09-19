@@ -5,7 +5,7 @@
 - **Fields selector in API Response:** Define the list of fields that the JSON API should return with the ability to define fields on nested relationships compatible with single and multiple relationships
 - **Metadata Generator:** Automatically create metadata info for models and fields
 - **Container Service Registry:** Centralizes and manages application-level lifecycle service classes with lazy loading
-- **Queued Task:** Manage asynchronous tasks and background jobs with failover management and multi-workers
+- **[Queued Task](queued-tasks/overview.md):** Manage asynchronous tasks and background jobs with failover management and multi-workers
 - **CLI:** Use Rich Click to improve command-line formatting and auto-register new commands
 - **Edgy ORM Fields Extensions:** Add additional field types for Edgy and PostgreSQL
 - **Email:** Use Jinja2 templates to generate and send emails

@@ -1,3 +1,8 @@
+---
+hide:
+  - navigation
+---
+
 # FastEdgy
 
 **FastEdgy** is a base that makes web application development simple and fast with

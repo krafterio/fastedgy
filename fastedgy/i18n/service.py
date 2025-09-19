@@ -2,6 +2,7 @@
 # MIT License (see LICENSE file).
 
 import os
+import logging
 
 from babel.messages import Catalog
 from babel.messages.pofile import read_po
@@ -9,6 +10,9 @@ from babel.messages.pofile import read_po
 from fastedgy.config import BaseSettings
 from fastedgy.context import get_locale
 from fastedgy.dependencies import get_service, register_service
+
+
+logger = logging.getLogger('fastedgy.i18n')
 
 
 class I18n:
@@ -37,8 +41,7 @@ class I18n:
 
                     self._catalogs[translations_path][locale] = catalog
                 except Exception as e:
-                    # Log error but continue with other sources
-                    print(f"Warning: Could not load {po_file}: {e}")
+                    logger.warning(f"Warning: Could not load {po_file}: {e}")
 
         self._loaded_locales.add(locale)
 

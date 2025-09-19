@@ -4,7 +4,7 @@
 from typing import Any, cast
 from fastapi import APIRouter, HTTPException
 
-from fastedgy.dependencies import get_service
+from fastedgy.dependencies import Inject, get_service
 from fastedgy.metadata_model import MetadataModelRegistry, TypeMapMetadataModels
 from fastedgy.metadata_model.generator import generate_class_name
 from fastedgy.orm import Model, Registry
@@ -14,22 +14,23 @@ router = APIRouter(prefix="/dataset", tags=["dataset"])
 
 
 @router.get("/metadatas")
-async def get_metadata_models() -> TypeMapMetadataModels:
-    meta_registry = get_service(MetadataModelRegistry)
-
+async def get_metadata_models(
+    meta_registry: MetadataModelRegistry = Inject(MetadataModelRegistry),
+) -> TypeMapMetadataModels:
     return await meta_registry.get_map_models()
 
 
 @router.put("/resequence")
-async def resequence(data: ResequenceRequest) -> Resequence:
-    meta_registry = get_service(MetadataModelRegistry)
-
+async def resequence(
+    data: ResequenceRequest,
+    meta_registry: MetadataModelRegistry = Inject(MetadataModelRegistry),
+    registry: Registry = Inject(Registry),
+) -> Resequence:
     if not meta_registry.is_registered(data.model_name):
         raise HTTPException(
             status_code=400, detail=f"Model '{data.model_name}' not found"
         )
 
-    registery = get_service(Registry)
     model_class_name = generate_class_name(data.model_name)
     model_class = cast(type[Model], registery.get_model(model_class_name))
     records = []

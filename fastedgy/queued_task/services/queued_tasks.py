@@ -25,7 +25,7 @@ import json
 
 import logging
 
-from fastedgy.dependencies import get_service, register_service
+from fastedgy.dependencies import Inject
 from fastedgy.orm import Registry
 from fastedgy.queued_task.models.queued_task import QueuedTaskState
 from fastedgy.queued_task.services.queued_task_ref import QueuedTaskRef
@@ -69,10 +69,15 @@ class TaskCreationRequest:
 class QueuedTasks:
     """Queued task management service."""
 
-    def __init__(self):
+    def __init__(
+        self,
+        hook_registry: QueueHookRegistry = Inject(QueueHookRegistry),
+        registry: Registry = Inject(Registry),
+    ):
         self._creation_queue: List[TaskCreationRequest] = []
         self._creation_task: Optional[asyncio.Task] = None
-        self.hook_registry = get_service(QueueHookRegistry)
+        self.hook_registry = hook_registry
+        self.registry = registry
 
     def add_task(
         self,
@@ -304,7 +309,7 @@ class QueuedTasks:
             )
 
         QueuedTask = cast(
-            type["QueuedTask"], get_service(Registry).get_model("QueuedTask")
+            type["QueuedTask"], self.registry.get_model("QueuedTask")
         )
         task = QueuedTask(
             name=name,
@@ -445,7 +450,7 @@ class QueuedTasks:
         else:
             # Clone the task for done/failed/cancelled states
             QueuedTask = cast(
-                type["QueuedTask"], get_service(Registry).get_model("QueuedTask")
+                type["QueuedTask"], self.registry.get_model("QueuedTask")
             )
             cloned_task = QueuedTask(
                 name=f"{task.name}_retry",
@@ -502,6 +507,3 @@ class QueuedTasks:
             "can_be_restarted": task.can_be_restarted,
             "can_be_cancelled": task.can_be_cancelled,
         }
-
-
-register_service(lambda: QueuedTasks(), QueuedTasks)

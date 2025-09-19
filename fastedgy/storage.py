@@ -11,8 +11,8 @@ from pathlib import Path
 from fastapi import UploadFile
 
 from fastedgy import context
-from fastedgy.config import BaseSettings, get_service
-from fastedgy.dependencies import register_service
+from fastedgy.config import BaseSettings
+from fastedgy.dependencies import Inject
 
 
 class Storage:
@@ -24,7 +24,7 @@ class Storage:
         "webp",
     }
 
-    def __init__(self, settings: BaseSettings):
+    def __init__(self, settings: BaseSettings = Inject(BaseSettings)):
         self.settings = settings
 
     def get_base_path(self, global_storage: bool = False) -> Path:
@@ -221,8 +221,6 @@ class Storage:
         except Exception as e:
             raise ValueError(f"Erreur lors du téléchargement de l'image: {str(e)}")
 
-
-register_service(lambda: Storage(get_service(BaseSettings)), Storage)
 
 __all__ = [
     "Storage",

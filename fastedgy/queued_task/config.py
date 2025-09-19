@@ -3,8 +3,6 @@
 
 import os
 
-from fastedgy.dependencies import register_service
-
 
 class QueuedTaskConfig:
     # Logging configuration
@@ -40,6 +38,3 @@ class QueuedTaskConfig:
     notify_channel: str = os.environ.get(
         "QUEUED_TASK_NOTIFY_CHANNEL", "queued_new_task"
     )
-
-
-register_service(lambda: QueuedTaskConfig(), QueuedTaskConfig)

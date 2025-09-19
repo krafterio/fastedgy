@@ -13,7 +13,7 @@ from email.message import EmailMessage
 
 from enum import Enum
 
-from fastedgy.dependencies import get_service, register_service
+from fastedgy.dependencies import Inject
 from fastedgy.storage import BaseSettings
 
 from jinja2 import Environment, FileSystemLoader, Undefined, select_autoescape
@@ -31,7 +31,7 @@ class TemplatePart(Enum):
 class Mail:
     """Service to send emails"""
 
-    def __init__(self, settings: BaseSettings):
+    def __init__(self, settings: BaseSettings = Inject(BaseSettings)):
         if not settings.smtp_host:
             logger.error("SMTP host is not configured")
             raise ValueError("SMTP host is not configured")
@@ -203,9 +203,6 @@ def clean_markdown_residuals(text: str) -> str:
     # Keep list numbers as is, "1. Item" remains "1. Item"
 
     return text
-
-
-register_service(lambda: Mail(get_service(BaseSettings)), Mail)
 
 
 __all__ = [

@@ -9,7 +9,7 @@ from babel.messages.pofile import read_po
 
 from fastedgy.config import BaseSettings
 from fastedgy.context import get_locale
-from fastedgy.dependencies import get_service, register_service
+from fastedgy.dependencies import get_service, Inject
 
 
 logger = logging.getLogger('fastedgy.i18n')
@@ -38,7 +38,7 @@ class TranslatableString(str):
 class I18n:
     """Service for internationalization with multi-source support."""
 
-    def __init__(self, settings: BaseSettings):
+    def __init__(self, settings: BaseSettings = Inject(BaseSettings)):
         self.settings = settings
         self._catalogs: dict[str, dict[str, Catalog]] = {}  # {path: {locale: catalog}}
         self._loaded_locales = set()
@@ -135,9 +135,6 @@ class I18n:
         self._catalogs.clear()
         self._loaded_locales.clear()
         self._available_locales = None
-
-
-register_service(lambda: I18n(get_service(BaseSettings)), I18n)
 
 
 __all__ = [

@@ -5,7 +5,7 @@ import logging
 
 from typing import List, Callable, Any, Optional, TYPE_CHECKING, Awaitable
 
-from fastedgy.dependencies import get_service, register_service
+from fastedgy.dependencies import get_service
 
 if TYPE_CHECKING:
     from fastedgy.models.queued_task import BaseQueuedTask as QueuedTask
@@ -115,6 +115,3 @@ def on_post_run(
     registry = get_service(QueueHookRegistry)
     registry.register_post_run(func)
     return func
-
-
-register_service(lambda: QueueHookRegistry(), QueueHookRegistry)

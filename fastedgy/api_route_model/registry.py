@@ -157,9 +157,7 @@ ADMIN_ROUTE_MODEL_REGISTRY_TOKEN = Token[RouteModelRegistry](
 )
 
 
-register_service(lambda: RouteModelRegistry(), RouteModelRegistry)
 register_service(lambda: RouteModelRegistry(), ADMIN_ROUTE_MODEL_REGISTRY_TOKEN)
-register_service(lambda: ViewTransformerRegistry(), ViewTransformerRegistry)
 
 
 __all__ = [

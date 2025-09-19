@@ -1,7 +1,6 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from fastedgy.dependencies import register_service
 from fastedgy.metadata_model.generator import (
     generate_metadata_model,
     add_inverse_relations,
@@ -92,8 +91,6 @@ class MetadataModelRegistry:
 
         raise ValueError(f"Model {metadata.name} does not exist")
 
-
-register_service(lambda: MetadataModelRegistry(), MetadataModelRegistry)
 
 __all__ = [
     "MetadataModelRegistry",

@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 
 from typing import TYPE_CHECKING, Optional, Dict, Any, List, cast
 
-from fastedgy.dependencies import get_service, register_service
+from fastedgy.dependencies import Inject
 from fastedgy.orm import Database, Registry
 from fastedgy.queued_task.config import QueuedTaskConfig
 from fastedgy.queued_task.models.queued_task import QueuedTaskState
@@ -42,10 +42,16 @@ class QueueWorkerManager:
     """
 
     def __init__(
-        self, max_workers: Optional[int] = None, server_name: Optional[str] = None
+        self,
+        max_workers: Optional[int] = None,
+        server_name: Optional[str] = None,
+        registry: Registry = Inject(Registry),
+        config: QueuedTaskConfig = Inject(QueuedTaskConfig),
+        database: Database = Inject(Database),
     ):
-        self.config = get_service(QueuedTaskConfig)
-        self.database = get_service(Database)
+        self.registry = registry
+        self.config = config
+        self.database = database
         self.max_workers = max_workers or self.config.max_workers
         self.server_name = server_name or socket.gethostname()
         self.worker_pool = WorkerPool(self.max_workers)
@@ -276,7 +282,7 @@ class QueueWorkerManager:
         - Returns only ONE task to avoid race conditions
         """
         QueuedTask = cast(
-            type["QueuedTask"], get_service(Registry).get_model("QueuedTask")
+            type["QueuedTask"], self.registry.get_model("QueuedTask")
         )
         try:
             # Get enqueued tasks one by one, ordered by priority
@@ -340,7 +346,7 @@ class QueueWorkerManager:
         - Uses atomic checks to avoid race conditions
         """
         QueuedTask = cast(
-            type["QueuedTask"], get_service(Registry).get_model("QueuedTask")
+            type["QueuedTask"], self.registry.get_model("QueuedTask")
         )
         try:
             # Get all enqueued tasks ordered by priority (date_enqueued)
@@ -441,7 +447,7 @@ class QueueWorkerManager:
         Recursively cascade task state to all children
         """
         QueuedTask = cast(
-            type["QueuedTask"], get_service(Registry).get_model("QueuedTask")
+            type["QueuedTask"], self.registry.get_model("QueuedTask")
         )
         try:
             children = await QueuedTask.query.filter(
@@ -588,7 +594,7 @@ class QueueWorkerManager:
 
         QueuedTaskWorker = cast(
             type["QueuedTaskWorker"],
-            get_service(Registry).get_model("QueuedTaskWorker"),
+            self.registry.get_model("QueuedTaskWorker"),
         )
         try:
             # Try to get existing record for this server
@@ -717,6 +723,3 @@ class QueueWorkerManager:
                 "total_workers": 0,
                 "servers_detail": [],
             }
-
-
-register_service(lambda: QueueWorkerManager(), QueueWorkerManager)

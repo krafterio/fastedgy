@@ -6,7 +6,6 @@ from copy import copy
 from typing import Type, get_origin, Union, get_args, Any
 
 from fastapi import APIRouter
-from fastedgy.dependencies import register_service
 from pydantic import create_model
 
 from fastedgy.api_route_model.registry import (
@@ -168,9 +167,6 @@ class ApiRouteActionRegistry:
             List of action names
         """
         return list(self._actions.keys())
-
-
-register_service(lambda: ApiRouteActionRegistry(), ApiRouteActionRegistry)
 
 
 __all__ = [

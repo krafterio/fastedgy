@@ -20,7 +20,7 @@ class TranslatableString(str):
         self.message = message
         self.kwargs = kwargs
 
-    def translate(self) -> str:
+    def render(self) -> str:
         from fastedgy.i18n.service import I18n
 
         try:
@@ -32,7 +32,7 @@ class TranslatableString(str):
                 return self.message
 
     def __str__(self):
-        return self.translate()
+        return self.render()
 
 
 class I18n:

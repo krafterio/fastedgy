@@ -2,7 +2,7 @@
 # MIT License (see LICENSE file).
 
 from .middleware import LocaleMiddleware
-from .service import I18n
+from .service import I18n, TranslatableString
 from .utils import _t, _
 from .extractor import I18nExtractor, ExtractorResult
 
@@ -12,6 +12,7 @@ __all__ = [
     "I18n",
     "_t",
     "_",
+    "TranslatableString",
     "I18nExtractor",
     "ExtractorResult",
 ]

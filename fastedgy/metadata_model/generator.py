@@ -45,8 +45,8 @@ async def generate_metadata_model(model_cls: Model) -> MetadataModel:
 
     metadata = MetadataModel(
         name=name,
-        label=label,
-        label_plural=label_plural,
+        label=str(label),
+        label_plural=str(label_plural),
         searchable=has_searchable_fields,
         fields=fields,
     )
@@ -80,7 +80,7 @@ async def add_extra_fields(model_cls: Model, fields: dict[str, MetadataField]) -
 
         fields[f"extra_{extra_field.name}"] = MetadataField(
             name=f"extra_{extra_field.name}",
-            label=extra_field.label,
+            label=str(extra_field.label),
             type=generate_metadata_field_type(field_class),
             readonly=False,
             required=extra_field.required,
@@ -150,7 +150,7 @@ def generate_metadata_field(model_cls: Model, field: BaseFieldType) -> MetadataF
 
     return MetadataField(
         name=field.name,
-        label=label,
+        label=str(label),
         type=field_type,
         readonly=readonly,
         required=required and not readonly and not has_default,
@@ -229,7 +229,7 @@ def _add_one_to_many_relation(
 
     target_metadata.fields[related_name] = MetadataField(
         name=related_name,
-        label=source_label_plural,
+        label=str(source_label_plural),
         type=FILTER_FIELD_TYPE_NAME_MAP["OneToMany"],
         readonly=True,
         required=False,
@@ -261,7 +261,7 @@ def _add_many_to_many_relation(
 
     target_metadata.fields[back_populates] = MetadataField(
         name=back_populates,
-        label=source_label_plural,
+        label=str(source_label_plural),
         type=FILTER_FIELD_TYPE_NAME_MAP["ManyToMany"],
         readonly=True,
         required=False,
@@ -288,7 +288,7 @@ def _add_one_to_one_relation(
 
     target_metadata.fields[related_name] = MetadataField(
         name=related_name,
-        label=source_metadata.label,
+        label=str(source_metadata.label),
         type=FILTER_FIELD_TYPE_NAME_MAP["OneToOne"],
         readonly=True,
         required=False,

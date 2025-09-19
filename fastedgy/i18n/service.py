@@ -15,6 +15,26 @@ from fastedgy.dependencies import get_service, register_service
 logger = logging.getLogger('fastedgy.i18n')
 
 
+class TranslatableString(str):
+    def __init__(self, message: str, **kwargs):
+        self.message = message
+        self.kwargs = kwargs
+
+    def translate(self) -> str:
+        from fastedgy.i18n.service import I18n
+
+        try:
+            return get_service(I18n).translate(self.message, **self.kwargs)
+        except Exception:
+            try:
+                return self.message.format(**self.kwargs) if self.kwargs else self.message
+            except KeyError:
+                return self.message
+
+    def __str__(self):
+        return self.translate()
+
+
 class I18n:
     """Service for internationalization with multi-source support."""
 
@@ -45,7 +65,7 @@ class I18n:
 
         self._loaded_locales.add(locale)
 
-    def _(self, message: str, **kwargs) -> str:
+    def translate(self, message: str, **kwargs) -> str:
         """Translate a message using current locale with priority-based lookup."""
         locale = get_locale()
         self.load_locale(locale)
@@ -86,6 +106,7 @@ class I18n:
     def get_available_locales(self) -> list[str]:
         """Get list of available locales based on existing .po files."""
         available = set()
+        available.add(self.settings.fallback_locale)
 
         for translations_path in self.settings.computed_translations_paths:
             if not os.path.exists(translations_path):
@@ -108,5 +129,6 @@ register_service(lambda: I18n(get_service(BaseSettings)), I18n)
 
 
 __all__ = [
+    "TranslatableString",
     "I18n",
 ]

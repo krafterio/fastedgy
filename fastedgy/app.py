@@ -8,7 +8,7 @@ from fastapi.datastructures import Default
 from fastapi.responses import Response, JSONResponse
 from fastapi.utils import generate_unique_id
 from fastedgy.config import BaseSettings, init_settings
-from fastedgy.dependencies import Token, get_service, has_service, register_service
+from fastedgy.dependencies import Token, get_service, has_service, register_app, register_service
 from fastedgy.logger import setup_logging
 from fastedgy.http import ContextRequestMiddleware
 from fastedgy.i18n import LocaleMiddleware
@@ -855,6 +855,7 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
             log_file=settings.log_path,
         )
 
+        register_app(self)
         register_service(db)
         register_service(db_registry)
 

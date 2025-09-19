@@ -56,17 +56,12 @@ class Token(Generic[T]):
 ProviderKey = Union[Type[Any], Token[Any]]
 
 
-async def depends(app: FastAPI | None, call: Callable[..., T]) -> T:
-    values = await solve_dependencies(app, None, call)
-
-    return call(**values)
-
-
 async def solve_dependencies(
     app: FastAPI | None,
     request: Request | None,
     call: Callable[..., T],
     skip_error: bool = False,
+    cache: dict[tuple[Callable[..., Any], tuple[str]], Any] | None = None,
 ) -> dict[str, Any]:
     if not request:
         request = Request(
@@ -84,6 +79,7 @@ async def solve_dependencies(
         request=request,
         dependant=dependant,
         dependency_overrides_provider=app,
+        dependency_cache=cache,
         async_exit_stack=exit_stack,
         embed_body_fields=False,
     )
@@ -102,6 +98,8 @@ class ContainerService:
         self._map: Dict[ProviderKey, Union[Any, Callable[[], Any]]] = {}
         # Support for FastAPI overrides
         self.dependency_overrides: MutableMapping[Any, Any] = {}
+        self._app: FastAPI | None = None
+        self._dependency_cache: dict[tuple[Callable[..., Any], tuple[str]], Any] = {}
 
     def register(
         self, key: ProviderKey, instance: Union[T, Callable[[], T]], force: bool = False
@@ -116,7 +114,15 @@ class ContainerService:
     def has(self, key: ProviderKey) -> bool:
         return key in self._map
 
-    def get(self, key: ProviderKey) -> T:
+    def set_app(self, app: FastAPI) -> None:
+        """Set the FastAPI application reference for dependency resolution."""
+        self._app = app
+
+    def clear_cache(self) -> None:
+        """Clear the dependency cache (useful for testing)."""
+        self._dependency_cache.clear()
+
+    def get(self, key: ProviderKey) -> Any:
         try:
             value = self._map[key]
 
@@ -124,11 +130,48 @@ class ContainerService:
                 instance = value()
                 self._map[key] = instance
 
-                return cast(T, instance)
+                return cast(Any, instance)
 
-            return cast(T, value)
+            return cast(Any, value)
         except KeyError as e:
+            inst = self._solve_dependencies(key)
+
+            if inst:
+                return inst
+
             raise LookupError(f"No instance registered for {key!r}") from e
+
+    def _solve_dependencies(self, key: ProviderKey) -> Any | None:
+        if isinstance(key, Token) and isinstance(key.key, type):
+            try:
+                from asyncio import new_event_loop, set_event_loop
+                from concurrent.futures import ThreadPoolExecutor
+
+                service_class = cast(Type[Any], key.key)
+
+                def run_in_new_loop():
+                    loop = new_event_loop()
+                    set_event_loop(loop)
+
+                    try:
+                        return loop.run_until_complete(solve_dependencies(
+                            self._app,
+                            None,
+                            service_class,
+                            cache=self._dependency_cache,
+                        ))
+                    finally:
+                        loop.close()
+
+                with ThreadPoolExecutor() as executor:
+                    values = executor.submit(run_in_new_loop).result()
+
+                instance = service_class(**values)
+                self._map[key] = instance
+
+                return cast(Any, instance)
+            except Exception as e:
+                raise LookupError(f"Failed to auto-resolve {key!r}: {e}") from e
 
 
 container_service = ContainerService()
@@ -136,6 +179,10 @@ container_service = ContainerService()
 
 def get_container_service() -> ContainerService:
     return container_service
+
+
+def register_app(app: FastAPI) -> None:
+    container_service.set_app(app)
 
 
 def register_service(
@@ -195,10 +242,10 @@ def _normalize_key(
 
 
 __all__ = [
-    "depends",
     "solve_dependencies",
     "ContainerService",
     "get_container_service",
+    "register_app",
     "register_service",
     "has_service",
     "get_service",

@@ -43,6 +43,7 @@ class I18n:
         self._catalogs: dict[str, dict[str, Catalog]] = {}  # {path: {locale: catalog}}
         self._loaded_locales = set()
         self._available_locales = None
+        self._reversed_translation_paths = None
 
     def load_locale(self, locale: str) -> None:
         """Load translations for a specific locale from all sources."""
@@ -71,7 +72,9 @@ class I18n:
         locale = get_locale()
         self.load_locale(locale)
 
-        translation_paths = list(reversed(self.settings.computed_translations_paths))
+        if self._reversed_translation_paths is None:
+            self._reversed_translation_paths = list(reversed(self.settings.computed_translations_paths))
+        translation_paths = self._reversed_translation_paths
 
         for path in translation_paths:
             if path in self._catalogs and locale in self._catalogs[path]:

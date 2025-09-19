@@ -132,3 +132,5 @@ nav:
         - User Guide: features/queued-tasks/guide.md
         - Advanced Usage: features/queued-tasks/advanced.md
         - Technical Details: features/queued-tasks/technical.md
+  - About: about.md
+  - Contributing: contributing.md

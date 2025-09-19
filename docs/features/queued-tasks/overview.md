@@ -108,7 +108,7 @@ async def trigger_processing(
 
 New to background tasks? Start here:
 
-[Getting Started →](getting-started.md){ .md-button .md-button--primary }
+[Get Started →](getting-started.md){ .md-button .md-button--primary }
 
 ## Documentation Structure
 

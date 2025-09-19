@@ -51,7 +51,7 @@ async def create_user(
 
 New to Container Service? Start here:
 
-[Getting Started →](getting-started.md){ .md-button .md-button--primary }
+[Get Started →](getting-started.md){ .md-button .md-button--primary }
 
 ## Documentation Structure
 

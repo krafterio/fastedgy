@@ -42,6 +42,7 @@ class I18n:
         self.settings = settings
         self._catalogs: dict[str, dict[str, Catalog]] = {}  # {path: {locale: catalog}}
         self._loaded_locales = set()
+        self._available_locales = None
 
     def load_locale(self, locale: str) -> None:
         """Load translations for a specific locale from all sources."""
@@ -105,6 +106,13 @@ class I18n:
 
     def get_available_locales(self) -> list[str]:
         """Get list of available locales based on existing .po files."""
+        if self._available_locales is None:
+            self._available_locales = self._compute_available_locales()
+
+        return self._available_locales
+
+    def _compute_available_locales(self) -> list[str]:
+        """Compute available locales by scanning .po files."""
         available = set()
         available.add(self.settings.fallback_locale)
 
@@ -123,6 +131,7 @@ class I18n:
         """Clear translation cache."""
         self._catalogs.clear()
         self._loaded_locales.clear()
+        self._available_locales = None
 
 
 register_service(lambda: I18n(get_service(BaseSettings)), I18n)

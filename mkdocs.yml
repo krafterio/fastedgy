@@ -161,5 +161,6 @@ nav:
     - Miscellaneous Features:
       - Authentication:
         - Overview: features/auth/overview.md
+  - MCP: mcp.md
   - About: about.md
   - Contributing: contributing.md

@@ -15,39 +15,43 @@ FastEdgy combines the power of [FastAPI](https://fastapi.tiangolo.com) with [Edg
 
 <div class="grid cards" markdown>
 
--   **🔧 Application-Level Services**
+-   **:material-flash: Skip the Boilerplate**
 
     ---
 
-    Built-in dependency injection container that works across your entire application—not just API requests. Share services between routes, CLI commands, and background tasks.
+    Auto-generated CRUD APIs, intelligent query builders, and metadata extraction. Build complex features in minutes, not hours.
 
-    [Learn more →](features/container-service/overview.md)
+    [See what's possible →](features/index.md)
 
--   **⚡ Production-Ready Background Tasks**
-
-    ---
-
-    Move beyond FastAPI's simple BackgroundTasks with persistent, scalable task queues. Perfect for emails, data processing, and complex workflows.
-
-    [Learn more →](features/queued-tasks/overview.md)
-
--   **🎯 Rapid Development**
+-   **:material-cogs: No More Dependency Hell**
 
     ---
 
-    Auto-generated CRUD APIs, advanced query builders, and intelligent metadata extraction. Build complex applications faster without sacrificing flexibility.
+    True application-wide dependency injection that just works. Share services between APIs, CLI commands, and background tasks effortlessly.
 
-    [Explore features →](features/)
+    [Learn how →](features/container-service/overview.md)
 
--   **🛠️ Developer Experience**
+-   **:material-rocket-launch: Background Tasks That Scale**
 
     ---
 
-    Rich CLI tools, enhanced ORM fields, email templating, and comprehensive i18n support. Everything you need, thoughtfully integrated.
+    Persistent task queues with retries, monitoring, and multi-worker support. Handle heavy workloads without breaking a sweat.
+
+    [Discover more →](features/queued-tasks/overview.md)
+
+-   **:material-auto-fix: Everything Included**
+
+    ---
+
+    Rich CLI, multi-tenancy, email templating, i18n, file storage—all integrated and ready to use. Stop hunting for libraries.
 
     [Get started →](getting-started.md)
 
 </div>
+
+**And that's just the beginning.** FastEdgy includes **16+ production-ready features** covering everything from automatic CRUD generation to advanced query builders, multi-tenancy, email templating, and comprehensive i18n support.
+
+[Explore all features :material-arrow-right:](features/index.md){ .md-button .md-button--primary }
 
 ## Quick Example
 

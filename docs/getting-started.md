@@ -156,6 +156,6 @@ Your API is now available at `http://localhost:8000` with automatic OpenAPI docs
 
 ## Next Steps
 
-- **[Explore Features](features/)** - Discover all FastEdgy capabilities
+- **[Explore Features](features/index.md)** - Discover all FastEdgy capabilities
 - **[Container Service](features/container-service/overview.md)** - Learn dependency injection
 - **[Queued Tasks](features/queued-tasks/overview.md)** - Handle background processing

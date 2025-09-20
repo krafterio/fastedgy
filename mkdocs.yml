@@ -120,6 +120,20 @@ nav:
   - Getting Started: getting-started.md
   - Features:
     - features/index.md
+    - API Features:
+      - API Routes Generator:
+        - Overview: features/api-routes/overview.md
+      - Query Builder:
+        - Overview: features/query-builder/overview.md
+      - Fields Selector:
+        - Overview: features/fields-selector/overview.md
+      - Metadata Generator:
+        - Overview: features/metadata-generator/overview.md
+    - ORM Features:
+      - ORM Extensions:
+        - Overview: features/orm-extensions/overview.md
+      - Database Migration:
+        - Overview: features/database-migration/overview.md
     - Core Features:
       - Container Service:
         - Overview: features/container-service/overview.md
@@ -133,5 +147,19 @@ nav:
         - User Guide: features/queued-tasks/guide.md
         - Advanced Usage: features/queued-tasks/advanced.md
         - Technical Details: features/queued-tasks/technical.md
+      - CLI:
+        - Overview: features/cli/overview.md
+      - Internationalization:
+        - Overview: features/i18n/overview.md
+      - Multi Tenant:
+        - Overview: features/multi-tenant/overview.md
+    - Services:
+      - Email:
+        - Overview: features/email/overview.md
+      - Storage:
+        - Overview: features/storage/overview.md
+    - Miscellaneous Features:
+      - Authentication:
+        - Overview: features/auth/overview.md
   - About: about.md
   - Contributing: contributing.md

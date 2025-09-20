@@ -161,6 +161,43 @@ nav:
     - Miscellaneous Features:
       - Authentication:
         - Overview: features/auth/overview.md
+  - Vue.js:
+    - Getting Started: vue/getting-started.md
+    - Basic Usage: vue/basic-usage.md
+    - Troubleshooting: vue/troubleshooting.md
+    - Core Features:
+      - Bus:
+        - Overview: vue/bus/overview.md
+        - User Guide: vue/bus/guide.md
+      - Fetcher:
+        - Overview: vue/fetcher/overview.md
+        - User Guide: vue/fetcher/guide.md
+        - Advanced Features: vue/fetcher/advanced.md
+    - Vue Integration:
+      - Fetcher Plugin:
+        - Overview: vue/fetcher-plugin/overview.md
+        - Setup Guide: vue/fetcher-plugin/setup.md
+      - Fetcher Directive:
+        - Overview: vue/fetcher-directive/overview.md
+        - User Guide: vue/fetcher-directive/guide.md
+      - Metadata Store:
+        - Overview: vue/metadata-store/overview.md
+        - User Guide: vue/metadata-store/guide.md
+        - Examples & Ideas: vue/metadata-store/examples.md
+      - Auth Store:
+        - Overview: vue/auth-store/overview.md
+        - User Guide: vue/auth-store/guide.md
+        - Advanced Features: vue/auth-store/advanced.md
+    - Utils:
+      - Validations:
+        - Overview: vue/validations/overview.md
+        - User Guide: vue/validations/guide.md
+      - Routers:
+        - Overview: vue/routers/overview.md
+        - User Guide: vue/routers/guide.md
+      - Logger:
+        - Overview: vue/logger/overview.md
+        - Setup Guide: vue/logger/setup.md
   - MCP: mcp.md
   - About: about.md
   - Contributing: contributing.md

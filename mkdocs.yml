@@ -184,6 +184,7 @@ nav:
     - Services:
       - Email:
         - Overview: features/email/overview.md
+        - Usage Guide: features/email/guide.md
       - Storage:
         - Overview: features/storage/overview.md
     - Miscellaneous Features:

@@ -11,6 +11,7 @@ from typing import (
     ParamSpec,
     cast,
     Protocol,
+    overload,
 )
 
 from datetime import datetime
@@ -79,6 +80,15 @@ class QueuedTasks:
         self.hook_registry = hook_registry
         self.registry = registry
 
+    @overload
+    def add_task(
+        self,
+        func: Callable[P, Any],
+        *args: P.args,
+        **kwargs: P.kwargs,
+    ) -> QueuedTaskRef: ...
+
+    @overload
     def add_task(
         self,
         func: Callable[P, Any],

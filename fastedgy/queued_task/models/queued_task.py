@@ -116,12 +116,21 @@ class QueuedTaskMixin(BaseModel):
         force_save: bool | None = None,
     ) -> Model:
         """Override save to auto-generate name and compute dates"""
-        if not self.name:
-            if self.module_name and self.function_name:
+        if not hasattr(self, "name") or not self.name:
+            if (
+                hasattr(self, "module_name")
+                and self.module_name
+                and hasattr(self, "function_name")
+                and self.function_name
+            ):
                 self.name = f"{self.module_name}.{self.function_name}"
             else:
                 self.name = "local_function"
-        if not self.date_enqueued and self.state == QueuedTaskState.enqueued:
+        if (
+            not hasattr(self, "date_enqueued")
+            or not self.date_enqueued
+            and self.state == QueuedTaskState.enqueued
+        ):
             self.date_enqueued = datetime.now()
 
         self._compute_date_ended()

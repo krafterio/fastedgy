@@ -209,15 +209,12 @@ def find_group_name(root_group: click.Group, cmd: click.Command) -> str | None:
 
 class Command(RichCommand):
     def invoke(self, ctx: Context) -> Any:
-        try:
-            invoke = super().invoke(ctx)
+        invoke = super().invoke(ctx)
 
-            if inspect.iscoroutinefunction(self.callback):
-                return asyncio.run(invoke)
+        if inspect.iscoroutinefunction(self.callback):
+            return asyncio.run(invoke)
 
-            return invoke
-        except Exception as e:
-            logger.error(f"Error in command '{self.name}': {str(e)}")
+        return invoke
 
 
 class Group(RichGroup):

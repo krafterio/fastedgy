@@ -12,7 +12,7 @@ from fastedgy.context import get_locale
 from fastedgy.dependencies import get_service, Inject
 
 
-logger = logging.getLogger('fastedgy.i18n')
+logger = logging.getLogger("fastedgy.i18n")
 
 
 class TranslatableString(str):
@@ -27,7 +27,9 @@ class TranslatableString(str):
             return get_service(I18n).translate(self.message, **self.kwargs)
         except Exception:
             try:
-                return self.message.format(**self.kwargs) if self.kwargs else self.message
+                return (
+                    self.message.format(**self.kwargs) if self.kwargs else self.message
+                )
             except KeyError:
                 return self.message
 
@@ -73,7 +75,9 @@ class I18n:
         self.load_locale(locale)
 
         if self._reversed_translation_paths is None:
-            self._reversed_translation_paths = list(reversed(self.settings.computed_translations_paths))
+            self._reversed_translation_paths = list(
+                reversed(self.settings.computed_translations_paths)
+            )
         translation_paths = self._reversed_translation_paths
 
         for path in translation_paths:

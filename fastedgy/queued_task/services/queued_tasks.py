@@ -308,9 +308,7 @@ class QueuedTasks:
                 "Must provide either (module_name, function_name) or serialized_function"
             )
 
-        QueuedTask = cast(
-            type["QueuedTask"], self.registry.get_model("QueuedTask")
-        )
+        QueuedTask = cast(type["QueuedTask"], self.registry.get_model("QueuedTask"))
         task = QueuedTask(
             name=name,
             module_name=module_name,
@@ -449,9 +447,7 @@ class QueuedTasks:
             return task
         else:
             # Clone the task for done/failed/cancelled states
-            QueuedTask = cast(
-                type["QueuedTask"], self.registry.get_model("QueuedTask")
-            )
+            QueuedTask = cast(type["QueuedTask"], self.registry.get_model("QueuedTask"))
             cloned_task = QueuedTask(
                 name=f"{task.name}_retry",
                 module_name=task.module_name,

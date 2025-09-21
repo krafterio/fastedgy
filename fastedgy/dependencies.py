@@ -154,12 +154,14 @@ class ContainerService:
                     set_event_loop(loop)
 
                     try:
-                        return loop.run_until_complete(solve_dependencies(
-                            self._app,
-                            None,
-                            service_class,
-                            cache=self._dependency_cache,
-                        ))
+                        return loop.run_until_complete(
+                            solve_dependencies(
+                                self._app,
+                                None,
+                                service_class,
+                                cache=self._dependency_cache,
+                            )
+                        )
                     finally:
                         loop.close()
 
@@ -199,6 +201,7 @@ def register_service(
                 raise ValueError("Key must be provided when registering a class")
 
             provided_key = _normalize_key(key)
+
             def wrapper():
                 result = container_service._solve_dependencies(_normalize_key(instance))
                 if result is None:

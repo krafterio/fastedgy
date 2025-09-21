@@ -434,7 +434,7 @@ FILTER_OPERATORS_FIELD_MAP = {
         "is empty",
         "is not empty",
     ],
-    OneToOneField: [ # OneToOne extends OneToOneField
+    OneToOneField: [  # OneToOne extends OneToOneField
         "=",
         "!=",
         "in",
@@ -522,7 +522,9 @@ FILTER_FIELD_TYPE_NAME_MAP = {
 }
 
 
-def get_filter_operators(field_info: BaseFieldType | FieldFactory | ForeignKeyFieldFactory | str) -> list[str]:
+def get_filter_operators(
+    field_info: BaseFieldType | FieldFactory | ForeignKeyFieldFactory | str,
+) -> list[str]:
     if isinstance(field_info, str):
         return FILTER_OPERATORS_FIELD_MAP.get(field_info, [])
 

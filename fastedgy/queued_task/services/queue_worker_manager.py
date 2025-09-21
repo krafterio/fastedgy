@@ -281,9 +281,7 @@ class QueueWorkerManager:
         - No parent_task OR parent_task.state = done
         - Returns only ONE task to avoid race conditions
         """
-        QueuedTask = cast(
-            type["QueuedTask"], self.registry.get_model("QueuedTask")
-        )
+        QueuedTask = cast(type["QueuedTask"], self.registry.get_model("QueuedTask"))
         try:
             # Get enqueued tasks one by one, ordered by priority
             enqueued_tasks = (
@@ -345,9 +343,7 @@ class QueueWorkerManager:
         - No parent_task OR parent_task.state = done
         - Uses atomic checks to avoid race conditions
         """
-        QueuedTask = cast(
-            type["QueuedTask"], self.registry.get_model("QueuedTask")
-        )
+        QueuedTask = cast(type["QueuedTask"], self.registry.get_model("QueuedTask"))
         try:
             # Get all enqueued tasks ordered by priority (date_enqueued)
             enqueued_tasks = (
@@ -446,9 +442,7 @@ class QueueWorkerManager:
         """
         Recursively cascade task state to all children
         """
-        QueuedTask = cast(
-            type["QueuedTask"], self.registry.get_model("QueuedTask")
-        )
+        QueuedTask = cast(type["QueuedTask"], self.registry.get_model("QueuedTask"))
         try:
             children = await QueuedTask.query.filter(
                 QueuedTask.columns.parent_task == parent_task.id

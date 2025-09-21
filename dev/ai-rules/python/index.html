@@ -12,7 +12,7 @@
 </span><span id=__span-0-12><a id=__codelineno-0-12 name=__codelineno-0-12 href=#__codelineno-0-12></a><span class=k>-</span><span class=w> </span>Documentation covers FastAPI patterns, EdgyORM usage, dependency injection, and FastEdgy framework features
 </span><span id=__span-0-13><a id=__codelineno-0-13 name=__codelineno-0-13 href=#__codelineno-0-13></a>
 </span><span id=__span-0-14><a id=__codelineno-0-14 name=__codelineno-0-14 href=#__codelineno-0-14></a><span class=gu>## Rules</span>
-</span><span id=__span-0-15><a id=__codelineno-0-15 name=__codelineno-0-15 href=#__codelineno-0-15></a><span class=k>1.</span> Python target: 3.13. Use type hints everywhere. pydantic v2 models
+</span><span id=__span-0-15><a id=__codelineno-0-15 name=__codelineno-0-15 href=#__codelineno-0-15></a><span class=k>1.</span> Python target: 3.13. Use type hints everywhere. Use Pydantic for validation
 </span><span id=__span-0-16><a id=__codelineno-0-16 name=__codelineno-0-16 href=#__codelineno-0-16></a><span class=k>2.</span> Services: Single-responsibility functions; dependency injection via FastAPI Depends; no global state
 </span><span id=__span-0-17><a id=__codelineno-0-17 name=__codelineno-0-17 href=#__codelineno-0-17></a><span class=k>3.</span> Edgy ORM: Use async session patterns; avoid N+1 by preloading relations; never perform writes in GET handlers
 </span><span id=__span-0-18><a id=__codelineno-0-18 name=__codelineno-0-18 href=#__codelineno-0-18></a><span class=k>4.</span> Errors: Raise HTTPException with detail enums; validate inputs with pydantic; log at error boundary

@@ -180,6 +180,7 @@ nav:
         - Usage Guide: features/i18n/guide.md
       - Multi Tenant:
         - Overview: features/multi-tenant/overview.md
+        - Usage Guide: features/multi-tenant/guide.md
     - Services:
       - Email:
         - Overview: features/email/overview.md

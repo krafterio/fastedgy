@@ -27,7 +27,7 @@ alwaysApply: true
 - Documentation covers FastAPI patterns, EdgyORM usage, dependency injection, and FastEdgy framework features
 
 ## Rules
-1. Python target: 3.13. Use type hints everywhere. pydantic v2 models
+1. Python target: 3.13. Use type hints everywhere. Use Pydantic for validation
 2. Services: Single-responsibility functions; dependency injection via FastAPI Depends; no global state
 3. Edgy ORM: Use async session patterns; avoid N+1 by preloading relations; never perform writes in GET handlers
 4. Errors: Raise HTTPException with detail enums; validate inputs with pydantic; log at error boundary

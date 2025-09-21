@@ -105,7 +105,6 @@ These rules help the AI understand:
 - Automatic request cancellation patterns
 - Authentication flow with Vue Router
 - Event bus communication patterns
-- Dynamic form generation from metadata
 
 ## Vue.js Specific Features
 

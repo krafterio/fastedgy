@@ -31,7 +31,7 @@ alwaysApply: true
 - **vue-fastedgy documentation** (fetcher, bus, etc.) is available in FastEdgy docs section "Vue.js" (accessible via MCP)
 
 ## OpenAPI-driven service design
-1) BEFORE creating or editing any `src/api/*.js` service, MUST read `${env:OPENAPI_URL}` and locate the target operation.
+1) BEFORE creating or editing any `src/api/*.js` service, MUST read the OpenAPI spec (from development server at /openapi.json) and locate the target operation.
 2) The service function name SHOULD reference the `operationId` (or include it in a JSDoc tag), e.g.:
    /**
     * operationId: orders_list
@@ -49,7 +49,7 @@ alwaysApply: true
 3) For critical endpoints, prefer adding a lightweight runtime guard (optional) to assert top-level fields documented by the spec.
 
 ## PR requirements (checklist)
-- [ ] Link to `OPENAPI_URL` used and `info.version` (or last-modified).
+- [ ] Link to OpenAPI spec used and `info.version` (or last-modified).
 - [ ] Paste `operationId` and method+path.
 - [ ] Note any deviations (temporary workarounds) with a TODO and owner.
 
@@ -137,7 +137,6 @@ alwaysApply: true
 - **HTTP Clients**: Fetch patterns and request configuration
 - **State Management**: Patterns for managing API state
 - **Form Handling**: Validation and submission patterns
-- **Real-time Features**: WebSocket and SSE integration
 
 ## Usage with Different AI Tools
 
@@ -165,10 +164,7 @@ These rules help the AI understand:
 These rules work with:
 
 - Vanilla JavaScript/TypeScript
-- React applications
 - Vue.js applications (complement with vue.mdc)
-- Angular applications
-- Node.js applications
 
 ## Customization Options
 

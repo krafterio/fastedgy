@@ -177,6 +177,7 @@ nav:
         - Usage Guide: features/cli/guide.md
       - Internationalization:
         - Overview: features/i18n/overview.md
+        - Usage Guide: features/i18n/guide.md
       - Multi Tenant:
         - Overview: features/multi-tenant/overview.md
     - Services:

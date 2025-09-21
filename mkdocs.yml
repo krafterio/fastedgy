@@ -139,6 +139,9 @@ nav:
       - Pagination:
         - Overview: features/pagination/overview.md
         - Usage Guide: features/pagination/guide.md
+      - Ordering:
+        - Overview: features/ordering/overview.md
+        - Usage Guide: features/ordering/guide.md
       - Query Builder:
         - Overview: features/query-builder/overview.md
       - Fields Selector:

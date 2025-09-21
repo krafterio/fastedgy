@@ -147,6 +147,7 @@ nav:
         - Usage Guide: features/query-builder/guide.md
       - Fields Selector:
         - Overview: features/fields-selector/overview.md
+        - Usage Guide: features/fields-selector/guide.md
       - Metadata Generator:
         - Overview: features/metadata-generator/overview.md
     - ORM Features:

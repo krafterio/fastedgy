@@ -1,0 +1,146 @@
+---
+description: Process and conventions for writing FastEdgy feature documentation
+globs:
+  - "docs/features/**/*.md"
+alwaysApply: true
+---
+
+# FastEdgy Documentation Writing Rules
+
+## Documentation Process for Features
+
+When writing documentation for FastEdgy features, follow this proven methodology:
+
+### 1. Code Analysis First
+- **MUST analyze source code** in the relevant `fastedgy/` directory before writing
+- Understand the actual architecture, patterns, and API surface
+- Identify key components, classes, functions, and their real usage
+- Never document non-existent features or invented APIs
+
+### 2. Multi-Page Structure (Progressive Learning)
+Create exactly 5 pages per feature in this order:
+
+1. **`overview.md`** - Landing page (non-clickable parent in nav)
+   - What it is, why use it vs alternatives
+   - Key features and benefits
+   - Quick example
+   - Navigation to other pages
+
+2. **`getting-started.md`** - Quick start guide
+   - Prerequisites
+   - Basic setup
+   - Minimal working example
+   - "What's next" links
+
+3. **`guide.md`** - Practical usage
+   - Real-world examples
+   - Common patterns
+   - Step-by-step tutorials
+   - Best practices
+
+4. **`advanced.md`** - Advanced features
+   - Complex use cases
+   - Integration patterns
+   - Performance considerations
+   - Power user features
+
+5. **`technical.md`** - Architecture details
+   - Internal implementation
+   - Extension points
+   - Integration with other systems
+   - Reference documentation
+
+### 3. Content Guidelines
+
+#### Writing Style
+- **English only** for all documentation content
+- **No emojis** in documentation text
+- **Clear, simple language** with gradual complexity increase
+- **Practical examples** over theoretical explanations
+
+#### Code Examples
+- **All code must be real and tested**
+- Use actual FastEdgy patterns from the codebase
+- Include proper imports and context
+- Provide complete, runnable examples
+
+#### Structure Within Pages
+- **Introductory sentence** for each major section
+- **Progressive complexity** - simple concepts first
+- **"What" before "How"** - explain concepts before implementation
+- **Links between related sections**
+
+### 4. Navigation Configuration
+```yaml
+# In mkdocs.yml
+- Feature Name:
+  - Overview: features/feature-name/overview.md      # Landing page
+  - Getting Started: features/feature-name/getting-started.md
+  - User Guide: features/feature-name/guide.md
+  - Advanced Usage: features/feature-name/advanced.md
+  - Technical Details: features/feature-name/technical.md
+```
+
+### 5. Verification Checklist
+Before publishing any feature documentation:
+
+- [ ] All code examples tested against actual codebase
+- [ ] No invented APIs or non-existent features
+- [ ] Progressive complexity maintained across pages
+- [ ] Cross-references between pages work
+- [ ] Navigation structure follows the standard
+- [ ] MkDocs builds without warnings
+- [ ] Content reviewed for accuracy against source code
+
+### 6. Content Standards
+
+#### Overview Page Must Include:
+- Brief description of the feature
+- "Why use this vs alternatives" section
+- Key features list
+- Quick example (3-5 lines max)
+- Clear navigation to sub-pages
+
+#### Getting Started Must Include:
+- Prerequisites list
+- Installation/setup steps
+- Minimal working example
+- Link to detailed guide
+
+#### Guide Must Include:
+- Real-world usage examples
+- Common patterns and best practices
+- Error handling examples
+- Integration patterns
+
+#### Advanced Must Include:
+- Complex configuration options
+- Performance considerations
+- Extension and customization
+- Integration with other FastEdgy features
+
+#### Technical Must Include:
+- Architecture overview
+- Key classes and interfaces
+- Extension points for developers
+- Internal implementation details
+
+## Anti-Patterns to Avoid
+
+- **Never invent features** not present in the codebase
+- **No emojis** in documentation content
+- **Avoid title case** - use sentence case for headings
+- **Don't skip code analysis** - always verify against source
+- **No single-page dumps** - always use the 5-page structure
+- **Avoid speculation** - document what exists, not what might be added
+
+## Example Workflow
+
+1. Analyze code in `fastedgy/[feature]/`
+2. Create directory structure: `docs/features/[feature-name]/`
+3. Write `overview.md` first (concepts and navigation)
+4. Write `getting-started.md` (minimal example, only if feature is important)
+5. Write `guide.md` (practical examples)
+6. Update `mkdocs.yml` navigation
+7. Verify all examples against codebase
+8. Review for progressive complexity and clarity

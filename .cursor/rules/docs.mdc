@@ -1,0 +1,183 @@
+---
+description: General documentation writing conventions for FastEdgy project
+globs:
+  - "docs/**/*.md"
+  - "*.md"
+alwaysApply: true
+---
+
+# FastEdgy Documentation Rules
+
+## General Writing Conventions
+
+### Language and Style
+- **English only** for all documentation content
+- **No emojis** in documentation text (use Material Design icons for UI elements)
+- **Sentence case** for headings (not Title Case)
+- **Clear, concise language** - avoid jargon without explanation
+- **Active voice** preferred over passive
+- **Present tense** for instructions and descriptions
+
+### Content Structure
+- **Progressive disclosure** - simple concepts before complex ones
+- **Scannable content** - use headings, lists, and code blocks effectively
+- **Practical examples** over theoretical explanations
+- **Complete, runnable examples** when showing code
+
+### Code Examples
+- **All code must work** - no pseudo-code or incomplete examples
+- **Include necessary imports** and context
+- **Use realistic data** in examples
+- **Show error handling** where appropriate
+- **Consistent indentation** (4 spaces for Python, 2 for JS/YAML)
+
+## MkDocs Conventions
+
+### File Structure
+```
+docs/
+├── index.md                    # Homepage
+├── getting-started.md          # Quick start
+├── features/
+│   ├── index.md               # Features overview
+│   └── feature-name/
+│       ├── overview.md        # Feature landing (non-clickable in nav)
+│       ├── getting-started.md
+│       ├── guide.md
+│       ├── advanced.md
+│       └── technical.md
+├── section-name/
+│   ├── page1.md
+│   └── page2.md
+└── standalone-page.md
+```
+
+### Navigation Rules
+- **Parent sections with overview.md** are non-clickable in navigation
+- **Logical grouping** - related pages together
+- **Consistent naming** across similar sections
+- **Breadcrumb-friendly** structure
+
+### Frontmatter (when needed)
+```yaml
+---
+title: Page Title
+description: Brief description for SEO
+hide:
+  - navigation  # Hide left sidebar (homepage only)
+  - toc        # Hide right sidebar (if no sections)
+---
+```
+
+## Markdown Standards
+
+### Headings
+- **One H1 per page** (`#` - matches page title)
+- **Logical hierarchy** - don't skip levels (H1 → H2 → H3)
+- **Descriptive headings** - clear about content
+
+### Links
+- **Relative paths** for internal links: `[text](../other-page.md)`
+- **Descriptive link text** - not "click here" or "read more"
+- **External links** open in same tab unless specifically needed otherwise
+
+### Code Blocks
+```python title="example.py"
+# Use title attribute for file names
+from fastedgy import FastEdgy
+
+app = FastEdgy()
+```
+
+### Callouts (Admonitions)
+```markdown
+!!! note
+    Use for additional information
+
+!!! warning
+    Use for important caveats
+
+!!! tip
+    Use for helpful suggestions
+
+!!! example
+    Use for code examples with context
+```
+
+### Buttons and CTAs
+```markdown
+[Button Text](link-target.md){ .md-button .md-button--primary }
+[Secondary Button](link-target.md){ .md-button }
+```
+
+## Content Guidelines
+
+### Homepage (`docs/index.md`)
+- **Hook** - clear value proposition
+- **Quick navigation** to key sections
+- **Getting started** prominent link
+- **Feature highlights** with links
+- **Hide navigation** sidebar
+
+### Getting Started Pages
+- **Prerequisites** clearly stated
+- **Installation** step-by-step
+- **First example** that works immediately
+- **Next steps** with clear links
+
+### Reference Documentation
+- **Consistent API format** across all references
+- **Parameter tables** for complex functions
+- **Return value documentation**
+- **Example usage** for every major function/class
+
+### Troubleshooting Sections
+- **Common problems** with solutions
+- **Error messages** with explanations
+- **Debug steps** clearly numbered
+- **When to seek help** (issue tracker, community)
+
+## Quality Standards
+
+### Before Publishing
+- [ ] All code examples tested and working
+- [ ] Links verified (internal and external)
+- [ ] Spelling and grammar checked
+- [ ] Navigation structure logical
+- [ ] MkDocs builds without warnings
+- [ ] Mobile-friendly formatting verified
+
+### Maintenance
+- **Regular review** of code examples against latest codebase
+- **Update screenshots** when UI changes
+- **Deprecation notices** for old features
+- **Version compatibility** notes when relevant
+
+## Integration Rules
+
+### Cross-References
+- **Link to related sections** when concepts connect
+- **Consistent terminology** across all documentation
+- **Glossary terms** linked when first introduced
+- **Breadcrumbs** through progressive learning paths
+
+### External Integration
+- **API documentation** links to OpenAPI spec when available
+- **Code repository** links for complex examples
+- **Issue tracker** links for known problems
+- **Community resources** (Discord, forums) appropriately referenced
+
+## Accessibility
+
+### Writing for All Users
+- **Alt text** for all images and diagrams
+- **Descriptive link text** for screen readers
+- **Logical tab order** in navigation
+- **High contrast** for code examples
+- **Clear section structure** with proper headings
+
+### Inclusive Language
+- **Avoid assumptions** about user knowledge level
+- **Define technical terms** on first use
+- **Multiple learning paths** for different experience levels
+- **Cultural neutrality** in examples and explanations

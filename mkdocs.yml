@@ -187,6 +187,7 @@ nav:
         - Usage Guide: features/email/guide.md
       - Storage:
         - Overview: features/storage/overview.md
+        - Usage Guide: features/storage/guide.md
     - Miscellaneous Features:
       - Authentication:
         - Overview: features/auth/overview.md

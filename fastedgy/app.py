@@ -24,6 +24,7 @@ from starlette.routing import BaseRoute
 from starlette.middleware import Middleware
 from starlette.types import Lifespan
 from starlette.requests import Request
+from contextlib import asynccontextmanager
 from typing import (
     Annotated,
     TypeVar,
@@ -816,6 +817,9 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
         monkay.set_instance(Instance(registry=db_registry), apply_extensions=False)
         monkay.evaluate_settings(on_conflict="keep")
 
+        # Compose user lifespan with FastEdgy native lifespan
+        composed_lifespan = self._compose_lifespan(lifespan, db)
+
         super().__init__(
             debug=debug,
             routes=routes,
@@ -836,7 +840,7 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
             exception_handlers=exception_handlers,
             on_startup=on_startup,
             on_shutdown=on_shutdown,
-            lifespan=lifespan,
+            lifespan=composed_lifespan,
             terms_of_service=terms_of_service,
             contact=contact,
             license_info=license_info,
@@ -871,6 +875,41 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
         # Add middlewares (order matters: Context first, then Locale)
         self.add_middleware(LocaleMiddleware)
         self.add_middleware(ContextRequestMiddleware)
+
+    def _compose_lifespan(self, user_lifespan, db):
+        """Compose user lifespan with FastEdgy native lifespan"""
+
+        @asynccontextmanager
+        async def composed_lifespan(app):
+            async with self._native_lifespan(app, db):
+                if user_lifespan:
+                    async with user_lifespan(app):
+                        yield
+                else:
+                    yield
+
+        return composed_lifespan
+
+    @staticmethod
+    @asynccontextmanager
+    async def _native_lifespan(app, db):
+        """FastEdgy native lifespan: DB + services"""
+        await db.connect()
+        try:
+            yield
+        finally:
+            await app._flush_pending_services()
+            await db.disconnect()
+
+    async def _flush_pending_services(self):
+        """Wait for all services with pending async operations"""
+        try:
+            from fastedgy.lifecycle import AppLifecycle
+
+            lifecycle = self.get_service(AppLifecycle)
+            await lifecycle.wait_all_unlocked()
+        except Exception:
+            pass  # Don't break lifespan for this
 
     def initialize(self) -> None:
         pass

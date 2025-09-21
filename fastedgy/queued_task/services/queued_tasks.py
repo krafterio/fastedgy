@@ -25,8 +25,9 @@ import json
 
 import logging
 
-from fastedgy.dependencies import Inject
+from fastedgy.dependencies import Inject, get_service
 from fastedgy.orm import Registry
+from fastedgy.lifecycle import AppLifecycle
 from fastedgy.queued_task.models.queued_task import QueuedTaskState
 from fastedgy.queued_task.services.queued_task_ref import QueuedTaskRef
 from fastedgy.queued_task.services.queue_hooks import QueueHookRegistry
@@ -124,6 +125,8 @@ class QueuedTasks:
         # Start creation processor if not already running
         if not self._creation_task or self._creation_task.done():
             self._creation_task = asyncio.create_task(self._process_creation_queue())
+            lifecycle: AppLifecycle = get_service(AppLifecycle)
+            lifecycle.lock()
 
         return task_ref
 
@@ -173,6 +176,8 @@ class QueuedTasks:
             logger.error(f"Error in creation queue processor: {e}")
         finally:
             self._creation_task = None
+            lifecycle: AppLifecycle = get_service(AppLifecycle)
+            lifecycle.unlock()
 
     async def _create_task_for_request(
         self, request: TaskCreationRequest, parent_id: Optional[int] = None

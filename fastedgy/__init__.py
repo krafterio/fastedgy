@@ -15,6 +15,7 @@ from fastedgy import (
     importer,
     logger,
     storage,
+    lifecycle,
 )
 
 __all__ = [
@@ -31,4 +32,5 @@ __all__ = [
     "importer",
     "logger",
     "storage",
+    "lifecycle",
 ]

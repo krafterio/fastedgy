@@ -144,6 +144,7 @@ nav:
         - Usage Guide: features/ordering/guide.md
       - Query Builder:
         - Overview: features/query-builder/overview.md
+        - Usage Guide: features/query-builder/guide.md
       - Fields Selector:
         - Overview: features/fields-selector/overview.md
       - Metadata Generator:

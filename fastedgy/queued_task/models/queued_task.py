@@ -136,7 +136,7 @@ class QueuedTaskMixin(BaseModel):
         self._compute_date_ended()
         self._compute_execution_time()
 
-        return super().save(force_insert, values, force_save)  # type: ignore
+        return await super().save(force_insert, values, force_save)  # type: ignore
 
     def _compute_date_ended(self):
         """Automatically compute end date based on the last significant date"""

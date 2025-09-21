@@ -45,12 +45,13 @@ Use the task in your FastAPI endpoints:
 
 ```python
 # main.py
-from fastapi import FastAPI, APIRouter
+from fastapi import APIRouter
+from fastedgy.app import FastEdgy
 from fastedgy.dependencies import Inject
 from fastedgy.queued_tasks import QueuedTasks
 from tasks import send_welcome_email
 
-app = FastAPI()
+app = FastEdgy()
 router = APIRouter()
 
 @router.post("/users/register")

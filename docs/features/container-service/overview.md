@@ -2,12 +2,14 @@
 
 A centralized dependency injection system that makes FastAPI development simpler by automatically managing service dependencies.
 
-## The Problem
+## Why Container Service?
 
-FastAPI's native `Depends()` system requires verbose boilerplate and manual wiring for application-level services:
+FastAPI's `Depends()` system is excellent for request-scoped dependencies. FastEdgy's Container Service builds on this foundation to simplify application-level services that live beyond individual requests.
+
+While FastAPI handles request-specific data beautifully, managing application services (databases, caches, email services) often requires repetitive provider functions:
 
 ```python
-# FastAPI native approach - lots of boilerplate
+# FastAPI approach - works great but requires setup
 def get_database():
     return DatabaseService("postgresql://...")
 
@@ -20,15 +22,13 @@ async def create_user(
     db: DatabaseService = Depends(get_database),
     email: EmailService = Depends(get_email_service)
 ):
-    # Every endpoint needs explicit dependencies
+    # Each service needs its provider function
 ```
 
-## The Solution
-
-Container Service automatically resolves dependencies with zero boilerplate:
+Container Service adds a layer of convenience for these application services, automatically resolving their dependencies:
 
 ```python
-# Container Service - clean and simple
+# Container Service - built on FastAPI's foundation
 from fastedgy.dependencies import Inject
 
 @app.post("/users")
@@ -36,7 +36,7 @@ async def create_user(
     user_data: dict,
     email: EmailService = Inject(EmailService)  # Auto-resolved!
 ):
-    # EmailService gets DatabaseService automatically
+    # Dependencies resolved automatically, no provider functions needed
 ```
 
 ## Key Benefits
@@ -94,14 +94,16 @@ New to Container Service? Start here:
 ## When to Use Container Service
 
 **Perfect for:**
+
 - Database connections and configurations
 - Email services, caches, external APIs
 - Services shared across endpoints
 - Application-level singletons
 
 **Not needed for:**
+
 - Simple request-scoped data
 - FastAPI's built-in features (authentication, etc.)
 - One-off utilities
 
-Ready to get started? **[→ Getting Started Guide](getting-started.md)**
+[Get Started](getting-started.md){ .md-button .md-button--primary }

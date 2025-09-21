@@ -28,11 +28,11 @@ No registration needed - just inject it directly:
 
 ```python
 # main.py
-from fastapi import FastAPI
+from fastedgy.app import FastEdgy
 from fastedgy.dependencies import Inject
 from services.email import EmailService
 
-app = FastAPI()
+app = FastEdgy()
 
 @app.post("/send-email")
 async def send_email(
@@ -116,6 +116,7 @@ Services with simple constructors (default parameters or dependencies) are creat
 
 ### Explicit Registration
 Use `register_service()` when you need:
+
 - Custom configuration (database URLs, API keys, etc.)
 - Complex initialization logic
 - Startup validation
@@ -161,9 +162,9 @@ cache: CacheService = Inject(CacheService)
 
 You now know the basics! For more advanced usage:
 
-- **[User Guide →](guide.md)** - Complete patterns and best practices
-- **[Advanced Usage →](advanced.md)** - Complex scenarios and testing
-- **[Technical Details →](technical.md)** - How it works under the hood
+- **[User Guide →](guide.md)** Complete patterns and best practices
+- **[Advanced Usage →](advanced.md)** Complex scenarios and testing
+- **[Technical Details →](technical.md)** How it works under the hood
 
 ## Quick Reference
 

@@ -38,7 +38,7 @@ For more demanding applications, you'll eventually need additional capabilities:
 - **Monitoring**: Track task progress, logs, and performance metrics
 - **Scalability**: Distribute tasks across multiple workers/servers
 - **Complex Workflows**: Task dependencies, scheduling, and chaining
-- **Production Monitoring**: Database logs, CLI tools, health checks
+- **Production Monitoring**: Database logs, CLI, health checks
 
 ## The solution: extending FastAPI with production-grade tasks
 
@@ -73,7 +73,7 @@ async def register_user(
 - **Task Dependencies**: Create complex workflows with parent-child relationships
 - **Progress Tracking**: Monitor task progress with context and logging
 - **Automatic Retries**: Failed tasks are automatically retried
-- **Production Monitoring**: Database logs, CLI tools, health checks
+- **Production Monitoring**: Database logs, CLI, health checks
 - **Scalability**: Add more workers as needed without code changes
 
 ## Key features

@@ -34,7 +34,7 @@ alwaysApply: true
 5. Tests: Pytest; async tests with anyio; one test module per feature; add regression test for every bugfix
 6. Formatting: Ruff/Black defaults; docstrings Google style for public funcs/classes
 7. FastEdgy integration (MCP-first):
-   - When working with FastEdgy concepts (ORM Edgy, DI, API Routes Generator, Query Builder, Fields Selector, Metadata Generator, ORM Extensions, Database Migration, Queued Tasks, CLI Tools, i18n, Multi Tenant, Email, Storage, Authentication, settings), MUST first call MCP **fastedgy-docs** → `search("keywords")`, then `read(uri)` for the top result **before coding**
+   - When working with FastEdgy concepts (ORM Edgy, DI, API Routes Generator, Query Builder, Fields Selector, Metadata Generator, ORM Extensions, Database Migration, Queued Tasks, CLI, i18n, Multi Tenant, Email, Storage, Authentication, settings), MUST first call MCP **fastedgy-docs** → `search("keywords")`, then `read(uri)` for the top result **before coding**
    - In PRs, reference the consulted doc section (file/heading or link)
    - DO NOT invent framework APIs. If missing in docs, propose a thin wrapper with clear TODO and link to the doc gap
 ```

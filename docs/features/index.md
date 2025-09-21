@@ -88,7 +88,7 @@ Essential framework features that make FastEdgy a complete development platform.
 
     [Learn more →](queued-tasks/overview.md)
 
--   **:material-console: CLI Tools**
+-   **:material-console: CLI**
 
     ---
 

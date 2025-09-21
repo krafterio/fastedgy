@@ -45,6 +45,18 @@
          <lastmod>2025-09-21</lastmod>
     </url>
     <url>
+         <loc>https://krafterio.github.io/fastedgy/dev/features/api-routes/advanced/</loc>
+         <lastmod>2025-09-21</lastmod>
+    </url>
+    <url>
+         <loc>https://krafterio.github.io/fastedgy/dev/features/api-routes/getting-started/</loc>
+         <lastmod>2025-09-21</lastmod>
+    </url>
+    <url>
+         <loc>https://krafterio.github.io/fastedgy/dev/features/api-routes/guide/</loc>
+         <lastmod>2025-09-21</lastmod>
+    </url>
+    <url>
          <loc>https://krafterio.github.io/fastedgy/dev/features/api-routes/overview/</loc>
          <lastmod>2025-09-21</lastmod>
     </url>
@@ -85,11 +97,19 @@
          <lastmod>2025-09-21</lastmod>
     </url>
     <url>
+         <loc>https://krafterio.github.io/fastedgy/dev/features/fields-selector/guide/</loc>
+         <lastmod>2025-09-21</lastmod>
+    </url>
+    <url>
          <loc>https://krafterio.github.io/fastedgy/dev/features/fields-selector/overview/</loc>
          <lastmod>2025-09-21</lastmod>
     </url>
     <url>
          <loc>https://krafterio.github.io/fastedgy/dev/features/i18n/overview/</loc>
+         <lastmod>2025-09-21</lastmod>
+    </url>
+    <url>
+         <loc>https://krafterio.github.io/fastedgy/dev/features/metadata-generator/guide/</loc>
          <lastmod>2025-09-21</lastmod>
     </url>
     <url>
@@ -101,7 +121,27 @@
          <lastmod>2025-09-21</lastmod>
     </url>
     <url>
+         <loc>https://krafterio.github.io/fastedgy/dev/features/ordering/guide/</loc>
+         <lastmod>2025-09-21</lastmod>
+    </url>
+    <url>
+         <loc>https://krafterio.github.io/fastedgy/dev/features/ordering/overview/</loc>
+         <lastmod>2025-09-21</lastmod>
+    </url>
+    <url>
          <loc>https://krafterio.github.io/fastedgy/dev/features/orm-extensions/overview/</loc>
+         <lastmod>2025-09-21</lastmod>
+    </url>
+    <url>
+         <loc>https://krafterio.github.io/fastedgy/dev/features/pagination/guide/</loc>
+         <lastmod>2025-09-21</lastmod>
+    </url>
+    <url>
+         <loc>https://krafterio.github.io/fastedgy/dev/features/pagination/overview/</loc>
+         <lastmod>2025-09-21</lastmod>
+    </url>
+    <url>
+         <loc>https://krafterio.github.io/fastedgy/dev/features/query-builder/guide/</loc>
          <lastmod>2025-09-21</lastmod>
     </url>
     <url>
@@ -130,6 +170,14 @@
     </url>
     <url>
          <loc>https://krafterio.github.io/fastedgy/dev/features/storage/overview/</loc>
+         <lastmod>2025-09-21</lastmod>
+    </url>
+    <url>
+         <loc>https://krafterio.github.io/fastedgy/dev/features/view-transformers/guide/</loc>
+         <lastmod>2025-09-21</lastmod>
+    </url>
+    <url>
+         <loc>https://krafterio.github.io/fastedgy/dev/features/view-transformers/overview/</loc>
          <lastmod>2025-09-21</lastmod>
     </url>
     <url>

@@ -150,6 +150,7 @@ nav:
         - Usage Guide: features/fields-selector/guide.md
       - Metadata Generator:
         - Overview: features/metadata-generator/overview.md
+        - Usage Guide: features/metadata-generator/guide.md
     - ORM Features:
       - ORM Extensions:
         - Overview: features/orm-extensions/overview.md

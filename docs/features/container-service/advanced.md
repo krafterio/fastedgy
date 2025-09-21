@@ -497,6 +497,10 @@ cached_service: CacheService = Inject(CacheService)
 ### Service Registration Validation
 
 ```python
+from contextlib import asynccontextmanager
+from fastedgy.app import FastEdgy
+from fastedgy.dependencies import get_service
+
 def validate_services():
     """Validate that all required services are properly registered."""
 
@@ -518,12 +522,18 @@ def validate_services():
     if missing_services:
         raise RuntimeError(f"Missing required services: {missing_services}")
 
-# Call during startup
+# Optional custom lifespan for service validation
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastEdgy):
     setup_services()
     validate_services()  # Ensure all services are available
     yield
+
+# FastEdgy handles DB and core services automatically
+app = FastEdgy(
+    title="My App",
+    lifespan=lifespan,  # Optional - only for custom validation logic
+)
 ```
 
 ### Custom Error Handling

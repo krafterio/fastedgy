@@ -99,12 +99,10 @@ async def create_user(
 
 **`main.py`:**
 ```python
-from contextlib import asynccontextmanager
 from fastapi import APIRouter
 
 from fastedgy.app import FastEdgy
 from fastedgy.config import BaseSettings, init_settings
-from fastedgy.orm import Database
 from fastedgy.api_route_model.router import register_api_route_models
 from fastedgy.api_route_model.standard_actions import register_standard_api_route_model_actions
 
@@ -116,21 +114,13 @@ class AppSettings(BaseSettings):
     debug: bool = True
 
 def app():
-    @asynccontextmanager
-    async def lifespan(application: FastEdgy):
-        db = application.get_service(Database)
-        await db.connect()
-        try:
-            yield
-        finally:
-            await db.disconnect()
-
     settings = init_settings(AppSettings)
+
+    # FastEdgy handles DB connection and lifespan automatically
     app = FastEdgy(
         title=settings.title,
         description="My awesome FastEdgy application",
         version="1.0.0",
-        lifespan=lifespan,
     )
 
     # Setup API routes
@@ -144,6 +134,30 @@ def app():
     app.include_router(api_router)
 
     return app
+```
+
+!!! note "Automatic lifespan"
+    FastEdgy automatically handles database connection and service cleanup with a native lifespan. The `lifespan` parameter is no required.
+
+### Custom lifespan (optional)
+
+If you need to add your own startup/shutdown logic, you can still provide a custom lifespan:
+
+```python
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def custom_lifespan(application: FastEdgy):
+    # Your startup logic
+    print("Application starting...")
+    yield
+    # Your shutdown logic
+    print("Application shutting down...")
+
+app = FastEdgy(
+    title=settings.title,
+    lifespan=custom_lifespan,  # Optional
+)
 ```
 
 ### 5. Run your application

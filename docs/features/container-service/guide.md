@@ -267,6 +267,11 @@ async def register_user(
 ### Development vs Production Services
 
 ```python
+import os
+from contextlib import asynccontextmanager
+from fastedgy.app import FastEdgy
+from fastedgy.dependencies import register_service
+
 def setup_services():
     """Configure services based on environment during startup."""
     env = os.getenv("ENVIRONMENT", "development")
@@ -294,13 +299,17 @@ def setup_services():
         register_service(InMemoryCache(), CacheService)
         register_service(ConsoleEmailService(), EmailService)
 
-# Call during app startup
+# Setup services during app startup (optional custom lifespan)
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastEdgy):
     setup_services()
     yield
 
-app = FastAPI(lifespan=lifespan)
+# FastEdgy handles DB and service lifecycle automatically
+app = FastEdgy(
+    title="My App",
+    lifespan=lifespan,  # Optional - only needed for custom service setup
+)
 ```
 
 ### Configuration Classes

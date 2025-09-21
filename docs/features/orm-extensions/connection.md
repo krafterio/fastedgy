@@ -1,6 +1,6 @@
 # Database Connection
 
-FastEdgy handles database connection automatically. The connection is pre-configured and managed through the application lifespan, so you don't need to manage it manually.
+FastEdgy handles database connection completely automatically with a native lifespan. You don't need to configure or manage the connection manually.
 
 ## Automatic setup
 
@@ -18,27 +18,44 @@ DATABASE_URL=sqlite:///./database.db
 
 ### Application lifecycle management
 
-FastEdgy automatically manages the database connection through the lifespan context:
+FastEdgy automatically manages the database connection through a **native lifespan**. No configuration required:
+
+```python
+from fastedgy.app import FastEdgy
+
+def app():
+    # DB connection is managed automatically - no lifespan needed
+    return FastEdgy(
+        title="My App",
+        description="My FastEdgy application",
+    )
+```
+
+!!! note "Automatic connection"
+    FastEdgy automatically starts and stops the database connection through its integrated native lifespan. You no longer need to manually manage `db.connect()` and `db.disconnect()`.
+
+### Custom lifespan (optional)
+
+If you need to add your own startup/shutdown logic, you can provide a custom lifespan that will be composed with the native lifespan:
 
 ```python
 from contextlib import asynccontextmanager
 from fastedgy.app import FastEdgy
-from fastedgy.dependencies import Inject
-from fastedgy.orm import Database
 
 @asynccontextmanager
-async def lifespan(app: FastEdgy):
-    # Database connection opens automatically
-    db = app.get_service(Database)
-    await db.connect()
-    try:
-        yield
-    finally:
-        # Database connection closes automatically
-        await db.disconnect()
+async def custom_lifespan(app: FastEdgy):
+    # Your custom startup logic
+    print("Custom startup logic...")
+    yield
+    # Your custom shutdown logic
+    print("Custom shutdown logic...")
 
 def app():
-    return FastEdgy(lifespan=lifespan)
+    # FastEdgy composes your lifespan with its native lifespan
+    return FastEdgy(
+        title="My App",
+        lifespan=custom_lifespan,  # Optional
+    )
 ```
 
 ## Manual connection management (if needed)
@@ -74,10 +91,11 @@ For advanced use cases with multiple databases, refer to the [Edgy ORM documenta
 
 ## Summary
 
-- **Zero configuration**: Connection handled automatically
+- **Zero configuration**: Connection handled automatically via native lifespan
 - **Environment-based**: Configure via `DATABASE_URL`
-- **Lifespan managed**: Opens on startup, closes on shutdown
+- **Automatic lifecycle**: Opens on startup, closes on shutdown
 - **Connection pooling**: Automatic with configurable settings
 - **Built on Edgy**: Full Edgy ORM compatibility
+- **No lifespan required**: Native lifespan manages everything
 
 The database connection is ready to use as soon as your FastEdgy application starts!

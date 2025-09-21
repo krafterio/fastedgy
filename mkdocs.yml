@@ -191,6 +191,7 @@ nav:
     - Miscellaneous Features:
       - Authentication:
         - Overview: features/auth/overview.md
+        - Usage Guide: features/auth/guide.md
   - Vue.js:
     - Getting Started: vue/getting-started.md
     - Basic Usage: vue/basic-usage.md

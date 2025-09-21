@@ -209,5 +209,11 @@ nav:
         - Overview: vue/logger/overview.md
         - Setup Guide: vue/logger/setup.md
   - MCP: mcp.md
+  - AI Rules:
+    - ai-rules.md
+    - FastEdgy Core: ai-rules/fastedgy.md
+    - Python: ai-rules/python.md
+    - JavaScript: ai-rules/javascript.md
+    - Vue.js: ai-rules/vue.md
   - About: about.md
   - Contributing: contributing.md

@@ -39,6 +39,63 @@ Or
 pip install git+ssh://git@github.com/krafterio/fastedgy.git
 ```
 
+## Development
+
+### Documentation Development
+
+The project documentation is built using [MkDocs Material](https://squidfunk.github.io/mkdocs-material) with versioning
+support via [Mike](https://github.com/jimporter/mike).
+
+#### Local Development
+
+To work on the documentation locally:
+
+```bash
+uv sync --dev
+uv run mkdocs serve
+```
+
+The documentation will be available at `http://localhost:8000/fastedgy`.
+
+#### Documentation Versioning
+
+The documentation uses **mike** for version management:
+
+- **Development version**: Push to `main` branch automatically deploys to `dev` version
+- **Stable releases**: Create a tag (e.g., `0.1.0`) to automatically deploy version `0.1` as `latest`
+
+**Useful commands:**
+
+```bash
+# List all deployed versions
+uv run mike list
+
+# Serve documentation locally with version selector (for testing) available at `http://localhost:8000`
+uv run mike serve
+
+# Manual deployment commands (for exceptional cases only)
+# The --push flag automatically publishes to GitHub Pages
+uv run mike deploy --push dev latest --update-aliases
+uv run mike set-default --push latest
+```
+
+**Note:** In normal development, GitHub Actions handles deployment automatically when you push to `main` or create tags.
+
+#### Publishing New Versions
+
+1. **For development updates**: Simply push to `main` branch
+   ```bash
+   git push origin main
+   ```
+
+2. **For new releases**: Create and push a version tag
+   ```bash
+   git tag 0.2.0
+   git push origin 0.2.0
+   ```
+
+The GitHub Action will automatically handle the documentation deployment.
+
 ## Commit message format convention
 
 This project uses the **[Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0)** naming convention.

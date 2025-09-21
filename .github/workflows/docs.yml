@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - '*'
 
 permissions:
   contents: write
@@ -45,4 +47,17 @@ jobs:
         run: uv sync --dev
 
       - name: Deploy documentation
-        run: uv run mkdocs gh-deploy --force
+        run: |
+          # Fetch the gh-pages branch to avoid conflicts
+          git fetch origin gh-pages --depth=1 2>/dev/null || true
+
+          if [[ $GITHUB_REF == refs/tags/* ]]; then
+            # Deployment of a tagged version (eg: 0.2.0 -> 0.2)
+            VERSION=${GITHUB_REF#refs/tags/}
+            MAJOR_MINOR=$(echo $VERSION | cut -d. -f1-2)
+            uv run mike deploy --push --update-aliases $MAJOR_MINOR latest
+            uv run mike set-default --push latest
+          elif [[ $GITHUB_REF == refs/heads/main ]]; then
+            # Deployment of the main branch -> 'dev' version
+            uv run mike deploy --push dev
+          fi

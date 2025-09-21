@@ -136,6 +136,9 @@ nav:
         - Getting Started: features/api-routes/getting-started.md
         - User Guide: features/api-routes/guide.md
         - Advanced Usage: features/api-routes/advanced.md
+      - Pagination:
+        - Overview: features/pagination/overview.md
+        - Usage Guide: features/pagination/guide.md
       - Query Builder:
         - Overview: features/query-builder/overview.md
       - Fields Selector:

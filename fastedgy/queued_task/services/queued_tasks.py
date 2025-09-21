@@ -90,6 +90,12 @@ class QueuedTasks:
         Add task to queue - supports both regular functions and local functions.
         Returns a QueuedTaskRef for task control and dependency management.
         """
+        if "QueuedTask" not in self.registry.models:
+            raise RuntimeError(
+                "QueuedTask feature is not configured. "
+                "Please add QueuedTask, QueuedTaskLog, and QueuedTaskWorker models to your project."
+            )
+
         # Validation: No instance methods
         if hasattr(func, "__self__"):
             raise ValueError(f"Instance methods are not supported: {func}")
@@ -228,6 +234,12 @@ class QueuedTasks:
         """
         Async version of add_task - creates task immediately and returns it
         """
+        if "QueuedTask" not in self.registry.models:
+            raise RuntimeError(
+                "QueuedTask feature is not configured. "
+                "Please add QueuedTask, QueuedTaskLog, and QueuedTaskWorker models to your project."
+            )
+
         # Validation: No instance methods
         if hasattr(func, "__self__"):
             raise ValueError(f"Instance methods are not supported: {func}")

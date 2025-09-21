@@ -62,7 +62,7 @@ Enhanced database capabilities with advanced field types and migration tools.
 
     Advanced Alembic extensions to handle Edgy ORM field migrations seamlessly.
 
-    [Learn more →](database-migration/overview.md)
+    [Learn more →](orm-migration/overview.md)
 
 </div>
 

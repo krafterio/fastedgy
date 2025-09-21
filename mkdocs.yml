@@ -161,7 +161,8 @@ nav:
         - Models: features/orm-extensions/models.md
         - Fields: features/orm-extensions/fields.md
       - Database Migration:
-        - Overview: features/database-migration/overview.md
+        - Overview: features/orm-migration/overview.md
+        - Usage Guide: features/orm-migration/guide.md
     - Core Features:
       - Container Service:
         - Overview: features/container-service/overview.md

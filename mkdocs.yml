@@ -155,8 +155,11 @@ nav:
         - Overview: features/view-transformers/overview.md
         - User Guide: features/view-transformers/guide.md
     - ORM Features:
-      - ORM Extensions:
+      - Edgy ORM Extensions:
         - Overview: features/orm-extensions/overview.md
+        - Connection: features/orm-extensions/connection.md
+        - Models: features/orm-extensions/models.md
+        - Fields: features/orm-extensions/fields.md
       - Database Migration:
         - Overview: features/database-migration/overview.md
     - Core Features:

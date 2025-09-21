@@ -133,6 +133,9 @@ nav:
     - API Features:
       - API Routes Generator:
         - Overview: features/api-routes/overview.md
+        - Getting Started: features/api-routes/getting-started.md
+        - User Guide: features/api-routes/guide.md
+        - Advanced Usage: features/api-routes/advanced.md
       - Query Builder:
         - Overview: features/query-builder/overview.md
       - Fields Selector:

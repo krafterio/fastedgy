@@ -67,8 +67,12 @@ async def login_for_access_token(
 
 @public_router.post("/refresh")
 async def refresh_access_token(
-    token_data: TokenRefresh, settings: BaseSettings = Inject(BaseSettings)
+    token_data: TokenRefresh,
+    settings: BaseSettings = Inject(BaseSettings),
+    registry: Registry = Inject(Registry),
 ) -> Token:
+    User = cast(type["User"], registry.get_model("User"))
+
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate refresh token",

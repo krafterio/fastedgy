@@ -17,17 +17,41 @@ AI Rules are configuration files that provide context and guidelines to AI codin
 
 FastEdgy provides rules for different aspects of development:
 
-### **[FastEdgy Core Rules](ai-rules/fastedgy.md)**
-Core framework patterns, dependency injection, API routes, and FastEdgy-specific conventions.
+<div class="grid cards" markdown>
 
-### **[Python Rules](ai-rules/python.md)**
-Python-specific patterns when working with FastEdgy, including async/await, type hints, and Pydantic models.
+-   **:fontawesome-brands-python: FastEdgy Core Rules**
 
-### **[JavaScript Rules](ai-rules/javascript.md)**
-JavaScript/TypeScript patterns for frontend development with FastEdgy APIs.
+    ---
 
-### **[Vue.js Rules](ai-rules/vue.md)**
-Vue.js-specific patterns when using vue-fastedgy, including composables, stores, and component patterns.
+    Core framework patterns, dependency injection, API routes, and FastEdgy-specific conventions.
+
+    [Learn more →](fastedgy.md)
+
+-   **:fontawesome-brands-python: Python Rules**
+
+    ---
+
+    Python-specific patterns when working with FastEdgy, including async/await, type hints, and Pydantic models.
+
+    [Learn more →](python.md)
+
+-   **:fontawesome-brands-js: JavaScript Rules**
+
+    ---
+
+    JavaScript/TypeScript patterns for frontend development with FastEdgy APIs.
+
+    [Learn more →](javascript.md)
+
+-   **:fontawesome-brands-vuejs: Vue.js Rules**
+
+    ---
+
+    Vue.js-specific patterns when using vue-fastedgy, including composables, stores, and component patterns.
+
+    [Learn more →](vue.md)
+
+</div>
 
 ## Prerequisites
 
@@ -56,4 +80,4 @@ Vue.js-specific patterns when using vue-fastedgy, including composables, stores,
 
 Ready to enhance your AI coding experience with FastEdgy?
 
-[Get Started with AI Rules](ai-rules/fastedgy.md){ .md-button .md-button--primary }
+[Get Started with AI Rules](fastedgy.md){ .md-button .md-button--primary }

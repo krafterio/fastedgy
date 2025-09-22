@@ -8,7 +8,7 @@ This file contains Vue.js-specific rules for AI coding assistants when using vue
 
 **MCP Server Required**: These rules work with the MCP server "fastedgy-docs" that provides access to FastEdgy documentation. Make sure you have configured the [MCP integration](../mcp.md) before using these rules.
 
-## Rule File: vue.mdc
+## Rule File
 
 Copy this content to your AI assistant configuration:
 

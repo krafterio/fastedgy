@@ -94,6 +94,7 @@ class QueueWorker:
             # Run pre/post hooks + execution under a dedicated connection to avoid
             # reentrancy with ORM implicit transactions
             from fastedgy.orm import Database as EdgyDatabase  # type: ignore
+
             database: EdgyDatabase = get_service(EdgyDatabase)
             async with database.connection():
                 await self.hook_registry.trigger_pre_run(task)
@@ -133,6 +134,7 @@ class QueueWorker:
                 logger.debug(f"Marking task {task.id} as done [raw]")
                 from sqlalchemy import text
                 from fastedgy.orm import Database as EdgyDatabase  # type: ignore
+
                 database: EdgyDatabase = get_service(EdgyDatabase)
                 sql = text(
                     "UPDATE queued_tasks SET state = 'done'::queuedtaskstate,\n"
@@ -162,6 +164,7 @@ class QueueWorker:
             async def _op_mark_failed():
                 from sqlalchemy import text
                 from fastedgy.orm import Database as EdgyDatabase  # type: ignore
+
                 database: EdgyDatabase = get_service(EdgyDatabase)
                 sql = text(
                     "UPDATE queued_tasks SET state = 'failed'::queuedtaskstate,\n"
@@ -195,7 +198,9 @@ class QueueWorker:
             try:
                 await self.hook_registry.trigger_post_run(task, error=e)
             except Exception as hook_err:
-                logger.error(f"post_run hook failed for task {getattr(task, 'id', '?')}: {hook_err}")
+                logger.error(
+                    f"post_run hook failed for task {getattr(task, 'id', '?')}: {hook_err}"
+                )
 
             logger.error(f"Worker {self.worker_id} failed task {task.id}: {e}")
 
@@ -294,10 +299,13 @@ class QueueWorker:
     def __repr__(self):
         return self.__str__()
 
-    async def _run_write_with_retry(self, op_coro_factory, *, max_attempts: int = 3, base_delay: float = 0.05):
+    async def _run_write_with_retry(
+        self, op_coro_factory, *, max_attempts: int = 3, base_delay: float = 0.05
+    ):
         """Run a small DB write with retries under a short-lived connection to avoid transaction reentrancy."""
         from sqlalchemy.exc import DBAPIError, OperationalError
         from fastedgy.orm import Database as EdgyDatabase  # type: ignore
+
         database: EdgyDatabase = get_service(EdgyDatabase)
 
         attempt = 0
@@ -308,7 +316,7 @@ class QueueWorker:
                 return
             except (DBAPIError, OperationalError) as e:  # type: ignore
                 if self._is_retryable_db_error(e) and attempt < max_attempts - 1:
-                    delay = base_delay * (2 ** attempt) + random.uniform(0, base_delay)
+                    delay = base_delay * (2**attempt) + random.uniform(0, base_delay)
                     logger.debug(
                         f"Transient DB error, retry {attempt + 1}/{max_attempts} in {delay:.3f}s"
                     )
@@ -332,7 +340,9 @@ class QueueWorker:
             txt2 = str(orig).lower()
             if "could not serialize access" in txt2 or "deadlock detected" in txt2:
                 return True
-            sqlstate = getattr(orig, "sqlstate", None) or getattr(orig, "sql_state", None)
+            sqlstate = getattr(orig, "sqlstate", None) or getattr(
+                orig, "sql_state", None
+            )
             if sqlstate in ("40001", "40P01"):
                 return True
         return False

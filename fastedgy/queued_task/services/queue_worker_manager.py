@@ -177,7 +177,9 @@ class QueueWorkerManager:
         # Reduce noisy SQLAlchemy termination logs during engine dispose
         try:
             logging.getLogger("sqlalchemy.pool.base").setLevel(logging.CRITICAL)
-            logging.getLogger("sqlalchemy.dialects.postgresql.asyncpg").setLevel(logging.CRITICAL)
+            logging.getLogger("sqlalchemy.dialects.postgresql.asyncpg").setLevel(
+                logging.CRITICAL
+            )
         except Exception:
             pass
 
@@ -206,10 +208,16 @@ class QueueWorkerManager:
                     # Try common attributes used by SQLAlchemy async adapters
                     for attr in ("driver_connection", "dbapi_connection", "connection"):
                         inner = getattr(conn, attr, None)
-                        if inner is not None and hasattr(inner, "add_listener") and hasattr(inner, "remove_listener"):
+                        if (
+                            inner is not None
+                            and hasattr(inner, "add_listener")
+                            and hasattr(inner, "remove_listener")
+                        ):
                             return inner
                     # Maybe the object itself is an asyncpg connection
-                    if hasattr(conn, "add_listener") and hasattr(conn, "remove_listener"):
+                    if hasattr(conn, "add_listener") and hasattr(
+                        conn, "remove_listener"
+                    ):
                         return conn
                     return None
 
@@ -234,9 +242,7 @@ class QueueWorkerManager:
                     await add_listener(channel, on_notify)  # type: ignore[misc]
                 else:
                     add_listener(channel, on_notify)  # type: ignore[misc]
-                logger.debug(
-                    f"Notification listener registered on channel '{channel}'"
-                )
+                logger.debug(f"Notification listener registered on channel '{channel}'")
 
                 # Wait until shutdown, but wake up periodically to remain responsive
                 while not self.shutdown_event.is_set():
@@ -345,6 +351,7 @@ class QueueWorkerManager:
             async with self.database.transaction(isolation_level="READ COMMITTED"):
                 # Claim the next task atomically and return its id
                 from sqlalchemy import text
+
                 sql = text(
                     "WITH next_task AS (\n"
                     "  SELECT qt.id\n"
@@ -386,7 +393,9 @@ class QueueWorkerManager:
 
             # Load the task model instance
             QueuedTask = cast(type["QueuedTask"], self.registry.get_model("QueuedTask"))
-            task = await QueuedTask.query.filter(QueuedTask.columns.id == claimed_id).get_or_none()
+            task = await QueuedTask.query.filter(
+                QueuedTask.columns.id == claimed_id
+            ).get_or_none()
             return task
         except Exception as e:
             logger.error(f"Error claiming next ready task: {e}")

@@ -372,12 +372,15 @@ def lifespan(f: "Callable[P, R]") -> "Callable[P, R]":
             service = get_service(MyService)
     """
     if inspect.iscoroutinefunction(inspect.unwrap(f)):
+
         async def async_func(*args: "P.args", **kwargs: "P.kwargs") -> "R":
             ctx = get_current_context().obj
             async with ctx.lifespan():
                 return await f(*args, **kwargs)
+
         wrapped_func = async_func
     else:
+
         def sync_func(*args: "P.args", **kwargs: "P.kwargs") -> "R":
             ctx = get_current_context().obj
 
@@ -386,6 +389,7 @@ def lifespan(f: "Callable[P, R]") -> "Callable[P, R]":
                     return f(*args, **kwargs)
 
             return asyncio.run(_run())
+
         wrapped_func = sync_func
 
     return cast(Callable[P, R], update_wrapper(wrapped_func, f))

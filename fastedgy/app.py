@@ -805,20 +805,7 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
         ],
     ) -> None:
         settings = init_settings()
-
-        db = Database(
-            settings.database_url,
-            pool_size=settings.database_pool_size,
-            max_overflow=settings.database_max_overflow,
-        )
-        db_registry = Registry(db)
-
-        monkay.settings.migration_directory = settings.db_migration_path
-        monkay.set_instance(Instance(registry=db_registry), apply_extensions=False)
-        monkay.evaluate_settings(on_conflict="keep")
-
-        # Compose user lifespan with FastEdgy native lifespan
-        composed_lifespan = self._compose_lifespan(lifespan, db)
+        composed_lifespan = self._compose_lifespan(lifespan)
 
         super().__init__(
             debug=debug,
@@ -865,23 +852,16 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
             log_file=settings.log_path,
         )
 
-        register_app(self)
-        register_service(db)
-        register_service(db_registry)
-
-        monkay.set_instance(Instance(registry=db_registry, app=self))
-        register_lazy_models(db_registry)
-
         # Add middlewares (order matters: Context first, then Locale)
         self.add_middleware(LocaleMiddleware)
         self.add_middleware(ContextRequestMiddleware)
 
-    def _compose_lifespan(self, user_lifespan, db):
+    def _compose_lifespan(self, user_lifespan):
         """Compose user lifespan with FastEdgy native lifespan"""
 
         @asynccontextmanager
         async def composed_lifespan(app):
-            async with self._native_lifespan(app, db):
+            async with self._native_lifespan(app):
                 if user_lifespan:
                     async with user_lifespan(app):
                         yield
@@ -890,16 +870,38 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
 
         return composed_lifespan
 
-    @staticmethod
     @asynccontextmanager
-    async def _native_lifespan(app, db):
+    async def _native_lifespan(self, app):
         """FastEdgy native lifespan: DB + services"""
+        settings = get_service(BaseSettings)
+        db = Database(
+            settings.database_url,
+            pool_size=settings.database_pool_size,
+            max_overflow=settings.database_max_overflow,
+        )
+        registry = Registry(db)
+
+        monkay.settings.migration_directory = settings.db_migration_path
+        monkay.set_instance(Instance(registry=registry), apply_extensions=False)
+        monkay.evaluate_settings(on_conflict="keep")
+
+        register_app(self)
+        register_service(db)
+        register_service(registry)
+
+        monkay.set_instance(Instance(registry=registry, app=self))
+        register_lazy_models(registry)
+
         await db.connect()
         try:
             yield
         finally:
             await app._flush_pending_services()
-            await db.disconnect()
+
+            try:
+                await db.disconnect()
+            except Exception:
+                pass
 
     async def _flush_pending_services(self):
         """Wait for all services with pending async operations"""

@@ -481,12 +481,14 @@ class QueuedTasks:
 
     async def get_pending_tasks_count(self) -> int:
         """Count pending tasks"""
+        QueuedTask = cast(type["QueuedTask"], self.registry.get_model("QueuedTask"))
         return await QueuedTask.query.filter(
             QueuedTask.columns.state == QueuedTaskState.enqueued
         ).count()
 
     async def get_task_by_id(self, task_id: int) -> Optional["QueuedTask"]:
         """Get task by ID"""
+        QueuedTask = cast(type["QueuedTask"], self.registry.get_model("QueuedTask"))
         return await QueuedTask.query.filter(
             QueuedTask.columns.id == task_id
         ).get_or_none()

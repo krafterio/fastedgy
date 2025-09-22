@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 
 from typing import TYPE_CHECKING, Optional, Dict, Any, List, cast
 
-from fastedgy.dependencies import Inject
+from fastedgy.dependencies import Inject, get_service
 from fastedgy.orm import Database, Registry
 from fastedgy.queued_task.config import QueuedTaskConfig
 from fastedgy.queued_task.models.queued_task import QueuedTaskState
@@ -793,6 +793,11 @@ class QueueWorkerManager:
         """Get global statistics across all servers"""
         try:
             # Get all alive AND running servers (heartbeat within last 2 minutes and is_running=True)
+            registry = get_service(Registry)
+            QueuedTaskWorker = cast(
+                type["QueuedTaskWorker"],
+                registry.get_model("QueuedTaskWorker"),
+            )
             alive_servers = await QueuedTaskWorker.query.filter(
                 QueuedTaskWorker.columns.last_heartbeat
                 >= datetime.now() - timedelta(minutes=2),

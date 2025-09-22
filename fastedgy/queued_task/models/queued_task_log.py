@@ -11,7 +11,7 @@ from fastedgy.orm import fields
 from fastedgy.models.base import BaseModel
 
 if TYPE_CHECKING:
-    from fastedgy.models.queued_task import QueuedTask
+    from fastedgy.models.queued_task import BaseQueuedTask as QueuedTask
 
 
 class QueuedTaskLogType(str, Enum):
@@ -28,7 +28,7 @@ class QueuedTaskLogMixin(BaseModel):
     This provides all the queues task log logic without registering as a model.
     """
 
-    class Meta:
+    class Meta:  # type: ignore
         abstract = True
         label = "Log des tâches en file d'attente"
         label_plural = "Logs des tâches en file d'attente"
@@ -44,16 +44,16 @@ class QueuedTaskLogMixin(BaseModel):
 
     task: "QueuedTask" = fields.ForeignKey(
         "QueuedTask", on_delete="CASCADE", label="Tâche", related_name="logs"
-    )
+    )  # type: ignore
     log_type: QueuedTaskLogType = fields.ChoiceField(
         choices=QueuedTaskLogType, label="Type de log"
-    )
+    )  # type: ignore
     logged_at: datetime | None = fields.DateTimeField(
         default_factory=datetime.now,
         read_only=True,
         auto_now_add=True,
         label="Horodatage",
     )  # type: ignore
-    name: Optional[str] = fields.CharField(max_length=255, null=True, label="Nom")
-    message: Optional[str] = fields.TextField(null=True, label="Message")
-    info: Optional[str] = fields.TextField(null=True, label="Informations")
+    name: Optional[str] = fields.CharField(max_length=255, null=True, label="Nom")  # type: ignore
+    message: Optional[str] = fields.TextField(null=True, label="Message")  # type: ignore
+    info: Optional[str] = fields.TextField(null=True, label="Informations")  # type: ignore

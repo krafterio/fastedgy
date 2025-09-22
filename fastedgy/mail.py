@@ -14,7 +14,7 @@ from email.message import EmailMessage
 from enum import Enum
 
 from fastedgy.dependencies import Inject
-from fastedgy.storage import BaseSettings
+from fastedgy.config import BaseSettings
 
 from jinja2 import Environment, FileSystemLoader, Undefined, select_autoescape
 

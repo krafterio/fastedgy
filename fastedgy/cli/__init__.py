@@ -346,6 +346,51 @@ def initialize_app(f: "Callable[P, R]") -> "Callable[P, R]":
     return cast(Callable[P, R], update_wrapper(wrapped_func, f))
 
 
+def lifespan(f: "Callable[P, R]") -> "Callable[P, R]":
+    """
+    Decorator that automatically wraps the lifespan context for CLI commands.
+    Allows using FastEdgy services in CLI commands without manually managing
+    `async with ctx.lifespan()`.
+
+    Compatible with other decorators like @pass_cli_context.
+
+    Usage:
+        @cli.command()
+        @cli.initialize_app
+        @cli.pass_cli_context  # this will pass ctx as first argument
+        @cli.lifespan
+        def my_command(ctx: CliContext):
+            # Services are now available
+            service = get_service(MyService)
+
+        # Or without @pass_cli_context:
+        @cli.command()
+        @cli.initialize_app
+        @cli.lifespan
+        def my_other_command():
+            # Services are still available via get_service
+            service = get_service(MyService)
+    """
+    if inspect.iscoroutinefunction(inspect.unwrap(f)):
+        async def async_func(*args: "P.args", **kwargs: "P.kwargs") -> "R":
+            ctx = get_current_context().obj
+            async with ctx.lifespan():
+                return await f(*args, **kwargs)
+        wrapped_func = async_func
+    else:
+        def sync_func(*args: "P.args", **kwargs: "P.kwargs") -> "R":
+            ctx = get_current_context().obj
+
+            async def _run():
+                async with ctx.lifespan():
+                    return f(*args, **kwargs)
+
+            return asyncio.run(_run())
+        wrapped_func = sync_func
+
+    return cast(Callable[P, R], update_wrapper(wrapped_func, f))
+
+
 def make_pass_decorator(
     object_type: Type[T], ensure: bool = False
 ) -> Callable[["Callable[Concatenate[T, P], R]"], "Callable[P, R]"]:
@@ -584,6 +629,7 @@ __all__ = [
     "pass_context",
     "pass_cli_context",
     "initialize_app",
+    "lifespan",
     "make_pass_decorator",
     "pass_meta_key",
     "register_cli_commands",

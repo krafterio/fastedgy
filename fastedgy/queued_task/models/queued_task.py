@@ -3,7 +3,7 @@
 
 from typing import Any, Optional, TYPE_CHECKING
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from enum import Enum
 
@@ -131,7 +131,7 @@ class QueuedTaskMixin(BaseModel):
             or not self.date_enqueued
             and self.state == QueuedTaskState.enqueued
         ):
-            self.date_enqueued = datetime.now()
+            self.date_enqueued = datetime.now(timezone.utc)
 
         self._compute_date_ended()
         self._compute_execution_time()
@@ -167,7 +167,7 @@ class QueuedTaskMixin(BaseModel):
     def mark_as_doing(self):
         """Mark task as running"""
         self.state = QueuedTaskState.doing
-        self.date_started = datetime.now()
+        self.date_started = datetime.now(timezone.utc)
         self.date_stopped = None
         self.date_done = None
         self.date_cancelled = None
@@ -180,7 +180,7 @@ class QueuedTaskMixin(BaseModel):
     def mark_as_done(self):
         """Mark task as successfully completed"""
         self.state = QueuedTaskState.done
-        self.date_done = datetime.now()
+        self.date_done = datetime.now(timezone.utc)
 
     def mark_as_failed(
         self,
@@ -190,7 +190,7 @@ class QueuedTaskMixin(BaseModel):
     ):
         """Mark task as failed"""
         self.state = QueuedTaskState.failed
-        self.date_failed = datetime.now()
+        self.date_failed = datetime.now(timezone.utc)
         if exception_name:
             self.exception_name = exception_name
         if exception_message:
@@ -201,12 +201,12 @@ class QueuedTaskMixin(BaseModel):
     def mark_as_stopped(self):
         """Mark task as stopped"""
         self.state = QueuedTaskState.stopped
-        self.date_stopped = datetime.now()
+        self.date_stopped = datetime.now(timezone.utc)
 
     def mark_as_cancelled(self):
         """Mark task as cancelled"""
         self.state = QueuedTaskState.cancelled
-        self.date_cancelled = datetime.now()
+        self.date_cancelled = datetime.now(timezone.utc)
 
     def mark_as_waiting(self):
         """Mark task as waiting"""
@@ -215,7 +215,7 @@ class QueuedTaskMixin(BaseModel):
     def restart(self):
         """Reset task to queue by resetting all state fields"""
         self.state = QueuedTaskState.enqueued
-        self.date_enqueued = datetime.now()
+        self.date_enqueued = datetime.now(timezone.utc)
         self._reset_execution_fields()
 
     def _reset_execution_fields(self):

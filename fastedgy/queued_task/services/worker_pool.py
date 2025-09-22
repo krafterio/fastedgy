@@ -62,8 +62,8 @@ class WorkerPool:
             return worker
 
         # Pool is full
-        logger.warning(
-            f"Worker pool is full ({self.max_workers} workers), task will wait"
+        logger.debug(
+            f"Worker pool full ({self.max_workers}); task waits for next cycle"
         )
         return None
 
@@ -146,9 +146,10 @@ class WorkerPool:
 
         # Wait for timeout tasks to complete
         if self.worker_timeout_tasks:
-            await asyncio.gather(
-                *self.worker_timeout_tasks.values(), return_exceptions=True
-            )
+            try:
+                await asyncio.wait(self.worker_timeout_tasks.values(), timeout=1)
+            except Exception:
+                pass
 
         self.worker_timeout_tasks.clear()
         self.busy_workers.clear()

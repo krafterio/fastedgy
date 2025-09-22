@@ -119,6 +119,12 @@ class QueueWorkerManager:
 
         # Wait for shutdown signal or task completion
         try:
+            # Kickstart: process pending tasks immediately on startup
+            try:
+                await self._process_pending_tasks()
+            except Exception as e:
+                logger.error(f"Initial pending tasks processing failed: {e}")
+
             # Wait for either all manager tasks to complete or shutdown signal
             done, pending = await asyncio.wait(
                 self.manager_tasks + [asyncio.create_task(self.shutdown_event.wait())],
@@ -152,9 +158,12 @@ class QueueWorkerManager:
         for task in self.manager_tasks:
             task.cancel()
 
-        # Wait for tasks to finish
+        # Fast wait with timeout to avoid long shutdown delays
         if self.manager_tasks:
-            await asyncio.gather(*self.manager_tasks, return_exceptions=True)
+            try:
+                await asyncio.wait(self.manager_tasks, timeout=2)
+            except Exception:
+                pass
 
         # Shutdown worker pool
         await self.worker_pool.shutdown()
@@ -165,8 +174,20 @@ class QueueWorkerManager:
         self.manager_tasks.clear()
         logger.info("QueueWorkerManager stopped")
 
+        # Reduce noisy SQLAlchemy termination logs during engine dispose
+        try:
+            logging.getLogger("sqlalchemy.pool.base").setLevel(logging.CRITICAL)
+            logging.getLogger("sqlalchemy.dialects.postgresql.asyncpg").setLevel(logging.CRITICAL)
+        except Exception:
+            pass
+
     async def _notification_listener(self) -> None:
-        """Listen for PostgreSQL notifications for instant task processing"""
+        """Listen for PostgreSQL notifications and trigger processing outside the LISTEN connection.
+
+        Uses the raw asyncpg connection add_listener API so that the LISTEN
+        connection stays dedicated and task processing runs on separate pooled
+        connections.
+        """
         if not self.config.use_postgresql_notify:
             logger.info("PostgreSQL NOTIFY/LISTEN disabled in config")
             return
@@ -175,26 +196,67 @@ class QueueWorkerManager:
             f"Starting PostgreSQL notification listener on channel '{self.config.notify_channel}'"
         )
 
+        channel = self.config.notify_channel
+        conn_ctx = self.database.connection()
         try:
-            # Use database connection for LISTEN
-            async with self.database.connection():
-                # Execute LISTEN command using Edgy
-                await self.database.execute(f"LISTEN {self.config.notify_channel}")
+            async with conn_ctx:
+                raw_conn = await conn_ctx.get_raw_connection()
+
+                def _unwrap_asyncpg_connection(conn: Any) -> Any:
+                    # Try common attributes used by SQLAlchemy async adapters
+                    for attr in ("driver_connection", "dbapi_connection", "connection"):
+                        inner = getattr(conn, attr, None)
+                        if inner is not None and hasattr(inner, "add_listener") and hasattr(inner, "remove_listener"):
+                            return inner
+                    # Maybe the object itself is an asyncpg connection
+                    if hasattr(conn, "add_listener") and hasattr(conn, "remove_listener"):
+                        return conn
+                    return None
+
+                pg_conn = _unwrap_asyncpg_connection(raw_conn)
+                if pg_conn is None:
+                    raise RuntimeError(
+                        "Underlying asyncpg connection not accessible; cannot register NOTIFY listener"
+                    )
+
+                def on_notify(connection, pid, ch, payload):  # type: ignore[no-untyped-def]
+                    try:
+                        # Schedule processing immediately outside of the LISTEN connection
+                        asyncio.create_task(self._process_pending_tasks())
+                    except Exception as cb_err:
+                        logger.error(f"Notification callback error: {cb_err}")
+
+                # Register listener (supports sync or async implementations)
+                add_listener = getattr(pg_conn, "add_listener", None)
+                if add_listener is None:
+                    raise RuntimeError("Underlying connection missing add_listener")
+                if asyncio.iscoroutinefunction(add_listener):
+                    await add_listener(channel, on_notify)  # type: ignore[misc]
+                else:
+                    add_listener(channel, on_notify)  # type: ignore[misc]
                 logger.debug(
-                    f"Started listening on channel '{self.config.notify_channel}'"
+                    f"Notification listener registered on channel '{channel}'"
                 )
 
-                # Keep connection alive and check for notifications
-                # Note: This is a simplified approach since Edgy doesn't have native NOTIFY support
-                # In practice, we'll rely mainly on polling with occasional notification checks
-                while self.is_running:
-                    await asyncio.sleep(1)
-                    # Trigger a check for pending tasks every second
-                    await self._process_pending_tasks()
+                # Wait until shutdown, but wake up periodically to remain responsive
+                while not self.shutdown_event.is_set():
+                    await asyncio.sleep(0.1)
 
+                try:
+                    remove_listener = getattr(pg_conn, "remove_listener", None)
+                    if remove_listener is not None:
+                        if asyncio.iscoroutinefunction(remove_listener):
+                            await remove_listener(channel, on_notify)  # type: ignore[misc]
+                        else:
+                            remove_listener(channel, on_notify)  # type: ignore[misc]
+                except Exception:
+                    pass
         except Exception as e:
             logger.error(f"Notification listener error: {e}")
-            logger.info("Falling back to polling only")
+            logger.info("Falling back to polling only - keeping listener task alive")
+            # Keep task alive but responsive
+            while not self.shutdown_event.is_set():
+                await asyncio.sleep(0.1)
 
     async def _handle_notification(self, task_info: Dict[str, Any]) -> None:
         """
@@ -223,6 +285,7 @@ class QueueWorkerManager:
 
         while self.is_running:
             try:
+                # Small initial delay to interleave with startup kickstart
                 await asyncio.sleep(self.config.fallback_polling_interval)
 
                 if self.is_running:
@@ -246,33 +309,88 @@ class QueueWorkerManager:
                 logger.error(f"Cleanup task error: {e}")
 
     async def _process_pending_tasks(self) -> None:
-        """Process all pending tasks by assigning them to available workers"""
+        """Process pending tasks using atomic claim to avoid concurrency conflicts"""
         try:
-            # Get all ready tasks that can run in parallel
-            ready_tasks = await self._get_ready_tasks()
-
-            if not ready_tasks:
-                return
-
-            logger.debug(f"Processing {len(ready_tasks)} ready tasks")
-
-            # Assign tasks to available workers
-            for task in ready_tasks:
+            while self.is_running:
+                # Acquire a worker first; if none, stop here
                 worker = await self.worker_pool.get_available_worker()
-
                 if worker is None:
-                    # No workers available, remaining tasks will wait for next cycle
-                    logger.debug("No workers available, remaining tasks will wait")
+                    logger.debug("No workers available, stop claiming for now")
+                    break
+
+                # Atomically claim the next ready task
+                task = await self._claim_next_ready_task()
+                if task is None:
+                    # Nothing to process - return worker to idle and stop
+                    await self.worker_pool.return_worker(worker)
                     break
 
                 # Start task execution in background
                 logger.debug(
-                    f"Assigning task {task.id} to worker {worker.worker_id} (parent: {task.parent_task.id if task.parent_task else 'None'})"
+                    f"Assigning claimed task {task.id} to worker {worker.worker_id} (parent: {task.parent_task.id if task.parent_task else 'None'})"
                 )
                 asyncio.create_task(self._execute_task_with_worker(worker, task))
 
         except Exception as e:
             logger.error(f"Error processing pending tasks: {e}")
+
+    async def _claim_next_ready_task(self) -> Optional["QueuedTask"]:
+        """Atomically claim the next ready task (state=enqueued and parent done) and mark it as doing.
+
+        Uses SELECT .. FOR UPDATE SKIP LOCKED to avoid double-claim across workers/servers.
+        Returns the claimed task model or None if none is available.
+        """
+        try:
+            # Use a short transaction with lower isolation to reduce conflicts
+            async with self.database.transaction(isolation_level="READ COMMITTED"):
+                # Claim the next task atomically and return its id
+                from sqlalchemy import text
+                sql = text(
+                    "WITH next_task AS (\n"
+                    "  SELECT qt.id\n"
+                    "  FROM queued_tasks qt\n"
+                    "  WHERE qt.state = 'enqueued'\n"
+                    "    AND (\n"
+                    "      qt.parent_task IS NULL\n"
+                    "      OR EXISTS (\n"
+                    "        SELECT 1 FROM queued_tasks p\n"
+                    "        WHERE p.id = qt.parent_task AND p.state = 'done'\n"
+                    "      )\n"
+                    "    )\n"
+                    "  ORDER BY qt.date_enqueued\n"
+                    "  FOR UPDATE SKIP LOCKED\n"
+                    "  LIMIT 1\n"
+                    ")\n"
+                    "UPDATE queued_tasks t\n"
+                    "SET state = 'doing'::queuedtaskstate, date_started = NOW()\n"
+                    "FROM next_task\n"
+                    "WHERE t.id = next_task.id\n"
+                    "RETURNING t.id"
+                )
+                row = await self.database.fetch_one(sql)
+                if not row:
+                    return None
+
+                try:
+                    claimed_id = int(row[0])  # type: ignore[index]
+                except Exception:
+                    try:
+                        claimed_id = int(row["id"])  # type: ignore[index]
+                    except Exception:
+                        claimed_id = None
+
+            if claimed_id is None:
+                # As a fallback, re-read the next doing task by date_started very recently assigned to this server window
+                # but to avoid complexity, simply indicate none
+                return None
+
+            # Load the task model instance
+            QueuedTask = cast(type["QueuedTask"], self.registry.get_model("QueuedTask"))
+            task = await QueuedTask.query.filter(QueuedTask.columns.id == claimed_id).get_or_none()
+            return task
+        except Exception as e:
+            logger.error(f"Error claiming next ready task: {e}")
+            return None
 
     async def _get_next_ready_task(self) -> Optional["QueuedTask"]:
         """
@@ -482,30 +600,28 @@ class QueueWorkerManager:
         updates if different, does nothing if up to date.
         """
 
-        # PostgreSQL function for notifications
-        function_sql = """
-                       CREATE
-                       OR REPLACE FUNCTION notify_new_queued_task()
-        RETURNS TRIGGER AS $$
-                       BEGIN
-            -- Only notify for enqueued tasks
-            IF
-                       NEW.state = 'enqueued' THEN
-                PERFORM pg_notify('queue_new_task',
-                    json_build_object(
-                        'task_id', NEW.id,
-                        'state', NEW.state,
-                        'module_name', NEW.module_name,
-                        'function_name', NEW.function_name,
-                        'created_at', NEW.created_at
-                    )::text
-                );
-                       END IF;
-                       RETURN NEW;
-                       END;
-        $$
-                       LANGUAGE plpgsql; \
-                       """
+        # PostgreSQL function for notifications (use configured channel)
+        channel = self.config.notify_channel.replace("'", "''")
+        function_sql = f"""
+            CREATE OR REPLACE FUNCTION notify_new_queued_task()
+            RETURNS TRIGGER AS $$
+            BEGIN
+                -- Only notify for enqueued tasks
+                IF NEW.state = 'enqueued' THEN
+                    PERFORM pg_notify('{channel}',
+                        json_build_object(
+                            'task_id', NEW.id,
+                            'state', NEW.state,
+                            'module_name', NEW.module_name,
+                            'function_name', NEW.function_name,
+                            'created_at', NEW.created_at
+                        )::text
+                    );
+                END IF;
+                RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql; \
+        """
 
         # PostgreSQL trigger - separate commands
         drop_trigger_sql = "DROP TRIGGER IF EXISTS queued_task_notify ON queued_tasks;"
@@ -557,6 +673,9 @@ class QueueWorkerManager:
         finally:
             # Return worker to pool
             await self.worker_pool.return_worker(worker)
+            # Immediately try to claim next tasks to keep workers busy
+            if self.is_running:
+                asyncio.create_task(self._process_pending_tasks())
 
     async def get_stats(self) -> Dict[str, Any]:
         """Get comprehensive manager statistics"""

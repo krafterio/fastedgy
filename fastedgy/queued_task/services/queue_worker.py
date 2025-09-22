@@ -12,6 +12,7 @@ import logging
 import traceback
 
 from datetime import datetime
+import random
 
 from typing import TYPE_CHECKING, Any, Dict, Optional, cast
 
@@ -90,19 +91,18 @@ class QueueWorker:
                         "task_id": task.id,
                     }
 
-            # Mark task as doing
-            logger.debug(f"Marking task {task.id} as doing")
-            task.mark_as_doing()
-            await task.save()
+            # Run pre/post hooks + execution under a dedicated connection to avoid
+            # reentrancy with ORM implicit transactions
+            from fastedgy.orm import Database as EdgyDatabase  # type: ignore
+            database: EdgyDatabase = get_service(EdgyDatabase)
+            async with database.connection():
+                await self.hook_registry.trigger_pre_run(task)
 
-            await self.hook_registry.trigger_pre_run(task)
+                logger.debug(f"Executing task function for task {task.id}")
+                result = await self._execute_task_function(task)
+                logger.debug(f"Task {task.id} execution result: {result}")
 
-            # Load and execute the function
-            logger.debug(f"Executing task function for task {task.id}")
-            result = await self._execute_task_function(task)
-            logger.debug(f"Task {task.id} execution result: {result}")
-
-            await self.hook_registry.trigger_post_run(task, result=result)
+                await self.hook_registry.trigger_post_run(task, result=result)
 
             # Check if parent task is still valid before marking as done
             if task.parent_task:
@@ -129,10 +129,22 @@ class QueueWorker:
                         "task_id": task.id,
                     }
 
-            # Mark task as done
-            logger.debug(f"Marking task {task.id} as done")
-            task.mark_as_done()
-            await task.save()
+            async def _op_mark_done():
+                logger.debug(f"Marking task {task.id} as done [raw]")
+                from sqlalchemy import text
+                from fastedgy.orm import Database as EdgyDatabase  # type: ignore
+                database: EdgyDatabase = get_service(EdgyDatabase)
+                sql = text(
+                    "UPDATE queued_tasks SET state = 'done'::queuedtaskstate,\n"
+                    "    date_done = NOW(),\n"
+                    "    date_ended = NOW(),\n"
+                    "    execution_time = EXTRACT(EPOCH FROM (NOW() - COALESCE(date_started, NOW()))),\n"
+                    "    updated_at = NOW()\n"
+                    "WHERE id = :id"
+                )
+                await database.execute(sql, {"id": task.id})
+
+            await self._run_write_with_retry(_op_mark_done)
 
             logger.info(
                 f"Worker {self.worker_id} completed task {task.id} successfully"
@@ -146,15 +158,44 @@ class QueueWorker:
             }
 
         except Exception as e:
-            # Mark task as failed
-            task.mark_as_failed(
-                exception_name=type(e).__name__,
-                exception_message=str(e),
-                exception_info=traceback.format_exc(),
-            )
-            await task.save()
+            # 4) Best-effort set task as failed with retry
+            async def _op_mark_failed():
+                from sqlalchemy import text
+                from fastedgy.orm import Database as EdgyDatabase  # type: ignore
+                database: EdgyDatabase = get_service(EdgyDatabase)
+                sql = text(
+                    "UPDATE queued_tasks SET state = 'failed'::queuedtaskstate,\n"
+                    "    exception_name = :name,\n"
+                    "    exception_message = :message,\n"
+                    "    exception_info = :info,\n"
+                    "    date_failed = NOW(),\n"
+                    "    date_ended = NOW(),\n"
+                    "    execution_time = EXTRACT(EPOCH FROM (NOW() - COALESCE(date_started, NOW()))),\n"
+                    "    updated_at = NOW()\n"
+                    "WHERE id = :id"
+                )
+                await database.execute(
+                    sql,
+                    {
+                        "id": task.id,
+                        "name": type(e).__name__,
+                        "message": str(e),
+                        "info": traceback.format_exc(),
+                    },
+                )
 
-            await self.hook_registry.trigger_post_run(task, error=e)
+            try:
+                await self._run_write_with_retry(_op_mark_failed)
+            except Exception as save_err:
+                logger.error(
+                    f"Failed to persist failure state for task {getattr(task, 'id', '?')}: {save_err}"
+                )
+
+            # Try to run error hook but don't fail the whole worker if it errors
+            try:
+                await self.hook_registry.trigger_post_run(task, error=e)
+            except Exception as hook_err:
+                logger.error(f"post_run hook failed for task {getattr(task, 'id', '?')}: {hook_err}")
 
             logger.error(f"Worker {self.worker_id} failed task {task.id}: {e}")
 
@@ -252,3 +293,46 @@ class QueueWorker:
 
     def __repr__(self):
         return self.__str__()
+
+    async def _run_write_with_retry(self, op_coro_factory, *, max_attempts: int = 3, base_delay: float = 0.05):
+        """Run a small DB write with retries under a short-lived connection to avoid transaction reentrancy."""
+        from sqlalchemy.exc import DBAPIError, OperationalError
+        from fastedgy.orm import Database as EdgyDatabase  # type: ignore
+        database: EdgyDatabase = get_service(EdgyDatabase)
+
+        attempt = 0
+        while True:
+            try:
+                async with database.connection():
+                    await op_coro_factory()
+                return
+            except (DBAPIError, OperationalError) as e:  # type: ignore
+                if self._is_retryable_db_error(e) and attempt < max_attempts - 1:
+                    delay = base_delay * (2 ** attempt) + random.uniform(0, base_delay)
+                    logger.debug(
+                        f"Transient DB error, retry {attempt + 1}/{max_attempts} in {delay:.3f}s"
+                    )
+                    await asyncio.sleep(delay)
+                    attempt += 1
+                    continue
+                # Final failure: surface as warning before raising
+                logger.warning(f"DB write failed after {attempt + 1} attempts: {e}")
+                raise
+
+    def _is_retryable_db_error(self, exc: Exception) -> bool:
+        """Detect Postgres serialization/deadlock errors in a driver-agnostic way."""
+        txt = str(exc).lower()
+        if "could not serialize access" in txt:
+            return True
+        if "deadlock detected" in txt:
+            return True
+        # Try to inspect underlying DBAPI error
+        orig = getattr(exc, "orig", None)
+        if orig is not None:
+            txt2 = str(orig).lower()
+            if "could not serialize access" in txt2 or "deadlock detected" in txt2:
+                return True
+            sqlstate = getattr(orig, "sqlstate", None) or getattr(orig, "sql_state", None)
+            if sqlstate in ("40001", "40P01"):
+                return True
+        return False

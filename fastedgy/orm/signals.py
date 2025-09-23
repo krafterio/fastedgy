@@ -3,6 +3,7 @@
 
 from edgy.core.signals import (
     pre_save,
+    post_save,
     pre_update,
     post_update,
     pre_delete,
@@ -12,6 +13,7 @@ from edgy.core.signals import (
 
 __all__ = [
     "pre_save",
+    "post_save",
     "pre_update",
     "post_update",
     "pre_delete",

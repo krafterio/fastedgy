@@ -90,4 +90,4 @@ Feel free to modify these rules to match your project's specific requirements:
 - Include additional dependencies
 - Adjust for your deployment environment
 
-[Back to AI Rules Overview](../ai-rules.md)
+[Back to AI Rules Overview](overview.md)

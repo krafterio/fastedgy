@@ -55,11 +55,11 @@ FastEdgy provides rules for different aspects of development:
 
 ## Prerequisites
 
-**MCP Server Configuration Required**: These AI Rules are designed to work with the MCP server "fastedgy-docs" that provides access to FastEdgy documentation. You must configure the [MCP integration](mcp.md) first before using these rules effectively.
+**MCP Server Configuration Required**: These AI Rules are designed to work with the MCP server "fastedgy-docs" that provides access to FastEdgy documentation. You must configure the [MCP integration](../mcp.md) first before using these rules effectively.
 
 ## How to Use
 
-1. **Configure MCP**: Set up the [MCP server integration](mcp.md) to enable documentation access
+1. **Configure MCP**: Set up the [MCP server integration](../mcp.md) to enable documentation access
 2. **Choose your AI tool**: These rules work with Cursor, GitHub Copilot, and other AI coding assistants
 3. **Select relevant rules**: Pick the rule files that match your development stack
 4. **Copy and configure**: Copy the rules to your project's AI configuration

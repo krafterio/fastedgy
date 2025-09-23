@@ -173,4 +173,4 @@ These rules work with:
 - Modify error handling approaches
 - Add custom TypeScript types
 
-[Back to AI Rules Overview](../ai-rules.md)
+[Back to AI Rules Overview](overview.md)

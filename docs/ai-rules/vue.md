@@ -128,4 +128,4 @@ For complete coverage, also use:
 - Modify authentication flow for your needs
 - Add custom validation patterns
 
-[Back to AI Rules Overview](../ai-rules.md)
+[Back to AI Rules Overview](overview.md)

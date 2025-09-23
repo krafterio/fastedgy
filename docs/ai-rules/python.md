@@ -78,4 +78,4 @@ These rules help the AI understand:
 - Add project-specific imports and dependencies
 - Include custom exception classes
 
-[Back to AI Rules Overview](../ai-rules.md)
+[Back to AI Rules Overview](overview.md)

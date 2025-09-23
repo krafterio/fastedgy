@@ -84,7 +84,9 @@ async def upload_attachments(
         # Fetch the created attachment
         att = await Attachment.query.filter(storage_path=rel_path).get_or_none()
         if att is None:
-            raise HTTPException(status_code=500, detail=_t("Attachment creation failed"))
+            raise HTTPException(
+                status_code=500, detail=_t("Attachment creation failed")
+            )
 
         results.append(att)
 
@@ -139,6 +141,63 @@ async def delete_file(
         raise HTTPException(status_code=404, detail=_t("Model not found"))
     except Exception:
         raise HTTPException(status_code=500, detail=_t("Error deleteing file"))
+
+
+@router.get("/download/attachments/{id:int}")
+async def download_attachment(
+    id: int,
+    force_download: bool = Query(False),
+    storage: Storage = Inject(Storage),
+    registry: Registry = Inject(Registry),
+) -> Response:
+    """Download an attachment by its ID.
+
+    This endpoint retrieves an attachment record from the database,
+    then streams the corresponding file from storage with the correct filename.
+    """
+    try:
+        if "Attachment" not in registry.models:
+            raise HTTPException(
+                status_code=500, detail=_t("Attachment model not configured")
+            )
+
+        AttachmentModel: Any = registry.get_model("Attachment")
+        record = await AttachmentModel.query.get(id=id)
+        file_path = storage.get_file_path(record.storage_path, ensure_exists=False)
+
+        if not file_path.exists():
+            raise HTTPException(status_code=404, detail=_t("Attachment not found"))
+
+        filename = record.name
+        if not record.name.endswith(f".{record.extension}"):
+            filename = f"{record.name}.{record.extension}"
+
+        content_type = (
+            mimetypes.guess_type(file_path.name)[0] or "application/octet-stream"
+        )
+
+        async def file_stream():
+            chunk_size = 1024 * 1024  # 1MB
+
+            with open(file_path, "rb") as f:
+                while chunk := f.read(chunk_size):
+                    yield chunk
+
+        headers = {
+            "Content-Disposition": (
+                f'attachment; filename="{filename}"'
+                if force_download
+                else f'inline; filename="{filename}"'
+            ),
+        }
+
+        return StreamingResponse(
+            file_stream(),
+            media_type=content_type,
+            headers=headers,
+        )
+    except ObjectNotFound:
+        raise HTTPException(status_code=404, detail=_t("Attachment not found"))
 
 
 @router.get("/download/{path:path}")
@@ -202,27 +261,35 @@ async def _get_record(
         model_cls = await meta_registry.get_model_from_metadata(meta_model)
 
         if field not in model_cls.meta.fields:
-            raise ValueError(_t("Field {field} not found in model {model}", field=field, model=model))
+            raise ValueError(
+                _t("Field {field} not found in model {model}", field=field, model=model)
+            )
 
         record = current_user
     elif model == "workspace":
         current_workspace = context.get_workspace()
 
         if not current_workspace or current_workspace.id != model_id:
-            raise ObjectNotFound(_t("Workspace {model_id} not found", model_id=model_id))
+            raise ObjectNotFound(
+                _t("Workspace {model_id} not found", model_id=model_id)
+            )
 
         meta_model = await meta_registry.get_metadata(model)
         model_cls = await meta_registry.get_model_from_metadata(meta_model)
 
         if field not in model_cls.meta.fields:
-            raise ValueError(_t("Field {field} not found in model {model}", field=field, model=model))
+            raise ValueError(
+                _t("Field {field} not found in model {model}", field=field, model=model)
+            )
 
         record = current_workspace
     else:
         meta_model = await meta_registry.get_metadata(model)
 
         if field not in meta_model.fields:
-            raise ValueError(_t("Field {field} not found in model {model}", field=field, model=model))
+            raise ValueError(
+                _t("Field {field} not found in model {model}", field=field, model=model)
+            )
 
         model_cls = await meta_registry.get_model_from_metadata(meta_model)
         record = await model_cls.query.get(id=model_id)

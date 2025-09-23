@@ -129,6 +129,9 @@ class BaseSettings(PydanticBaseSettings):
     # Storage
     data_path: str | None = None
 
+    # Images
+    image_quality: int = 80
+
     # Mail
     smtp_host: str = ""
     smtp_port: int = 587

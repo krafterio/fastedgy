@@ -6,6 +6,7 @@ import io
 import uuid
 import mimetypes
 import base64
+import shutil
 
 from pathlib import Path
 from typing import Any
@@ -17,6 +18,11 @@ from fastedgy.config import BaseSettings
 from fastedgy.dependencies import Inject, get_service
 from fastedgy.i18n import _t
 from fastedgy.orm import Registry
+
+try:
+    from PIL import Image  # type: ignore
+except Exception:  # pragma: no cover - Pillow optional at runtime
+    Image = None  # type: ignore
 
 
 class Storage:
@@ -66,6 +72,243 @@ class Storage:
         data_path = self.get_base_path(global_storage)
 
         return str(file_path.relative_to(data_path))
+
+    # --------------------
+    # Image optimization
+    # --------------------
+    def _get_image_quality(self) -> int:
+        """Return image quality from settings, defaulting to 80.
+
+        Uses settings.image_quality when available.
+        """
+        try:
+            q = int(getattr(self.settings, "image_quality", 80))
+        except Exception:
+            q = 80
+        return max(1, min(100, q))
+
+    def _get_cache_root(self, global_storage: bool = False) -> Path:
+        return self.get_directory_path(
+            "cache_optimized_images", ensure_exists=True, global_storage=global_storage
+        )
+
+    def _get_image_cache_dir_for(
+        self, source_relative_path: str, global_storage: bool = False
+    ) -> Path:
+        """Return the cache directory for a given source relative path.
+
+        Example: attachments/2025/09/abc.webp → cache_optimized_images/attachments/2025/09/abc.webp/
+        """
+        safe_rel_parts = Path(source_relative_path.strip("/")).parts
+        cache_root = self._get_cache_root(global_storage=global_storage)
+        cache_dir = cache_root.joinpath(*safe_rel_parts)
+        os.makedirs(cache_dir, exist_ok=True)
+        return cache_dir
+
+    def _is_image_path(self, path: Path) -> bool:
+        mime = mimetypes.guess_type(path.name)[0]
+        return bool(mime and mime.startswith("image/"))
+
+    def _clamp_dimensions(
+        self, ow: int, oh: int, w: int | None, h: int | None
+    ) -> tuple[int | None, int | None]:
+        """Clamp requested dimensions to not exceed original while preserving None."""
+        cw = None if w is None else min(w, ow)
+        ch = None if h is None else min(h, oh)
+        return cw, ch
+
+    def _compute_target_size(
+        self, ow: int, oh: int, w: int | None, h: int | None, mode: str
+    ) -> tuple[int, int, str]:
+        """Compute final width/height and actual fit mode used.
+
+        - If only one of w/h provided, maintain aspect ratio (no crop).
+        - If both provided:
+          - contain: fit inside w x h (no crop)
+          - cover: fill w x h then center-crop
+        Returns (tw, th, mode) where mode is 'contain' or 'cover' actually used.
+        """
+        # When only one side provided → aspect-preserving resize
+        if w and not h:
+            scale = w / ow
+            th = int(round(oh * scale))
+            return w, max(1, th), "contain"
+        if h and not w:
+            scale = h / oh
+            tw = int(round(ow * scale))
+            return max(1, tw), h, "contain"
+
+        if not w or not h:
+            # Neither provided: return original
+            return ow, oh, "contain"
+
+        mode = "cover" if str(mode).lower() == "cover" else "contain"
+        if mode == "contain":
+            scale = min(w / ow, h / oh)
+            tw = int(round(ow * scale))
+            th = int(round(oh * scale))
+            return max(1, tw), max(1, th), mode
+        else:
+            # cover: scale to cover then we'll crop later
+            scale = max(w / ow, h / oh)
+            tw = int(round(ow * scale))
+            th = int(round(oh * scale))
+            return max(1, tw), max(1, th), mode
+
+    def _format_from_ext(self, ext: str | None, fallback: str) -> tuple[str, str]:
+        """Return (pil_format, mime_type) from extension.
+
+        ext must be like 'jpg'|'png'|'webp'. Fallback is extension inferred from source.
+        """
+        e = (ext or fallback or "").lower().lstrip(".")
+        if e in ("jpg", "jpeg"):
+            return "JPEG", "image/jpeg"
+        if e == "png":
+            return "PNG", "image/png"
+        if e == "webp":
+            return "WEBP", "image/webp"
+        # default to original fallback if unknown
+        if fallback in ("jpg", "jpeg"):
+            return "JPEG", "image/jpeg"
+        if fallback == "png":
+            return "PNG", "image/png"
+        if fallback == "webp":
+            return "WEBP", "image/webp"
+        return "JPEG", "image/jpeg"
+
+    def _save_image(
+        self, img: "Image.Image", dest: Path, pil_format: str, quality: int
+    ) -> None:  # type: ignore[name-defined]
+        save_kwargs: dict[str, Any] = {}
+        if pil_format == "JPEG":
+            if img.mode in ("RGBA", "P"):
+                img = img.convert("RGB")
+            save_kwargs.update(
+                {"optimize": True, "quality": quality, "progressive": True}
+            )
+        elif pil_format == "PNG":
+            # compress_level 0..9 (inverse of quality). Map roughly.
+            compress_level = max(0, min(9, round((100 - quality) * 9 / 100)))
+            save_kwargs.update({"optimize": True, "compress_level": compress_level})
+        elif pil_format == "WEBP":
+            save_kwargs.update({"quality": quality, "method": 4})
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        img.save(dest, pil_format, **save_kwargs)
+
+    def _generate_cache_image(
+        self,
+        source_path: Path,
+        cache_path: Path,
+        *,
+        w: int | None,
+        h: int | None,
+        mode: str,
+        out_ext: str | None,
+    ) -> tuple[Path, str]:
+        """Generate optimized image in cache and return (cache_path, mime_type)."""
+        if Image is None:
+            # Pillow not available → no optimization
+            return source_path, mimetypes.guess_type(source_path.name)[
+                0
+            ] or "application/octet-stream"
+
+        with Image.open(source_path) as img:  # type: ignore[attr-defined]
+            ow, oh = img.size
+            # Clamp dimensions so we never upscale beyond original
+            w, h = self._clamp_dimensions(ow, oh, w, h)
+            tw, th, mode = self._compute_target_size(ow, oh, w, h, mode)
+
+            # If requested dimensions are equal to original and no format change, return original
+            src_ext = source_path.suffix.lower().lstrip(".")
+            out_format, mime_type = self._format_from_ext(out_ext, src_ext)
+
+            if (tw, th) == (ow, oh) and out_format.lower() == src_ext.lower():
+                return source_path, mimetypes.guess_type(source_path.name)[
+                    0
+                ] or mime_type
+
+            # Resize
+            if mode == "contain" or not (w and h):
+                resized = img.resize((tw, th), Image.LANCZOS)
+                final_img = resized
+            else:
+                # cover: first resize to (tw, th), then center-crop to requested (w, h)
+                resized = img.resize((tw, th), Image.LANCZOS)
+                # target crop size is the requested (w, h) clamped
+                cw = w or tw
+                ch = h or th
+                left = max(0, (tw - cw) // 2)
+                top = max(0, (th - ch) // 2)
+                right = left + cw
+                bottom = top + ch
+                final_img = resized.crop((left, top, right, bottom))
+
+            quality = self._get_image_quality()
+            self._save_image(final_img, cache_path, out_format, quality)
+            return cache_path, mime_type
+
+    def get_optimized_or_original(
+        self,
+        source_relative_path: str,
+        *,
+        w: int | None = None,
+        h: int | None = None,
+        mode: str = "contain",
+        out_ext: str | None = None,
+        global_storage: bool = False,
+    ) -> tuple[Path, str]:
+        """Return a path to an optimized (or original) file and its MIME type.
+
+        - If the source is not an image or no optimization requested, returns original.
+        - Otherwise, returns cached optimized image, generating it when missing.
+        """
+        # Resolve source absolute path
+        source_path = self.get_file_path(
+            source_relative_path, ensure_exists=False, global_storage=global_storage
+        )
+        if not source_path.exists():
+            return source_path, mimetypes.guess_type(source_path.name)[
+                0
+            ] or "application/octet-stream"
+
+        # Quick exit if not an image or no options provided
+        is_image = self._is_image_path(source_path)
+        options_provided = any([w, h, out_ext, (mode and mode != "contain")])
+        if (not is_image) or (not options_provided):
+            return source_path, mimetypes.guess_type(source_path.name)[
+                0
+            ] or "application/octet-stream"
+
+        # Compute cache file name from final requested parameters (use 0 when None for name stability)
+        # We'll still compute actual dimensions in generator; name records requested box.
+        req_w = 0 if w is None else w
+        req_h = 0 if h is None else h
+        mode_name = "cover" if str(mode).lower() == "cover" and (w and h) else "contain"
+
+        cache_dir = self._get_image_cache_dir_for(
+            source_relative_path, global_storage=global_storage
+        )
+        # Determine extension to write
+        src_ext = source_path.suffix.lower().lstrip(".")
+        out_fmt, mime_type = self._format_from_ext(out_ext, src_ext)
+        out_ext_final = {"JPEG": "jpg", "PNG": "png", "WEBP": "webp"}.get(
+            out_fmt, "jpg"
+        )
+        cache_name = f"{mode_name}_w{req_w}_h{req_h}.{out_ext_final}"
+        cache_path = cache_dir.joinpath(cache_name)
+
+        if cache_path.exists():
+            return cache_path, mime_type
+
+        # Generate and save cache
+        return self._generate_cache_image(
+            source_path,
+            cache_path,
+            w=w,
+            h=h,
+            mode=mode,
+            out_ext=out_ext if out_ext else src_ext,
+        )
 
     async def upload(
         self,
@@ -211,6 +454,15 @@ class Storage:
             )
             if os.path.exists(path):
                 os.remove(path)
+
+            # Remove optimized cache directory for this file (best-effort)
+            try:
+                cache_dir = self._get_image_cache_dir_for(
+                    file_path, global_storage=global_storage
+                )
+                shutil.rmtree(cache_dir, ignore_errors=True)
+            except Exception:
+                pass
             return True
         except Exception:
             return False

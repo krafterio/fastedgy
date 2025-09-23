@@ -4,6 +4,7 @@
 import mimetypes
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
+from pathlib import Path
 
 
 from fastapi import APIRouter, HTTPException, Query, Request, UploadFile, File
@@ -147,6 +148,10 @@ async def delete_file(
 async def download_attachment(
     id: int,
     force_download: bool = Query(False),
+    w: int | None = Query(None),
+    h: int | None = Query(None),
+    m: str = Query("contain"),
+    e: str | None = Query(None),
     storage: Storage = Inject(Storage),
     registry: Registry = Inject(Registry),
 ) -> Response:
@@ -163,23 +168,30 @@ async def download_attachment(
 
         AttachmentModel: Any = registry.get_model("Attachment")
         record = await AttachmentModel.query.get(id=id)
-        file_path = storage.get_file_path(record.storage_path, ensure_exists=False)
 
-        if not file_path.exists():
+        # Resolve optimized or original path (pass workspace/global flag from record if available)
+        served_path, content_type = storage.get_optimized_or_original(
+            record.storage_path,
+            w=w,
+            h=h,
+            mode=m,
+            out_ext=e,
+            global_storage=getattr(record, "is_global", False),
+        )
+
+        if not served_path.exists():
             raise HTTPException(status_code=404, detail=_t("Attachment not found"))
 
+        # Build filename: attachment name + ensured extension from served file
+        served_ext = served_path.suffix.lstrip(".")
         filename = record.name
-        if not record.name.endswith(f".{record.extension}"):
-            filename = f"{record.name}.{record.extension}"
-
-        content_type = (
-            mimetypes.guess_type(file_path.name)[0] or "application/octet-stream"
-        )
+        if not filename.lower().endswith(f".{served_ext}"):
+            filename = f"{record.name}.{served_ext}"
 
         async def file_stream():
             chunk_size = 1024 * 1024  # 1MB
 
-            with open(file_path, "rb") as f:
+            with open(served_path, "rb") as f:
                 while chunk := f.read(chunk_size):
                     yield chunk
 
@@ -192,9 +204,7 @@ async def download_attachment(
         }
 
         return StreamingResponse(
-            file_stream(),
-            media_type=content_type,
-            headers=headers,
+            file_stream(), media_type=content_type, headers=headers
         )
     except ObjectNotFound:
         raise HTTPException(status_code=404, detail=_t("Attachment not found"))
@@ -204,21 +214,31 @@ async def download_attachment(
 async def download_file(
     path: str,
     force_download: bool = Query(False),
+    w: int | None = Query(None),
+    h: int | None = Query(None),
+    m: str = Query("contain"),
+    e: str | None = Query(None),
     storage: Storage = Inject(Storage),
 ) -> Response:
     try:
-        file_path = storage.get_file_path(path, ensure_exists=False)
+        # Resolve optimized or original path
+        served_path, content_type = storage.get_optimized_or_original(
+            path, w=w, h=h, mode=m, out_ext=e
+        )
 
-        if not file_path.exists():
+        if not served_path.exists():
             raise HTTPException(status_code=404, detail="Fichier non trouvé")
 
-        filename = file_path.name
-        content_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+        # Build filename based on original path but adopt served extension
+        src_name = Path(path).name
+        base = src_name.rsplit(".", 1)[0]
+        served_ext = served_path.suffix.lstrip(".")
+        filename = f"{base}.{served_ext}" if served_ext else src_name
 
         async def file_stream():
             chunk_size = 1024 * 1024  # 1MB
 
-            with open(file_path, "rb") as f:
+            with open(served_path, "rb") as f:
                 while chunk := f.read(chunk_size):
                     yield chunk
 

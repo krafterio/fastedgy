@@ -2,18 +2,30 @@
 # MIT License (see LICENSE file).
 
 import mimetypes
-from typing import TYPE_CHECKING
+from datetime import datetime
+from typing import TYPE_CHECKING, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
+
+from fastapi import APIRouter, HTTPException, Query, Request, UploadFile, File
 from fastapi.responses import StreamingResponse
 
 from fastedgy.dependencies import Inject, get_service
 from fastedgy.metadata_model.registry import MetadataModelRegistry
 from starlette.responses import Response
+from starlette.datastructures import UploadFile as StarletteUploadFile
 
 from fastedgy.orm.exceptions import ObjectNotFound
 from fastedgy.storage import Storage
+from fastedgy.orm import Registry
 from fastedgy import context
+from fastedgy.schemas.storage import UploadedAttachments
+from fastedgy.i18n import _t
+
+try:
+    from uuid_extensions import uuid7  # type: ignore
+except Exception:
+    from uuid import uuid4 as uuid7  # type: ignore
+
 
 if TYPE_CHECKING:
     from fastedgy.models.base import BaseModel
@@ -22,8 +34,65 @@ if TYPE_CHECKING:
 router = APIRouter(prefix="/storage", tags=["storage"])
 
 
+@router.post("/upload/attachments")
+async def upload_attachments(
+    request: Request,
+    storage: Storage = Inject(Storage),
+    registry: Registry = Inject(Registry),
+) -> UploadedAttachments:
+    """Upload one or many files as Attachments.
+
+    - Directory path is fixed to "attachments/YYYY/MM".
+    - Filename is a UUIDv7 with the original extension.
+    - Storage.upload writes the file and auto-creates an Attachment if configured.
+    - Returns the list of created Attachment instances.
+    """
+    # Ensure Attachment model is present for a dedicated attachment endpoint
+    if "Attachment" not in registry.models:
+        raise HTTPException(
+            status_code=501,
+            detail="Attachment model is not configured. Please add the Attachment model to your project.",
+        )
+
+    Attachment: Any = registry.get_model("Attachment")
+
+    # Build storage directory: attachments/YYYY/MM
+    now = datetime.now()
+    directory_path = f"attachments/{now.strftime('%Y/%m')}"
+
+    files = []
+    results: list[Any] = []
+    form = await request.form()
+
+    for _, value in form.multi_items():
+        if isinstance(value, StarletteUploadFile):
+            files.append(value)
+
+    if not files:
+        raise HTTPException(status_code=400, detail=_t("No files uploaded"))
+
+    for _, file in enumerate(files):
+        filename = f"{uuid7()}.{{ext}}"
+
+        rel_path = await storage.upload(
+            file=file,
+            directory_path=directory_path,
+            filename=filename,
+            create_attachment=True,
+        )
+
+        # Fetch the created attachment
+        att = await Attachment.query.filter(storage_path=rel_path).get_or_none()
+        if att is None:
+            raise HTTPException(status_code=500, detail=_t("Attachment creation failed"))
+
+        results.append(att)
+
+    return UploadedAttachments[Attachment](attachments=results)
+
+
 @router.post("/upload/{model:str}/{model_id}/{field:str}")
-async def upload_file(
+async def upload_model_field_file(
     model: str,
     field: str,
     model_id: int,
@@ -44,9 +113,9 @@ async def upload_file(
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except ObjectNotFound:
-        raise HTTPException(status_code=404, detail="Model not found")
+        raise HTTPException(status_code=404, detail=_t("Model not found"))
     except Exception:
-        raise HTTPException(status_code=500, detail="Error uploading file")
+        raise HTTPException(status_code=500, detail=_t("Error uploading file"))
 
 
 @router.delete("/file/{model:str}/{model_id}/{field:str}")
@@ -67,9 +136,9 @@ async def delete_file(
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except ObjectNotFound:
-        raise HTTPException(status_code=404, detail="Model not found")
+        raise HTTPException(status_code=404, detail=_t("Model not found"))
     except Exception:
-        raise HTTPException(status_code=500, detail="Error deleteing file")
+        raise HTTPException(status_code=500, detail=_t("Error deleteing file"))
 
 
 @router.get("/download/{path:path}")
@@ -112,7 +181,7 @@ async def download_file(
         raise
     except Exception as e:
         raise HTTPException(
-            status_code=500, detail=f"Erreur lors du téléchargement: {str(e)}"
+            status_code=500, detail=_t("Error downloading file: {error}", error=str(e))
         )
 
 
@@ -127,33 +196,33 @@ async def _get_record(
         current_user = context.get_user()
 
         if not current_user or current_user.id != model_id:
-            raise ObjectNotFound(f"User {model_id} not found")
+            raise ObjectNotFound(_t("User {model_id} not found", model_id=model_id))
 
         meta_model = await meta_registry.get_metadata(model)
         model_cls = await meta_registry.get_model_from_metadata(meta_model)
 
         if field not in model_cls.meta.fields:
-            raise ValueError(f"Field {field} not found in model {model}")
+            raise ValueError(_t("Field {field} not found in model {model}", field=field, model=model))
 
         record = current_user
     elif model == "workspace":
         current_workspace = context.get_workspace()
 
         if not current_workspace or current_workspace.id != model_id:
-            raise ObjectNotFound(f"Workspace {model_id} not found")
+            raise ObjectNotFound(_t("Workspace {model_id} not found", model_id=model_id))
 
         meta_model = await meta_registry.get_metadata(model)
         model_cls = await meta_registry.get_model_from_metadata(meta_model)
 
         if field not in model_cls.meta.fields:
-            raise ValueError(f"Field {field} not found in model {model}")
+            raise ValueError(_t("Field {field} not found in model {model}", field=field, model=model))
 
         record = current_workspace
     else:
         meta_model = await meta_registry.get_metadata(model)
 
         if field not in meta_model.fields:
-            raise ValueError(f"Field {field} not found in model {model}")
+            raise ValueError(_t("Field {field} not found in model {model}", field=field, model=model))
 
         model_cls = await meta_registry.get_model_from_metadata(meta_model)
         record = await model_cls.query.get(id=model_id)

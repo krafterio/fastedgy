@@ -124,6 +124,7 @@ Now that Vue-FastEdgy is set up, explore the available features:
 - **[Fetcher](fetcher/overview.md)** - HTTP client for API communication
 - **[Fetcher Plugin](fetcher-plugin/overview.md)** - Vue plugin for global fetcher access
 - **[Fetcher Directive](fetcher-directive/overview.md)** - Vue directive for declarative data fetching
+- **[I18n Directive](i18n-directive/overview.md)** - Vue directive for simplified translations
 - **[Metadata Store](metadata-store/overview.md)** - Dynamic form and UI generation
 - **[Auth Store](auth-store/overview.md)** - Authentication state management
 - **[Validation Helpers](validations/overview.md)** - API error formatting utilities

@@ -215,6 +215,9 @@ nav:
       - Fetcher Directive:
         - Overview: vue/fetcher-directive/overview.md
         - User Guide: vue/fetcher-directive/guide.md
+      - I18n Directive:
+        - Overview: vue/i18n-directive/overview.md
+        - Basic Usage: vue/i18n-directive/guide.md
       - Metadata Store:
         - Overview: vue/metadata-store/overview.md
         - User Guide: vue/metadata-store/guide.md

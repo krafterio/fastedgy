@@ -10,6 +10,7 @@ FastEdgy provides a built-in Storage service for handling file uploads, download
 - **Multiple formats**: Support for UploadFile, base64, and URL downloads
 - **REST API**: Built-in endpoints for upload/download/delete operations
 - **Image validation**: Automatic validation for supported image formats
+- **Image optimization**: Automatic resizing, format conversion, and caching
 
 ## Supported formats
 
@@ -36,12 +37,24 @@ async def upload_file(
     return {"path": file_path}
 ```
 
+## Image optimization
+
+FastEdgy includes automatic image optimization with URL parameters. Transform, resize, and convert images on-the-fly with intelligent caching.
+
+- **On-demand processing**: Add URL parameters to resize or convert images
+- **Smart caching**: Optimized images are cached for better performance
+- **Modern formats**: Convert to WebP for smaller file sizes
+- **Responsive ready**: Perfect for mobile and desktop layouts
+
+[Learn more about Image Optimization →](image-optimization.md)
+
 ## Configuration
 
-Set the storage path in your environment file (`.env`):
+Set the storage path and image quality in your environment file (`.env`):
 
 ```env
 DATA_PATH=/path/to/storage
+IMAGE_QUALITY=80
 ```
 
 Files are organized based on the `directory_path` you provide:

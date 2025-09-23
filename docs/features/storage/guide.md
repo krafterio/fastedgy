@@ -8,6 +8,7 @@ Set the storage path in your environment file (`.env`):
 
 ```env
 DATA_PATH=./storage
+IMAGE_QUALITY=80
 ```
 
 ## File organization
@@ -131,6 +132,79 @@ GET /storage/download/photos/image.jpg
 # Force download (with Content-Disposition header)
 GET /storage/download/photos/image.jpg?force_download=true
 ```
+
+## Image optimization
+
+FastEdgy automatically optimizes images when you add URL parameters. Optimized images are cached for better performance.
+
+### Resize images
+
+```bash
+# Resize by width (maintains aspect ratio)
+GET /storage/download/photos/image.jpg?w=300
+
+# Resize by height (maintains aspect ratio)
+GET /storage/download/photos/image.jpg?h=200
+
+# Resize to fit within 800x600 box
+GET /storage/download/photos/image.jpg?w=800&h=600
+```
+
+### Resize modes
+
+Control how images are resized when both width and height are specified:
+
+```bash
+# Contain: fit inside box (no cropping, may have empty space)
+GET /storage/download/photos/image.jpg?w=300&h=200&m=contain
+
+# Cover: fill entire box (crops if needed for perfect fit)
+GET /storage/download/photos/image.jpg?w=300&h=200&m=cover
+```
+
+### Format conversion
+
+Convert images to modern formats for better performance:
+
+```bash
+# Convert to WebP (smaller file size)
+GET /storage/download/photos/image.jpg?e=webp
+
+# Convert to PNG
+GET /storage/download/photos/image.jpg?e=png
+
+# Resize and convert in one request
+GET /storage/download/photos/image.jpg?w=500&e=webp
+```
+
+### Common use cases
+
+**User avatars** (square thumbnails):
+```bash
+GET /storage/download/avatars/user-123.jpg?w=150&h=150&m=cover&e=webp
+```
+
+**Responsive images** (different sizes for mobile/desktop):
+```bash
+# Mobile
+GET /storage/download/photos/hero.jpg?w=400&e=webp
+
+# Desktop
+GET /storage/download/photos/hero.jpg?w=1200&e=webp
+```
+
+**Product thumbnails** (consistent grid layout):
+```bash
+GET /storage/download/products/456.jpg?w=250&h=250&m=cover
+```
+
+### URL parameters
+
+- `w`: Width in pixels
+- `h`: Height in pixels
+- `m`: Resize mode (`contain` or `cover`)
+- `e`: Output format (`jpg`, `png`, `webp`)
+- `force_download`: Force file download instead of display
 
 ## Upload from URL
 

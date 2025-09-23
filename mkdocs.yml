@@ -191,6 +191,7 @@ nav:
         - Usage Guide: features/email/guide.md
       - Storage:
         - Overview: features/storage/overview.md
+        - Image Optimization: features/storage/image-optimization.md
         - Usage Guide: features/storage/guide.md
     - Miscellaneous Features:
       - Authentication:

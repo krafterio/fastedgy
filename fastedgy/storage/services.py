@@ -175,7 +175,12 @@ class Storage:
         except Exception as e:
             raise ValueError(f"Error while downloading the file: {str(e)}")
 
-    async def delete(self, file_path: str | None, global_storage: bool = False, delete_record: bool = False) -> bool:
+    async def delete(
+        self,
+        file_path: str | None,
+        global_storage: bool = False,
+        delete_record: bool = False,
+    ) -> bool:
         """Delete an Attachment record (if configured) and then remove the file.
 
         Always returns True on success, False on unexpected exceptions.

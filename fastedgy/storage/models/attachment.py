@@ -329,9 +329,7 @@ async def on_pre_delete(
             fields=["id", "storage_path"]
         )
         files_to_delete = [
-            f.get("storage_path")
-            for f in files
-            if f.get("storage_path")
+            f.get("storage_path") for f in files if f.get("storage_path")
         ]
     except AttributeError:
         # Case 2: Single instance deletion
@@ -348,7 +346,7 @@ async def on_pre_delete(
                 if path:
                     descendants = await Attachment.query.filter(
                         path__startswith=f"{path.rstrip('/')}/",
-                        type=AttachmentType.file
+                        type=AttachmentType.file,
                     ).values(fields=["storage_path"])
                     for d in descendants:
                         if d.get("storage_path"):

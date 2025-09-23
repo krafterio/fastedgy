@@ -1,7 +1,11 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from fastedgy.storage.models.attachment import AttachmentMixin, AttachmentPathMixin, AttachmentType
+from fastedgy.storage.models.attachment import (
+    AttachmentMixin,
+    AttachmentPathMixin,
+    AttachmentType,
+)
 
 
 class BaseAttachment(AttachmentMixin):

@@ -115,9 +115,9 @@ def parse_field_selector_input(
 def clean_field_names_from_input(
     model_cls: type[BaseModelType], fields_expr: str | None
 ) -> list[str]:
-    fields = [part.strip() for part in fields_expr.split(",")]
+    fields = [part.strip() for part in fields_expr.split(",")] if fields_expr else []
     fields_map = parse_field_selector_input(model_cls, fields_expr)
-    valid_fields = extract_field_names(fields_map)
+    valid_fields = extract_field_names(fields_map) if fields_map else []
 
     return [field for field in fields if field in valid_fields]
 

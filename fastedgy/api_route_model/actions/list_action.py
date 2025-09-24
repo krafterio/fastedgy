@@ -59,7 +59,7 @@ class ListApiRouteAction(BaseApiRouteAction):
 
 
 def generate_list_items[M = TypeModel](
-    model_cls: type[M],
+    model_cls: M,
 ) -> Callable[[Request, int, int, str, str], Coroutine[Any, Any, Pagination[M]]]:
     async def list_items(
         request: Request,
@@ -87,7 +87,7 @@ def generate_list_items[M = TypeModel](
 
 async def list_items_action[M = TypeModel](
     request: Request,
-    model_cls: type[M],
+    model_cls: M,
     query: QuerySet | None = None,
     limit: int | None = None,
     offset: int = 0,
@@ -152,7 +152,7 @@ async def list_items_action[M = TypeModel](
     ):
         await transformer.post_paginate(request, result, transformers_ctx)
 
-    return cast(Pagination[type[M]], result)
+    return cast(Pagination[M], result)
 
 
 __all__ = [

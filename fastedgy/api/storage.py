@@ -44,9 +44,6 @@ async def upload_attachments(
 ) -> UploadedAttachments:
     """Upload one or many files as Attachments.
 
-    - Directory path is fixed to "attachments/YYYY/MM".
-    - Filename is a UUIDv7 with the original extension.
-    - Storage.upload writes the file and auto-creates an Attachment if configured.
     - Returns the list of created Attachment instances.
     """
     # Ensure Attachment model is present for a dedicated attachment endpoint

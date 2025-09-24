@@ -42,12 +42,12 @@ class List(Pagination, Generic[M]):
     pass
 
 
-class Message(BaseModel):
+class SimpleMessage(BaseModel):
     message: str
 
 
 __all__ = [
     "Pagination",
     "List",
-    "Message",
+    "SimpleMessage",
 ]

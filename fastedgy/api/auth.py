@@ -24,7 +24,7 @@ from fastedgy.schemas.auth import (
     Token,
     TokenRefresh,
 )
-from fastedgy.schemas.base import Message
+from fastedgy.schemas.base import SimpleMessage
 from fastedgy.mail import Mail
 from fastedgy import context
 from jose import jwt, JWTError
@@ -112,7 +112,7 @@ async def refresh_access_token(
 @public_router.post("/password/reset")
 async def password_reset(
     data: ResetPasswordRequest, registry: Registry = Inject(Registry)
-) -> Message:
+) -> SimpleMessage:
     from fastedgy.models.user import BaseUser as User
 
     User = cast(type["User"], registry.get_model("User"))
@@ -132,7 +132,7 @@ async def password_reset(
     user.reset_pwd_expires_at = None
     await user.save()
 
-    return Message(message="Password updated")
+    return SimpleMessage(message="Password updated")
 
 
 @public_router.post("/password/forgot")
@@ -141,7 +141,7 @@ async def password_forgot(
     settings: BaseSettings = Inject(BaseSettings),
     registry: Registry = Inject(Registry),
     mail: Mail = Inject(Mail),
-) -> Message:
+) -> SimpleMessage:
     from fastedgy.models.user import BaseUser as User
 
     User = cast(type["User"], registry.get_model("User"))
@@ -173,11 +173,11 @@ async def password_forgot(
         },
     )
 
-    return Message(message="Password reset email sent")
+    return SimpleMessage(message="Password reset email sent")
 
 
 @public_router.post("/password/validate")
-async def password_forgot(
+async def password_validate(
     data: ForgotPasswordValidateRequest,
     registry: Registry = Inject(Registry),
 ) -> ForgotPasswordValidate:
@@ -202,7 +202,7 @@ async def password_forgot(
 async def change_password(
     data: ChangePasswordRequest,
     current_user: "User" = Depends(get_current_user),
-) -> Message:
+) -> SimpleMessage:
     if not current_user.verify_password(data.current_password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -212,7 +212,7 @@ async def change_password(
     current_user.password = hash_password(data.new_password)
     await current_user.save()
 
-    return Message(message="Password changed successfully")
+    return SimpleMessage(message="Password changed successfully")
 
 
 __all__ = [

@@ -30,6 +30,7 @@ except Exception:
 
 if TYPE_CHECKING:
     from fastedgy.models.base import BaseModel
+    from fastedgy.models.attachment import BaseAttachment
 
 
 router = APIRouter(prefix="/storage", tags=["storage"])

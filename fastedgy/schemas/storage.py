@@ -5,10 +5,20 @@ from typing import Any
 from pydantic import BaseModel
 
 
-class UploadedAttachments[T: Any](BaseModel):
+class UploadedAttachment(BaseModel):
+    name: str
+    extension: str
+    mime_type: str
+    size_bytes: int
+    width: int | None = None
+    height: int | None = None
+
+
+class UploadedAttachments[T: UploadedAttachment](BaseModel):
     attachments: list[T]
 
 
 __all__ = [
     "UploadedAttachments",
+    "UploadedAttachment",
 ]

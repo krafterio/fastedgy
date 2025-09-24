@@ -118,8 +118,6 @@ async def upload_model_field_file(
         raise HTTPException(status_code=422, detail=str(e))
     except ObjectNotFound:
         raise HTTPException(status_code=404, detail=_t("Model not found"))
-    except Exception:
-        raise HTTPException(status_code=500, detail=_t("Error uploading file"))
 
 
 @router.delete("/file/{model:str}/{model_id}/{field:str}")
@@ -141,8 +139,6 @@ async def delete_file(
         raise HTTPException(status_code=422, detail=str(e))
     except ObjectNotFound:
         raise HTTPException(status_code=404, detail=_t("Model not found"))
-    except Exception:
-        raise HTTPException(status_code=500, detail=_t("Error deleteing file"))
 
 
 @router.get("/download/attachments/{id:int}")
@@ -221,48 +217,40 @@ async def download_file(
     e: str | None = Query(None),
     storage: Storage = Inject(Storage),
 ) -> Response:
-    try:
-        # Resolve optimized or original path
-        served_path, content_type = storage.get_optimized_or_original(
-            path, w=w, h=h, mode=m, out_ext=e
-        )
+    # Resolve optimized or original path
+    served_path, content_type = storage.get_optimized_or_original(
+        path, w=w, h=h, mode=m, out_ext=e
+    )
 
-        if not served_path.exists():
-            raise HTTPException(status_code=404, detail="Fichier non trouvé")
+    if not served_path.exists():
+        raise HTTPException(status_code=404, detail="Fichier non trouvé")
 
-        # Build filename based on original path but adopt served extension
-        src_name = Path(path).name
-        base = src_name.rsplit(".", 1)[0]
-        served_ext = served_path.suffix.lstrip(".")
-        filename = f"{base}.{served_ext}" if served_ext else src_name
+    # Build filename based on original path but adopt served extension
+    src_name = Path(path).name
+    base = src_name.rsplit(".", 1)[0]
+    served_ext = served_path.suffix.lstrip(".")
+    filename = f"{base}.{served_ext}" if served_ext else src_name
 
-        async def file_stream():
-            chunk_size = 1024 * 1024  # 1MB
+    async def file_stream():
+        chunk_size = 1024 * 1024  # 1MB
 
-            with open(served_path, "rb") as f:
-                while chunk := f.read(chunk_size):
-                    yield chunk
+        with open(served_path, "rb") as f:
+            while chunk := f.read(chunk_size):
+                yield chunk
 
-        headers = {
-            "Content-Disposition": (
-                f'attachment; filename="{filename}"'
-                if force_download
-                else f'inline; filename="{filename}"'
-            ),
-        }
+    headers = {
+        "Content-Disposition": (
+            f'attachment; filename="{filename}"'
+            if force_download
+            else f'inline; filename="{filename}"'
+        ),
+    }
 
-        return StreamingResponse(
-            file_stream(),
-            media_type=content_type,
-            headers=headers,
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=_t("Error downloading file: {error}", error=str(e))
-        )
+    return StreamingResponse(
+        file_stream(),
+        media_type=content_type,
+        headers=headers,
+    )
 
 
 async def _get_record(

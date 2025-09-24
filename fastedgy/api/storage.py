@@ -3,7 +3,7 @@
 
 import mimetypes
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 from pathlib import Path
 
 
@@ -19,7 +19,7 @@ from fastedgy.orm.exceptions import ObjectNotFound
 from fastedgy.storage import Storage
 from fastedgy.orm import Registry
 from fastedgy import context
-from fastedgy.schemas.storage import UploadedAttachments
+from fastedgy.schemas.storage import UploadedAttachments, UploadedModelField
 from fastedgy.i18n import _t
 
 try:
@@ -36,15 +36,33 @@ if TYPE_CHECKING:
 router = APIRouter(prefix="/storage", tags=["storage"])
 
 
-@router.post("/upload/attachments")
+@router.post("/upload/attachments", openapi_extra={
+    "requestBody": {
+        "content": {
+            "multipart/form-data": {
+                "schema": {
+                    "title": "UploadAttachments",
+                    "type": "object",
+                    "properties": {
+                        "<filename>": {
+                            "type": "string",
+                            "format": "binary",
+                            "description": "Key is the filename and the value is the binary content. Multiple files can be uploaded",
+                        }
+                    },
+                    "required": ["<filename>"]
+                },
+            },
+        },
+        "required": True,
+    },
+})
 async def upload_attachments(
     request: Request,
     storage: Storage = Inject(Storage),
     registry: Registry = Inject(Registry),
 ) -> UploadedAttachments:
     """Upload one or many files as Attachments.
-
-    - Returns the list of created Attachment instances.
     """
     # Ensure Attachment model is present for a dedicated attachment endpoint
     if "Attachment" not in registry.models:
@@ -92,25 +110,52 @@ async def upload_attachments(
     return UploadedAttachments[Attachment](attachments=results)
 
 
-@router.post("/upload/{model:str}/{model_id}/{field:str}")
+@router.post("/upload/{model:str}/{model_id}/{field:str}", openapi_extra={
+    "requestBody": {
+        "content": {
+            "multipart/form-data": {
+                "schema": {
+                    "title": "UploadModelField",
+                    "type": "object",
+                    "properties": {
+                        "file": {"type": "string", "format": "binary", "description": "Binary content of the file"}
+                    },
+                    "required": ["file"]
+                },
+            },
+        },
+        "required": True,
+    },
+})
 async def upload_model_field_file(
     model: str,
     field: str,
     model_id: int,
-    file: UploadFile = File(...),
+    request: Request,
     storage: Storage = Inject(Storage),
-) -> str:
+) -> UploadedModelField:
+    """Upload a file to a model field.
+    """
     try:
+        form = await request.form()
+        file = form.get("file")
+
+        if not file:
+            raise HTTPException(status_code=400, detail=_t("File not found"))
+
+        if not isinstance(file, StarletteUploadFile):
+            raise HTTPException(status_code=400, detail=_t("File is not a valid upload file"))
+
         record = await _get_record(model, field, model_id)
 
         if getattr(record, field):
             await storage.delete(getattr(record, field))
 
-        path = await storage.upload(file, model)
+        path = await storage.upload(cast(UploadFile, file), model)
         setattr(record, field, path)
         await record.save()
 
-        return path
+        return UploadedModelField(path=path)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except ObjectNotFound:

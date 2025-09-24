@@ -1,7 +1,6 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import Any
 from pydantic import BaseModel
 
 
@@ -16,6 +15,10 @@ class UploadedAttachment(BaseModel):
 
 class UploadedAttachments[T: UploadedAttachment](BaseModel):
     attachments: list[T]
+
+
+class UploadedModelField(BaseModel):
+    path: str
 
 
 __all__ = [

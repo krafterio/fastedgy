@@ -39,7 +39,7 @@ To use FastEdgy with Claude Desktop, add the following configuration to your MCP
       "args": [
         "-y",
         "@serverless-dna/mkdocs-mcp",
-        "https://krafterio.github.io/fastedgy/",
+        "https://fastedgy.krafter.io",
         "Search FastEdgy documentation (MkDocs) and return concise, source-linked answers."
       ]
     }
@@ -71,7 +71,7 @@ If you are using Cursor IDE, you can also configure MCP to access FastEdgy docum
       "args": [
         "-y",
         "@serverless-dna/mkdocs-mcp",
-        "https://krafterio.github.io/fastedgy/",
+        "https://fastedgy.krafter.io",
         "Search FastEdgy documentation (MkDocs) and return concise, source-linked answers."
       ]
     }
@@ -115,7 +115,7 @@ developed by Serverless DNA. This external MCP server connects to FastEdgy's pub
 
 ### No search results
 
-1. Verify that the documentation URL is accessible: [https://krafterio.github.io/fastedgy/](https://krafterio.github.io/fastedgy/)
+1. Verify that the documentation URL is accessible: [https://fastedgy.krafter.io](https://fastedgy.krafter.io)
 2. Make sure your internet connection is working
 3. The MCP server downloads the search index at startup
 

@@ -21,7 +21,7 @@ The base that makes web application development simple and fast with FastAPI and
 
 ## Documentation
 
-Documentation is available at [fastedgy.krafter.io](https://krafterio.github.io/fastedgy).
+Documentation is available at [fastedgy.krafter.io](https://fastedgy.krafter.io).
 
 ## Prerequisites
 

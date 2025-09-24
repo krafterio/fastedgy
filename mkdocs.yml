@@ -1,7 +1,7 @@
 site_name: FastEdgy
 site_description: Base that makes web application development simple and fast with FastAPI and Edgy ORM
 site_author: Krafter SAS
-site_url: https://krafterio.github.io/fastedgy
+site_url: https://fastedgy.krafter.io
 
 repo_name: krafterio/fastedgy
 repo_url: https://github.com/krafterio/fastedgy

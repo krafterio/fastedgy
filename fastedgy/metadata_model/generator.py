@@ -168,8 +168,11 @@ def add_inverse_relations(models: dict[Model, MetadataModel]) -> None:
     Args:
         models: Dictionary mapping Model classes to their MetadataModel
     """
+    # Collect all relation modifications to avoid "dictionary changed size during iteration"
+    relations_to_add = []
+
     for model_cls, metadata_model in models.items():
-        for field_name, metadata_field in metadata_model.fields.items():
+        for field_name, metadata_field in list(metadata_model.fields.items()):
             if not metadata_field.target:
                 continue
 
@@ -185,17 +188,27 @@ def add_inverse_relations(models: dict[Model, MetadataModel]) -> None:
             target_metadata = models[target_model_cls]
 
             if isinstance(original_field, ForeignKey):
-                _add_one_to_many_relation(
+                relation_data = _prepare_one_to_many_relation(
                     original_field, model_cls, metadata_model, target_metadata
                 )
+                if relation_data:
+                    relations_to_add.append((target_metadata, relation_data))
             elif isinstance(original_field, ManyToMany):
-                _add_many_to_many_relation(
+                relation_data = _prepare_many_to_many_relation(
                     original_field, model_cls, metadata_model, target_metadata
                 )
+                if relation_data:
+                    relations_to_add.append((target_metadata, relation_data))
             elif isinstance(original_field, OneToOne):
-                _add_one_to_one_relation(
+                relation_data = _prepare_one_to_one_relation(
                     original_field, model_cls, metadata_model, target_metadata
                 )
+                if relation_data:
+                    relations_to_add.append((target_metadata, relation_data))
+
+    # Apply all collected relations after iteration is complete
+    for target_metadata, (field_name, metadata_field) in relations_to_add:
+        target_metadata.fields[field_name] = metadata_field
 
 
 def _find_model_by_metadata_name(
@@ -208,26 +221,26 @@ def _find_model_by_metadata_name(
     return None
 
 
-def _add_one_to_many_relation(
+def _prepare_one_to_many_relation(
     foreign_key_field: ForeignKey,
     source_model_cls: Model,
     source_metadata: MetadataModel,
     target_metadata: MetadataModel,
-) -> None:
-    """Add one-to-many inverse relation to target metadata."""
+) -> tuple[str, MetadataField] | None:
+    """Prepare one-to-many inverse relation data for target metadata."""
     related_name = getattr(foreign_key_field, "related_name", None)
     if not related_name or related_name.endswith("_set"):
-        return
+        return None
 
     if related_name in target_metadata.fields:
-        return
+        return None
 
     if hasattr(source_model_cls.Meta, "label_plural"):
         source_label_plural = source_model_cls.Meta.label_plural
     else:
         source_label_plural = f"{source_metadata.label}s"
 
-    target_metadata.fields[related_name] = MetadataField(
+    metadata_field = MetadataField(
         name=related_name,
         label=str(source_label_plural),
         type=FILTER_FIELD_TYPE_NAME_MAP["OneToMany"],
@@ -239,27 +252,44 @@ def _add_one_to_many_relation(
         target=source_metadata.name,
     )
 
+    return (related_name, metadata_field)
 
-def _add_many_to_many_relation(
-    many_to_many_field: ManyToMany,
+
+def _add_one_to_many_relation(
+    foreign_key_field: ForeignKey,
     source_model_cls: Model,
     source_metadata: MetadataModel,
     target_metadata: MetadataModel,
 ) -> None:
-    """Add many-to-many inverse relation to target metadata."""
+    """Add one-to-many inverse relation to target metadata."""
+    relation_data = _prepare_one_to_many_relation(
+        foreign_key_field, source_model_cls, source_metadata, target_metadata
+    )
+    if relation_data:
+        field_name, metadata_field = relation_data
+        target_metadata.fields[field_name] = metadata_field
+
+
+def _prepare_many_to_many_relation(
+    many_to_many_field: ManyToMany,
+    source_model_cls: Model,
+    source_metadata: MetadataModel,
+    target_metadata: MetadataModel,
+) -> tuple[str, MetadataField] | None:
+    """Prepare many-to-many inverse relation data for target metadata."""
     back_populates = getattr(many_to_many_field, "back_populates", None)
     if not back_populates:
-        return
+        return None
 
     if back_populates in target_metadata.fields:
-        return
+        return None
 
     if hasattr(source_model_cls.Meta, "label_plural"):
         source_label_plural = source_model_cls.Meta.label_plural
     else:
         source_label_plural = f"{source_metadata.label}s"
 
-    target_metadata.fields[back_populates] = MetadataField(
+    metadata_field = MetadataField(
         name=back_populates,
         label=str(source_label_plural),
         type=FILTER_FIELD_TYPE_NAME_MAP["ManyToMany"],
@@ -271,22 +301,39 @@ def _add_many_to_many_relation(
         target=source_metadata.name,
     )
 
+    return (back_populates, metadata_field)
 
-def _add_one_to_one_relation(
-    one_to_one_field: OneToOne,
+
+def _add_many_to_many_relation(
+    many_to_many_field: ManyToMany,
     source_model_cls: Model,
     source_metadata: MetadataModel,
     target_metadata: MetadataModel,
 ) -> None:
-    """Add one-to-one inverse relation to target metadata."""
+    """Add many-to-many inverse relation to target metadata."""
+    relation_data = _prepare_many_to_many_relation(
+        many_to_many_field, source_model_cls, source_metadata, target_metadata
+    )
+    if relation_data:
+        field_name, metadata_field = relation_data
+        target_metadata.fields[field_name] = metadata_field
+
+
+def _prepare_one_to_one_relation(
+    one_to_one_field: OneToOne,
+    source_model_cls: Model,
+    source_metadata: MetadataModel,
+    target_metadata: MetadataModel,
+) -> tuple[str, MetadataField] | None:
+    """Prepare one-to-one inverse relation data for target metadata."""
     related_name = getattr(one_to_one_field, "related_name", None)
     if not related_name or related_name.endswith("_set"):
-        return
+        return None
 
     if related_name in target_metadata.fields:
-        return
+        return None
 
-    target_metadata.fields[related_name] = MetadataField(
+    metadata_field = MetadataField(
         name=related_name,
         label=str(source_metadata.label),
         type=FILTER_FIELD_TYPE_NAME_MAP["OneToOne"],
@@ -297,6 +344,23 @@ def _add_one_to_one_relation(
         filter_operators=get_filter_operators(OneToOne),
         target=source_metadata.name,
     )
+
+    return (related_name, metadata_field)
+
+
+def _add_one_to_one_relation(
+    one_to_one_field: OneToOne,
+    source_model_cls: Model,
+    source_metadata: MetadataModel,
+    target_metadata: MetadataModel,
+) -> None:
+    """Add one-to-one inverse relation to target metadata."""
+    relation_data = _prepare_one_to_one_relation(
+        one_to_one_field, source_model_cls, source_metadata, target_metadata
+    )
+    if relation_data:
+        field_name, metadata_field = relation_data
+        target_metadata.fields[field_name] = metadata_field
 
 
 __all__ = [

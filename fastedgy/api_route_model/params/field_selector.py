@@ -83,9 +83,9 @@ def parse_field_selector_input(
                     if field_name not in current:
                         _add_field_selector(current, field, True)
 
-                    if isinstance(current[field_name], list):
+                    if field_name in current and isinstance(current[field_name], list):
                         current = current[field_name][0]
-                    elif isinstance(current[field_name], dict):
+                    elif field_name in current and isinstance(current[field_name], dict):
                         current = current[field_name]
                     else:
                         current[field_name] = {"id": True}

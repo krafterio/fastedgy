@@ -36,34 +36,36 @@ if TYPE_CHECKING:
 router = APIRouter(prefix="/storage", tags=["storage"])
 
 
-@router.post("/upload/attachments", openapi_extra={
-    "requestBody": {
-        "content": {
-            "multipart/form-data": {
-                "schema": {
-                    "title": "UploadAttachments",
-                    "type": "object",
-                    "properties": {
-                        "<filename>": {
-                            "type": "string",
-                            "format": "binary",
-                            "description": "Key is the filename and the value is the binary content. Multiple files can be uploaded",
-                        }
+@router.post(
+    "/upload/attachments",
+    openapi_extra={
+        "requestBody": {
+            "content": {
+                "multipart/form-data": {
+                    "schema": {
+                        "title": "UploadAttachments",
+                        "type": "object",
+                        "properties": {
+                            "<filename>": {
+                                "type": "string",
+                                "format": "binary",
+                                "description": "Key is the filename and the value is the binary content. Multiple files can be uploaded",
+                            }
+                        },
+                        "required": ["<filename>"],
                     },
-                    "required": ["<filename>"]
                 },
             },
+            "required": True,
         },
-        "required": True,
     },
-})
+)
 async def upload_attachments(
     request: Request,
     storage: Storage = Inject(Storage),
     registry: Registry = Inject(Registry),
 ) -> UploadedAttachments:
-    """Upload one or many files as Attachments.
-    """
+    """Upload one or many files as Attachments."""
     # Ensure Attachment model is present for a dedicated attachment endpoint
     if "Attachment" not in registry.models:
         raise HTTPException(
@@ -110,23 +112,30 @@ async def upload_attachments(
     return UploadedAttachments[Attachment](attachments=results)
 
 
-@router.post("/upload/{model:str}/{model_id}/{field:str}", openapi_extra={
-    "requestBody": {
-        "content": {
-            "multipart/form-data": {
-                "schema": {
-                    "title": "UploadModelField",
-                    "type": "object",
-                    "properties": {
-                        "file": {"type": "string", "format": "binary", "description": "Binary content of the file"}
+@router.post(
+    "/upload/{model:str}/{model_id}/{field:str}",
+    openapi_extra={
+        "requestBody": {
+            "content": {
+                "multipart/form-data": {
+                    "schema": {
+                        "title": "UploadModelField",
+                        "type": "object",
+                        "properties": {
+                            "file": {
+                                "type": "string",
+                                "format": "binary",
+                                "description": "Binary content of the file",
+                            }
+                        },
+                        "required": ["file"],
                     },
-                    "required": ["file"]
                 },
             },
+            "required": True,
         },
-        "required": True,
     },
-})
+)
 async def upload_model_field_file(
     model: str,
     field: str,
@@ -134,8 +143,7 @@ async def upload_model_field_file(
     request: Request,
     storage: Storage = Inject(Storage),
 ) -> UploadedModelField:
-    """Upload a file to a model field.
-    """
+    """Upload a file to a model field."""
     try:
         form = await request.form()
         file = form.get("file")
@@ -144,7 +152,9 @@ async def upload_model_field_file(
             raise HTTPException(status_code=400, detail=_t("File not found"))
 
         if not isinstance(file, StarletteUploadFile):
-            raise HTTPException(status_code=400, detail=_t("File is not a valid upload file"))
+            raise HTTPException(
+                status_code=400, detail=_t("File is not a valid upload file")
+            )
 
         record = await _get_record(model, field, model_id)
 

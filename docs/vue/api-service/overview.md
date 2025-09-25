@@ -17,7 +17,7 @@ The API Service provides a standardized abstraction layer for all CRUD (Create, 
 Create specialized services rather than using the generic directly:
 
 ```javascript
-import { useApiService } from 'vue-fastedgy/composables/api'
+import { useApiService } from 'vue-fastedgy'
 
 export function useTasksService() {
     return useApiService('tasks')

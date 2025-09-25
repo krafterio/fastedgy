@@ -20,7 +20,7 @@ Once Vue-FastEdgy is installed and configured, you can start using its features 
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useFetcher } from 'vue-fastedgy/composables/fetcher'
+import { useFetcher } from 'vue-fastedgy'
 
 const fetcher = useFetcher()
 const users = ref([])
@@ -74,7 +74,7 @@ onMounted(() => {
 </template>
 
 <script setup>
-import { useAuthStore } from 'vue-fastedgy/stores/auth'
+import { useAuthStore } from 'vue-fastedgy'
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 

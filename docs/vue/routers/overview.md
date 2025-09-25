@@ -32,7 +32,7 @@ import {
   mergeRouteQueryValues,
   replaceRouteQuery,
   restoreRouteQuery
-} from 'vue-fastedgy/utils/router'
+} from 'vue-fastedgy'
 
 // Add queries to a route
 const routeWithQueries = addQueries(currentRoute, { name: 'users' }, {

@@ -27,7 +27,7 @@ Here's a complete example showing how to build a notification system using the B
 
 <script setup>
 import { ref } from 'vue'
-import { bus, useBus } from 'vue-fastedgy/composables/bus'
+import { bus, useBus } from 'vue-fastedgy'
 
 const notifications = ref([])
 
@@ -61,7 +61,7 @@ useBus(bus, 'notification:show', handleNotification)
 For more control, you can handle events manually using Vue's lifecycle hooks:
 
 ```javascript
-import { bus } from 'vue-fastedgy/composables/bus'
+import { bus } from 'vue-fastedgy'
 import { onMounted, onBeforeUnmount } from 'vue'
 
 const handleEvent = (event) => {

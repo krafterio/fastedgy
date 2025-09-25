@@ -24,7 +24,7 @@ The Fetcher Plugin provides automatic authentication, token refresh, and global 
 **Always use `useFetcher()` in components, never access plugin directly:**
 
 ```javascript
-import { useFetcher } from 'vue-fastedgy/composables/fetcher'
+import { useFetcher } from 'vue-fastedgy'
 
 const fetcher = useFetcher()
 const users = await fetcher.get('/users') // Automatically authenticated

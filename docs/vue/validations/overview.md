@@ -32,7 +32,7 @@ formatValidationErrors(error, defaultMessage = undefined)
 ## Quick Example
 
 ```javascript
-import { formatValidationErrors } from 'vue-fastedgy/utils/validations'
+import { formatValidationErrors } from 'vue-fastedgy'
 
 // Single error
 const singleError = {

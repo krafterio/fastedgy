@@ -33,8 +33,7 @@ Use the function to display API validation errors in your components:
 </template>
 
 <script setup>
-import { formatValidationErrors } from 'vue-fastedgy/utils/validations'
-import { useFetcher } from 'vue-fastedgy/composables/fetcher'
+import { formatValidationErrors, useFetcher } from 'vue-fastedgy'
 import { ref, reactive } from 'vue'
 
 const fetcher = useFetcher()
@@ -79,8 +78,7 @@ const handleSubmit = async () => {
 Handle different types of API errors:
 
 ```javascript
-import { formatValidationErrors } from 'vue-fastedgy/utils/validations'
-import { HttpError } from 'vue-fastedgy/network/fetch'
+import { formatValidationErrors, HttpError } from 'vue-fastedgy'
 
 const handleApiError = (error) => {
   if (error instanceof HttpError) {
@@ -141,7 +139,7 @@ Create a reusable form component with validation error display:
 </template>
 
 <script setup>
-import { formatValidationErrors } from 'vue-fastedgy/utils/validations'
+import { formatValidationErrors } from 'vue-fastedgy'
 import { ref, computed } from 'vue'
 
 const emit = defineEmits(['submit', 'error'])
@@ -247,7 +245,7 @@ Usage of the validated form component:
 </template>
 
 <script setup>
-import { useFetcher } from 'vue-fastedgy/composables/fetcher'
+import { useFetcher } from 'vue-fastedgy'
 import { reactive, ref } from 'vue'
 import ValidatedForm from './ValidatedForm.vue'
 
@@ -368,7 +366,7 @@ console.log(formatted2)
 ## Integration with Toast Notifications
 
 ```javascript
-import { formatValidationErrors } from 'vue-fastedgy/utils/validations'
+import { formatValidationErrors } from 'vue-fastedgy'
 
 const showValidationToast = (error) => {
   const message = formatValidationErrors(error, 'Please check your input')

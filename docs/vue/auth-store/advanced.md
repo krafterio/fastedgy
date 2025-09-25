@@ -7,7 +7,7 @@ This guide covers advanced authentication patterns and technical details for pow
 The Auth Store automatically manages JWT tokens with secure storage and refresh:
 
 ```javascript
-import { useAuthStore } from 'vue-fastedgy/stores/auth'
+import { useAuthStore } from 'vue-fastedgy'
 
 const authStore = useAuthStore()
 
@@ -55,7 +55,7 @@ const STORAGE_KEYS = {
 The Auth Store integrates with the Bus system:
 
 ```javascript
-import { bus } from 'vue-fastedgy/composables/bus'
+import { bus } from 'vue-fastedgy'
 
 // Listen for authentication events
 bus.addEventListener('auth:logged', (event) => {
@@ -78,7 +78,7 @@ Protect routes based on authentication status:
 
 ```javascript
 // In router/index.js
-import { useAuthStore } from 'vue-fastedgy/stores/auth'
+import { useAuthStore } from 'vue-fastedgy'
 
 router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
@@ -161,7 +161,7 @@ const routes = [
 Handle different registration scenarios:
 
 ```javascript
-import { useAuthStore } from 'vue-fastedgy/stores/auth'
+import { useAuthStore } from 'vue-fastedgy'
 
 const authStore = useAuthStore()
 
@@ -220,7 +220,7 @@ Restore user session on app startup:
 
 ```javascript
 // In main.js or App.vue
-import { useAuthStore } from 'vue-fastedgy/stores/auth'
+import { useAuthStore } from 'vue-fastedgy'
 
 const initializeAuth = async () => {
   const authStore = useAuthStore()
@@ -300,7 +300,7 @@ const register = (userData) => handleAuthOperation(() => authStore.register(user
 Debug authentication state:
 
 ```javascript
-import { useAuthStore } from 'vue-fastedgy/stores/auth'
+import { useAuthStore } from 'vue-fastedgy'
 
 // Debug helper for development
 window.debugAuth = () => {
@@ -327,7 +327,7 @@ window.debugAuth = () => {
 For advanced use cases where you need direct token control:
 
 ```javascript
-import { setDefaultAuthorization } from 'vue-fastedgy/plugins/fetcher'
+import { setDefaultAuthorization } from 'vue-fastedgy'
 
 // Manually set authorization for testing
 setDefaultAuthorization('your-test-token-here')

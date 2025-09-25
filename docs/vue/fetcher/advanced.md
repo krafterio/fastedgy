@@ -45,7 +45,7 @@ const patchedUser = await fetcher.patch('/users/123', { status: 'inactive' })
 The fetcher integrates with a dedicated event bus for global middleware:
 
 ```javascript
-import { fetchBus } from 'vue-fastedgy/network/fetch'
+import { fetchBus } from 'vue-fastedgy'
 
 // Global request hook - triggered before each request
 fetchBus.addEventListener('fetch:request', (event) => {
@@ -85,8 +85,7 @@ fetchBus.addEventListener('fetch:error', (event) => {
 Add authentication headers globally:
 
 ```javascript
-import { fetchBus } from 'vue-fastedgy/network/fetch'
-import { useAuthStore } from 'vue-fastedgy/stores/auth'
+import { fetchBus, useAuthStore } from 'vue-fastedgy'
 
 // Setup once in your app
 fetchBus.addEventListener('fetch:request', (event) => {
@@ -108,7 +107,7 @@ fetchBus.addEventListener('fetch:request', (event) => {
 Log all API interactions for debugging:
 
 ```javascript
-import { fetchBus } from 'vue-fastedgy/network/fetch'
+import { fetchBus } from 'vue-fastedgy'
 
 // Request logging
 fetchBus.addEventListener('fetch:request', (event) => {
@@ -159,7 +158,7 @@ fetchBus.addEventListener('fetch:error', (event) => {
 Handle different HTTP error types:
 
 ```javascript
-import { HttpError } from 'vue-fastedgy/network/fetch'
+import { HttpError } from 'vue-fastedgy'
 
 const handleApiCall = async () => {
   try {
@@ -203,8 +202,7 @@ const handleApiCall = async () => {
 Use the hook system in service classes:
 
 ```javascript
-import { fetchBus } from 'vue-fastedgy/network/fetch'
-import { useFetcherService } from 'vue-fastedgy/composables/fetcher'
+import { fetchBus, useFetcherService } from 'vue-fastedgy'
 
 class ApiService {
   constructor() {

@@ -42,7 +42,7 @@ The Auth Store provides a comprehensive authentication solution using Pinia for 
 </template>
 
 <script setup>
-import { useAuthStore } from 'vue-fastedgy/stores/auth'
+import { useAuthStore } from 'vue-fastedgy'
 
 const authStore = useAuthStore()
 

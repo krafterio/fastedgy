@@ -6,7 +6,7 @@ This guide shows how to install and configure the Fetcher Plugin in your Vue.js 
 
 ```javascript
 // In main.js
-import { createFetcher } from 'vue-fastedgy/plugins/fetcher'
+import { createFetcher } from 'vue-fastedgy'
 import { createApp } from 'vue'
 import App from './App.vue'
 
@@ -38,7 +38,7 @@ import {
   setDefaultHeaders,
   setDefaultAuthorization,
   absoluteUrl
-} from 'vue-fastedgy/plugins/fetcher'
+} from 'vue-fastedgy'
 
 // Set base URL (usually set via environment variables)
 setDefaultBaseUrl('https://api.example.com')
@@ -62,7 +62,7 @@ const fullUrl = absoluteUrl('/users')
 ### Custom Headers Per Environment
 
 ```javascript
-import { setDefaultHeaders } from 'vue-fastedgy/plugins/fetcher'
+import { setDefaultHeaders } from 'vue-fastedgy'
 
 const headers = {
   'X-App-Version': '1.0.0'
@@ -83,7 +83,7 @@ setDefaultHeaders(headers)
 ### Dynamic Base URL
 
 ```javascript
-import { setDefaultBaseUrl } from 'vue-fastedgy/plugins/fetcher'
+import { setDefaultBaseUrl } from 'vue-fastedgy'
 
 // Set different base URLs based on environment
 const getBaseUrl = () => {
@@ -121,7 +121,7 @@ The plugin automatically integrates with the Auth Store:
 ### Base URL Issues
 
 ```javascript
-import { absoluteUrl } from 'vue-fastedgy/plugins/fetcher'
+import { absoluteUrl } from 'vue-fastedgy'
 
 // Check if base URL is configured correctly
 console.log('Base URL test:', absoluteUrl('/test'))
@@ -131,7 +131,7 @@ console.log('Base URL test:', absoluteUrl('/test'))
 ### Headers Not Being Added
 
 ```javascript
-import { setDefaultHeaders } from 'vue-fastedgy/plugins/fetcher'
+import { setDefaultHeaders } from 'vue-fastedgy'
 
 // Verify headers are set
 setDefaultHeaders({ 'X-Test': 'value' })
@@ -147,7 +147,7 @@ setDefaultHeaders({ 'X-Test': 'value' })
 
 ```javascript
 // Debug auth headers
-import { setDefaultAuthorization } from 'vue-fastedgy/plugins/fetcher'
+import { setDefaultAuthorization } from 'vue-fastedgy'
 
 const token = localStorage.getItem('access_token')
 console.log('Token:', token)

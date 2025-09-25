@@ -7,7 +7,7 @@ This guide shows concrete examples of what you can build using the Metadata Stor
 Build form fields automatically from metadata:
 
 ```javascript
-import { useMetadataStore } from 'vue-fastedgy/services/metadata'
+import { useMetadataStore } from 'vue-fastedgy'
 
 // Build form fields from metadata
 const metadataStore = useMetadataStore()
@@ -192,8 +192,7 @@ Here's a practical example of a dynamic form component:
 </template>
 
 <script setup>
-import { useMetadataStore } from 'vue-fastedgy/services/metadata'
-import { useFetcher } from 'vue-fastedgy/composables/fetcher'
+import { useMetadataStore, useFetcher } from 'vue-fastedgy'
 import { ref, reactive, computed, onMounted } from 'vue'
 
 const props = defineProps(['modelName'])
@@ -323,7 +322,7 @@ A simple component to inspect model fields:
 </template>
 
 <script setup>
-import { useMetadataStore } from 'vue-fastedgy/services/metadata'
+import { useMetadataStore } from 'vue-fastedgy'
 import { computed, onMounted } from 'vue'
 
 const props = defineProps(['modelName'])

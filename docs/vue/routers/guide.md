@@ -31,7 +31,7 @@ This guide shows you how to use the router utilities in real Vue.js applications
 </template>
 
 <script setup>
-import { replaceRouteQuery, restoreRouteQuery } from 'vue-fastedgy/utils/router'
+import { replaceRouteQuery, restoreRouteQuery } from 'vue-fastedgy'
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -73,8 +73,7 @@ Handle authentication redirects properly:
 ```vue
 <!-- LoginPage.vue -->
 <script setup>
-import { addRedirect, getRedirect } from 'vue-fastedgy/utils/router'
-import { useAuthStore } from 'vue-fastedgy/stores/auth'
+import { addRedirect, getRedirect, useAuthStore } from 'vue-fastedgy'
 import { useRoute, useRouter } from 'vue-router'
 
 const authStore = useAuthStore()
@@ -97,8 +96,7 @@ const handleLogin = async (credentials) => {
 
 ```javascript
 // In router guards
-import { addRedirect } from 'vue-fastedgy/utils/router'
-import { useAuthStore } from 'vue-fastedgy/stores/auth'
+import { addRedirect, useAuthStore } from 'vue-fastedgy'
 
 router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
@@ -155,7 +153,7 @@ Handle complex filter state with URL synchronization:
 </template>
 
 <script setup>
-import { replaceRouteQuery, restoreRouteQuery } from 'vue-fastedgy/utils/router'
+import { replaceRouteQuery, restoreRouteQuery } from 'vue-fastedgy'
 import { reactive, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { debounce } from 'lodash-es'
@@ -266,7 +264,7 @@ Keep pagination state in the URL:
 </template>
 
 <script setup>
-import { replaceRouteQuery, restoreRouteQuery } from 'vue-fastedgy/utils/router'
+import { replaceRouteQuery, restoreRouteQuery } from 'vue-fastedgy'
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -339,7 +337,7 @@ Save form progress in URL for multi-step forms:
 </template>
 
 <script setup>
-import { replaceRouteQuery, restoreRouteQuery } from 'vue-fastedgy/utils/router'
+import { replaceRouteQuery, restoreRouteQuery } from 'vue-fastedgy'
 import { reactive, ref, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 

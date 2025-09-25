@@ -7,7 +7,7 @@ This guide shows you how to configure and use the logger in your Vue.js applicat
 ```javascript
 // main.js
 import { createApp } from 'vue'
-import { initializeLogger, LOG_LEVELS } from 'vue-fastedgy/utils/logger'
+import { initializeLogger, LOG_LEVELS } from 'vue-fastedgy'
 import App from './App.vue'
 
 // Configure logging based on environment
@@ -75,7 +75,7 @@ Once initialized, use console methods normally throughout your application:
 
 <script setup>
 import { ref } from 'vue'
-import { useFetcher } from 'vue-fastedgy/composables/fetcher'
+import { useFetcher } from 'vue-fastedgy'
 
 const fetcher = useFetcher()
 const data = ref(null)
@@ -104,7 +104,7 @@ Use logging in service classes:
 
 ```javascript
 // services/UserService.js
-import { useFetcherService } from 'vue-fastedgy/composables/fetcher'
+import { useFetcherService } from 'vue-fastedgy'
 
 export class UserService {
   constructor() {
@@ -275,7 +275,7 @@ const loadData = async () => {
 
 ```javascript
 // In test setup files
-import { initializeLogger, LOG_LEVELS } from 'vue-fastedgy/utils/logger'
+import { initializeLogger, LOG_LEVELS } from 'vue-fastedgy'
 
 // Disable all logging during tests to keep output clean
 beforeAll(() => {

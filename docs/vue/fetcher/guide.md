@@ -55,7 +55,7 @@ Here's how to use the Fetcher in Vue components with automatic cleanup:
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useFetcher } from 'vue-fastedgy/composables/fetcher'
+import { useFetcher } from 'vue-fastedgy'
 
 const users = ref(null)
 const loading = ref(true)
@@ -101,7 +101,7 @@ const deleteUser = async (userId) => {
 For services that need to persist beyond component lifecycle:
 
 ```javascript
-import { useFetcherService } from 'vue-fastedgy/composables/fetcher'
+import { useFetcherService } from 'vue-fastedgy'
 
 // In a service file
 const fetcher = useFetcherService()
@@ -139,8 +139,7 @@ export const userService = {
 ```vue
 <script setup>
 import { ref } from 'vue'
-import { useFetcher } from 'vue-fastedgy/composables/fetcher'
-import { HttpError } from 'vue-fastedgy/network/fetch'
+import { useFetcher, HttpError } from 'vue-fastedgy'
 
 const fetcher = useFetcher()
 const error = ref(null)

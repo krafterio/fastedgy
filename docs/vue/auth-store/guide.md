@@ -30,7 +30,7 @@ This guide shows you how to use the Auth Store in your Vue.js application with p
 </template>
 
 <script setup>
-import { useAuthStore } from 'vue-fastedgy/stores/auth'
+import { useAuthStore } from 'vue-fastedgy'
 import { reactive } from 'vue'
 import { useRouter } from 'vue-router'
 
@@ -69,7 +69,7 @@ Protect routes based on authentication status:
 
 ```javascript
 // In router/index.js
-import { useAuthStore } from 'vue-fastedgy/stores/auth'
+import { useAuthStore } from 'vue-fastedgy'
 
 router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
@@ -138,7 +138,7 @@ Handle user registration:
 </template>
 
 <script setup>
-import { useAuthStore } from 'vue-fastedgy/stores/auth'
+import { useAuthStore } from 'vue-fastedgy'
 import { reactive } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 
@@ -186,7 +186,7 @@ Verify current user and handle session restoration:
 
 ```javascript
 // In main.js or app setup
-import { useAuthStore } from 'vue-fastedgy/stores/auth'
+import { useAuthStore } from 'vue-fastedgy'
 
 const authStore = useAuthStore()
 
@@ -232,7 +232,7 @@ Handle different loading states:
 </template>
 
 <script setup>
-import { useAuthStore } from 'vue-fastedgy/stores/auth'
+import { useAuthStore } from 'vue-fastedgy'
 
 const authStore = useAuthStore()
 
@@ -279,7 +279,7 @@ Show different content based on authentication state:
 </template>
 
 <script setup>
-import { useAuthStore } from 'vue-fastedgy/stores/auth'
+import { useAuthStore } from 'vue-fastedgy'
 import { useRouter } from 'vue-router'
 
 const authStore = useAuthStore()
@@ -335,7 +335,7 @@ Handle session expiration gracefully:
 
 ```vue
 <script setup>
-import { useAuthStore } from 'vue-fastedgy/stores/auth'
+import { useAuthStore } from 'vue-fastedgy'
 import { onMounted, onUnmounted } from 'vue'
 
 const authStore = useAuthStore()

@@ -13,7 +13,7 @@ The Logger provides basic console logging management with configurable log level
 ## Log Levels
 
 ```javascript
-import { LOG_LEVELS } from 'vue-fastedgy/utils/logger'
+import { LOG_LEVELS } from 'vue-fastedgy'
 
 console.log(LOG_LEVELS)
 // {
@@ -35,7 +35,7 @@ console.log(LOG_LEVELS)
 ## Initialize Logger
 
 ```javascript
-import { initializeLogger, LOG_LEVELS } from 'vue-fastedgy/utils/logger'
+import { initializeLogger, LOG_LEVELS } from 'vue-fastedgy'
 
 // Set log level (overwrites native console methods)
 initializeLogger(LOG_LEVELS.INFO)
@@ -55,7 +55,7 @@ console.error('This will not appear') // All console output disabled
 Simple wrapper that delegates to console methods:
 
 ```javascript
-import { logger } from 'vue-fastedgy/utils/logger'
+import { logger } from 'vue-fastedgy'
 
 // These are just wrappers around console methods
 logger.error('Error message')   // Same as console.error()

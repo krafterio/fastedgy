@@ -26,7 +26,7 @@ FastEdgy for Vue.js uses [vue-i18n](https://vue-i18n.intlify.dev/) as its intern
 Add the i18n extra plugin to your Vue application:
 
 ```javascript
-import { createI18nExtra } from 'vue-fastedgy/plugins/i18nExtra'
+import { createI18nExtra } from 'vue-fastedgy'
 import { createI18n } from 'vue-i18n'
 
 const i18n = createI18n({

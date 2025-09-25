@@ -6,7 +6,7 @@ This guide shows you how to use the Metadata Store in your Vue.js components wit
 
 ```vue
 <script setup>
-import { useMetadataStore } from 'vue-fastedgy/services/metadata'
+import { useMetadataStore } from 'vue-fastedgy'
 import { onMounted, computed } from 'vue'
 
 const metadataStore = useMetadataStore()
@@ -41,7 +41,7 @@ Use metadata to understand what fields are available for a model:
 </template>
 
 <script setup>
-import { useMetadataStore } from 'vue-fastedgy/services/metadata'
+import { useMetadataStore } from 'vue-fastedgy'
 import { computed, onMounted } from 'vue'
 
 const metadataStore = useMetadataStore()
@@ -62,7 +62,7 @@ onMounted(async () => {
 Build validation rules from metadata:
 
 ```javascript
-import { useMetadataStore } from 'vue-fastedgy/services/metadata'
+import { useMetadataStore } from 'vue-fastedgy'
 
 const metadataStore = useMetadataStore()
 
@@ -144,7 +144,7 @@ Handle loading and error states properly:
 </template>
 
 <script setup>
-import { useMetadataStore } from 'vue-fastedgy/services/metadata'
+import { useMetadataStore } from 'vue-fastedgy'
 import { computed, onMounted } from 'vue'
 
 const props = defineProps(['modelName'])
@@ -183,7 +183,7 @@ List all available models:
 </template>
 
 <script setup>
-import { useMetadataStore } from 'vue-fastedgy/services/metadata'
+import { useMetadataStore } from 'vue-fastedgy'
 import { computed, onMounted } from 'vue'
 
 const metadataStore = useMetadataStore()
@@ -249,7 +249,7 @@ Show/hide fields based on metadata:
 </template>
 
 <script setup>
-import { useMetadataStore } from 'vue-fastedgy/services/metadata'
+import { useMetadataStore } from 'vue-fastedgy'
 import { computed, onMounted } from 'vue'
 
 const props = defineProps(['modelName', 'hideFields'])

@@ -22,7 +22,7 @@ The Metadata Store is a Pinia store that fetches and caches metadata from FastEd
 ## Quick Example
 
 ```javascript
-import { useMetadataStore } from 'vue-fastedgy/services/metadata'
+import { useMetadataStore } from 'vue-fastedgy'
 
 const metadataStore = useMetadataStore()
 

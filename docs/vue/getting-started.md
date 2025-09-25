@@ -63,7 +63,7 @@ BASE_URL=http://localhost:8000/api
 ```javascript
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
-import { createFetcher } from 'vue-fastedgy/plugins/fetcher'
+import { createFetcher } from 'vue-fastedgy'
 import App from './App.vue'
 
 const app = createApp(App)

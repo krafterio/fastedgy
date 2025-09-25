@@ -25,7 +25,7 @@ The Fetcher provides a thin, composable layer over the native fetch API, designe
 ## Quick Example
 
 ```javascript
-import { useFetcher } from 'vue-fastedgy/composables/fetcher'
+import { useFetcher } from 'vue-fastedgy'
 
 const fetcher = useFetcher()
 

@@ -6,7 +6,7 @@ Always create a specialized service rather than using `useApiService` directly:
 
 ```javascript
 // services/tasks.js
-import { useApiService } from 'vue-fastedgy/composables/api'
+import { useApiService } from 'vue-fastedgy'
 
 export function useTasksService() {
     return useApiService('tasks')
@@ -107,7 +107,7 @@ export function useAdminUsersService() {
 The advantage of specialized services is being able to add custom methods:
 
 ```javascript
-import { useApiService } from 'vue-fastedgy/composables/api'
+import { useApiService } from 'vue-fastedgy'
 
 export function useTasksService() {
     const baseService = useApiService('tasks')

@@ -22,7 +22,7 @@ The Bus provides a lightweight event system for communication between Vue compon
 ## Quick Example
 
 ```javascript
-import { bus, useBus } from 'vue-fastedgy/composables/bus'
+import { bus, useBus } from 'vue-fastedgy'
 
 // Trigger an event
 bus.trigger('user:updated', { id: 123, name: 'John Doe' })

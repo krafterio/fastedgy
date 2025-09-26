@@ -27,7 +27,7 @@ class BaseWorkspace(BaseModel):
 
     name: str | None = fields.CharField(max_length=255, null=True, label="Nom")  # type: ignore
     slug: str | None = fields.CharField(
-        max_length=32, unique=True, default=generate_slug, label="Slug"
+        max_length=32, unique=True, label="Slug"
     )  # type: ignore
     image_url: str | None = fields.CharField(max_length=255, null=True, label="Image")  # type: ignore
 

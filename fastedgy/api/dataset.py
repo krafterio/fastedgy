@@ -4,7 +4,7 @@
 from typing import Any, cast
 from fastapi import APIRouter, HTTPException
 
-from fastedgy.dependencies import Inject, get_service
+from fastedgy.dependencies import Inject
 from fastedgy.metadata_model import MetadataModelRegistry, TypeMapMetadataModels
 from fastedgy.metadata_model.generator import generate_class_name
 from fastedgy.orm import Model, Registry
@@ -32,7 +32,7 @@ async def resequence(
         )
 
     model_class_name = generate_class_name(data.model_name)
-    model_class = cast(type[Model], registery.get_model(model_class_name))
+    model_class = cast(type[Model], registry.get_model(model_class_name))
     records = []
 
     if data.ids:
@@ -50,7 +50,7 @@ async def resequence(
                 detail="No action requested. Please provide group_field or sequence_field for resequencing",
             )
 
-        existing_records = await model_class.query.filter(
+        existing_records = await model_class.query.filter( # type: ignore
             model_class.columns.id.in_(data.ids)
         ).all()
 
@@ -59,7 +59,7 @@ async def resequence(
                 status_code=400, detail="Some IDs in the target list do not exist"
             )
 
-        async with model_class.query.database.transaction():
+        async with model_class.query.database.transaction(): # type: ignore
             records_by_id = {record.id: record for record in existing_records}
             sequence_index = 0
 

@@ -30,6 +30,7 @@ from fastedgy.api_route_model.view_transformer import (
     BaseViewTransformer,
     GetViewTransformer,
     PostSaveTransformer,
+    PreLoadRecordViewTransformer,
     PreSaveTransformer,
 )
 
@@ -63,7 +64,7 @@ class PatchApiRouteAction(BaseApiRouteAction):
 
 def generate_patch_item[M = TypeModel](
     model_cls: M,
-) -> Callable[[Request, int, M], Coroutine[Any, Any, M]]:
+) -> Callable[[Request, int, M], Coroutine[Any, Any, M | dict[str, Any]]]:
     async def patch_item(
         request: Request,
         item_id: int = Path(..., description="Item ID"),
@@ -90,15 +91,20 @@ async def patch_item_action[M = TypeModel](
     fields: str | None = None,
     transformers: list[BaseViewTransformer] | None = None,
     transformers_ctx: dict[str, Any] | None = None,
-) -> Coroutine[Any, Any, M | dict[str, Any]]:
+) -> M | dict[str, Any]:
     query = query or model_cls.query
     query = query.filter(id=item_id)
     query = optimize_query_filter_fields(query, fields)
     transformers_ctx = transformers_ctx or {}
+    vtr = get_service(ViewTransformerRegistry)
 
     try:
+        for transformer in vtr.get_transformers(
+            PreLoadRecordViewTransformer, model_cls, transformers
+        ):
+            query = await transformer.pre_load_record(request, query, transformers_ctx)
+
         item = await query.get()
-        vtr = get_service(ViewTransformerRegistry)
 
         clean_empty_strings(item_data)
         for key in item_data.model_fields_set:

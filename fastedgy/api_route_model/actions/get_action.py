@@ -19,6 +19,7 @@ from fastedgy.api_route_model.registry import (
 from fastedgy.api_route_model.view_transformer import (
     BaseViewTransformer,
     GetViewTransformer,
+    PreLoadRecordViewTransformer,
 )
 from fastedgy.dependencies import get_service
 from fastedgy.http import Request
@@ -74,13 +75,19 @@ async def get_item_action[M = TypeModel](
     fields: str | None = None,
     transformers: list[BaseViewTransformer] | None = None,
     transformers_ctx: dict[str, Any] | None = None,
-) -> Coroutine[Any, Any, M | dict[str, Any]]:
+) -> M | dict[str, Any]:
     query = query or model_cls.query
     query = query.filter(id=item_id)
     query = optimize_query_filter_fields(query, fields)
     transformers_ctx = transformers_ctx or {}
+    vtr = get_service(ViewTransformerRegistry)
 
     try:
+        for transformer in vtr.get_transformers(
+            PreLoadRecordViewTransformer, model_cls, transformers
+        ):
+            query = await transformer.pre_load_record(request, query, transformers_ctx)
+
         item = await query.get()
 
         return await view_item_action(
@@ -97,7 +104,7 @@ async def view_item_action[M = TypeModel](
     fields: str | None = None,
     transformers: list[BaseViewTransformer] | None = None,
     transformers_ctx: dict[str, Any] | None = None,
-) -> dict[str, Any]:
+) -> M | dict[str, Any]:
     transformers_ctx = transformers_ctx or {}
     item_dump = await filter_selected_fields(item, fields)
     vtr = get_service(ViewTransformerRegistry)

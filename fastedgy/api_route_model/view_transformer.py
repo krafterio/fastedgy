@@ -32,6 +32,13 @@ class PostPaginateViewTransformer[M = BaseModel](BaseViewTransformer):
     ) -> None: ...
 
 
+class PreLoadRecordViewTransformer[M = BaseModel](BaseViewTransformer):
+    @abstractmethod
+    async def pre_load_record(
+        self, request: Request, query: QuerySet, ctx: dict[str, Any]
+    ) -> QuerySet: ...
+
+
 class GetViewsTransformer[M = BaseModel](BaseViewTransformer):
     @abstractmethod
     async def get_views(

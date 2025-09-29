@@ -7,9 +7,12 @@ from fastapi import APIRouter, HTTPException, Path
 from fastapi.exceptions import RequestValidationError
 
 from fastedgy.api_route_model.actions import BaseApiRouteAction
-from fastedgy.api_route_model.registry import TypeModel, RouteModelActionOptions
+from fastedgy.api_route_model.registry import BaseViewTransformer, TypeModel, RouteModelActionOptions, ViewTransformerRegistry
+from fastedgy.api_route_model.view_transformer import PreLoadRecordViewTransformer
+from fastedgy.dependencies import get_service
 from fastedgy.orm.query import QuerySet
 from fastedgy.orm.exceptions import ObjectNotFound
+from fastedgy.http import Request
 
 from pydantic import ValidationError
 from pydantic_core import ErrorDetails
@@ -42,11 +45,13 @@ class DeleteApiRouteAction(BaseApiRouteAction):
 
 def generate_delete_item[M = TypeModel](
     model_cls: M,
-) -> Callable[[int], Coroutine[Any, Any, None]]:
+) -> Callable[[Request, int], Coroutine[Any, Any, None]]:
     async def delete_item(
+        request: Request,
         item_id: int = Path(..., description="Item ID"),
     ) -> None:
         return await delete_item_action(
+            request,
             model_cls,
             item_id,
         )
@@ -55,13 +60,24 @@ def generate_delete_item[M = TypeModel](
 
 
 async def delete_item_action[M = TypeModel](
+    request: Request,
     model_cls: M,
     item_id: int,
     query: QuerySet | None = None,
     not_found_message: str = "Enregistrement non trouvé",
+    transformers: list[BaseViewTransformer] | None = None,
+    transformers_ctx: dict[str, Any] | None = None,
 ) -> None:
     try:
+        vtr = get_service(ViewTransformerRegistry)
+        transformers_ctx = transformers_ctx or {}
         query = query or model_cls.query
+
+        for transformer in vtr.get_transformers(
+            PreLoadRecordViewTransformer, model_cls, transformers
+        ):
+            query = await transformer.pre_load_record(request, query, transformers_ctx)
+
         item = await query.filter(id=item_id).get()
 
         await item.delete()

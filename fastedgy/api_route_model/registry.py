@@ -102,7 +102,7 @@ class ViewTransformerRegistry:
     )
 
     def register_transformer(
-        self, transformer: BaseViewTransformer, model_cls: TypeModel | None = None
+        self, transformer: Type[BaseViewTransformer], model_cls: TypeModel | None = None
     ):
         if not callable(transformer):
             raise ValueError(

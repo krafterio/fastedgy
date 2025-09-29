@@ -2,7 +2,7 @@
 # MIT License (see LICENSE file).
 
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Union, cast
+from typing import TYPE_CHECKING, Optional, Union, cast
 from fastedgy.dependencies import get_service
 from jose import JWTError, jwt
 from fastapi import Depends, HTTPException, status
@@ -113,6 +113,13 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> "User":
     return user
 
 
+async def get_optional_current_user(token: str | None = Depends(oauth2_scheme_optional)) -> Optional["User"]:
+    try:
+        return await get_current_user(token) if token else None
+    except HTTPException:
+        return None
+
+
 async def get_current_workspace(
     current_user=Depends(get_current_user),
 ) -> Union["Workspace", None]:
@@ -159,5 +166,6 @@ __all__ = [
     "create_refresh_token",
     "authenticate_user",
     "get_current_user",
+    "get_optional_current_user",
     "get_current_workspace",
 ]

@@ -43,7 +43,7 @@ X-Filter: ["|", [["category", "=", "electronics"], ["category", "=", "books"]]]
 - **Dates**: `DateField`, `DateTimeField` with comparisons and between
 - **Booleans**: `BooleanField` with is true/false
 - **Relations**: `ForeignKey`, `OneToOne`, `ManyToMany`
-- **Advanced**: `VectorField` for AI (distance calculations)
+- **Advanced**: `VectorField` for AI (distance calculations), `PointField` for geospatial queries
 
 ## Get started
 

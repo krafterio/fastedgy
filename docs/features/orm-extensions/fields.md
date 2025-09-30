@@ -340,6 +340,35 @@ class Contact(BaseModel):
     phone = fields.PhoneField(label=_t('Phone Number'))
 ```
 
+## Point
+
+Geometric point field for storing geographic coordinates (longitude, latitude).
+
+```python
+class Store(BaseModel):
+    class Meta:
+        tablename = "stores"
+
+    location = fields.PointField(srid=4326, label=_t('Location'))
+```
+
+**Parameters:**
+- `srid` (int, default=4326): Spatial Reference System Identifier (WGS84 by default)
+
+**Storage format:**
+- Python type: `tuple[float, float]` (longitude, latitude)
+- Database type: PostGIS `geometry(Point, SRID)`
+
+**Usage:**
+```python
+# Create a store with coordinates
+store = Store(name="Main Store", location=(2.3522, 48.8566))  # Paris
+await store.save()
+
+# Query by location
+stores = await Store.query.filter(location=(2.3522, 48.8566)).all()
+```
+
 ## Placeholder
 
 Placeholder field for dynamic field definitions.

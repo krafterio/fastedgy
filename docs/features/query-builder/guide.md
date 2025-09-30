@@ -58,6 +58,25 @@
 | `inner product >` | Inner product greater than |
 | `inner product >=` | Inner product greater than or equal |
 
+### Spatial field operators
+
+| Operator | Description |
+|----------|-------------|
+| `spatial distance` | Calculate spatial distance between points |
+| `spatial distance <` | Spatial distance less than |
+| `spatial distance <=` | Spatial distance less than or equal |
+| `spatial distance >` | Spatial distance greater than |
+| `spatial distance >=` | Spatial distance greater than or equal |
+| `spatial within distance` | Point within specified distance |
+| `spatial contains` | Geometry contains another geometry |
+| `spatial within` | Geometry within another geometry |
+| `spatial intersects` | Geometries intersect |
+| `spatial equals` | Geometries are equal |
+| `spatial disjoint` | Geometries are disjoint |
+| `spatial touches` | Geometries touch |
+| `spatial crosses` | Geometries cross |
+| `spatial overlaps` | Geometries overlap |
+
 ## Filter syntax
 
 ```bash
@@ -156,6 +175,26 @@ X-Filter: ["uuid", "starts with", "550e8400"]
 GET /api/embeddings/
 X-Filter: ["vector", "cosine distance <", [0.1, [0.2, 0.3, 0.4]]]
 ```
+
+### PointField
+**Operators**: `spatial distance`, `spatial distance <`, `spatial distance <=`, `spatial distance >`, `spatial distance >=`, `spatial within distance`, `spatial contains`, `spatial within`, `spatial intersects`, `spatial equals`, `spatial disjoint`, `spatial touches`, `spatial crosses`, `spatial overlaps`, `is empty`, `is not empty`
+
+**Examples**:
+```bash
+# Find stores within 5km of a point (longitude, latitude)
+GET /api/stores/
+X-Filter: ["location", "spatial within distance", [[2.3522, 48.8566], 5000]]
+
+# Find stores at exact location
+GET /api/stores/
+X-Filter: ["location", "spatial equals", [2.3522, 48.8566]]
+
+# Find stores within a specific distance
+GET /api/stores/
+X-Filter: ["location", "spatial distance <", [[2.3522, 48.8566], 10000]]
+```
+
+**Note**: Distance operators require a tuple with the reference point and distance value: `[[longitude, latitude], distance_in_meters]`
 
 ## Complex filtering
 

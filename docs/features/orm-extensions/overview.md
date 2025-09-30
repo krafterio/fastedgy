@@ -19,7 +19,7 @@ FastEdgy extends Edgy ORM with:
 - **Dependency injection**: Automatic service injection in models
 - **Context management**: Workspace and user context integration
 - **API route generation**: Automatic CRUD endpoints from models
-- **Enhanced field types**: Additional specialized fields (Vector, HTML, Phone)
+- **Enhanced field types**: Additional specialized fields (Vector, HTML, Phone, Geospatial Coordinates)
 
 ## Quick example
 

@@ -32,12 +32,14 @@ from fastedgy.orm.fields import (
     TimeField,
     UUIDField,
     VectorField,
+    PointField,
 )
 
 from sqlalchemy import null
 
 
 FilterOperator: TypeAlias = Literal[
+    # Generic operators
     "=",
     "!=",
     "<",
@@ -64,6 +66,7 @@ FilterOperator: TypeAlias = Literal[
     "is false",
     "is empty",
     "is not empty",
+    # Distance operators
     "l1 distance",
     "l1 distance <",
     "l1 distance <=",
@@ -84,6 +87,21 @@ FilterOperator: TypeAlias = Literal[
     "inner product <=",
     "inner product >",
     "inner product >=",
+    # Spatial operators
+    "spatial distance",
+    "spatial distance <",
+    "spatial distance <=",
+    "spatial distance >",
+    "spatial distance >=",
+    "spatial within distance",
+    "spatial contains",
+    "spatial within",
+    "spatial intersects",
+    "spatial equals",
+    "spatial disjoint",
+    "spatial touches",
+    "spatial crosses",
+    "spatial overlaps",
 ]
 
 
@@ -94,6 +112,7 @@ FilterConditionType: TypeAlias = Literal[
 
 
 FILTER_OPERATORS_SQL = {
+    # Generic operators
     "=": lambda c, v: c.__eq__(v),
     "!=": lambda c, v: c.__ne__(v),
     "<": lambda c, v: c.__lt__(v),
@@ -120,6 +139,7 @@ FILTER_OPERATORS_SQL = {
     "is false": lambda c, v=None: c.is_(False),
     "is empty": lambda c, v=None: c.is_(null()),
     "is not empty": lambda c, v=None: c.is_not(null()),
+    # Distance operators
     "l1 distance": lambda c, v=None: c.l1_distance(v),
     "l1 distance <": lambda c, v=None: c.l1_distance_lt(v),
     "l1 distance <=": lambda c, v=None: c.l1_distance_le(v),
@@ -140,10 +160,26 @@ FILTER_OPERATORS_SQL = {
     "inner product <=": lambda c, v=None: c.inner_product_le(v),
     "inner product >": lambda c, v=None: c.inner_product_gt(v),
     "inner product >=": lambda c, v=None: c.inner_product_ge(v),
+    # Spatial operators
+    "spatial distance": lambda c, v=None: c.spatial_distance_to(v),
+    "spatial distance <": lambda c, v=None: c.spatial_distance_lt(v),
+    "spatial distance <=": lambda c, v=None: c.spatial_distance_le(v),
+    "spatial distance >": lambda c, v=None: c.spatial_distance_gt(v),
+    "spatial distance >=": lambda c, v=None: c.spatial_distance_ge(v),
+    "spatial within distance": lambda c, v=None: c.spatial_within_distance(v),
+    "spatial contains": lambda c, v=None: c.spatial_contains(v),
+    "spatial within": lambda c, v=None: c.spatial_within(v),
+    "spatial intersects": lambda c, v=None: c.spatial_intersects(v),
+    "spatial equals": lambda c, v=None: c.spatial_equals(v),
+    "spatial disjoint": lambda c, v=None: c.spatial_disjoint_from(v),
+    "spatial touches": lambda c, v=None: c.spatial_touches(v),
+    "spatial crosses": lambda c, v=None: c.spatial_crosses(v),
+    "spatial overlaps": lambda c, v=None: c.spatial_overlaps(v),
 }
 
 
 FILTER_DICT_OPERATORS_SQL = {
+    # Generic operators
     "=": lambda qs, f, v: Q({f"{f.replace('.', '__')}": v}),
     "!=": lambda qs, f, v: qs.not_(Q({f"{f.replace('.', '__')}": v})),
     "<": lambda qs, f, v: Q({f"{f.replace('.', '__')}__lt": v}),
@@ -180,6 +216,7 @@ FILTER_DICT_OPERATORS_SQL = {
     "is false": lambda qs, f, v: Q({f"{f.replace('.', '__')}__is": False}),
     "is empty": lambda qs, f, v: Q({f"{f.replace('.', '__')}__is": None}),
     "is not empty": lambda qs, f, v: qs.not_(Q({f"{f.replace('.', '__')}__is": None})),
+    # Distance operators
     "l1 distance": lambda qs, f, v: Q({f"{f.replace('.', '__')}__l1_distance": v}),
     "l1 distance <": lambda qs, f, v: Q({f"{f.replace('.', '__')}__l1_distance_lt": v}),
     "l1 distance <=": lambda qs, f, v: Q(
@@ -226,11 +263,56 @@ FILTER_DICT_OPERATORS_SQL = {
     "inner product >=": lambda qs, f, v: Q(
         {f"{f.replace('.', '__')}__inner_product_ge": v}
     ),
+    # Spatial operators
+    "spatial distance": lambda qs, f, v: Q(
+        {f"{f.replace('.', '__')}__spatial_distance_to": v}
+    ),
+    "spatial distance <": lambda qs, f, v: Q(
+        {f"{f.replace('.', '__')}__spatial_distance_lt": v}
+    ),
+    "spatial distance <=": lambda qs, f, v: Q(
+        {f"{f.replace('.', '__')}__spatial_distance_le": v}
+    ),
+    "spatial distance >": lambda qs, f, v: Q(
+        {f"{f.replace('.', '__')}__spatial_distance_gt": v}
+    ),
+    "spatial distance >=": lambda qs, f, v: Q(
+        {f"{f.replace('.', '__')}__spatial_distance_ge": v}
+    ),
+    "spatial within distance": lambda qs, f, v: Q(
+        {f"{f.replace('.', '__')}__spatial_within_distance": v}
+    ),
+    "spatial contains": lambda qs, f, v: Q(
+        {f"{f.replace('.', '__')}__spatial_contains": v}
+    ),
+    "spatial within": lambda qs, f, v: Q(
+        {f"{f.replace('.', '__')}__spatial_within": v}
+    ),
+    "spatial intersects": lambda qs, f, v: Q(
+        {f"{f.replace('.', '__')}__spatial_intersects": v}
+    ),
+    "spatial equals": lambda qs, f, v: Q(
+        {f"{f.replace('.', '__')}__spatial_equals": v}
+    ),
+    "spatial disjoint": lambda qs, f, v: Q(
+        {f"{f.replace('.', '__')}__spatial_disjoint_from": v}
+    ),
+    "spatial touches": lambda qs, f, v: Q(
+        {f"{f.replace('.', '__')}__spatial_touches": v}
+    ),
+    "spatial crosses": lambda qs, f, v: Q(
+        {f"{f.replace('.', '__')}__spatial_crosses": v}
+    ),
+    "spatial overlaps": lambda qs, f, v: Q(
+        {f"{f.replace('.', '__')}__spatial_overlaps": v}
+    ),
 }
 
 
 FILTER_OPERATORS_SQL_UNPACK = {
+    # Generic operators
     "between": 2,
+    # Distance operators
     "l1 distance <": 2,
     "l1 distance <=": 2,
     "l1 distance >": 2,
@@ -247,6 +329,12 @@ FILTER_OPERATORS_SQL_UNPACK = {
     "inner product <=": 2,
     "inner product >": 2,
     "inner product >=": 2,
+    # Spatial operators
+    "spatial distance <": 2,
+    "spatial distance <=": 2,
+    "spatial distance >": 2,
+    "spatial distance >=": 2,
+    "spatial within distance": 2,
 }
 
 
@@ -497,6 +585,24 @@ FILTER_OPERATORS_FIELD_MAP = {
         "inner product <=",
         "inner product >",
         "inner product >=",
+    ],
+    PointField: [
+        "spatial distance",
+        "spatial distance <",
+        "spatial distance <=",
+        "spatial distance >",
+        "spatial distance >=",
+        "spatial within distance",
+        "spatial contains",
+        "spatial within",
+        "spatial intersects",
+        "spatial equals",
+        "spatial disjoint",
+        "spatial touches",
+        "spatial crosses",
+        "spatial overlaps",
+        "is empty",
+        "is not empty",
     ],
     "OneToMany": [
         "in",

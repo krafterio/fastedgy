@@ -4,6 +4,7 @@
 from .view_model import *
 from .enum import *
 from .vector import *
+from .postgis import *
 
 
 def fastedgy_process_revision_directives(context, revision, directives):
@@ -19,12 +20,16 @@ def fastedgy_process_revision_directives(context, revision, directives):
 
     process_enum_revision_directives(context, revision, directives)
     process_vector_revision_directives(context, revision, directives)
+    process_postgis_revision_directives(context, revision, directives)
 
 
 __all__ = [
     "fastedgy_process_revision_directives",
     "process_enum_revision_directives",
     "process_vector_revision_directives",
+    "process_postgis_revision_directives",
     "enable_vector_extension",
     "disable_vector_extension",
+    "enable_postgis_extension",
+    "disable_postgis_extension",
 ]

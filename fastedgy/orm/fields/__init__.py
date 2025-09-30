@@ -43,6 +43,7 @@ from edgy.core.db.datastructures import Index, UniqueConstraint
 
 from .field_html import HTMLField
 from .field_phone import PhoneField
+from .field_point import Point, PointField
 from .field_vector import Vector, VectorField
 
 
@@ -88,6 +89,8 @@ __all__ = [
     "RefForeignKey",
     "HTMLField",
     "PhoneField",
+    "Point",
+    "PointField",
     "Vector",
     "VectorField",
 ]

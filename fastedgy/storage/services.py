@@ -509,6 +509,16 @@ class Storage:
         )
         relative_path = self.get_relative_path(file_path, global_storage=global_storage)
 
+        # Remove optimized cache directory if this file exists
+        if file_path.exists():
+            try:
+                cache_dir = self._get_image_cache_dir_for(
+                    relative_path, global_storage=global_storage
+                )
+                shutil.rmtree(cache_dir, ignore_errors=True)
+            except Exception:
+                pass
+
         with open(file_path, "wb") as f:
             f.write(content)
 

@@ -177,7 +177,7 @@ class Storage:
         return "JPEG", "image/jpeg"
 
     def _save_image(
-        self, img: "Image.Image", dest: Path, pil_format: str, quality: int
+        self, img: "Image.Image", dest: Path, pil_format: str, quality: int  # type: ignore[name-defined]
     ) -> None:  # type: ignore[name-defined]
         save_kwargs: dict[str, Any] = {}
         if pil_format == "JPEG":
@@ -229,11 +229,11 @@ class Storage:
 
             # Resize
             if mode == "contain" or not (w and h):
-                resized = img.resize((tw, th), Image.LANCZOS)
+                resized = img.resize((tw, th), Image.LANCZOS)  # type: ignore
                 final_img = resized
             else:
                 # cover: first resize to (tw, th), then center-crop to requested (w, h)
-                resized = img.resize((tw, th), Image.LANCZOS)
+                resized = img.resize((tw, th), Image.LANCZOS)  # type: ignore
                 # target crop size is the requested (w, h) clamped
                 cw = w or tw
                 ch = h or th
@@ -416,7 +416,7 @@ class Storage:
                     create_attachment=create_attachment,
                 )
         except Exception as e:
-            raise ValueError(f"Error while downloading the file: {str(e)}")
+            raise ValueError(_t("Error while downloading the file: {error}", error=str(e)))
 
     async def delete(
         self,

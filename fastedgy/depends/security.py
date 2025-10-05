@@ -113,7 +113,9 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> "User":
     return user
 
 
-async def get_optional_current_user(token: str | None = Depends(oauth2_scheme_optional)) -> Optional["User"]:
+async def get_optional_current_user(
+    token: str | None = Depends(oauth2_scheme_optional),
+) -> Optional["User"]:
     try:
         return await get_current_user(token) if token else None
     except HTTPException:

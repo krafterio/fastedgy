@@ -58,7 +58,9 @@ class Point(UserDefinedType):
 
         return process
 
-    def _coerce(self, value: tuple[float, float] | list[float] | str | None) -> str | None:
+    def _coerce(
+        self, value: tuple[float, float] | list[float] | str | None
+    ) -> str | None:
         if value is None:
             return None
 
@@ -67,7 +69,9 @@ class Point(UserDefinedType):
 
         if isinstance(value, (tuple, list)):
             if len(value) != 2:
-                raise ValueError("Point must have exactly 2 coordinates (longitude, latitude)")
+                raise ValueError(
+                    "Point must have exactly 2 coordinates (longitude, latitude)"
+                )
 
             lon, lat = float(value[0]), float(value[1])
             return f"SRID={self.srid};POINT({lon} {lat})"
@@ -77,6 +81,7 @@ class Point(UserDefinedType):
     class comparator_factory(UserDefinedType.Comparator):
         def spatial_distance_to(self, other):
             from sqlalchemy import func
+
             return func.ST_Distance(self.expr, other)
 
         def spatial_distance_lt(self, other, distance: float):
@@ -93,38 +98,47 @@ class Point(UserDefinedType):
 
         def spatial_within_distance(self, other, distance: float):
             from sqlalchemy import func
+
             return func.ST_DWithin(self.expr, other, distance)
 
         def spatial_contains(self, other):
             from sqlalchemy import func
+
             return func.ST_Contains(self.expr, other)
 
         def spatial_within(self, other):
             from sqlalchemy import func
+
             return func.ST_Within(self.expr, other)
 
         def spatial_intersects(self, other):
             from sqlalchemy import func
+
             return func.ST_Intersects(self.expr, other)
 
         def spatial_equals(self, other):
             from sqlalchemy import func
+
             return func.ST_Equals(self.expr, other)
 
         def spatial_disjoint_from(self, other):
             from sqlalchemy import func
+
             return func.ST_Disjoint(self.expr, other)
 
         def spatial_touches(self, other):
             from sqlalchemy import func
+
             return func.ST_Touches(self.expr, other)
 
         def spatial_crosses(self, other):
             from sqlalchemy import func
+
             return func.ST_Crosses(self.expr, other)
 
         def spatial_overlaps(self, other):
             from sqlalchemy import func
+
             return func.ST_Overlaps(self.expr, other)
 
 

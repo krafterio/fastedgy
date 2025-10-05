@@ -50,7 +50,7 @@ async def resequence(
                 detail="No action requested. Please provide group_field or sequence_field for resequencing",
             )
 
-        existing_records = await model_class.query.filter( # type: ignore
+        existing_records = await model_class.query.filter(  # type: ignore
             model_class.columns.id.in_(data.ids)
         ).all()
 
@@ -59,7 +59,7 @@ async def resequence(
                 status_code=400, detail="Some IDs in the target list do not exist"
             )
 
-        async with model_class.query.database.transaction(): # type: ignore
+        async with model_class.query.database.transaction():  # type: ignore
             records_by_id = {record.id: record for record in existing_records}
             sequence_index = 0
 

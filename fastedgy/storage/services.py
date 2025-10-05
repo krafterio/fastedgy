@@ -177,7 +177,11 @@ class Storage:
         return "JPEG", "image/jpeg"
 
     def _save_image(
-        self, img: "Image.Image", dest: Path, pil_format: str, quality: int  # type: ignore[name-defined]
+        self,
+        img: "Image.Image",
+        dest: Path,
+        pil_format: str,
+        quality: int,  # type: ignore[name-defined]
     ) -> None:  # type: ignore[name-defined]
         save_kwargs: dict[str, Any] = {}
         if pil_format == "JPEG":
@@ -416,7 +420,9 @@ class Storage:
                     create_attachment=create_attachment,
                 )
         except Exception as e:
-            raise ValueError(_t("Error while downloading the file: {error}", error=str(e)))
+            raise ValueError(
+                _t("Error while downloading the file: {error}", error=str(e))
+            )
 
     async def delete(
         self,

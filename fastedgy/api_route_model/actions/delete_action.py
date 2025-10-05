@@ -7,7 +7,12 @@ from fastapi import APIRouter, HTTPException, Path
 from fastapi.exceptions import RequestValidationError
 
 from fastedgy.api_route_model.actions import BaseApiRouteAction
-from fastedgy.api_route_model.registry import BaseViewTransformer, TypeModel, RouteModelActionOptions, ViewTransformerRegistry
+from fastedgy.api_route_model.registry import (
+    BaseViewTransformer,
+    TypeModel,
+    RouteModelActionOptions,
+    ViewTransformerRegistry,
+)
 from fastedgy.api_route_model.view_transformer import PreLoadRecordViewTransformer
 from fastedgy.dependencies import get_service
 from fastedgy.orm.query import QuerySet

@@ -21,6 +21,7 @@ class WorkspaceableRedirectManager(RedirectManager):
 def filter_by_workspace(queryset: QuerySet) -> QuerySet:
     from fastedgy.models.workspace import BaseWorkspace
     from fastedgy.models.workspace_user import BaseWorkspaceUser
+
     workspace_field = queryset.model_class.fields.get("workspace")
 
     if (
@@ -31,7 +32,9 @@ def filter_by_workspace(queryset: QuerySet) -> QuerySet:
         workspace = context.get_workspace()
 
         if (
-            workspace and queryset.model_class.__name__ not in [
+            workspace
+            and queryset.model_class.__name__
+            not in [
                 "UserPresence",
             ]
             and not issubclass(queryset.model_class, BaseWorkspace)

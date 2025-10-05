@@ -120,7 +120,9 @@ def disable_postgis_extension_impl(
 
 
 @renderers.dispatch_for(EnablePostGISExtensionOperation)
-def render_enable_postgis_extension(_, operation: EnablePostGISExtensionOperation) -> str:
+def render_enable_postgis_extension(
+    _, operation: EnablePostGISExtensionOperation
+) -> str:
     return "enable_postgis_extension()"
 
 

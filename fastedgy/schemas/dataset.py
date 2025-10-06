@@ -61,6 +61,8 @@ class MetadataModel(BaseModel):
     label: str
     label_plural: str
     searchable: bool
+    sortable: bool
+    sortable_field: str | None = None
     fields: dict[str, MetadataField]
 
 

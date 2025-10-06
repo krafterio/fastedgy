@@ -27,15 +27,21 @@ def generate_class_name(metadata_name: str) -> str:
 async def generate_metadata_model(model_cls: Model) -> MetadataModel:
     class_name = model_cls.__name__
     name = generate_metadata_name(model_cls)
-    api_name = model_cls.meta.tablename
+    api_name = str(model_cls.meta.tablename)
     label = re.sub(r"(?<!^)(?=[A-Z])", " ", class_name)
     label_plural = f"{label}s"
+    sortable_field = None
 
     if hasattr(model_cls.Meta, "label"):
         label = model_cls.Meta.label
 
     if hasattr(model_cls.Meta, "label_plural"):
         label_plural = model_cls.Meta.label_plural
+
+    if hasattr(model_cls.Meta, "sortable_field"):
+        sortable_field = model_cls.Meta.sortable_field
+    elif "sequence" in model_cls.meta.fields:
+        sortable_field = "sequence"
 
     fields = await generate_metadata_fields(model_cls)
     has_searchable_fields = False
@@ -50,6 +56,8 @@ async def generate_metadata_model(model_cls: Model) -> MetadataModel:
         label=str(label),
         label_plural=str(label_plural),
         searchable=has_searchable_fields,
+        sortable=sortable_field is not None,
+        sortable_field=sortable_field,
         fields=fields,
     )
 

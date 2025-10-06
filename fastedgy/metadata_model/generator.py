@@ -27,6 +27,7 @@ def generate_class_name(metadata_name: str) -> str:
 async def generate_metadata_model(model_cls: Model) -> MetadataModel:
     class_name = model_cls.__name__
     name = generate_metadata_name(model_cls)
+    api_name = model_cls.meta.tablename
     label = re.sub(r"(?<!^)(?=[A-Z])", " ", class_name)
     label_plural = f"{label}s"
 
@@ -45,6 +46,7 @@ async def generate_metadata_model(model_cls: Model) -> MetadataModel:
 
     metadata = MetadataModel(
         name=name,
+        api_name=api_name,
         label=str(label),
         label_plural=str(label_plural),
         searchable=has_searchable_fields,

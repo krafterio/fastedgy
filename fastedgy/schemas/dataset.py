@@ -57,6 +57,7 @@ class MetadataField(BaseModel):
 
 class MetadataModel(BaseModel):
     name: str
+    api_name: str
     label: str
     label_plural: str
     searchable: bool

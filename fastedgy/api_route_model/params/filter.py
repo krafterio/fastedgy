@@ -179,7 +179,24 @@ def parse_filter_input_array_to_tuple(filters: list | None) -> FilterTuple | Non
         else:
             return filters[0], filters[1], filters[2]
 
-    # Array
+    # Array Flat: ["|", rule1, rule2, rule3] or ["&", rule1, rule2]
+    if len(filters) > 1 and filters[0] in ("&", "|"):
+        condition_operator = filters[0]
+        parsed_rules = []
+
+        for item in filters[1:]:
+            if isinstance(item, list):
+                parsed_rule = parse_filter_input_array_to_tuple(item)
+
+                if parsed_rule:
+                    parsed_rules.append(parsed_rule)
+            else:
+                parsed_rules.append(item)
+
+        if parsed_rules:
+            return condition_operator, parsed_rules
+
+    # Array List: ["|", [rule1, rule2, rule3]] or ["&", [rule1, rule2]]
     parsed_items = []
 
     for item in filters:

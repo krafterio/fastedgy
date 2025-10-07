@@ -3,12 +3,10 @@
 
 from typing import Callable, Any, Coroutine
 
-from fastapi import APIRouter, HTTPException, Path, Body
-from fastapi.exceptions import RequestValidationError
+from fastapi import APIRouter, Path, Body
 
 from fastedgy.dependencies import get_service
 from fastedgy.http import Request
-from fastedgy.orm.exceptions import ObjectNotFound
 from fastedgy.orm.query import QuerySet
 from fastedgy.api_route_model.actions import (
     BaseApiRouteAction,
@@ -16,6 +14,7 @@ from fastedgy.api_route_model.actions import (
     generate_output_model,
     clean_empty_strings,
 )
+from fastedgy.api_route_model.actions.exception import handle_action_exception
 from fastedgy.api_route_model.params import (
     FieldSelectorHeader,
     filter_selected_fields,
@@ -33,11 +32,6 @@ from fastedgy.api_route_model.view_transformer import (
     PreLoadRecordViewTransformer,
     PreSaveTransformer,
 )
-
-from pydantic import ValidationError
-from pydantic_core import ErrorDetails
-
-from sqlalchemy.exc import DBAPIError
 
 
 class PatchApiRouteAction(BaseApiRouteAction):
@@ -133,23 +127,8 @@ async def patch_item_action[M = TypeModel](
             )
 
         return item_dump
-    except DBAPIError as e:
-        if "SerializationError" in str(
-            e.orig.__class__.__name__
-        ) or "could not serialize access" in str(e):
-            raise HTTPException(
-                status_code=429,
-                detail="La ressource est actuellement utilisée par une autre opération. Veuillez réessayer dans quelques instants.",
-            )
-        raise e
-    except ObjectNotFound:
-        raise HTTPException(status_code=404, detail=f"{model_cls.__name__} not found")
-    except ValidationError as e:
-        raise RequestValidationError(e.errors())
-    except ValueError as e:
-        raise RequestValidationError(
-            [ErrorDetails(msg=str(e), type="value_error", loc=("body",), input=None)]
-        )
+    except Exception as e:
+        handle_action_exception(e, model_cls)
 
 
 __all__ = [

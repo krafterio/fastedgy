@@ -3,11 +3,8 @@
 
 from typing import Callable, Coroutine, Any
 
-from fastapi import APIRouter, Body, HTTPException
-from fastapi.exceptions import RequestValidationError
-from pydantic import ValidationError, BaseModel
-from pydantic_core import ErrorDetails
-from sqlalchemy.exc import DBAPIError
+from fastapi import APIRouter, Body
+from pydantic import BaseModel
 
 from fastedgy.dependencies import get_service
 from fastedgy.http import Request
@@ -17,6 +14,7 @@ from fastedgy.api_route_model.actions import (
     generate_output_model,
     clean_empty_strings,
 )
+from fastedgy.api_route_model.actions.exception import handle_action_exception
 from fastedgy.api_route_model.params import FieldSelectorHeader, filter_selected_fields
 from fastedgy.api_route_model.registry import (
     TypeModel,
@@ -108,21 +106,8 @@ async def create_item_action[M = TypeModel](
             )
 
         return item_dump
-    except DBAPIError as e:
-        if "SerializationError" in str(
-            e.orig.__class__.__name__
-        ) or "could not serialize access" in str(e):
-            raise HTTPException(
-                status_code=429,
-                detail="La ressource est actuellement utilisée par une autre opération. Veuillez réessayer dans quelques instants.",
-            )
-        raise e
-    except ValidationError as e:
-        raise RequestValidationError(e.errors())
-    except ValueError as e:
-        raise RequestValidationError(
-            [ErrorDetails(msg=str(e), type="value_error", loc=("body",), input=None)]
-        )
+    except Exception as e:
+        handle_action_exception(e, model_cls)
 
 
 __all__ = [

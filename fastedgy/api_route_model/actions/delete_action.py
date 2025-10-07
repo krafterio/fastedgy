@@ -3,10 +3,10 @@
 
 from typing import Callable, Any, Coroutine
 
-from fastapi import APIRouter, HTTPException, Path
-from fastapi.exceptions import RequestValidationError
+from fastapi import APIRouter, Path
 
 from fastedgy.api_route_model.actions import BaseApiRouteAction
+from fastedgy.api_route_model.actions.exception import handle_action_exception
 from fastedgy.api_route_model.registry import (
     BaseViewTransformer,
     TypeModel,
@@ -16,13 +16,7 @@ from fastedgy.api_route_model.registry import (
 from fastedgy.api_route_model.view_transformer import PreLoadRecordViewTransformer
 from fastedgy.dependencies import get_service
 from fastedgy.orm.query import QuerySet
-from fastedgy.orm.exceptions import ObjectNotFound
 from fastedgy.http import Request
-
-from pydantic import ValidationError
-from pydantic_core import ErrorDetails
-
-from sqlalchemy.exc import DBAPIError
 
 
 class DeleteApiRouteAction(BaseApiRouteAction):
@@ -86,23 +80,8 @@ async def delete_item_action[M = TypeModel](
         item = await query.filter(id=item_id).get()
 
         await item.delete()
-    except DBAPIError as e:
-        if "SerializationError" in str(
-            e.orig.__class__.__name__
-        ) or "could not serialize access" in str(e):
-            raise HTTPException(
-                status_code=429,
-                detail="La ressource est actuellement utilisée par une autre opération. Veuillez réessayer dans quelques instants.",
-            )
-        raise e
-    except ObjectNotFound:
-        raise HTTPException(status_code=404, detail=not_found_message)
-    except ValidationError as e:
-        raise RequestValidationError(e.errors())
-    except ValueError as e:
-        raise RequestValidationError(
-            [ErrorDetails(msg=str(e), type="value_error", loc=("body",), input=None)]
-        )
+    except Exception as e:
+        handle_action_exception(e, model_cls, not_found_message)
 
     return None
 

@@ -197,16 +197,39 @@ def register_service(
 
         if inspect.isclass(instance):
             # Class with dependencies resolution: register_service(MyClass, key)
-            if key is None:
-                raise ValueError("Key must be provided when registering a class")
-
-            provided_key = _normalize_key(key)
+            provided_key = _normalize_key(instance if key is None else key)
 
             def wrapper():
-                result = container_service._solve_dependencies(_normalize_key(instance))
-                if result is None:
-                    raise LookupError(f"Failed to auto-resolve {instance}")
-                return result
+                # Create a new instance for this specific key, not using the cached one from the class
+                from asyncio import new_event_loop, set_event_loop
+                from concurrent.futures import ThreadPoolExecutor
+
+                service_class = cast(Type[Any], instance)
+
+                def run_in_new_loop():
+                    loop = new_event_loop()
+                    set_event_loop(loop)
+
+                    try:
+                        return loop.run_until_complete(
+                            solve_dependencies(
+                                container_service._app,
+                                None,
+                                service_class,
+                                cache=container_service._dependency_cache,
+                            )
+                        )
+                    finally:
+                        loop.close()
+
+                with ThreadPoolExecutor() as executor:
+                    values = executor.submit(run_in_new_loop).result()
+
+                new_instance = service_class(**values)
+                # Store the instance under the provided key, replacing the wrapper
+                container_service._map[provided_key] = new_instance
+
+                return new_instance
 
             container_service.register(provided_key, wrapper)
         else:
@@ -223,7 +246,9 @@ def register_service(
 
         container_service.register(provided_key, instance)
 
-        if instance_type_key != provided_key:
+        # Only do double registration if no custom key was provided
+        # When a custom Token is provided, we don't want to also register with the class type
+        if key is None and instance_type_key != provided_key:
             container_service.register(instance_type_key, instance, force)
 
 

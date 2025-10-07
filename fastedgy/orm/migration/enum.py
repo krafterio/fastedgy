@@ -122,8 +122,7 @@ def compare_enums(
                 "JOIN pg_type t ON c.udt_name = t.typname "
                 "JOIN pg_namespace n ON t.typnamespace = n.oid "
                 "WHERE n.nspname=:nspname "
-                "AND t.typtype = 'e' "
-                "AND c.column_default IS NOT NULL"
+                "AND t.typtype = 'e'"
             ),
             {
                 "nspname": autogen_context.dialect.default_schema_name
@@ -134,6 +133,11 @@ def compare_enums(
 
         for row in default_rows:
             table_name, column_name, column_default, enum_name = row
+
+            # Skip if no default value
+            if column_default is None:
+                continue
+
             # Clean up the default value (remove quotes and type cast)
             clean_default = (
                 column_default.split("'")[1]
@@ -185,31 +189,35 @@ def compare_enums(
             db_defaults = db_enum_defaults.get(enum_name, {})
             model_defaults = model_enum_defaults.get(enum_name, {})
 
-            # Check if enum values or default values have changed
-            enum_values_changed = set(model_values) != set(db_values)
-            default_values_changed = _compare_default_values(
-                db_defaults, model_defaults
+            # Check if enum values have changed
+            enum_values_changed = model_values != db_values
+
+            # Skip if enum values haven't changed (no need to replace enum)
+            # Only process if enum values actually changed
+            if not enum_values_changed:
+                # Enum values are identical - no ReplaceEnum needed even if defaults differ
+                # because ReplaceEnum is costly and would do nothing to the actual enum values
+                continue
+
+            # Enum values have changed, so we need a ReplaceEnum operation
+            # Validate that new default values exist in new enum
+            _validate_default_values(model_defaults, model_values, enum_name)
+
+            # Generate automatic mapping for removed enum values
+            automatic_mapping = _generate_automatic_enum_mapping(
+                db_values, model_values, enum_name, autogen_context
             )
 
-            if enum_values_changed or default_values_changed:
-                # Validate that new default values exist in new enum
-                _validate_default_values(model_defaults, model_values, enum_name)
-
-                # Generate automatic mapping for removed enum values
-                automatic_mapping = _generate_automatic_enum_mapping(
-                    db_values, model_values, enum_name, autogen_context
+            upgrade_ops.ops.append(
+                ReplaceEnumOperation(
+                    enum_name,
+                    model_values,
+                    db_values,
+                    automatic_mapping,  # Auto-generated value_mapping
+                    model_defaults if model_defaults else None,
+                    db_defaults if db_defaults else None,
                 )
-
-                upgrade_ops.ops.append(
-                    ReplaceEnumOperation(
-                        enum_name,
-                        model_values,
-                        db_values,
-                        automatic_mapping,  # Auto-generated value_mapping
-                        model_defaults,
-                        db_defaults,
-                    )
-                )
+            )
         else:
             # New enum - no need for defaults since no columns use it yet
             # Insert at the beginning so enums are created before tables
@@ -241,22 +249,6 @@ def _is_valid_default_value(value) -> bool:
         return False
 
     return True
-
-
-def _compare_default_values(db_defaults: dict, model_defaults: dict) -> bool:
-    """Compare default values between database and models"""
-    # Convert both to flat dictionaries for easier comparison
-    db_flat = {}
-    for table_name, columns in db_defaults.items():
-        for column_name, default_value in columns.items():
-            db_flat[f"{table_name}.{column_name}"] = default_value
-
-    model_flat = {}
-    for table_name, columns in model_defaults.items():
-        for column_name, default_value in columns.items():
-            model_flat[f"{table_name}.{column_name}"] = default_value
-
-    return db_flat != model_flat
 
 
 def _validate_default_values(

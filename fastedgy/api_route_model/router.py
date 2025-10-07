@@ -8,7 +8,10 @@ from fastedgy.api_route_model.generator import (
     get_all_generated_routers,
     get_all_generated_admin_routers,
 )
-from fastedgy.api_route_model.registry import RouteModelRegistry
+from fastedgy.api_route_model.registry import (
+    ADMIN_ROUTE_MODEL_REGISTRY_TOKEN,
+    RouteModelRegistry,
+)
 from fastedgy.dependencies import get_service
 from fastedgy.metadata_model import MetadataModelRegistry
 
@@ -50,9 +53,9 @@ def register_admin_api_route_models(api_router: APIRouter) -> None:
         logger.debug(f"Adding model router with prefix: {prefix}")
         api_router.include_router(router, prefix=prefix)
 
-    rmr = get_service(RouteModelRegistry)
+    armr = get_service(ADMIN_ROUTE_MODEL_REGISTRY_TOKEN)
     mmr = get_service(MetadataModelRegistry)
-    for model_cls in list(rmr.get_registered_models()):
+    for model_cls in list(armr.get_registered_models()):
         mmr.register_model(model_cls)
 
 

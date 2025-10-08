@@ -20,6 +20,7 @@ from fastedgy.http import ContextRequestMiddleware
 from fastedgy.i18n import LocaleMiddleware
 from fastedgy.orm import Registry, Database
 from fastedgy.orm.registry import register_lazy_models
+from fastedgy.timezone import setup_timezone
 from starlette.routing import BaseRoute
 from starlette.middleware import Middleware
 from starlette.types import Lifespan
@@ -845,6 +846,7 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
             **extra,
         )
 
+        setup_timezone(settings.timezone)
         setup_logging(
             level=settings.log_level,
             output=settings.log_output,

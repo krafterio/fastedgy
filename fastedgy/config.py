@@ -145,6 +145,9 @@ class BaseSettings(PydanticBaseSettings):
     available_locales: list[str] = ["en"]
     translations_paths: list[str] = []
 
+    # Timezone
+    timezone: str = "UTC"
+
     @classmethod
     def from_env_file(cls, env_file: str):
         """Create Settings with custom env file path."""

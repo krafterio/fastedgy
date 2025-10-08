@@ -363,23 +363,22 @@ wheels = [
 
 [[package]]
 name = "edgy"
-version = "0.33.2"
+version = "0.34.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "alembic" },
     { name = "blinker" },
-    { name = "click" },
     { name = "databasez" },
     { name = "loguru" },
     { name = "monkay" },
     { name = "orjson" },
     { name = "pydantic", extra = ["email"] },
     { name = "pydantic-settings" },
-    { name = "rich" },
+    { name = "sayer" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/60/bf/35daae8aa844bec0c0e834afebe4f845e4f0dde5e9c99cbb7880a4107aee/edgy-0.33.2.tar.gz", hash = "sha256:087c1cba9056c08b9ff3b4debdf1df6cbfc953d836b401c17039f7ea99fb09a0", size = 340898, upload-time = "2025-09-16T11:45:47.657Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f0/e3/616f52ec1fef11fed36774080a9151e04d0e13ea14993b21bc614495cd5a/edgy-0.34.0.tar.gz", hash = "sha256:edeecd7191e63e99f7c597a64d0f3d87e58fbe8be75b0db23cf113711482ef64", size = 336918, upload-time = "2025-10-08T04:37:02.234Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e6/f9/bb2adc8f444c4b0b040f70ffddcc6905b3d4fefecdcd81058294977c23a5/edgy-0.33.2-py3-none-any.whl", hash = "sha256:bb28cf5c2f82eaad3b6fd7007dcd88230e698b784454686405fa6ee3e5923437", size = 444064, upload-time = "2025-09-16T11:45:46.368Z" },
+    { url = "https://files.pythonhosted.org/packages/b6/7f/f9a2fa88d46fab5928f0914e0799b41f024c18f5617df7a506645d7795ea/edgy-0.34.0-py3-none-any.whl", hash = "sha256:324bc57bf3de2226e8bf1c86da9b0c70432371f5aaa25f25cbf0a008db4afa5e", size = 438249, upload-time = "2025-10-08T04:37:03.817Z" },
 ]
 
 [package.optional-dependencies]
@@ -467,7 +466,7 @@ requires-dist = [
     { name = "bcrypt", specifier = "~=4.3" },
     { name = "click", specifier = "~=8.2" },
     { name = "dill", specifier = "~=0.4" },
-    { name = "edgy", extras = ["postgres"], specifier = "~=0.33" },
+    { name = "edgy", extras = ["postgres"], specifier = "~=0.34" },
     { name = "fastapi", specifier = "~=0.115" },
     { name = "html2text", specifier = "~=2025.4" },
     { name = "httpx", specifier = "~=0.28" },
@@ -1423,6 +1422,22 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/28/d3/bb25ee567ce2f61ac52430cf99f446b0e6d49bdfa4188699ad005fdd16aa/ruff-0.13.3-py3-none-win32.whl", hash = "sha256:f14e0d1fe6460f07814d03c6e32e815bff411505178a1f539a38f6097d3e8ee3", size = 12334488, upload-time = "2025-10-02T19:29:24.782Z" },
     { url = "https://files.pythonhosted.org/packages/cf/49/12f5955818a1139eed288753479ba9d996f6ea0b101784bb1fe6977ec128/ruff-0.13.3-py3-none-win_amd64.whl", hash = "sha256:621e2e5812b691d4f244638d693e640f188bacbb9bc793ddd46837cea0503dd2", size = 13455262, upload-time = "2025-10-02T19:29:26.882Z" },
     { url = "https://files.pythonhosted.org/packages/fe/72/7b83242b26627a00e3af70d0394d68f8f02750d642567af12983031777fc/ruff-0.13.3-py3-none-win_arm64.whl", hash = "sha256:9e9e9d699841eaf4c2c798fa783df2fabc680b72059a02ca0ed81c460bc58330", size = 12538484, upload-time = "2025-10-02T19:29:28.951Z" },
+]
+
+[[package]]
+name = "sayer"
+version = "0.7.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "click" },
+    { name = "monkay" },
+    { name = "rich" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/37/9d/20b4391990c1da385a917bf571769233fb8c72aef762bd9794a69966e81a/sayer-0.7.1.tar.gz", hash = "sha256:bbe3780d2a254940b519a180bfe57cee315540fe952fd613548d47693ed90324", size = 62512, upload-time = "2025-10-07T20:44:30.339Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9e/a5/09e6398d4c7af6bc0bb93c865499717b7c4c104fa95b30e0b420c6bed3f9/sayer-0.7.1-py3-none-any.whl", hash = "sha256:49b63e9dbf434eb1b60fa012302a9e48969cb0ee90fc6514568beeee8890e6d6", size = 76981, upload-time = "2025-10-07T20:44:31.44Z" },
 ]
 
 [[package]]

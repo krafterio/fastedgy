@@ -7,7 +7,6 @@ from pathlib import Path
 
 from alembic import command
 from edgy.cli.base import Config
-from edgy.cli.decorators import add_migration_directory_option
 from fastedgy import cli
 from fastedgy.cli import CliContext
 from fastedgy.cli.db import db
@@ -17,7 +16,6 @@ FASTEDGY_TEMPLATE_NAME = "fastedgy"
 FASTEDGY_TEMPLATE_DIR = Path(__file__).parent / "templates"
 
 
-@add_migration_directory_option
 @db.command()
 @cli.option(
     "-t",

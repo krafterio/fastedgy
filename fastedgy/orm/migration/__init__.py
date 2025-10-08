@@ -5,6 +5,7 @@ from .view_model import *
 from .enum import *
 from .vector import *
 from .postgis import *
+from .system import *
 
 
 def fastedgy_process_revision_directives(context, revision, directives):
@@ -18,6 +19,7 @@ def fastedgy_process_revision_directives(context, revision, directives):
     if not directives[0].upgrade_ops:
         return
 
+    process_system_objects_revision_directives(context, revision, directives)
     process_enum_revision_directives(context, revision, directives)
     process_vector_revision_directives(context, revision, directives)
     process_postgis_revision_directives(context, revision, directives)
@@ -25,6 +27,7 @@ def fastedgy_process_revision_directives(context, revision, directives):
 
 __all__ = [
     "fastedgy_process_revision_directives",
+    "process_system_objects_revision_directives",
     "process_enum_revision_directives",
     "process_vector_revision_directives",
     "process_postgis_revision_directives",

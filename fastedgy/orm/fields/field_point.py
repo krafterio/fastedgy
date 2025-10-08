@@ -11,8 +11,11 @@ from typing import Any
 class Point(UserDefinedType):
     cache_ok = True
 
-    def __init__(self, srid: int = 4326):
-        self.srid = srid
+    def __init__(self, srid: int | str = 4326, *args, **kwargs):
+        if srid == 'Point':
+            self.srid = 4326
+
+        self.srid = srid if isinstance(srid, int) else 4326
         super().__init__()
 
     @property

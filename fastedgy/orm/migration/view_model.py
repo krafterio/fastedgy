@@ -25,6 +25,22 @@ def compare_view(
     registry = get_service(Registry)
     db_views = defaultdict()
 
+    # Get views created by extensions (PostGIS, etc.)
+    extension_views = set()
+    try:
+        ext_rows = autogen_context.connection.execute(  # type: ignore
+            text(
+                "SELECT DISTINCT c.relname "
+                "FROM pg_depend d "
+                "JOIN pg_extension e ON d.refobjid = e.oid "
+                "JOIN pg_class c ON d.objid = c.oid "
+                "WHERE c.relkind = 'v' AND d.deptype = 'e'"
+            )
+        )
+        extension_views = {row[0] for row in ext_rows}
+    except Exception:
+        pass
+
     for sch in schemas:
         rows = autogen_context.connection.execute(  # type: ignore
             text(
@@ -40,7 +56,8 @@ def compare_view(
         )
 
         for row in rows:
-            db_views[(row[0], row[1])] = normalize_sql(row[2])
+            if row[1] not in extension_views:
+                db_views[(row[0], row[1])] = normalize_sql(row[2])
 
     # Define all views from the models
     model_views = defaultdict()

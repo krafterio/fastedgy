@@ -572,13 +572,14 @@ def build_filter_expression(
 
 def filter_query(
     query: QuerySet,
-    filters: str | list | FilterTuple | None,
+    filters: str | list | FilterTuple | Filter | None,
     restrict_error: bool = False,
 ) -> QuerySet:
     has_filters = filters is not None
 
     try:
-        filters = parse_filter_input(filters)
+        if not isinstance(filters, FilterCondition) and not isinstance(filters, FilterRule):
+            filters = parse_filter_input(filters)
 
         if not has_filters and not filters:
             return query

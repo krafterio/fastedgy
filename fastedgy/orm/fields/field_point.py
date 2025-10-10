@@ -12,7 +12,7 @@ class Point(UserDefinedType):
     cache_ok = True
 
     def __init__(self, srid: int | str = 4326, *args, **kwargs):
-        if srid == 'Point':
+        if srid == "Point":
             self.srid = 4326
 
         self.srid = srid if isinstance(srid, int) else 4326

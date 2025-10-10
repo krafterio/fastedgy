@@ -1,6 +1,7 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+
 def process_system_objects_revision_directives(context, revision, directives):
     """
     Remove operations that target system objects from PostgreSQL extensions.
@@ -34,7 +35,11 @@ def _remove_system_objects_operations(context, ops):
     Recursively remove operations that target system objects from PostgreSQL extensions.
     """
     from alembic.operations.ops import DropTableOp, CreateTableOp, ModifyTableOps
-    from fastedgy.orm.migration.view_model import DropViewOperation, CreateViewOperation, ReplaceViewOperation
+    from fastedgy.orm.migration.view_model import (
+        DropViewOperation,
+        CreateViewOperation,
+        ReplaceViewOperation,
+    )
 
     extension_objects = _get_extension_objects(context)
     ops_to_remove = []
@@ -43,10 +48,10 @@ def _remove_system_objects_operations(context, ops):
         should_remove = False
 
         if isinstance(op, (DropTableOp, CreateTableOp)):
-            if hasattr(op, 'table_name') and op.table_name in extension_objects:
+            if hasattr(op, "table_name") and op.table_name in extension_objects:
                 should_remove = True
         elif isinstance(op, ModifyTableOps):
-            if hasattr(op, 'table_name') and op.table_name in extension_objects:
+            if hasattr(op, "table_name") and op.table_name in extension_objects:
                 should_remove = True
             else:
                 # Recursively clean nested operations
@@ -54,8 +59,10 @@ def _remove_system_objects_operations(context, ops):
                 # If ModifyTableOps becomes empty, mark for removal
                 if not op.ops:
                     should_remove = True
-        elif isinstance(op, (DropViewOperation, CreateViewOperation, ReplaceViewOperation)):
-            if hasattr(op, 'name') and op.name in extension_objects:
+        elif isinstance(
+            op, (DropViewOperation, CreateViewOperation, ReplaceViewOperation)
+        ):
+            if hasattr(op, "name") and op.name in extension_objects:
                 should_remove = True
         elif hasattr(op, "ops"):
             # Recursively clean nested operations

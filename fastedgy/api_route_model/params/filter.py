@@ -578,7 +578,9 @@ def filter_query(
     has_filters = filters is not None
 
     try:
-        if not isinstance(filters, FilterCondition) and not isinstance(filters, FilterRule):
+        if not isinstance(filters, FilterCondition) and not isinstance(
+            filters, FilterRule
+        ):
             filters = parse_filter_input(filters)
 
         if not has_filters and not filters:

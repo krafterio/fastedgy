@@ -13,7 +13,11 @@ from fastedgy.api_route_model.registry import (
     RouteModelActionOptions,
     ViewTransformerRegistry,
 )
-from fastedgy.api_route_model.view_transformer import PreLoadRecordViewTransformer
+from fastedgy.api_route_model.view_transformer import (
+    PreLoadRecordViewTransformer,
+    PreDeleteTransformer,
+    PostDeleteTransformer,
+)
 from fastedgy.dependencies import get_service
 from fastedgy.orm.query import QuerySet
 from fastedgy.http import Request
@@ -79,7 +83,17 @@ async def delete_item_action[M = TypeModel](
 
         item = await query.filter(id=item_id).get()
 
+        for transformer in vtr.get_transformers(
+            PreDeleteTransformer, model_cls, transformers
+        ):
+            await transformer.pre_delete(request, item, transformers_ctx)
+
         await item.delete()
+
+        for transformer in vtr.get_transformers(
+            PostDeleteTransformer, model_cls, transformers
+        ):
+            await transformer.post_delete(request, item, transformers_ctx)
     except Exception as e:
         handle_action_exception(e, model_cls, not_found_message)
 

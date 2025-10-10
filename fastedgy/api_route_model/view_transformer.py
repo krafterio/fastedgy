@@ -67,6 +67,20 @@ class PostSaveTransformer[M = BaseModel](BaseViewTransformer):
     ) -> None: ...
 
 
+class PreDeleteTransformer[M = BaseModel](BaseViewTransformer):
+    @abstractmethod
+    async def pre_delete(
+        self, request: Request, record: M, ctx: dict[str, Any]
+    ) -> None: ...
+
+
+class PostDeleteTransformer[M = BaseModel](BaseViewTransformer):
+    @abstractmethod
+    async def post_delete(
+        self, request: Request, record: M, ctx: dict[str, Any]
+    ) -> None: ...
+
+
 __all__ = [
     "BaseViewTransformer",
     "PrePaginateViewTransformer",
@@ -75,4 +89,6 @@ __all__ = [
     "GetViewTransformer",
     "PreSaveTransformer",
     "PostSaveTransformer",
+    "PreDeleteTransformer",
+    "PostDeleteTransformer",
 ]

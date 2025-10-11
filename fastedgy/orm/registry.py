@@ -10,13 +10,6 @@ from edgy import (
 _lazy_models: set[type] = set()
 
 
-def register_model(registry: Registry, model: type[Model]):
-    """Register a model in the registry."""
-    registry.models[model.__name__] = model
-    model.database = registry.database
-    model.meta.registry = registry
-
-
 def lazy_register_model(model_class: type) -> None:
     if (
         hasattr(model_class, "meta")
@@ -42,13 +35,12 @@ def register_lazy_models(registry: Registry) -> None:
 
     for model_class in _lazy_models:
         if not model_class.meta.abstract:
-            register_model(registry, model_class)
+            model_class.add_to_registry(registry)
 
     _lazy_models = set()
 
 
 __all__ = [
-    "register_model",
     "lazy_register_model",
     "register_lazy_models",
 ]

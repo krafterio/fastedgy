@@ -172,9 +172,7 @@ async def upload_model_field_file(
         meta_model = await meta_registry.get_metadata(model)
         model_cls = await meta_registry.get_model_from_metadata(meta_model)
 
-        for transformer in vtr.get_transformers(
-            PreUploadTransformer, model_cls, None
-        ):
+        for transformer in vtr.get_transformers(PreUploadTransformer, model_cls, None):
             global_storage = await transformer.pre_upload(
                 request, record, field, cast(UploadFile, file), transformers_ctx
             )
@@ -190,9 +188,7 @@ async def upload_model_field_file(
         setattr(record, field, path)
         await record.save()
 
-        for transformer in vtr.get_transformers(
-            PostUploadTransformer, model_cls, None
-        ):
+        for transformer in vtr.get_transformers(PostUploadTransformer, model_cls, None):
             path = await transformer.post_upload(
                 request, record, field, path, transformers_ctx
             )

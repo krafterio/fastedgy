@@ -571,6 +571,23 @@ def build_filter_expression(
     return cond_query.and_(*expressions)
 
 
+def _has_relation_filter(filters: Filter | None) -> bool:
+    """Check if filters contain relations (field with dot notation)."""
+    if not filters:
+        return False
+
+    if isinstance(filters, FilterRule):
+        return "." in filters.field
+
+    if isinstance(filters, FilterCondition):
+        return any(_has_relation_filter(rule) for rule in filters.rules)
+
+    if isinstance(filters, list):
+        return any(_has_relation_filter(item) for item in filters)
+
+    return False
+
+
 def filter_query(
     query: QuerySet,
     filters: str | list | FilterTuple | Filter | None,
@@ -604,6 +621,11 @@ def filter_query(
 
     if expression is not None:
         query = query.filter(expression)
+
+        if _has_relation_filter(filters) and query.distinct_on is None:
+            primary_key = find_primary_key_field(query.model_class)
+            if primary_key:
+                query = query.distinct(primary_key)
 
     return query
 

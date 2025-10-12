@@ -38,7 +38,7 @@ def inject_order_by(query: QuerySet, order_by: OrderByInput) -> QuerySet:
 
     if order_by_fields:
         formatted_fields = [
-            ("-" if direction == "desc" else "") + field
+            ("-" if direction == "desc" else "") + field.replace(".", "__")
             for field, direction in order_by_fields
         ]
         query = query.order_by(*formatted_fields)

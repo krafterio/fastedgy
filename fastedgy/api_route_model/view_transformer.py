@@ -3,13 +3,18 @@
 
 from abc import ABC, abstractmethod
 
-from typing import Any
+from typing import Any, TYPE_CHECKING
+from pathlib import Path
 
 from fastedgy.http import Request
 from fastedgy.orm.query import QuerySet
 from fastedgy.schemas.base import Pagination
 
 from pydantic import BaseModel
+
+if TYPE_CHECKING:
+    from fastapi import UploadFile
+    from fastedgy.models.base import BaseModel as EdgyBaseModel
 
 
 class BaseViewTransformer(ABC):
@@ -81,6 +86,65 @@ class PostDeleteTransformer[M = BaseModel](BaseViewTransformer):
     ) -> None: ...
 
 
+class PreUploadTransformer(BaseViewTransformer):
+    @abstractmethod
+    async def pre_upload(
+        self,
+        request: Request,
+        record: "EdgyBaseModel",
+        field: str,
+        file: "UploadFile",
+        ctx: dict[str, Any],
+    ) -> bool:
+        """
+        Pre-upload transformer.
+
+        Returns:
+            bool: Whether to use global storage (True) or workspace storage (False)
+        """
+        ...
+
+
+class PostUploadTransformer(BaseViewTransformer):
+    @abstractmethod
+    async def post_upload(
+        self,
+        request: Request,
+        record: "EdgyBaseModel",
+        field: str,
+        path: str,
+        ctx: dict[str, Any],
+    ) -> str: ...
+
+
+class PreDownloadTransformer(BaseViewTransformer):
+    @abstractmethod
+    async def pre_download(
+        self,
+        request: Request,
+        path: str,
+        ctx: dict[str, Any],
+    ) -> bool:
+        """
+        Pre-download transformer.
+
+        Returns:
+            bool: Whether to use global storage (True) or workspace storage (False)
+        """
+        ...
+
+
+class PostDownloadTransformer(BaseViewTransformer):
+    @abstractmethod
+    async def post_download(
+        self,
+        request: Request,
+        path: str,
+        served_path: Path,
+        ctx: dict[str, Any],
+    ) -> Path: ...
+
+
 __all__ = [
     "BaseViewTransformer",
     "PrePaginateViewTransformer",
@@ -91,4 +155,8 @@ __all__ = [
     "PostSaveTransformer",
     "PreDeleteTransformer",
     "PostDeleteTransformer",
+    "PreUploadTransformer",
+    "PostUploadTransformer",
+    "PreDownloadTransformer",
+    "PostDownloadTransformer",
 ]

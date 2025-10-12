@@ -21,6 +21,13 @@ from fastedgy.orm import Registry
 from fastedgy import context
 from fastedgy.schemas.storage import UploadedAttachments, UploadedModelField
 from fastedgy.i18n import _t
+from fastedgy.api_route_model.registry import ViewTransformerRegistry
+from fastedgy.api_route_model.view_transformer import (
+    PreUploadTransformer,
+    PostUploadTransformer,
+    PreDownloadTransformer,
+    PostDownloadTransformer,
+)
 
 try:
     from uuid_extensions import uuid7  # type: ignore
@@ -157,13 +164,38 @@ async def upload_model_field_file(
             )
 
         record = await _get_record(model, field, model_id)
+        vtr = get_service(ViewTransformerRegistry)
+        transformers_ctx: dict[str, Any] = {}
+        global_storage = False
+
+        meta_registry = get_service(MetadataModelRegistry)
+        meta_model = await meta_registry.get_metadata(model)
+        model_cls = await meta_registry.get_model_from_metadata(meta_model)
+
+        for transformer in vtr.get_transformers(
+            PreUploadTransformer, model_cls, None
+        ):
+            global_storage = await transformer.pre_upload(
+                request, record, field, cast(UploadFile, file), transformers_ctx
+            )
 
         if getattr(record, field):
-            await storage.delete(getattr(record, field))
+            await storage.delete(getattr(record, field), global_storage=global_storage)
 
-        path = await storage.upload(cast(UploadFile, file), model)
+        path = await storage.upload(
+            cast(UploadFile, file),
+            model,
+            global_storage=global_storage,
+        )
         setattr(record, field, path)
         await record.save()
+
+        for transformer in vtr.get_transformers(
+            PostUploadTransformer, model_cls, None
+        ):
+            path = await transformer.post_upload(
+                request, record, field, path, transformers_ctx
+            )
 
         return UploadedModelField(path=path)
     except ValueError as e:
@@ -262,6 +294,7 @@ async def download_attachment(
 @router.get("/download/{path:path}")
 async def download_file(
     path: str,
+    request: Request,
     force_download: bool = Query(False),
     w: int | None = Query(None),
     h: int | None = Query(None),
@@ -269,13 +302,24 @@ async def download_file(
     e: str | None = Query(None),
     storage: Storage = Inject(Storage),
 ) -> Response:
-    # Resolve optimized or original path
+    vtr = get_service(ViewTransformerRegistry)
+    transformers_ctx: dict[str, Any] = {}
+    global_storage = False
+
+    for transformer in vtr.get_transformers(PreDownloadTransformer, None, None):
+        global_storage = await transformer.pre_download(request, path, transformers_ctx)
+
     served_path, content_type = storage.get_optimized_or_original(
-        path, w=w, h=h, mode=m, out_ext=e
+        path, w=w, h=h, mode=m, out_ext=e, global_storage=global_storage
     )
 
     if not served_path.exists():
         raise HTTPException(status_code=404, detail="Fichier non trouvé")
+
+    for transformer in vtr.get_transformers(PostDownloadTransformer, None, None):
+        served_path = await transformer.post_download(
+            request, path, served_path, transformers_ctx
+        )
 
     # Build filename based on original path but adopt served extension
     src_name = Path(path).name

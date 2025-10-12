@@ -45,12 +45,16 @@ def inject_order_by(query: QuerySet, order_by: OrderByInput) -> QuerySet:
         if query.distinct_on is not None and len(query.distinct_on) > 0:
             distinct_fields = [field.replace(".", "__") for field in query.distinct_on]
 
+            first_order_direction = ""
+            if formatted_fields and formatted_fields[0].startswith("-"):
+                first_order_direction = "-"
+
             for distinct_field in reversed(distinct_fields):
                 if (
                     distinct_field not in formatted_fields
                     and f"-{distinct_field}" not in formatted_fields
                 ):
-                    formatted_fields.insert(0, distinct_field)
+                    formatted_fields.insert(0, first_order_direction + distinct_field)
 
         query = query.order_by(*formatted_fields)
 

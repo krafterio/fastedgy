@@ -4,6 +4,7 @@
 from typing import Any, get_args, cast, Callable, Type
 from dataclasses import dataclass
 import json
+from urllib.parse import unquote
 
 from fastapi.params import Query, Header
 
@@ -142,7 +143,7 @@ def parse_filter_input_str(filters: str | None) -> FilterCondition | None:
         return None
 
     try:
-        data = json.loads(filters)
+        data = json.loads(unquote(filters))
         tuple_data = parse_filter_input_array_to_tuple(data)
 
         return parse_filter_input_tuple(tuple_data)

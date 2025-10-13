@@ -55,7 +55,9 @@ X-Fields: name,price,category.name,description
 
 ## Working with Relationships
 
-Generated endpoints support Edgy model relationships:
+### ForeignKey relationships
+
+Generated endpoints support foreign key references:
 
 ```bash
 # Create with foreign key reference
@@ -68,6 +70,132 @@ X-Filter: ["category.name", "=", "Electronics"]
 
 GET /api/products/
 X-Filter: ["category", "=", 1]
+```
+
+### ManyToMany & OneToMany relationships
+
+FastEdgy provides two modes for managing collections of related records.
+
+#### Simple mode
+
+For small sets or complete replacements, use a simple list of IDs:
+
+```bash
+# Create with related items
+POST /api/products/
+{
+  "name": "Laptop",
+  "tags": [1, 2, 3]
+}
+
+# Replace all relations
+PATCH /api/products/42
+{
+  "tags": [4, 5, 6]
+}
+```
+
+The simple mode automatically executes a `set` operation that replaces all existing relations.
+
+#### Advanced mode
+
+For large collections or partial updates, use granular operations to avoid performance issues:
+
+!!! info "Performance optimization"
+    When a product has 1000 linked tags and you want to add just one more, simple mode would require sending 1001 IDs and the server would unlink 1000 relations then re-link 1001. Advanced mode lets you send just `["link", 1001]` for optimal performance.
+
+**Available operations:**
+
+| Operation | Description | Example Value |
+|-----------|-------------|---------------|
+| `link` | Add relation to existing record | `["link", 42]` |
+| `unlink` | Remove relation (keep record) | `["unlink", 23]` |
+| `create` | Create new record and link it | `["create", {"name": "New"}]` |
+| `update` | Update record and ensure link | `["update", {"id": 10, "name": "Updated"}]` |
+| `delete` | Delete record and remove relation | `["delete", 15]` |
+| `set` | Replace all relations | `["set", [1, 2, 3]]` |
+| `clear` | Remove all relations | `["clear"]` |
+
+**When to use each operation:**
+
+- **`link`** - Add one item to a large existing collection without touching others
+- **`unlink`** - Remove one item from a large collection
+- **`set`** - Reset the entire collection (same as simple mode)
+- **`clear`** - Revoke all access or empty the collection
+- **`create`** - Create and link in a single operation
+- **`update`** - Modify a linked record and ensure the link exists
+- **`delete`** - Permanently remove a linked record
+
+**Examples:**
+
+```bash
+# Add one item to existing large collection
+PATCH /api/products/42
+{
+  "tags": [["link", 1001]]
+}
+
+# Multiple targeted modifications
+PATCH /api/products/42
+{
+  "tags": [
+    ["link", 50],
+    ["unlink", 23],
+    ["update", {"id": 10, "name": "Updated Name"}]
+  ]
+}
+
+# Create and link in one request
+POST /api/products/
+{
+  "name": "Gaming Laptop",
+  "tags": [
+    ["link", 1],
+    ["create", {"name": "Limited Edition"}]
+  ]
+}
+
+# Complete reset (equivalent to simple mode)
+PATCH /api/products/42
+{
+  "tags": [["set", [1, 2, 3]]]
+}
+
+# Clear all relations
+PATCH /api/products/42
+{
+  "tags": [["clear"]]
+}
+```
+
+**Operation order:**
+
+Operations are executed sequentially in the order provided:
+
+```bash
+PATCH /api/products/42
+{
+  "tags": [
+    ["clear"],              # 1. Remove all existing tags
+    ["link", 1],            # 2. Add tag 1
+    ["link", 2],            # 3. Add tag 2
+    ["create", {"name": "New Tag"}]  # 4. Create and add new tag
+  ]
+}
+```
+
+**Error responses:**
+
+```json
+// 400 Bad Request - Record not found
+{
+  "detail": "Record with id=999 not found in Tag"
+}
+
+// 400 Bad Request - Invalid operation format
+{
+  "detail": "Invalid operation format: ['link']. Expected [action, value] format."
+}
 ```
 
 ## Data Export

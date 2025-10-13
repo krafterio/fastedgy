@@ -212,4 +212,10 @@ X-Filter: ["&", [
 - **422**: Invalid field, operator, or JSON format
 - **422**: Type conversion errors
 
+## Programmatic usage
+
+For advanced use cases where you need to build filters programmatically in Python code, check out the advanced guide.
+
+[Advanced Usage](advanced.md){ .md-button .md-button--primary }
+
 [Back to Overview](overview.md){ .md-button }

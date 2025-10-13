@@ -145,6 +145,7 @@ nav:
       - Query Builder:
         - Overview: features/query-builder/overview.md
         - Usage Guide: features/query-builder/guide.md
+        - Advanced Usage: features/query-builder/advanced.md
       - Fields Selector:
         - Overview: features/fields-selector/overview.md
         - Usage Guide: features/fields-selector/guide.md

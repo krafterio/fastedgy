@@ -26,10 +26,54 @@ def generate_output_model[M = TypeModel](model_cls: M) -> type[M]:
 
 
 def generate_input_create_model[M = TypeModel](model_cls: M) -> type[M]:
+    """Generate Pydantic input model for POST with M2M/O2M support."""
+    from pydantic import Field as PydanticField
+
     fields = {}
 
     for field_name, field in model_cls.model_fields.items():
-        if not field.exclude and not field.read_only and not field.primary_key:
+        # Skip primary keys and read-only fields
+        if field.read_only or field.primary_key:
+            continue
+
+        # Detect M2M or O2M fields (include them even if excluded)
+        if is_many_to_many_field(field) or is_one_to_many_field(field):
+            # Accept either:
+            # - list[int] (simple: [1,2,3] → [["set", [1,2,3]]])
+            # - list[list] (advanced: [["create", {...}], ["link", 42]])
+            # Using Any for advanced mode to keep OpenAPI schema simple
+            field_type = (
+                optional_field_type(Union[list[int], list[list]])
+                if field.null
+                else Union[list[int], list[list]]
+            )
+
+            fields[field_name] = (
+                field_type,
+                PydanticField(
+                    default=[] if not field.null else None,
+                    description=(
+                        f"Relations for {field_name}.\n\n"
+                        f"**Simple mode:** Array of IDs: `[1, 2, 3]`\n\n"
+                        f'**Advanced mode:** Array of operations `[["action", value], ...]`\n\n'
+                        f"Available actions:\n"
+                        f"- `create` - Create new record and link (value=object)\n"
+                        f"- `update` - Update record and ensure link (value={{id:X,...}})\n"
+                        f"- `link` - Link existing record (value=id)\n"
+                        f"- `unlink` - Remove link without deleting (value=id)\n"
+                        f"- `delete` - Delete record and remove link (value=id)\n"
+                        f"- `set` - Replace all links (value=[ids])\n"
+                        f"- `clear` - Remove all links (no value)"
+                    ),
+                    examples=[
+                        [1, 2, 3],
+                        [["link", 1], ["create", {"name": "New"}]],
+                        [["clear"], ["set", [1, 2, 3]]],
+                    ],
+                ),
+            )
+        elif not field.exclude:
+            # Regular scalar field (only if not excluded)
             field_type = field.field_type
             if field.null:
                 field_type = optional_field_type(field.field_type)
@@ -39,10 +83,48 @@ def generate_input_create_model[M = TypeModel](model_cls: M) -> type[M]:
 
 
 def generate_input_patch_model[M = TypeModel](model_cls: M) -> type[M]:
+    """Generate Pydantic input model for PATCH with M2M/O2M support."""
+    from pydantic import Field as PydanticField
+
     fields = {}
 
     for field_name, field in model_cls.model_fields.items():
-        if not field.exclude and not field.read_only and not field.primary_key:
+        # Skip primary keys and read-only fields
+        if field.read_only or field.primary_key:
+            continue
+
+        # Detect M2M or O2M fields (include them even if excluded)
+        if is_many_to_many_field(field) or is_one_to_many_field(field):
+            # Accept either:
+            # - list[int] (simple: [1,2,3] → [["set", [1,2,3]]])
+            # - list[list] (advanced: [["clear"], ["create", {...}], ["link", 42]])
+            # Using list[list] for advanced mode to keep OpenAPI schema simple
+            fields[field_name] = (
+                Union[list[int], list[list], None],
+                PydanticField(
+                    default=None,
+                    description=(
+                        f"Relations for {field_name}.\n\n"
+                        f"**Simple mode:** Array of IDs: `[1, 2, 3]`\n\n"
+                        f'**Advanced mode:** Array of operations `[["action", value], ...]`\n\n'
+                        f"Available actions:\n"
+                        f"- `create` - Create new record and link (value=object)\n"
+                        f"- `update` - Update record and ensure link (value={{id:X,...}})\n"
+                        f"- `link` - Link existing record (value=id)\n"
+                        f"- `unlink` - Remove link without deleting (value=id)\n"
+                        f"- `delete` - Delete record and remove link (value=id)\n"
+                        f"- `set` - Replace all links (value=[ids])\n"
+                        f"- `clear` - Remove all links (no value)"
+                    ),
+                    examples=[
+                        [1, 2, 3],
+                        [["link", 1], ["create", {"name": "New"}]],
+                        [["clear"], ["set", [1, 2, 3]]],
+                    ],
+                ),
+            )
+        elif not field.exclude:
+            # Regular scalar field (only if not excluded)
             py_field = copy(field)
             py_field.required = False
             py_field.null = True
@@ -169,6 +251,53 @@ class ApiRouteActionRegistry:
         return list(self._actions.keys())
 
 
+def is_many_to_many_field(field) -> bool:
+    """
+    Check if a field is a ManyToMany field.
+
+    Args:
+        field: The field to check
+
+    Returns:
+        True if the field is a ManyToMany field, False otherwise
+    """
+    return getattr(field, "is_m2m", False) is True
+
+
+def is_one_to_many_field(field) -> bool:
+    """
+    Check if a field is a reverse ForeignKey (One2Many).
+
+    Args:
+        field: The field to check
+
+    Returns:
+        True if the field is a One2Many field, False otherwise
+
+    Note:
+        Currently not implemented - One2Many support to be added later.
+    """
+    # TODO: Implement O2M detection based on Edgy's reverse FK
+    return False
+
+
+def get_related_model(field) -> type:
+    """
+    Extract the related model class from a relational field.
+
+    Args:
+        field: A ManyToMany or ForeignKey field
+
+    Returns:
+        The related model class
+
+    Raises:
+        AttributeError: If the field doesn't have a 'target' attribute
+    """
+    # For M2M and FK fields, the 'target' property resolves the related model
+    return field.target
+
+
 __all__ = [
     "generate_output_model",
     "generate_input_create_model",
@@ -177,4 +306,7 @@ __all__ = [
     "clean_empty_strings",
     "BaseApiRouteAction",
     "ApiRouteActionRegistry",
+    "is_many_to_many_field",
+    "is_one_to_many_field",
+    "get_related_model",
 ]

@@ -38,10 +38,10 @@ async def process_many_to_many_operations(
 
     Examples:
         >>> await process_many_to_many_operations(
-        ...     agent,
-        ...     "point_of_sale_types",
+        ...     product,
+        ...     "tags",
         ...     [["link", 1], ["create", {"name": "New"}]],
-        ...     PointOfSaleType
+        ...     Tag
         ... )
     """
     relation_manager = getattr(instance, field_name)

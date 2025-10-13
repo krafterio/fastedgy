@@ -16,7 +16,7 @@ class CreateOp(RootModel):
     ["create", {...}] - Create a new record and link it.
 
     Example:
-        ["create", {"name": "Supermarché", "code": "SM"}]
+        ["create", {"name": "Electronics", "slug": "electronics"}]
     """
 
     root: tuple[Literal["create"], dict[str, Any]]
@@ -24,7 +24,7 @@ class CreateOp(RootModel):
     model_config = {
         "json_schema_extra": {
             "description": "Create a new related record and link it",
-            "examples": [["create", {"name": "Supermarché", "code": "SM"}]],
+            "examples": [["create", {"name": "Electronics", "slug": "electronics"}]],
         }
     }
 
@@ -34,7 +34,7 @@ class UpdateOp(RootModel):
     ["update", {"id": ..., ...}] - Update a record (id required in object).
 
     Example:
-        ["update", {"id": 23, "name": "Hypermarché"}]
+        ["update", {"id": 23, "name": "Gaming"}]
     """
 
     root: tuple[Literal["update"], dict[str, Any]]
@@ -52,7 +52,7 @@ class UpdateOp(RootModel):
     model_config = {
         "json_schema_extra": {
             "description": "Update an existing record and ensure it's linked",
-            "examples": [["update", {"id": 23, "name": "Hypermarché"}]],
+            "examples": [["update", {"id": 23, "name": "Gaming"}]],
         }
     }
 

@@ -232,6 +232,130 @@ class NotificationTransformer(PostSaveTransformer):
         pass
 ```
 
+## PreDeleteTransformer & PostDeleteTransformer
+
+Handle data during delete operations.
+
+```python
+from fastedgy.api_route_model.view_transformer import PreDeleteTransformer, PostDeleteTransformer
+from fastedgy.http import Request
+from fastapi import HTTPException
+from typing import Any
+
+class DeleteAuthorizationTransformer(PreDeleteTransformer):
+    """Verify user has permission to delete item."""
+
+    async def pre_delete(
+        self, request: Request, item, ctx: dict[str, Any]
+    ) -> None:
+        user_id = request.headers.get('X-User-ID')
+
+        if hasattr(item, 'user_id') and item.user_id != user_id:
+            raise HTTPException(status_code=403, detail="Not authorized")
+
+class DeleteAuditTransformer(PostDeleteTransformer):
+    """Log deletion for audit trail."""
+
+    async def post_delete(
+        self, request: Request, item, ctx: dict[str, Any]
+    ) -> None:
+        # Log the deletion
+        print(f"Item {item.id} deleted by user {request.headers.get('X-User-ID')}")
+```
+
+## PreUploadTransformer & PostUploadTransformer
+
+Handle file uploads with storage control and path manipulation.
+
+```python
+from fastedgy.api_route_model.view_transformer import PreUploadTransformer, PostUploadTransformer
+from fastedgy.http import Request
+from fastapi import UploadFile, HTTPException
+from typing import Any
+
+class UploadStorageControlTransformer(PreUploadTransformer):
+    """Control storage location based on user permissions."""
+
+    async def pre_upload(
+        self,
+        request: Request,
+        record,
+        field: str,
+        file: UploadFile,
+        ctx: dict[str, Any],
+    ) -> bool:
+        # Validate file type
+        allowed_types = ['image/jpeg', 'image/png', 'image/webp']
+        if file.content_type not in allowed_types:
+            raise HTTPException(status_code=400, detail="File type not allowed")
+
+        # Return True for global storage, False for workspace storage
+        is_admin = request.headers.get('X-User-Role') == 'admin'
+        return is_admin
+
+class UploadAuditTransformer(PostUploadTransformer):
+    """Log upload activity for audit."""
+
+    async def post_upload(
+        self,
+        request: Request,
+        record,
+        field: str,
+        path: str,
+        ctx: dict[str, Any],
+    ) -> str:
+        user_id = request.headers.get('X-User-ID')
+        print(f"User {user_id} uploaded file to {path}")
+        return path
+```
+
+## PreDownloadTransformer & PostDownloadTransformer
+
+Handle file downloads with access control and path resolution.
+
+```python
+from fastedgy.api_route_model.view_transformer import PreDownloadTransformer, PostDownloadTransformer
+from fastedgy.http import Request
+from fastapi import HTTPException
+from pathlib import Path
+from typing import Any
+
+class DownloadAuthorizationTransformer(PreDownloadTransformer):
+    """Verify user has permission to download file."""
+
+    async def pre_download(
+        self,
+        request: Request,
+        path: str,
+        ctx: dict[str, Any],
+    ) -> bool:
+        workspace_id = request.headers.get('X-Workspace-ID')
+
+        # Check if path starts with 'global/' for global storage
+        if path.startswith('global/'):
+            return True
+
+        # Otherwise require workspace access
+        if not workspace_id:
+            raise HTTPException(status_code=403, detail="Workspace required")
+
+        return False
+
+class DownloadAuditTransformer(PostDownloadTransformer):
+    """Log file downloads for audit."""
+
+    async def post_download(
+        self,
+        request: Request,
+        path: str,
+        served_path: Path,
+        ctx: dict[str, Any],
+    ) -> Path:
+        user_id = request.headers.get('X-User-ID')
+        print(f"User {user_id} downloaded {path}")
+        return served_path
+```
+
 ## Context Usage
 
 Context dictionary allows sharing data between transformers:
@@ -255,6 +379,10 @@ if 'details' not in requested_fields:
 - **Async Operations**: Use `asyncio.create_task()` for fire-and-forget operations
 - **Testing**: Test transformers independently with mock requests and contexts
 - **Registration**: Register transformers during app startup, not in route handlers
+- **File Operations**: Return `True` from Pre*Transformer for global storage, `False` for workspace storage
+- **Upload Validation**: Validate file type/size in `PreUploadTransformer` to fail fast
+- **Download Security**: Check permissions in `PreDownloadTransformer` before file retrieval
+- **Path Manipulation**: Use `PostUploadTransformer` and `PostDownloadTransformer` for path modifications
 
 ## Next Steps
 

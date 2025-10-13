@@ -7,10 +7,12 @@ View Transformers provide hooks to customize generated API endpoints' data prese
 
 ## Key Features
 
-- **Multiple Hook Points**: Transform data at 6 different stages of the request lifecycle
+- **Multiple Hook Points**: Transform data at 10 different stages of the request lifecycle
 - **Query Modification**: Modify database queries before execution
 - **Data Transformation**: Transform individual items or collections after retrieval
 - **Save Lifecycle**: Hook into create/update operations before and after saving
+- **Delete Lifecycle**: Hook into delete operations before and after deletion
+- **File Operations**: Hook into upload and download operations for storage control
 - **Context Passing**: Share data between transformers through context dictionary
 - **Model-Specific**: Register transformers globally or for specific models
 
@@ -30,6 +32,16 @@ View Transformers operate at different stages of the API request lifecycle:
 - **`PreSaveTransformer`**: Processes items before saving (Create/Update operations)
 - **`PostSaveTransformer`**: Processes items after saving (Create/Update operations)
 
+### Delete Stage
+- **`PreDeleteTransformer`**: Processes items before deletion
+- **`PostDeleteTransformer`**: Processes items after deletion
+
+### File Operations Stage
+- **`PreUploadTransformer`**: Processes file uploads before storage (controls storage location)
+- **`PostUploadTransformer`**: Processes file uploads after storage (modifies stored path)
+- **`PreDownloadTransformer`**: Processes file downloads before retrieval (controls storage location)
+- **`PostDownloadTransformer`**: Processes file downloads after retrieval (modifies served path)
+
 ## Request Flow Integration
 
 View Transformers integrate seamlessly into the API Routes Generator request flow:
@@ -45,6 +57,24 @@ For Create/Update operations:
 ```
 1. Request Data → PreSaveTransformer → Database Save
 2. Saved Item → PostSaveTransformer → Response
+```
+
+For Delete operations:
+```
+1. Request → PreDeleteTransformer → Database Delete
+2. Deleted Item → PostDeleteTransformer → Response
+```
+
+For File Upload operations:
+```
+1. Upload Request → PreUploadTransformer → Storage Upload
+2. Stored File → PostUploadTransformer → Response with Path
+```
+
+For File Download operations:
+```
+1. Download Request → PreDownloadTransformer → Path Resolution
+2. File Retrieved → PostDownloadTransformer → File Response
 ```
 
 ## Quick Example
@@ -117,6 +147,10 @@ def setup_transformers():
 - **Query Optimization**: Add select_related based on requested fields
 - **Response Metadata**: Add pagination info, request timestamps
 - **Format Adaptation**: Customize responses for different clients (mobile, web)
+- **Storage Control**: Control global vs workspace storage for multi-tenant apps
+- **File Access Control**: Validate permissions before file upload/download
+- **Path Manipulation**: Redirect file downloads to CDN or optimized versions
+- **Upload Validation**: Check file types, sizes, or content before storage
 
 ### Avoid (Business Logic)
 - **Data Validation**: Use Pydantic schemas or model validation

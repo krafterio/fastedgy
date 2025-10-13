@@ -264,16 +264,22 @@ def optimize_query_filter_fields(query: QuerySet, fields_expr: str | None) -> Qu
         return query
 
     direct_relations = []
+    has_list_relations = False
 
     def collect_relations(fields_map: dict) -> None:
+        nonlocal has_list_relations
         for field_name, field_value in fields_map.items():
-            if isinstance(field_value, dict):
+            if isinstance(field_value, dict) or isinstance(field_value, list):
                 field = model_cls.meta.fields.get(field_name)
 
-                if field and hasattr(field, "target"):
-                    direct_relations.append(field_name)
-                elif field and hasattr(field, "related_from"):
-                    direct_relations.append(field_name)
+                if field:
+                    if hasattr(field, "target"):
+                        direct_relations.append(field_name)
+                        if getattr(field, "is_m2m", False):
+                            has_list_relations = True
+                    elif hasattr(field, "related_from"):
+                        direct_relations.append(field_name)
+                        has_list_relations = True
 
     collect_relations(map_fields)
 
@@ -283,6 +289,13 @@ def optimize_query_filter_fields(query: QuerySet, fields_expr: str | None) -> Qu
         except Exception:
             pass
 
+    if has_list_relations and query.distinct_on is None:
+        from fastedgy.orm.utils import find_primary_key_field
+
+        primary_key = find_primary_key_field(model_cls)
+        if primary_key:
+            query = query.distinct(primary_key)
+
     return query
 
 
@@ -290,10 +303,12 @@ def _add_field_selector(
     fields: dict[str, Any], field: BaseFieldType, force: bool = False
 ):
     if field and (not field.exclude or force):
-        if hasattr(field, "target"):
-            field_val = {"id": True}
+        if getattr(field, "is_m2m", False):
+            field_val = [{"id": True}]
         elif hasattr(field, "related_from"):
             field_val = [{"id": True}]
+        elif hasattr(field, "target"):
+            field_val = {"id": True}
         else:
             field_val = True
 

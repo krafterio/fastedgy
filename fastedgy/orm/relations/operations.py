@@ -3,8 +3,8 @@
 
 """Pydantic models for relation operations (tuple-based API)."""
 
-from typing import Literal, Any, Annotated, Union
-from pydantic import BaseModel, Field, RootModel, field_validator
+from typing import Literal, Any, Union
+from pydantic import RootModel, field_validator
 
 
 # Helper types for ID representation

@@ -7,6 +7,7 @@ from fastapi import APIRouter, Path, Body
 
 from fastedgy.dependencies import get_service
 from fastedgy.http import Request
+from fastedgy.orm import transaction
 from fastedgy.orm.query import QuerySet
 from fastedgy.api_route_model.actions import (
     BaseApiRouteAction,
@@ -76,6 +77,7 @@ def generate_patch_item[M = TypeModel](
     return patch_item
 
 
+@transaction
 async def patch_item_action[M = TypeModel](
     request: Request,
     model_cls: M,

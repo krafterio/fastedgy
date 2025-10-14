@@ -19,6 +19,7 @@ from fastedgy.api_route_model.view_transformer import (
     PostDeleteTransformer,
 )
 from fastedgy.dependencies import get_service
+from fastedgy.orm import transaction
 from fastedgy.orm.query import QuerySet
 from fastedgy.http import Request
 
@@ -62,6 +63,7 @@ def generate_delete_item[M = TypeModel](
     return delete_item
 
 
+@transaction
 async def delete_item_action[M = TypeModel](
     request: Request,
     model_cls: M,

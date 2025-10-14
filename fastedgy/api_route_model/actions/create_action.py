@@ -27,6 +27,7 @@ from fastedgy.api_route_model.view_transformer import (
     PostSaveTransformer,
     PreSaveTransformer,
 )
+from fastedgy.orm import transaction
 
 
 class CreateApiRouteAction(BaseApiRouteAction):
@@ -69,6 +70,7 @@ def generate_create_item[M = TypeModel](
     return create_item
 
 
+@transaction
 async def create_item_action[M = TypeModel](
     request: Request,
     model_cls: M,

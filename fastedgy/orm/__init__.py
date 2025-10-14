@@ -10,6 +10,7 @@ from edgy import (
 )
 from edgy.core.db.models.types import BaseModelType
 from fastedgy.orm import migration
+from fastedgy.orm.transaction import transaction
 
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "ReflectModel",
     "BaseModelType",
     "migration",
+    "transaction",
 ]

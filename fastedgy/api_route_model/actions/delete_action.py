@@ -6,7 +6,7 @@ from typing import Callable, Any, Coroutine
 from fastapi import APIRouter, Path
 
 from fastedgy.api_route_model.actions import BaseApiRouteAction
-from fastedgy.api_route_model.actions.exception import handle_action_exception
+from fastedgy.api_route_model.exception import handle_action_exception
 from fastedgy.api_route_model.registry import (
     BaseViewTransformer,
     TypeModel,

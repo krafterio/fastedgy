@@ -15,7 +15,7 @@ from fastedgy.api_route_model.actions import (
     generate_output_model,
     clean_empty_strings,
 )
-from fastedgy.api_route_model.actions.exception import handle_action_exception
+from fastedgy.api_route_model.exception import handle_action_exception
 from fastedgy.api_route_model.params import FieldSelectorHeader
 from fastedgy.orm.field_selector import (
     filter_selected_fields,

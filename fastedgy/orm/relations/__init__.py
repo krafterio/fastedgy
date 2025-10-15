@@ -4,7 +4,9 @@
 """
 Relation operations for ManyToMany and OneToMany fields.
 
-This module provides a tuple-based API for managing relations:
+This module provides a tuple-based API for managing relations on both
+Many-to-Many and One-to-Many fields:
+
 - ["create", {...}] - Create and link a new record
 - ["update", {"id": ..., ...}] - Update and ensure link
 - ["link", 42] - Link existing record
@@ -30,7 +32,7 @@ from fastedgy.orm.relations.utils import (
     RelationOperationError,
 )
 from fastedgy.orm.relations.processor import (
-    process_many_to_many_operations,
+    process_relation_operations,
 )
 
 __all__ = [
@@ -48,5 +50,5 @@ __all__ = [
     "extract_id_and_values",
     "RelationOperationError",
     # Processor
-    "process_many_to_many_operations",
+    "process_relation_operations",
 ]

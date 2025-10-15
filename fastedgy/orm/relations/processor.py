@@ -15,21 +15,24 @@ from fastedgy.orm.relations.utils import (
 )
 
 
-async def process_many_to_many_operations(
+async def process_relation_operations(
     instance: "BaseModel",
     field_name: str,
     operations: list[list[Any]] | list[tuple[str, Any]],
     related_model: type["BaseModel"],
 ) -> None:
     """
-    Process M2M operations for a given field.
+    Process relational operations (M2M or O2M) for a given field.
 
     Operations are executed sequentially in the order provided.
     Each operation is validated and will raise an error if it fails.
 
+    Works for both Many-to-Many and One-to-Many relationships as they
+    share the same relation manager interface.
+
     Args:
         instance: The model instance
-        field_name: Name of the M2M field
+        field_name: Name of the relational field (M2M or O2M)
         operations: List of [action, value] lists (from API) or tuples
         related_model: The related model class
 
@@ -37,11 +40,17 @@ async def process_many_to_many_operations(
         RelationOperationError: If an operation fails (ID not found, invalid data, etc.)
 
     Examples:
-        >>> await process_many_to_many_operations(
+        >>> await process_relation_operations(
         ...     product,
         ...     "tags",
         ...     [["link", 1], ["create", {"name": "New"}]],
         ...     Tag
+        ... )
+        >>> await process_relation_operations(
+        ...     company,
+        ...     "contacts",
+        ...     [["create", {"name": "John"}], ["unlink", 5]],
+        ...     Contact
         ... )
     """
     relation_manager = getattr(instance, field_name)

@@ -89,13 +89,9 @@ async def patch_item_action[M = TypeModel](
     transformers_ctx: dict[str, Any] | None = None,
 ) -> M | dict[str, Any]:
     from fastedgy.api_route_model.actions import (
-        is_many_to_many_field,
-        is_one_to_many_field,
-        get_related_model,
+        is_relation_field,
+        process_relational_fields,
     )
-    from fastedgy.orm.relations.processor import process_many_to_many_operations
-    from fastedgy.orm.relations.utils import RelationOperationError
-    from fastapi import HTTPException
 
     query = query or model_cls.query
     query = query.filter(id=item_id)
@@ -120,7 +116,7 @@ async def patch_item_action[M = TypeModel](
             value = getattr(item_data, key)
             field = model_cls.model_fields.get(key)
 
-            if field and (is_many_to_many_field(field) or is_one_to_many_field(field)):
+            if field and is_relation_field(field):
                 relational_data[key] = value
             else:
                 scalar_data[key] = value
@@ -137,24 +133,7 @@ async def patch_item_action[M = TypeModel](
         await item.save()
 
         # Process relational fields after save
-        for field_name, operations in relational_data.items():
-            if operations is None:
-                continue
-
-            field = model_cls.model_fields[field_name]
-            related_model = get_related_model(field)
-
-            # Convert simple list[int] to [["set", [ids]]]
-            if operations and isinstance(operations[0], int):
-                operations = [["set", operations]]
-
-            if is_many_to_many_field(field):
-                try:
-                    await process_many_to_many_operations(
-                        item, field_name, operations, related_model
-                    )
-                except RelationOperationError as e:
-                    raise HTTPException(status_code=400, detail=str(e))
+        await process_relational_fields(item, model_cls, relational_data)
 
         for transformer in vtr.get_transformers(
             PostSaveTransformer, model_cls, transformers

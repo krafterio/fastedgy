@@ -23,10 +23,10 @@ def generate_output_model[M = TypeModel](model_cls: M) -> type[M]:
     for field_name, field in model_cls.model_fields.items():
         if not field.exclude:
             fields[field_name] = (field.field_type, field)
-        elif is_many_to_many_field(field) or is_one_to_many_field(field):
+        elif is_relation_field(field):
             fields[field_name] = (
                 list[dict[str, Any]] | None,
-                PydanticField(default=None, exclude=False)
+                PydanticField(default=None, exclude=False),
             )
 
     return create_model(f"{model_cls.__name__}", **fields)
@@ -44,7 +44,7 @@ def generate_input_create_model[M = TypeModel](model_cls: M) -> type[M]:
             continue
 
         # Detect M2M or O2M fields (include them even if excluded)
-        if is_many_to_many_field(field) or is_one_to_many_field(field):
+        if is_relation_field(field):
             # Accept either:
             # - list[int] (simple: [1,2,3] → [["set", [1,2,3]]])
             # - list[list] (advanced: [["create", {...}], ["link", 42]])
@@ -101,7 +101,7 @@ def generate_input_patch_model[M = TypeModel](model_cls: M) -> type[M]:
             continue
 
         # Detect M2M or O2M fields (include them even if excluded)
-        if is_many_to_many_field(field) or is_one_to_many_field(field):
+        if is_relation_field(field):
             # Accept either:
             # - list[int] (simple: [1,2,3] → [["set", [1,2,3]]])
             # - list[list] (advanced: [["clear"], ["create", {...}], ["link", 42]])
@@ -258,34 +258,21 @@ class ApiRouteActionRegistry:
         return list(self._actions.keys())
 
 
-def is_many_to_many_field(field) -> bool:
+def is_relation_field(field) -> bool:
     """
-    Check if a field is a ManyToMany field.
+    Check if a field is a relational field (M2M or O2M).
 
     Args:
         field: The field to check
 
     Returns:
-        True if the field is a ManyToMany field, False otherwise
+        True if the field is a Many-to-Many or One-to-Many field
     """
-    return getattr(field, "is_m2m", False) is True
+    from edgy.core.db.relationships.related_field import RelatedField
 
-
-def is_one_to_many_field(field) -> bool:
-    """
-    Check if a field is a reverse ForeignKey (One2Many).
-
-    Args:
-        field: The field to check
-
-    Returns:
-        True if the field is a One2Many field, False otherwise
-
-    Note:
-        Currently not implemented - One2Many support to be added later.
-    """
-    # TODO: Implement O2M detection based on Edgy's reverse FK
-    return False
+    # M2M fields have is_m2m attribute (direct M2M declaration)
+    # RelatedField covers both M2M and O2M reverse relations (via related_name)
+    return getattr(field, "is_m2m", False) is True or isinstance(field, RelatedField)
 
 
 def get_related_model(field) -> type:
@@ -293,16 +280,64 @@ def get_related_model(field) -> type:
     Extract the related model class from a relational field.
 
     Args:
-        field: A ManyToMany or ForeignKey field
+        field: A ManyToMany, ForeignKey, or RelatedField (O2M)
 
     Returns:
         The related model class
 
     Raises:
-        AttributeError: If the field doesn't have a 'target' attribute
+        AttributeError: If the field doesn't have appropriate attributes
     """
+    from edgy.core.db.relationships.related_field import RelatedField
+
+    # For RelatedField (O2M via related_name), use related_from
+    if isinstance(field, RelatedField):
+        return field.related_from
+
     # For M2M and FK fields, the 'target' property resolves the related model
     return field.target
+
+
+async def process_relational_fields(
+    instance: "TypeModel",
+    model_cls: type["TypeModel"],
+    relational_data: dict[str, Any],
+) -> None:
+    """
+    Process relational fields (M2M and O2M) operations after instance save.
+
+    Args:
+        instance: The saved model instance
+        model_cls: The model class
+        relational_data: Dictionary of field_name -> operations
+
+    Raises:
+        HTTPException: If a relation operation fails
+    """
+    from fastedgy.orm.relations.processor import process_relation_operations
+    from fastedgy.orm.relations.utils import RelationOperationError
+    from fastapi import HTTPException
+
+    for field_name, operations in relational_data.items():
+        # Skip if no operations (None or empty list)
+        if not operations:
+            continue
+
+        field = model_cls.model_fields[field_name]
+        related_model = get_related_model(field)
+
+        # Convert simple list[int] to [["set", [ids]]]
+        if operations and isinstance(operations[0], int):
+            operations = [["set", operations]]
+
+        # Process all relational fields (M2M and O2M) with the same operations
+        if is_relation_field(field):
+            try:
+                await process_relation_operations(
+                    instance, field_name, operations, related_model
+                )
+            except RelationOperationError as e:
+                raise HTTPException(status_code=400, detail=str(e))
 
 
 __all__ = [
@@ -313,7 +348,7 @@ __all__ = [
     "clean_empty_strings",
     "BaseApiRouteAction",
     "ApiRouteActionRegistry",
-    "is_many_to_many_field",
-    "is_one_to_many_field",
+    "is_relation_field",
     "get_related_model",
+    "process_relational_fields",
 ]

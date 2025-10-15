@@ -524,7 +524,7 @@ class CliContext[S: BaseSettings = BaseSettings, A: FastEdgy = FastEdgy]:
     @property
     def app(self) -> A:
         if self._app is None:
-            from fastedgy.importer import import_from_string
+            from fastedgy.modules import import_from_string
 
             app_factory = import_from_string(self.settings.app_factory)
             self._app = app_factory()

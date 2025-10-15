@@ -79,7 +79,7 @@ def discover_settings_class():
 
     Searches for custom settings in project and falls back to BaseSettings if not found.
     """
-    from fastedgy.importer import import_from_string, ImportFromStringError
+    from fastedgy.modules import import_from_string, ImportFromStringError
 
     for settings_package in SETTINGS_PACKAGES:
         try:

@@ -11,12 +11,14 @@ from fastedgy.api_route_model.params import (
     OrderByQuery,
     FieldSelectorHeader,
     FilterHeader,
-    filter_query,
-    InvalidFilterError,
 )
 from fastedgy.orm.field_selector import (
     filter_selected_fields,
     optimize_query_filter_fields,
+)
+from fastedgy.orm.filter import (
+    filter_query,
+    InvalidFilterError,
 )
 from fastedgy.api_route_model.registry import (
     TypeModel,

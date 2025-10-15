@@ -14,11 +14,11 @@ from fastapi import APIRouter, Query, HTTPException, Response
 
 from fastedgy.api_route_model.actions import BaseApiRouteAction
 from fastedgy.api_route_model.params import (
-    inject_order_by,
     OrderByQuery,
     FieldSelectorHeader,
     FilterHeader,
 )
+from fastedgy.orm.order_by import inject_order_by
 from fastedgy.orm.field_selector import (
     optimize_query_filter_fields,
     clean_field_names_from_input,

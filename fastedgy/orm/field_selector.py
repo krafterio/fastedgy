@@ -232,7 +232,7 @@ async def filter_fields(
         fields: Fields selector dict
         target: Target dict to populate
     """
-    from fastedgy.api_route_model.params.order_by import inject_order_by
+    from fastedgy.orm.order_by import inject_order_by
 
     for field_name, field_value in fields.items():
         if isinstance(field_value, dict):

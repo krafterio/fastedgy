@@ -4,7 +4,7 @@
 import string
 import random
 
-from fastedgy.api_route_model.params import OrderByList
+from fastedgy.orm.order_by import OrderByList
 from fastedgy.orm import fields
 from fastedgy.models.base import BaseModel
 

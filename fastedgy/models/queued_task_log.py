@@ -1,7 +1,7 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from fastedgy.api_route_model.params import OrderByList
+from fastedgy.orm.order_by import OrderByList
 from fastedgy.queued_task.models.queued_task_log import QueuedTaskLogMixin
 
 

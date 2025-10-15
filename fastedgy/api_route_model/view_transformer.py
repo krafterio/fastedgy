@@ -145,6 +145,98 @@ class PostDownloadTransformer(BaseViewTransformer):
     ) -> Path: ...
 
 
+class PreExportTransformer(BaseViewTransformer):
+    @abstractmethod
+    async def pre_export(
+        self, request: Request, query: QuerySet, ctx: dict[str, Any]
+    ) -> QuerySet:
+        """
+        Pre-export transformer.
+
+        Called before exporting items. Can modify the query.
+
+        Args:
+            request: The HTTP request
+            query: The QuerySet to export
+            ctx: Context dictionary for sharing data
+
+        Returns:
+            Modified QuerySet
+        """
+        ...
+
+
+class PostExportTransformer(BaseViewTransformer):
+    @abstractmethod
+    async def post_export(
+        self,
+        request: Request,
+        file_content: bytes,
+        filename: str,
+        ctx: dict[str, Any],
+    ) -> tuple[bytes, str]:
+        """
+        Post-export transformer.
+
+        Called after generating the export file. Can modify content or filename.
+
+        Args:
+            request: The HTTP request
+            file_content: The generated file content
+            filename: The generated filename
+            ctx: Context dictionary for sharing data
+
+        Returns:
+            Tuple of (modified_content, modified_filename)
+        """
+        ...
+
+
+class PreImportTransformer(BaseViewTransformer):
+    @abstractmethod
+    async def pre_import(
+        self,
+        request: Request,
+        file: "UploadFile",
+        ctx: dict[str, Any],
+    ) -> "UploadFile":
+        """
+        Pre-import transformer.
+
+        Called before importing items. Can validate or pre-process the file.
+
+        Args:
+            request: The HTTP request
+            file: The uploaded file
+            ctx: Context dictionary for sharing data
+
+        Returns:
+            The file (possibly modified)
+        """
+        ...
+
+
+class PostImportTransformer(BaseViewTransformer):
+    @abstractmethod
+    async def post_import(
+        self,
+        request: Request,
+        result: Any,
+        ctx: dict[str, Any],
+    ) -> None:
+        """
+        Post-import transformer.
+
+        Called after importing items (on success).
+
+        Args:
+            request: The HTTP request
+            result: The ImportResult
+            ctx: Context dictionary for sharing data
+        """
+        ...
+
+
 __all__ = [
     "BaseViewTransformer",
     "PrePaginateViewTransformer",
@@ -159,4 +251,8 @@ __all__ = [
     "PostUploadTransformer",
     "PreDownloadTransformer",
     "PostDownloadTransformer",
+    "PreExportTransformer",
+    "PostExportTransformer",
+    "PreImportTransformer",
+    "PostImportTransformer",
 ]

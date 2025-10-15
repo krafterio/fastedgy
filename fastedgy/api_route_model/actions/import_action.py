@@ -6,13 +6,24 @@ from typing import Callable, Coroutine, Any
 from fastapi import APIRouter, File, UploadFile
 
 from fastedgy.api_route_model.action import BaseApiRouteAction
-from fastedgy.api_route_model.registry import TypeModel, RouteModelActionOptions
+from fastedgy.api_route_model.registry import (
+    TypeModel,
+    RouteModelActionOptions,
+    ViewTransformerRegistry,
+)
+from fastedgy.api_route_model.view_transformer import (
+    BaseViewTransformer,
+    PreImportTransformer,
+    PostImportTransformer,
+)
 from fastedgy.dataflow.importer import (
     import_data,
     ImportResult,
     ImportErrorResponse,
     ImportFailedError,
 )
+from fastedgy.dependencies import get_service
+from fastedgy.http import Request
 from fastedgy.orm.query import QuerySet
 
 
@@ -44,11 +55,13 @@ class ImportApiRouteAction(BaseApiRouteAction):
 
 def generate_import_items[M = TypeModel](
     model_cls: type[M],
-) -> Callable[[UploadFile], Coroutine[Any, Any, ImportResult]]:
+) -> Callable[[Request, UploadFile], Coroutine[Any, Any, ImportResult]]:
     async def import_items(
+        request: Request,
         file: UploadFile = File(..., description="File to import (CSV, XLSX, ODS)"),
     ) -> ImportResult:
         return await import_items_action(
+            request,
             model_cls,
             file,
         )
@@ -57,17 +70,23 @@ def generate_import_items[M = TypeModel](
 
 
 async def import_items_action[M = TypeModel](
+    request: Request,
     model_cls: type[M],
     file: UploadFile,
     query: QuerySet | None = None,
+    transformers: list[BaseViewTransformer] | None = None,
+    transformers_ctx: dict[str, Any] | None = None,
 ) -> ImportResult:
     """
     Import items from a file into the database.
 
     Args:
+        request: The HTTP request
         model_cls: The model class to import into
         file: Uploaded file (CSV, XLSX, ODS)
         query: Optional base QuerySet for filtering
+        transformers: List of transformers to apply
+        transformers_ctx: Context dictionary for transformers
 
     Returns:
         ImportResult with statistics
@@ -77,14 +96,32 @@ async def import_items_action[M = TypeModel](
     """
     from fastapi import HTTPException
 
+    transformers_ctx = transformers_ctx or {}
+    vtr = get_service(ViewTransformerRegistry)
+
+    # Pre-import transformers (can validate or pre-process file)
+    for transformer in vtr.get_transformers(
+        PreImportTransformer, model_cls, transformers
+    ):
+        file = await transformer.pre_import(request, file, transformers_ctx)
+
     query = query or model_cls.query  # type: ignore
 
     try:
-        return await import_data(
+        result = await import_data(
             model_cls,
             file,
             query=query,
         )
+
+        # Post-import transformers (called on success only)
+        for transformer in vtr.get_transformers(
+            PostImportTransformer, model_cls, transformers
+        ):
+            await transformer.post_import(request, result, transformers_ctx)
+
+        return result
+
     except ImportFailedError as e:
         # Import failed (with rollback), return detailed error
         raise HTTPException(

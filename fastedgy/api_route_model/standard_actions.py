@@ -2,7 +2,7 @@
 # MIT License (see LICENSE file).
 
 from fastedgy.dependencies import get_service
-from fastedgy.api_route_model.actions import ApiRouteActionRegistry
+from fastedgy.api_route_model.action import ApiRouteActionRegistry
 from fastedgy.api_route_model.actions.create_action import CreateApiRouteAction
 from fastedgy.api_route_model.actions.delete_action import DeleteApiRouteAction
 from fastedgy.api_route_model.actions.export_action import ExportApiRouteAction

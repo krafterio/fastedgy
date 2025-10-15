@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from fastedgy.dependencies import get_service
 from fastedgy.http import Request
-from fastedgy.api_route_model.actions import (
+from fastedgy.api_route_model.action import (
     BaseApiRouteAction,
     generate_input_create_model,
     generate_output_model,
@@ -80,7 +80,7 @@ async def create_item_action[M = TypeModel](
     transformers: list[BaseViewTransformer] | None = None,
     transformers_ctx: dict[str, Any] | None = None,
 ) -> Coroutine[Any, Any, M | dict[str, Any]]:
-    from fastedgy.api_route_model.actions import (
+    from fastedgy.api_route_model.action import (
         is_relation_field,
         process_relational_fields,
     )

@@ -12,7 +12,7 @@ from typing import Callable, Coroutine, Any
 
 from fastapi import APIRouter, Query, HTTPException, Response
 
-from fastedgy.api_route_model.actions import BaseApiRouteAction
+from fastedgy.api_route_model.action import BaseApiRouteAction
 from fastedgy.api_route_model.params import (
     OrderByQuery,
     FieldSelectorHeader,

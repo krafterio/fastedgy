@@ -9,7 +9,7 @@ from fastedgy.dependencies import get_service
 from fastedgy.http import Request
 from fastedgy.orm import transaction
 from fastedgy.orm.query import QuerySet
-from fastedgy.api_route_model.actions import (
+from fastedgy.api_route_model.action import (
     BaseApiRouteAction,
     generate_input_patch_model,
     generate_output_model,
@@ -88,7 +88,7 @@ async def patch_item_action[M = TypeModel](
     transformers: list[BaseViewTransformer] | None = None,
     transformers_ctx: dict[str, Any] | None = None,
 ) -> M | dict[str, Any]:
-    from fastedgy.api_route_model.actions import (
+    from fastedgy.api_route_model.action import (
         is_relation_field,
         process_relational_fields,
     )

@@ -5,7 +5,7 @@ from typing import Callable, Coroutine, Any, cast
 
 from fastapi import APIRouter, Query, HTTPException
 
-from fastedgy.api_route_model.actions import BaseApiRouteAction, generate_output_model
+from fastedgy.api_route_model.action import BaseApiRouteAction, generate_output_model
 from fastedgy.api_route_model.params import (
     OrderByQuery,
     FieldSelectorHeader,

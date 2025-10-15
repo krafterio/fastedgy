@@ -6,8 +6,8 @@ from typing import Callable, Coroutine, Any
 from fastapi import APIRouter, HTTPException, Path
 
 from fastedgy.api_route_model.actions import BaseApiRouteAction, generate_output_model
-from fastedgy.api_route_model.params import (
-    FieldSelectorHeader,
+from fastedgy.api_route_model.params import FieldSelectorHeader
+from fastedgy.orm.field_selector import (
     filter_selected_fields,
     optimize_query_filter_fields,
 )

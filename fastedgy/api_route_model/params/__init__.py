@@ -15,10 +15,6 @@ from fastedgy.api_route_model.params.order_by import (
 from fastedgy.api_route_model.params.field_selector import (
     FieldSelectorQuery,
     FieldSelectorHeader,
-    parse_field_selector_input,
-    filter_fields,
-    filter_selected_fields,
-    optimize_query_filter_fields,
 )
 
 from fastedgy.api_route_model.params.filter import (
@@ -67,10 +63,6 @@ __all__ = [
     # Field Selector
     "FieldSelectorQuery",
     "FieldSelectorHeader",
-    "parse_field_selector_input",
-    "filter_fields",
-    "filter_selected_fields",
-    "optimize_query_filter_fields",
     # Filter
     "FilterQuery",
     "FilterHeader",

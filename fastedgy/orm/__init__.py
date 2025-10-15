@@ -9,7 +9,7 @@ from edgy import (
     ReflectModel,
 )
 from edgy.core.db.models.types import BaseModelType
-from fastedgy.orm import migration
+from fastedgy.orm import migration, field_selector
 from fastedgy.orm.transaction import transaction
 
 
@@ -21,5 +21,6 @@ __all__ = [
     "ReflectModel",
     "BaseModelType",
     "migration",
+    "field_selector",
     "transaction",
 ]

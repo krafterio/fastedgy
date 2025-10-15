@@ -17,12 +17,14 @@ from fastedgy.api_route_model.params import (
     inject_order_by,
     OrderByQuery,
     FieldSelectorHeader,
-    optimize_query_filter_fields,
     FilterHeader,
     filter_query,
     InvalidFilterError,
 )
-from fastedgy.api_route_model.params.field_selector import clean_field_names_from_input
+from fastedgy.orm.field_selector import (
+    optimize_query_filter_fields,
+    clean_field_names_from_input,
+)
 from fastedgy.api_route_model.registry import TypeModel, RouteModelActionOptions
 from fastedgy.metadata_model.utils import get_field_label_from_path
 from fastedgy.orm.query import QuerySet

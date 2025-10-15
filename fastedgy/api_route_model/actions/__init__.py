@@ -16,11 +16,18 @@ from fastedgy.api_route_model.registry import (
 
 
 def generate_output_model[M = TypeModel](model_cls: M) -> type[M]:
+    from pydantic import Field as PydanticField
+
     fields = {}
 
     for field_name, field in model_cls.model_fields.items():
         if not field.exclude:
             fields[field_name] = (field.field_type, field)
+        elif is_many_to_many_field(field) or is_one_to_many_field(field):
+            fields[field_name] = (
+                list[dict[str, Any]] | None,
+                PydanticField(default=None, exclude=False)
+            )
 
     return create_model(f"{model_cls.__name__}", **fields)
 

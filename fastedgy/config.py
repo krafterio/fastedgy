@@ -249,6 +249,9 @@ def init_settings(env_file: str | None = None):
         settings = settings_class.from_env_file(env_file)
         register_service(settings, BaseSettings)
 
+        if settings_class is not BaseSettings:
+            register_service(settings, settings_class)
+
         return settings
 
     return get_service(BaseSettings)

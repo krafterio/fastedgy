@@ -12,7 +12,6 @@ from fastedgy.dependencies import (
     Token,
     get_service,
     has_service,
-    register_app,
     register_service,
 )
 from fastedgy.logger import setup_logging
@@ -887,7 +886,6 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
         monkay.set_instance(Instance(registry=registry), apply_extensions=False)
         monkay.evaluate_settings(on_conflict="keep")
 
-        register_app(self)
         register_service(db)
         register_service(registry)
 

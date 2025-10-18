@@ -1,24 +1,17 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from fastapi import FastAPI, Depends
-from contextlib import AsyncExitStack
+from fastapi import Depends
 from typing import (
     Callable,
     TypeVar,
     Any,
-    MutableMapping,
     Type,
     cast,
     Union,
     Generic,
     Dict,
 )
-from fastapi.dependencies.utils import (
-    get_dependant,
-    solve_dependencies as base_solve_dependencies,
-)
-from starlette.requests import Request
 
 
 T = TypeVar("T")
@@ -56,219 +49,89 @@ class Token(Generic[T]):
 ProviderKey = Union[Type[Any], Token[Any]]
 
 
-async def solve_dependencies(
-    app: FastAPI | None,
-    request: Request | None,
-    call: Callable[..., T],
-    skip_error: bool = False,
-    cache: dict[tuple[Callable[..., Any], tuple[str]], Any] | None = None,
-) -> dict[str, Any]:
-    if not request:
-        request = Request(
-            {
-                "type": "http",
-                "method": "GET",
-                "path": "/",
-                "query_string": b"",
-                "headers": [],
-            }
-        )
-    dependant = get_dependant(path="", call=call)
-    exit_stack = AsyncExitStack()
-    solved = await base_solve_dependencies(
-        request=request,
-        dependant=dependant,
-        dependency_overrides_provider=app,
-        dependency_cache=cache,
-        async_exit_stack=exit_stack,
-        embed_body_fields=False,
-    )
-    await exit_stack.aclose()
-
-    if solved.errors and not skip_error:
-        raise RuntimeError(f"Dependency Injection Error: {solved.errors}")
-
-    return solved.values
-
-
-class ContainerService:
-    """Container service for the application."""
-
-    def __init__(self) -> None:
-        self._map: Dict[ProviderKey, Union[Any, Callable[[], Any]]] = {}
-        # Support for FastAPI overrides
-        self.dependency_overrides: MutableMapping[Any, Any] = {}
-        self._app: FastAPI | None = None
-        self._dependency_cache: dict[tuple[Callable[..., Any], tuple[str]], Any] = {}
-
-    def register(
-        self, key: ProviderKey, instance: Union[T, Callable[[], T]], force: bool = False
-    ) -> None:
-        if force or key not in self._map:
-            self._map[key] = instance
-
-    def unregister(self, key: ProviderKey) -> None:
-        if key in self._map:
-            del self._map[key]
-
-    def has(self, key: ProviderKey) -> bool:
-        return key in self._map
-
-    def set_app(self, app: FastAPI) -> None:
-        """Set the FastAPI application reference for dependency resolution."""
-        self._app = app
-
-    def clear_cache(self) -> None:
-        """Clear the dependency cache (useful for testing)."""
-        self._dependency_cache.clear()
-
-    def get(self, key: ProviderKey) -> Any:
-        try:
-            value = self._map[key]
-
-            if callable(value):
-                instance = value()
-                self._map[key] = instance
-
-                return cast(Any, instance)
-
-            return cast(Any, value)
-        except KeyError as e:
-            inst = self._solve_dependencies(key)
-
-            if inst:
-                return inst
-
-            raise LookupError(f"No instance registered for {key!r}") from e
-
-    def _solve_dependencies(self, key: ProviderKey) -> Any | None:
-        if isinstance(key, Token) and isinstance(key.key, type):
-            try:
-                from asyncio import new_event_loop, set_event_loop
-                from concurrent.futures import ThreadPoolExecutor
-
-                service_class = cast(Type[Any], key.key)
-
-                def run_in_new_loop():
-                    loop = new_event_loop()
-                    set_event_loop(loop)
-
-                    try:
-                        return loop.run_until_complete(
-                            solve_dependencies(
-                                self._app,
-                                None,
-                                service_class,
-                                cache=self._dependency_cache,
-                            )
-                        )
-                    finally:
-                        loop.close()
-
-                with ThreadPoolExecutor() as executor:
-                    values = executor.submit(run_in_new_loop).result()
-
-                instance = service_class(**values)
-                self._map[key] = instance
-
-                return cast(Any, instance)
-            except Exception as e:
-                raise LookupError(f"Failed to auto-resolve {key!r}: {e}") from e
-
-
-container_service = ContainerService()
-
-
-def get_container_service() -> ContainerService:
-    return container_service
-
-
-def register_app(app: FastAPI) -> None:
-    container_service.set_app(app)
+_services_registry: Dict[ProviderKey, Union[Any, Type[Any]]] = {}
+_dependencies_cache: Dict[tuple[Callable[..., Any], tuple[str]], Any] = {}
 
 
 def register_service(
-    instance: Union[T, Callable[[], T], Type[T]],
+    instance: Union[T, Type[T]],
     key: Union[Type[T], Token[T], str, None] = None,
     force: bool = False,
 ) -> None:
-    if callable(instance):
-        import inspect
+    """
+    Register a service (class or instance) in the registry.
+    - If instance is a class: will be resolved via solve_dependencies when requested
+    - If instance is an object: will be returned as-is (singleton)
+    """
+    import inspect
 
-        if inspect.isclass(instance):
-            # Class with dependencies resolution: register_service(MyClass, key)
-            provided_key = _normalize_key(instance if key is None else key)
-
-            def wrapper():
-                # Create a new instance for this specific key, not using the cached one from the class
-                from asyncio import new_event_loop, set_event_loop
-                from concurrent.futures import ThreadPoolExecutor
-
-                service_class = cast(Type[Any], instance)
-
-                def run_in_new_loop():
-                    loop = new_event_loop()
-                    set_event_loop(loop)
-
-                    try:
-                        return loop.run_until_complete(
-                            solve_dependencies(
-                                container_service._app,
-                                None,
-                                service_class,
-                                cache=container_service._dependency_cache,
-                            )
-                        )
-                    finally:
-                        loop.close()
-
-                with ThreadPoolExecutor() as executor:
-                    values = executor.submit(run_in_new_loop).result()
-
-                new_instance = service_class(**values)
-                # Store the instance under the provided key, replacing the wrapper
-                container_service._map[provided_key] = new_instance
-
-                return new_instance
-
-            container_service.register(provided_key, wrapper)
-        else:
-            # Function/lambda: register_service(lambda: MyClass(), key)
-            if key is None:
-                raise ValueError("Key must be provided when registering a callable")
-
-            provided_key = _normalize_key(key)
-            container_service.register(provided_key, instance)
+    if inspect.isclass(instance):
+        # Register class for lazy resolution
+        provided_key = _normalize_key(instance if key is None else key)
+        _register_service(provided_key, instance, force)
     else:
-        # Direct instance: register_service(my_instance, key)
+        # Register instance (singleton)
         instance_type_key = _normalize_key(type(instance))
         provided_key = _normalize_key(type(instance) if key is None else key)
 
-        container_service.register(provided_key, instance)
+        _register_service(provided_key, instance, force)
 
-        # Only do double registration if no custom key was provided
-        # When a custom Token is provided, we don't want to also register with the class type
+        # Double registration for type-based lookup
         if key is None and instance_type_key != provided_key:
-            container_service.register(instance_type_key, instance, force)
+            _register_service(instance_type_key, instance, force)
 
 
 def unregister_service(key: Union[Type[T], Token[T], str]) -> None:
-    container_service.unregister(_normalize_key(key))
+    """Unregister a service from the registry."""
+    _unregister_service(_normalize_key(key))
 
 
 def has_service(key: Union[Type[T], Token[T], str]) -> bool:
-    return container_service.has(_normalize_key(key))
+    """Check if a service is registered."""
+    return _has_service(_normalize_key(key))
 
 
 def get_service(key: Union[Type[T], Token[T], str]) -> T:
-    return container_service.get(_normalize_key(key))
+    """
+    Get a service instance using global cache only (for testing).
+
+    Auto-registers classes if not already registered.
+    """
+    normalized_key = _normalize_key(key)
+
+    if not _has_service(normalized_key) and isinstance(key, type):
+        register_service(key)
+
+    value = _services_registry[normalized_key]
+
+    if not isinstance(value, type) and not callable(value):
+        return cast(T, value)
+
+    if not isinstance(value, type):
+        raise LookupError(f"Service {key} is not a class and cannot be resolved")
+
+    service_class = value
+
+    # Use global cache only
+    cache = _dependencies_cache
+
+    cache_key = (service_class, ())
+    if cache_key in cache:
+        return cache[cache_key]
+
+    kwargs = _resolve_dependencies(service_class)
+    instance = service_class(**kwargs)
+
+    cache[cache_key] = instance
+
+    return instance
 
 
-def provide(cls: Union[Type[T], Token[T], str]) -> Callable[[ContainerService], T]:
+def provide(cls: Union[Type[T], Token[T], str]) -> Callable[[], T]:
     """Use in FastAPI signatures: svc: Svc = Depends(provide(Svc))"""
 
-    def dep(container: ContainerService = Depends(get_container_service)) -> T:
-        return container.get(_normalize_key(cls))
+    def dep() -> T:
+        return get_service(cls)
 
     return dep
 
@@ -287,12 +150,61 @@ def _normalize_key(
     return key
 
 
+def _has_service(key: ProviderKey) -> bool:
+    """Check if a service is registered."""
+    return key in _services_registry
+
+
+def _register_service(
+    key: ProviderKey, instance: Union[Any, Type[Any]], force: bool = False
+) -> None:
+    """Internal function to register a service in the registry."""
+    if force or key not in _services_registry:
+        _services_registry[key] = instance
+
+
+def _unregister_service(key: ProviderKey) -> None:
+    """Internal function to unregister a service from the registry."""
+    if key in _services_registry:
+        del _services_registry[key]
+
+
+def _resolve_dependencies(service_class: Type[T]) -> Dict[str, Any]:
+    """
+    Resolve service dependencies by inspecting __init__ parameters.
+    """
+    import inspect
+
+    sig = inspect.signature(service_class.__init__)
+    kwargs = {}
+
+    for param_name, param in sig.parameters.items():
+        if param_name == "self":
+            continue
+
+        # Get the parameter type
+        param_type = param.annotation
+
+        if param_type == inspect.Parameter.empty:
+            # No type annotation, use default if available
+            if param.default != inspect.Parameter.empty:
+                kwargs[param_name] = param.default
+            continue
+
+        # Try to resolve as a service (recursive)
+        try:
+            kwargs[param_name] = get_service(param_type)
+        except LookupError:
+            # Can't resolve, use default if available
+            if param.default != inspect.Parameter.empty:
+                kwargs[param_name] = param.default
+
+    return kwargs
+
+
 __all__ = [
-    "solve_dependencies",
-    "ContainerService",
-    "get_container_service",
-    "register_app",
     "register_service",
+    "unregister_service",
     "has_service",
     "get_service",
     "provide",

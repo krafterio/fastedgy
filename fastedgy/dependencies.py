@@ -60,23 +60,20 @@ def register_service(
 ) -> None:
     """
     Register a service (class or instance) in the registry.
-    - If instance is a class: will be resolved via solve_dependencies when requested
+    - If instance is a class: will be resolved when requested
     - If instance is an object: will be returned as-is (singleton)
     """
     import inspect
 
     if inspect.isclass(instance):
-        # Register class for lazy resolution
         provided_key = _normalize_key(instance if key is None else key)
         _register_service(provided_key, instance, force)
     else:
-        # Register instance (singleton)
         instance_type_key = _normalize_key(type(instance))
         provided_key = _normalize_key(type(instance) if key is None else key)
 
         _register_service(provided_key, instance, force)
 
-        # Double registration for type-based lookup
         if key is None and instance_type_key != provided_key:
             _register_service(instance_type_key, instance, force)
 
@@ -93,8 +90,7 @@ def has_service(key: Union[Type[T], Token[T], str]) -> bool:
 
 def get_service(key: Union[Type[T], Token[T], str]) -> T:
     """
-    Get a service instance using global cache only (for testing).
-
+    Get a service instance from the registry.
     Auto-registers classes if not already registered.
     """
     normalized_key = _normalize_key(key)
@@ -111,18 +107,15 @@ def get_service(key: Union[Type[T], Token[T], str]) -> T:
         raise LookupError(f"Service {key} is not a class and cannot be resolved")
 
     service_class = value
-
-    # Use global cache only
-    cache = _dependencies_cache
-
     cache_key = (service_class, ())
-    if cache_key in cache:
-        return cache[cache_key]
+
+    if cache_key in _dependencies_cache:
+        return _dependencies_cache[cache_key]
 
     kwargs = _resolve_dependencies(service_class)
     instance = service_class(**kwargs)
 
-    cache[cache_key] = instance
+    _dependencies_cache[cache_key] = instance
 
     return instance
 
@@ -172,30 +165,50 @@ def _unregister_service(key: ProviderKey) -> None:
 def _resolve_dependencies(service_class: Type[T]) -> Dict[str, Any]:
     """
     Resolve service dependencies by inspecting __init__ parameters.
+    Handles both direct type annotations and string annotations (TYPE_CHECKING).
     """
     import inspect
+    import sys
+    from typing import get_type_hints
 
     sig = inspect.signature(service_class.__init__)
     kwargs = {}
+
+    type_hints = {}
+    try:
+        module = sys.modules.get(service_class.__module__)
+        globalns = getattr(module, "__dict__", {}) if module else {}
+        type_hints = get_type_hints(
+            service_class.__init__, globalns=globalns, localns=None
+        )
+    except (NameError, Exception):
+        pass
 
     for param_name, param in sig.parameters.items():
         if param_name == "self":
             continue
 
-        # Get the parameter type
-        param_type = param.annotation
+        param_type = type_hints.get(param_name, param.annotation)
 
-        if param_type == inspect.Parameter.empty:
-            # No type annotation, use default if available
+        if isinstance(param_type, str):
+            for key in _services_registry.keys():
+                if isinstance(key, type) and key.__name__ == param_type:
+                    param_type = key
+                    break
+                elif isinstance(key, Token):
+                    token_key = key.key
+                    if isinstance(token_key, type) and token_key.__name__ == param_type:
+                        param_type = token_key
+                        break
+
+        if param_type == inspect.Parameter.empty or isinstance(param_type, str):
             if param.default != inspect.Parameter.empty:
                 kwargs[param_name] = param.default
             continue
 
-        # Try to resolve as a service (recursive)
         try:
             kwargs[param_name] = get_service(param_type)
         except LookupError:
-            # Can't resolve, use default if available
             if param.default != inspect.Parameter.empty:
                 kwargs[param_name] = param.default
 

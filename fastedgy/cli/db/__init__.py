@@ -7,13 +7,19 @@ import fastedgy.orm.migration  # noqa: F401
 
 
 @cli.group(name="db")
-@cli.lifespan
 def db():
     """Database management commands."""
     pass
 
 
-cli.register_commands_in_group("edgy.cli.operations", db)
+cli.register_commands_in_group(
+    "edgy.cli.operations",
+    db,
+    decorators=[
+        cli.initialize_app,
+        cli.lifespan,
+    ],
+)
 
 
 __all__ = [

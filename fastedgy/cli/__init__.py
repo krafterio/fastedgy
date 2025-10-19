@@ -33,6 +33,7 @@ from functools import update_wrapper
 from fastedgy.app import FastEdgy
 from fastedgy.config import BaseSettings
 from fastedgy.dependencies import Token
+from fastedgy.sync import run_async_context_sync
 
 # Rich Click
 import rich_click as click
@@ -129,11 +130,24 @@ def getCliLogger(suffix: str) -> logging.Logger:
     return logger.getChild(suffix)
 
 
-def register_commands_in_group(package_name: str, cli_group: click.Group) -> None:
+def register_commands_in_group(
+    package_name: str,
+    cli_group: click.Group,
+    decorators: list[Callable] | None = None,
+    exclude_decorators_for: dict[str, list[Callable]] | None = None,
+) -> None:
     """
     Register all CLI commands in the given package in the given CLI group.
+
+    Args:
+        package_name: The package name to import commands from
+        cli_group: The Click group to register commands to
+        decorators: Optional list of decorators to apply to each command
+        exclude_decorators_for: Optional dict mapping command names to decorators to exclude
+                                Example: {"migrate": [cli.lifespan]}
     """
     package = importlib.import_module(package_name)
+    exclude_decorators_for = exclude_decorators_for or {}
 
     for _, module_name, is_pkg in pkgutil.iter_modules(
         package.__path__, package.__name__ + "."
@@ -143,6 +157,14 @@ def register_commands_in_group(package_name: str, cli_group: click.Group) -> Non
 
             for name, obj in inspect.getmembers(module):
                 if isinstance(obj, click.Command) and not isinstance(obj, click.Group):
+                    # Apply decorators if provided
+                    if decorators:
+                        excluded = exclude_decorators_for.get(obj.name, [])
+                        for decorator in decorators:
+                            # Skip this decorator if it's excluded for this command
+                            if decorator not in excluded:
+                                obj.callback = decorator(obj.callback)
+
                     cli_group.add_command(obj)
 
 
@@ -384,11 +406,8 @@ def lifespan(f: "Callable[P, R]") -> "Callable[P, R]":
         def sync_func(*args: "P.args", **kwargs: "P.kwargs") -> "R":
             ctx = get_current_context().obj
 
-            async def _run():
-                async with ctx.lifespan():
-                    return f(*args, **kwargs)
-
-            return asyncio.run(_run())
+            with run_async_context_sync(ctx.lifespan()):
+                return f(*args, **kwargs)
 
         wrapped_func = sync_func
 

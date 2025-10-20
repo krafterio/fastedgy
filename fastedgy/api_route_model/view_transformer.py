@@ -68,7 +68,12 @@ class PreSaveTransformer[M = BaseModel](BaseViewTransformer):
 class PostSaveTransformer[M = BaseModel](BaseViewTransformer):
     @abstractmethod
     async def post_save(
-        self, request: Request, item: M, item_data: BaseModel, ctx: dict[str, Any]
+        self,
+        request: Request,
+        item: M,
+        item_data: BaseModel,
+        ctx: dict[str, Any],
+        created: bool,
     ) -> None: ...
 
 

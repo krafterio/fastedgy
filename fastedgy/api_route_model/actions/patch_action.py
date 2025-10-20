@@ -138,7 +138,9 @@ async def patch_item_action[M = TypeModel](
         for transformer in vtr.get_transformers(
             PostSaveTransformer, model_cls, transformers
         ):
-            await transformer.post_save(request, item, item_data, transformers_ctx)
+            await transformer.post_save(
+                request, item, item_data, transformers_ctx, False
+            )
 
         item_dump = await filter_selected_fields(item, fields)
 

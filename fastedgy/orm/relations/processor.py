@@ -138,7 +138,9 @@ async def process_relation_operations(
                 await record.delete()
 
             elif action == "clear":
-                await relation_manager.clear()
+                related_instances = await relation_manager.all()
+                for instance in related_instances:
+                    await relation_manager.remove(instance)
 
             elif action == "set":
                 _, ids = op_tuple

@@ -67,15 +67,16 @@ async def process_relational_fields(
     from fastapi import HTTPException
 
     for field_name, operations in relational_data.items():
-        # Skip if no operations (None or empty list)
-        if not operations:
-            continue
-
         field = model_cls.model_fields[field_name]
         related_model = get_related_model(field)
 
-        # Convert simple list[int] to [["set", [ids]]]
-        if operations and isinstance(operations[0], int):
+        # Handle null or empty array as "clear" action
+        if operations is None or (
+            isinstance(operations, list) and len(operations) == 0
+        ):
+            operations = [["clear"]]
+        elif operations and isinstance(operations[0], int):
+            # Convert simple list[int] to [["set", [ids]]]
             operations = [["set", operations]]
 
         # Process all relational fields (M2M and O2M) with the same operations

@@ -128,7 +128,9 @@ async def patch_item_action[M = TypeModel](
         for transformer in vtr.get_transformers(
             PreSaveTransformer, model_cls, transformers
         ):
-            await transformer.pre_save(request, item, item_data, transformers_ctx)
+            await transformer.pre_save(
+                request, item, item_data, transformers_ctx, False
+            )
 
         await item.save()
 

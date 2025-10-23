@@ -109,7 +109,7 @@ async def create_item_action[M = TypeModel](
         for transformer in vtr.get_transformers(
             PreSaveTransformer, model_cls, transformers
         ):
-            await transformer.pre_save(request, item, item_data, transformers_ctx)
+            await transformer.pre_save(request, item, item_data, transformers_ctx, True)
 
         await item.save()
 

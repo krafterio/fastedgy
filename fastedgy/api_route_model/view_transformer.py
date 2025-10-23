@@ -61,7 +61,12 @@ class GetViewTransformer[M = BaseModel](BaseViewTransformer):
 class PreSaveTransformer[M = BaseModel](BaseViewTransformer):
     @abstractmethod
     async def pre_save(
-        self, request: Request, item: M, item_data: BaseModel, ctx: dict[str, Any]
+        self,
+        request: Request,
+        item: M,
+        item_data: BaseModel,
+        ctx: dict[str, Any],
+        created: bool,
     ) -> None: ...
 
 

@@ -853,6 +853,23 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
             log_file=settings.log_path,
         )
 
+        db = Database(
+            settings.database_url,
+            pool_size=settings.database_pool_size,
+            max_overflow=settings.database_max_overflow,
+        )
+        registry = Registry(db)
+
+        monkay.settings.migration_directory = settings.db_migration_path
+        monkay.set_instance(Instance(registry=registry), apply_extensions=False)
+        monkay.evaluate_settings(on_conflict="keep")
+
+        register_service(db)
+        register_service(registry)
+
+        monkay.set_instance(Instance(registry=registry, app=self))
+        register_lazy_models(registry)
+
         # Add middlewares (order matters: Context first, then Locale)
         self.add_middleware(LocaleMiddleware)
         self.add_middleware(ContextRequestMiddleware)
@@ -874,24 +891,7 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
     @asynccontextmanager
     async def _native_lifespan(self, app):
         """FastEdgy native lifespan: DB + services"""
-        settings = get_service(BaseSettings)
-        db = Database(
-            settings.database_url,
-            pool_size=settings.database_pool_size,
-            max_overflow=settings.database_max_overflow,
-        )
-        registry = Registry(db)
-
-        monkay.settings.migration_directory = settings.db_migration_path
-        monkay.set_instance(Instance(registry=registry), apply_extensions=False)
-        monkay.evaluate_settings(on_conflict="keep")
-
-        register_service(db)
-        register_service(registry)
-
-        monkay.set_instance(Instance(registry=registry, app=self))
-        register_lazy_models(registry)
-
+        db = get_service(Database)
         await db.connect()
         try:
             yield

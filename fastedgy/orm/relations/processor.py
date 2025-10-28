@@ -161,8 +161,36 @@ async def process_relation_operations(
 
             elif action == "clear":
                 related_instances = await relation_manager.all()
-                for instance in related_instances:
-                    await relation_manager.remove(instance)
+
+                # For O2M (reverse) relationships with NOT NULL FK, we need to delete records
+                # instead of just removing the link (which tries to set FK to NULL)
+                parent_model = instance.__class__
+                fk_field_name = None
+                is_fk_nullable = True
+
+                # Find the FK field pointing to parent
+                for (
+                    candidate_name,
+                    candidate_field,
+                ) in related_model.model_fields.items():
+                    if hasattr(candidate_field, "target"):
+                        try:
+                            if candidate_field.target == parent_model:
+                                fk_field_name = candidate_name
+                                is_fk_nullable = getattr(candidate_field, "null", True)
+                                break
+                        except Exception:
+                            pass
+
+                # If FK is NOT NULL, we must delete records; otherwise just remove the link
+                if fk_field_name and not is_fk_nullable:
+                    # For NOT NULL FK, delete records directly (don't try to remove/unlink)
+                    for related_instance in related_instances:
+                        await related_instance.delete()
+                else:
+                    # For nullable FK, just remove the link
+                    for related_instance in related_instances:
+                        await relation_manager.remove(related_instance)
 
             elif action == "set":
                 _, ids = op_tuple
@@ -191,11 +219,31 @@ async def process_relation_operations(
                 current_ids = {r.id for r in current}
                 target_ids = set(ids)
 
+                # Check if FK is NOT NULL for O2M handling
+                parent_model = instance.__class__
+                is_fk_nullable = True
+
+                for (
+                    candidate_name,
+                    candidate_field,
+                ) in related_model.model_fields.items():
+                    if hasattr(candidate_field, "target"):
+                        try:
+                            if candidate_field.target == parent_model:
+                                is_fk_nullable = getattr(candidate_field, "null", True)
+                                break
+                        except Exception:
+                            pass
+
                 # Unlink removed IDs
                 to_unlink = current_ids - target_ids
                 for record in current:
                     if record.id in to_unlink:
-                        await relation_manager.remove(record)
+                        # For NOT NULL FK, delete records directly; otherwise just remove the link
+                        if not is_fk_nullable:
+                            await record.delete()
+                        else:
+                            await relation_manager.remove(record)
 
                 # Link new IDs
                 to_link = target_ids - current_ids

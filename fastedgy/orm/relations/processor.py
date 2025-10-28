@@ -78,6 +78,28 @@ async def process_relation_operations(
                         f"create requires dict of values, got: {type(values).__name__}"
                     )
 
+                # For O2M (reverse) relationships, automatically add parent FK if not provided
+                # Find the FK field in related_model that points back to instance
+                parent_model = instance.__class__
+                fk_field_name = None
+
+                for (
+                    candidate_name,
+                    candidate_field,
+                ) in related_model.model_fields.items():
+                    # Check if this field is a FK pointing to the parent model
+                    if hasattr(candidate_field, "target"):
+                        try:
+                            if candidate_field.target == parent_model:
+                                fk_field_name = candidate_name
+                                break
+                        except Exception:
+                            pass
+
+                # Add parent FK to values if not already present
+                if fk_field_name and fk_field_name not in values:
+                    values[fk_field_name] = instance.id
+
                 new_record = await related_model.query.create(**values)
                 await relation_manager.add(new_record)
 

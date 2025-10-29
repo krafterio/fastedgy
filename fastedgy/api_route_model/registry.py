@@ -50,7 +50,15 @@ class RouteModelActionOptions(dict):
 
 
 RouteModelOptionsValue = bool | RouteModelActionOptions
-RouteModelOptions = dict[str, RouteModelOptionsValue]
+
+
+class RouteModelOptions(dict):
+    prefix: str | None
+    tags: list[Union[str, Enum]] | None
+    dependencies: Sequence[Depends] | None
+    actions: dict[str, RouteModelOptionsValue]
+
+
 TypeModel = Type[Model]
 TypeModels = dict[TypeModel, RouteModelOptions]
 

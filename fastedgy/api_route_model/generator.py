@@ -1,16 +1,21 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+from enum import Enum
 import logging
 
-from typing import Type
+from typing import Sequence, Type, Union, cast
 
 from fastapi import APIRouter
 
+from fastapi.params import Depends
 from fastedgy.dependencies import get_service, Token
 from fastedgy.orm import Model
 from fastedgy.api_route_model.registry import (
     ADMIN_ROUTE_MODEL_REGISTRY_TOKEN,
+    RouteModelActionOptions,
+    RouteModelOptions,
+    RouteModelOptionsValue,
     RouteModelRegistry,
 )
 from fastedgy.api_route_model.action import ApiRouteActionRegistry
@@ -42,10 +47,9 @@ def generate_router_for_model(
     options = registry.get_model_options(model_cls)
 
     # Extract router-level options from RouteModelOptions
-    router_prefix = options.get("prefix")
-    router_tags = options.get("tags")
-    router_dependencies = options.get("dependencies")
-    actions_options = options.get("actions", {})
+    router_tags: list[Union[str, Enum]] | None = options.get("tags")
+    router_dependencies: Sequence[Depends] | None = options.get("dependencies")
+    actions_options: RouteModelOptions = options.get("actions", {})
 
     # Fallback to default tags if not provided and tags flag is True
     if tags and router_tags is None:
@@ -65,7 +69,7 @@ def generate_router_for_model(
         if action_cls.should_register(actions_options):
             action_opts = actions_options.get(action_name, {})
             action_opts = action_opts if isinstance(action_opts, dict) else {}
-            action_cls.register_route(router, model_cls, action_opts)
+            action_cls.register_route(router, model_cls, cast(RouteModelActionOptions, action_opts))
 
     return router
 
@@ -93,13 +97,14 @@ def build_all_generated_routers(
         router = generate_router_for_model(registry, model_cls, tags=tags)
 
         if router:
-            # Build prefix: custom prefix + table name
             options = registry.get_model_options(model_cls)
-            custom_prefix = options.get("prefix")
-            if custom_prefix:
-                prefix = f"{custom_prefix}/{model_cls.meta.tablename}"
+            opt_prefix: str | None = options.get("prefix")
+
+            if opt_prefix:
+                prefix = f"{opt_prefix}/{model_cls.meta.tablename}"
             else:
                 prefix = f"/{model_cls.meta.tablename}"
+
             routers[prefix] = router
 
     return routers

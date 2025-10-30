@@ -69,35 +69,37 @@ def generate_router_for_model(
         if action_cls.should_register(actions_options):
             action_opts = actions_options.get(action_name, {})
             action_opts = action_opts if isinstance(action_opts, dict) else {}
-            action_cls.register_route(router, model_cls, cast(RouteModelActionOptions, action_opts))
+            action_cls.register_route(
+                router, model_cls, cast(RouteModelActionOptions, action_opts)
+            )
 
     return router
 
 
-def build_all_generated_routers(
-    registry_or_token: Type[RouteModelRegistry] | Token[RouteModelRegistry],
+def get_all_generated_routers(
+    registry: Type[RouteModelRegistry] | Token[RouteModelRegistry] = RouteModelRegistry,
     tags: bool = True,
 ) -> dict[str, APIRouter]:
     """
-    Build all auto-generated routers for a given registry.
+    Get all auto-generated routers for registered models.
 
     Args:
-        registry_or_token: Either RouteModelRegistry class or a Token for a registry
+        registry: Either RouteModelRegistry class or a Token for a registry
         tags: Whether or not to include tags in the generated routes
 
     Returns:
         A dictionary mapping route prefixes to routers
     """
     routers = {}
-    registry = get_service(registry_or_token)
+    registry_instance = get_service(registry)
 
-    registered_models = list(registry.get_registered_models())
+    registered_models = list(registry_instance.get_registered_models())
 
     for model_cls in registered_models:
-        router = generate_router_for_model(registry, model_cls, tags=tags)
+        router = generate_router_for_model(registry_instance, model_cls, tags=tags)
 
         if router:
-            options = registry.get_model_options(model_cls)
+            options = registry_instance.get_model_options(model_cls)
             opt_prefix: str | None = options.get("prefix")
 
             if opt_prefix:
@@ -110,16 +112,6 @@ def build_all_generated_routers(
     return routers
 
 
-def get_all_generated_routers() -> dict[str, APIRouter]:
-    """
-    Get all auto-generated routers for registered models.
-
-    Returns:
-        A dictionary mapping route prefixes to routers
-    """
-    return build_all_generated_routers(RouteModelRegistry, tags=True)
-
-
 def get_all_generated_admin_routers() -> dict[str, APIRouter]:
     """
     Get all auto-generated routers for registered admin models.
@@ -127,4 +119,10 @@ def get_all_generated_admin_routers() -> dict[str, APIRouter]:
     Returns:
         A dictionary mapping route prefixes to routers
     """
-    return build_all_generated_routers(ADMIN_ROUTE_MODEL_REGISTRY_TOKEN, tags=False)
+    return get_all_generated_routers(ADMIN_ROUTE_MODEL_REGISTRY_TOKEN, tags=False)
+
+
+__all__ = [
+    "get_all_generated_routers",
+    "get_all_generated_admin_routers",
+]

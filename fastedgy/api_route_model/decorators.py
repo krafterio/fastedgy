@@ -19,13 +19,13 @@ M = TypeVar("M", bound=Type[Model])
 
 
 def build_api_route_model_decorator(
-    registry_or_token: Type[RouteModelRegistry] | Token[RouteModelRegistry],
+    default_registry: Type[RouteModelRegistry] | Token[RouteModelRegistry],
 ) -> Callable[..., Callable[[M], M]]:
     """
     Factory function to build an API route model decorator.
 
     Args:
-        registry_or_token: Either RouteModelRegistry class or a Token for a registry
+        default_registry: Default registry if no registry is specified
 
     Returns:
         A decorator function
@@ -36,6 +36,7 @@ def build_api_route_model_decorator(
         tags: list[Union[str, Enum]] | None = None,
         dependencies: Sequence[Depends] | None = None,
         actions: dict[str, RouteModelOptionsValue] | None = None,
+        registry: Type[RouteModelRegistry] | Token[RouteModelRegistry] | None = None,
         **kwargs: RouteModelOptionsValue,
     ) -> Callable[[M], M]:
         """
@@ -46,6 +47,7 @@ def build_api_route_model_decorator(
             tags: Custom tags for OpenAPI documentation
             dependencies: Route-level dependencies
             actions: Dictionary of actions (useful for reserved Python keywords like "import")
+            registry: Specific registry to use (overrides default registry)
             **kwargs: Map of standard endpoint types to be enabled or disabled
 
         Returns:
@@ -53,7 +55,9 @@ def build_api_route_model_decorator(
         """
 
         def decorator(model_cls: M) -> M:
-            registry = get_service(registry_or_token)
+            target_registry = registry if registry is not None else default_registry
+            registry_instance = get_service(target_registry)
+
             # Merge explicit actions dict with kwargs
             all_actions = {**(actions or {}), **kwargs}
             options = cast(
@@ -65,7 +69,7 @@ def build_api_route_model_decorator(
                     "actions": all_actions,
                 },
             )
-            registry.register_model(model_cls, options)
+            registry_instance.register_model(model_cls, options)
 
             return model_cls
 
@@ -84,6 +88,7 @@ Args:
     tags: Custom tags for OpenAPI documentation
     dependencies: Route-level dependencies
     actions: Dictionary of actions (useful for reserved Python keywords like "import")
+    registry: Specific registry to use (e.g., ADMIN_ROUTE_MODEL_REGISTRY_TOKEN)
     **kwargs: Map of standard endpoint types to be enabled or disabled
 
 Returns:

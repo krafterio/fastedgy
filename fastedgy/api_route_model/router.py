@@ -2,65 +2,63 @@
 # MIT License (see LICENSE file).
 
 import logging
+from typing import Type, Callable
 
 from fastapi import APIRouter
-from fastedgy.api_route_model.generator import (
-    get_all_generated_routers,
-    get_all_generated_admin_routers,
-)
+from fastedgy.api_route_model.generator import get_all_generated_routers
 from fastedgy.api_route_model.registry import (
     ADMIN_ROUTE_MODEL_REGISTRY_TOKEN,
     RouteModelRegistry,
 )
-from fastedgy.dependencies import get_service
+from fastedgy.dependencies import get_service, Token
 from fastedgy.metadata_model import MetadataModelRegistry
 
 
 logger = logging.getLogger("api_route_model.router")
 
 
-def register_api_route_models(api_router: APIRouter) -> None:
+def register_api_route_models(
+    router: APIRouter,
+    registry: Type[RouteModelRegistry] | Token[RouteModelRegistry] = RouteModelRegistry,
+    tags: bool = True,
+) -> None:
     """
-    Register all generated routes in the FastAPI application.
+    Register all generated routes in the given FastAPI router.
 
     Args:
-        api_router: The FastAPI router
-    """
-    # Get all generated routers
-    routers = get_all_generated_routers()
+        router: The FastAPI router to register the routes in
+        registry: Either RouteModelRegistry class or a Token for a registry
+        tags: Whether or not to include tags in the generated routes
 
-    for prefix, router in routers.items():
+    Returns:
+        A function that registers routes for the given registry
+    """
+
+    routers = get_all_generated_routers(registry, tags=tags)
+
+    for prefix, sub_router in routers.items():
         logger.debug(f"Adding model router with prefix: {prefix}")
-        api_router.include_router(router, prefix=prefix)
+        router.include_router(sub_router, prefix=prefix)
 
-    rmr = get_service(RouteModelRegistry)
+    registry_instance = get_service(registry)
     mmr = get_service(MetadataModelRegistry)
-    for model_cls in list(rmr.get_registered_models()):
-        mmr.register_model(model_cls)
+
+    for model_cls in list(registry_instance.get_registered_models()):
+        mmr.register_model(model_cls)  # type: ignore
 
 
-def register_admin_api_route_models(api_router: APIRouter) -> None:
+def register_admin_api_route_models(router: APIRouter) -> None:
     """
-    Register all generated routes in the FastAPI application for admin-users.
+    Register all generated routes in the given FastAPI router for admin-users.
 
     Args:
-        api_router: The FastAPI router
+        router: The FastAPI router to register the routes in
     """
-    # Get all generated routers
-    routers = get_all_generated_admin_routers()
 
-    for prefix, router in routers.items():
-        logger.debug(f"Adding model router with prefix: {prefix}")
-        api_router.include_router(router, prefix=prefix)
-
-    armr = get_service(ADMIN_ROUTE_MODEL_REGISTRY_TOKEN)
-    mmr = get_service(MetadataModelRegistry)
-    for model_cls in list(armr.get_registered_models()):
-        mmr.register_model(model_cls)
+    register_api_route_models(router, ADMIN_ROUTE_MODEL_REGISTRY_TOKEN, tags=False)
 
 
 __all__ = [
-    "logger",
     "register_api_route_models",
     "register_admin_api_route_models",
 ]

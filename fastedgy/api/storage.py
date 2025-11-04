@@ -40,10 +40,13 @@ if TYPE_CHECKING:
     from fastedgy.models.attachment import BaseAttachment
 
 
+attachments_router = APIRouter(prefix="/storage", tags=["storage"])
+manage_attachments_router = APIRouter(prefix="/storage", tags=["storage"])
 router = APIRouter(prefix="/storage", tags=["storage"])
+manage_router = APIRouter(prefix="/storage", tags=["storage"])
 
 
-@router.post(
+@manage_attachments_router.post(
     "/upload/attachments",
     openapi_extra={
         "requestBody": {
@@ -119,7 +122,7 @@ async def upload_attachments(
     return UploadedAttachments[Attachment](attachments=results)
 
 
-@router.post(
+@manage_router.post(
     "/upload/{model:str}/{model_id}/{field:str}",
     openapi_extra={
         "requestBody": {
@@ -200,7 +203,7 @@ async def upload_model_field_file(
         raise HTTPException(status_code=404, detail=_t("Model not found"))
 
 
-@router.delete("/file/{model:str}/{model_id}/{field:str}")
+@manage_router.delete("/file/{model:str}/{model_id}/{field:str}")
 async def delete_file(
     model: str,
     field: str,
@@ -221,7 +224,7 @@ async def delete_file(
         raise HTTPException(status_code=404, detail=_t("Model not found"))
 
 
-@router.get("/download/attachments/{id:int}")
+@attachments_router.get("/download/attachments/{id:int}")
 async def download_attachment(
     id: int,
     force_download: bool = Query(False),
@@ -396,3 +399,9 @@ async def _get_record(
         record = await model_cls.query.get(id=model_id)
 
     return record
+
+
+__all__ = [
+    "attachments_router",
+    "router",
+]

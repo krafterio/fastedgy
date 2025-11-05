@@ -403,5 +403,7 @@ async def _get_record(
 
 __all__ = [
     "attachments_router",
+    "manage_attachments_router",
     "router",
+    "manage_router",
 ]

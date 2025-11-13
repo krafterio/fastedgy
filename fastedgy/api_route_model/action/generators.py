@@ -1,6 +1,7 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+import json
 from copy import copy
 from typing import get_origin, Union, get_args, Any
 
@@ -19,6 +20,7 @@ def generate_output_model[M = TypeModel](model_cls: M) -> type[M]:
     for field_name, field in model_cls.model_fields.items():
         if not field.exclude:
             field_type = field.field_type
+            field_to_use = field
 
             # ForeignKey fields are serialized as dicts by model_dump()
             # It is required to accept both the model type and dict[str, Any]
@@ -26,12 +28,25 @@ def generate_output_model[M = TypeModel](model_cls: M) -> type[M]:
                 if get_origin(field_type) is Union:
                     args = get_args(field_type)
                     # Add dict[str, Any] to the union if not already present
-                    if dict not in args and not any(get_origin(arg) is dict for arg in args):
+                    if dict not in args and not any(
+                        get_origin(arg) is dict for arg in args
+                    ):
                         field_type = Union[*args, dict[str, Any]]
                 else:
                     field_type = Union[field_type, dict[str, Any]]
 
-            fields[field_name] = (field_type, field)
+            # Remove default_factory from output schema if not JSON serializable
+            # Required to avoid empty values ​​in API responses in case of a serialization warning
+            if hasattr(field, "default_factory") and field.default_factory is not None:
+                try:
+                    json.dumps(field.default_factory)
+                except (TypeError, ValueError):
+                    # default_factory is not JSON serializable, remove it from output schema
+                    field_to_use = copy(field)
+                    field_to_use.default_factory = None
+                    field_to_use.default = None
+
+            fields[field_name] = (field_type, field_to_use)
         elif is_relation_field(field):
             fields[field_name] = (
                 list[dict[str, Any]] | None,

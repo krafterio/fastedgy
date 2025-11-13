@@ -12,12 +12,26 @@ from fastedgy.api_route_model.registry import TypeModel
 def generate_output_model[M = TypeModel](model_cls: M) -> type[M]:
     from pydantic import Field as PydanticField
     from fastedgy.api_route_model.action.relations import is_relation_field
+    from edgy.core.db.fields.foreign_keys import ForeignKey
 
     fields = {}
 
     for field_name, field in model_cls.model_fields.items():
         if not field.exclude:
-            fields[field_name] = (field.field_type, field)
+            field_type = field.field_type
+
+            # ForeignKey fields are serialized as dicts by model_dump()
+            # It is required to accept both the model type and dict[str, Any]
+            if isinstance(field, ForeignKey):
+                if get_origin(field_type) is Union:
+                    args = get_args(field_type)
+                    # Add dict[str, Any] to the union if not already present
+                    if dict not in args and not any(get_origin(arg) is dict for arg in args):
+                        field_type = Union[*args, dict[str, Any]]
+                else:
+                    field_type = Union[field_type, dict[str, Any]]
+
+            fields[field_name] = (field_type, field)
         elif is_relation_field(field):
             fields[field_name] = (
                 list[dict[str, Any]] | None,

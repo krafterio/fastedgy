@@ -70,7 +70,13 @@ def create_refresh_token(data: dict):
 async def authenticate_user(email: str, password: str):
     db_reg = get_service(Registry)
     User = cast(type["User"], db_reg.get_model("User"))
-    user = await User.query.filter(email=email).first()
+
+    if hasattr(User, 'username') or 'username' in User.model_fields:
+        user = await User.query.filter(
+            (User.columns.email == email) | (User.columns.username == email)
+        ).first()
+    else:
+        user = await User.query.filter(email=email).first()
 
     if not user or not verify_password(user.password, password):
         return False

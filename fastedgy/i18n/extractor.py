@@ -216,8 +216,9 @@ class I18nExtractor:
         """Extract translatable messages from Python files."""
         messages = set()
 
-        # Pattern for _t() or _() function calls
+        # Pattern for _ts(), _t() or _() function calls
         patterns = [
+            r'_ts\s*\(\s*["\']([^"\']+)["\']\s*[,\)]',
             r'_t\s*\(\s*["\']([^"\']+)["\']\s*[,\)]',
             r'_\s*\(\s*["\']([^"\']+)["\']\s*[,\)]',
         ]

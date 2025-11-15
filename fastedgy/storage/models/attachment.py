@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Union, Any
 import contextlib
 
 from fastedgy.models.base import BaseModel
-from fastedgy.i18n import _t
+from fastedgy.i18n import _ts, _t
 from fastedgy.orm import Model, Registry, fields
 from fastedgy.orm.signals import (
     pre_save,
@@ -25,8 +25,8 @@ if TYPE_CHECKING:
 class AttachmentMixin(BaseModel):
     class Meta:  # type: ignore
         abstract = True
-        label = _t("Pièce jointe")
-        label_plural = _t("Pièces jointes")
+        label = _ts("Pièce jointe")
+        label_plural = _ts("Pièces jointes")
         indexes = [
             fields.Index(fields=["parent"]),
         ]
@@ -40,34 +40,34 @@ class AttachmentMixin(BaseModel):
     # Métadonnées principales
     name: str = fields.CharField(
         max_length=255,
-        label=_t("Nom"),
+        label=_ts("Nom"),
     )  # type: ignore
 
     extension: str | None = fields.CharField(
         max_length=20,
         null=True,
-        label=_t("Extension"),
+        label=_ts("Extension"),
     )  # type: ignore
 
     mime_type: str | None = fields.CharField(
         max_length=150,
         null=True,
-        label=_t("Type MIME"),
+        label=_ts("Type MIME"),
     )  # type: ignore
 
     size_bytes: int | None = fields.BigIntegerField(
         null=True,
-        label=_t("Taille (octets)"),
+        label=_ts("Taille (octets)"),
     )  # type: ignore
 
     width: int | None = fields.IntegerField(
         null=True,
-        label=_t("Largeur"),
+        label=_ts("Largeur"),
     )  # type: ignore
 
     height: int | None = fields.IntegerField(
         null=True,
-        label=_t("Hauteur"),
+        label=_ts("Hauteur"),
     )  # type: ignore
 
     # Storage
@@ -75,7 +75,7 @@ class AttachmentMixin(BaseModel):
         max_length=1024,
         null=True,
         exclude=True,
-        label=_t("Chemin de stockage"),
+        label=_ts("Chemin de stockage"),
     )  # type: ignore
 
     parent: Union["Attachment", None] = fields.ForeignKey(
@@ -83,7 +83,7 @@ class AttachmentMixin(BaseModel):
         null=True,
         related_name="children",
         on_delete="CASCADE",
-        label=_t("Parent"),
+        label=_ts("Parent"),
     )  # type: ignore
 
 
@@ -103,24 +103,24 @@ class AttachmentPathMixin(AttachmentMixin):
     type: AttachmentType = fields.CharChoiceField(
         choices=AttachmentType,
         default=AttachmentType.file,
-        label=_t("Type"),
+        label=_ts("Type"),
     )  # type: ignore
 
     path: str = fields.CharField(
         max_length=1500,
         index=True,
         default="",
-        label=_t("Chemin complet"),
+        label=_ts("Chemin complet"),
     )  # type: ignore
 
     parent_ids: list[int] | None = fields.JSONField(
         null=True,
-        label=_t("Parents"),
+        label=_ts("Parents"),
     )  # type: ignore
 
     depth: int = fields.SmallIntegerField(
         default=0,
-        label=_t("Profondeur"),
+        label=_ts("Profondeur"),
     )  # type: ignore
 
 

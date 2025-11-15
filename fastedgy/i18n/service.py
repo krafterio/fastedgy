@@ -17,13 +17,10 @@ logger = logging.getLogger("fastedgy.i18n")
 
 class TranslatableString(str):
     def __new__(cls, message: str, **kwargs):
-        instance = super().__new__(cls, "")
+        instance = super().__new__(cls, message)
+        instance.message = message
+        instance.kwargs = kwargs
         return instance
-
-    def __init__(self, message: str, **kwargs):
-        super().__init__()
-        self.message = message
-        self.kwargs = kwargs
 
     def render(self) -> str:
         from fastedgy.i18n.service import I18n

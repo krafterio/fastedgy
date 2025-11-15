@@ -71,7 +71,7 @@ async def authenticate_user(email: str, password: str):
     db_reg = get_service(Registry)
     User = cast(type["User"], db_reg.get_model("User"))
 
-    if hasattr(User, 'username') or 'username' in User.model_fields:
+    if hasattr(User, "username") or "username" in User.model_fields:
         user = await User.query.filter(
             (User.columns.email == email) | (User.columns.username == email)
         ).first()

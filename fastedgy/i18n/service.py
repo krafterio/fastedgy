@@ -9,7 +9,7 @@ from babel.messages.pofile import read_po
 
 from fastedgy.config import BaseSettings
 from fastedgy.context import get_locale
-from fastedgy.dependencies import get_service, Inject
+from fastedgy.dependencies import get_service, has_service, Inject
 
 
 logger = logging.getLogger("fastedgy.i18n")
@@ -26,6 +26,9 @@ class TranslatableString(str):
         from fastedgy.i18n.service import I18n
 
         try:
+            if not has_service(I18n):
+                return self.message
+
             return get_service(I18n).translate(self.message, **self.kwargs)
         except Exception:
             try:

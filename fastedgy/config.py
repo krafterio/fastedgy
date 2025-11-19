@@ -3,6 +3,7 @@
 
 import sys
 import os
+import tomllib
 
 from functools import cached_property
 from pathlib import Path
@@ -260,6 +261,27 @@ def init_settings(env_file: str | None = None):
 type Settings[S: BaseSettings = BaseSettings] = Annotated[S, Inject(BaseSettings)]
 
 
+def get_project_version() -> str:
+    """
+    Extract project version from pyproject.toml.
+
+    Returns:
+        str: Project version from pyproject.toml, or "0.0.0" if not found.
+    """
+    try:
+        settings = get_service(BaseSettings)
+        pyproject_path = Path(settings.project_path) / "pyproject.toml"
+
+        if not pyproject_path.exists():
+            return "0.0.0"
+
+        with open(pyproject_path, "rb") as f:
+            data = tomllib.load(f)
+            return data.get("project", {}).get("version", "0.0.0")
+    except Exception:
+        return "0.0.0"
+
+
 __all__ = [
     "SERVER_FILES",
     "SETTINGS_PACKAGES",
@@ -267,4 +289,5 @@ __all__ = [
     "discover_settings_class",
     "init_settings",
     "Settings",
+    "get_project_version",
 ]

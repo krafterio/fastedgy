@@ -10,6 +10,7 @@ import html2text
 import re
 
 from email.message import EmailMessage
+from email.utils import formataddr, parseaddr
 
 from enum import Enum
 
@@ -74,6 +75,31 @@ class Mail:
     def _template_path(self) -> str:
         return self.settings.mail_template_path
 
+    def _encode_email_address(self, address: str | list[str]) -> str:
+        """
+        Encode email addresses to be compatible with SMTP servers that don't support SMTPUTF8.
+        Handles addresses with non-ASCII characters by using proper RFC 2047 encoding.
+
+        Args:
+            address: A single email address or a list of email addresses
+
+        Returns:
+            Properly encoded email address(es)
+        """
+        if isinstance(address, list):
+            return ", ".join(self._encode_email_address(addr) for addr in address)
+
+        if not address:
+            return address
+
+        if "," in address:
+            addresses = [addr.strip() for addr in address.split(",")]
+            return ", ".join(self._encode_email_address(addr) for addr in addresses)
+
+        name, email = parseaddr(address)
+
+        return formataddr((name, email))
+
     def render_template(
         self,
         template_name: str,
@@ -110,7 +136,10 @@ class Mail:
         if isinstance(email_parts, dict):
             email = EmailMessage()
             for key, value in email_parts.items():
-                email[key] = value
+                if key in ("To", "Cc", "Bcc") and value:
+                    email[key] = self._encode_email_address(value)
+                else:
+                    email[key] = value
         else:
             email = email_parts
 
@@ -152,6 +181,12 @@ class Mail:
     async def send(self, email: EmailMessage) -> None:
         if not email["From"]:
             email["From"] = self.settings.smtp_default_from
+
+        for header in ("To", "Cc", "Bcc"):
+            if email.get(header):
+                email.replace_header(
+                    header, self._encode_email_address(email.get(header, ""))
+                )
 
         recipients = email.get("To", "")
         logger.debug(f"Sending email to {recipients}")

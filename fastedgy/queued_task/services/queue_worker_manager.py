@@ -357,6 +357,7 @@ class QueueWorkerManager:
                     "  SELECT qt.id\n"
                     "  FROM queued_tasks qt\n"
                     "  WHERE qt.state = 'enqueued'\n"
+                    "    AND (qt.date_enqueued IS NULL OR qt.date_enqueued <= NOW())\n"
                     "    AND (\n"
                     "      qt.parent_task IS NULL\n"
                     "      OR EXISTS (\n"

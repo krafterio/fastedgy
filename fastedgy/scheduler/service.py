@@ -2,7 +2,7 @@
 # MIT License (see LICENSE file).
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Any, Callable, TYPE_CHECKING, cast
 
 from fastedgy.orm import Registry
@@ -47,13 +47,9 @@ class Scheduler:
         """
         # Calculate execution date
         if isinstance(run_at, timedelta):
-            date_enqueued = datetime.now(timezone.utc) + run_at
+            date_enqueued = datetime.now() + run_at
         else:
-            # Ensure timezone awareness if possible, or assume UTC if naive
-            if run_at.tzinfo is None:
-                date_enqueued = run_at.replace(tzinfo=timezone.utc)
-            else:
-                date_enqueued = run_at
+            date_enqueued = run_at
 
         # Resolve function name and module
         module_name = ""
@@ -75,7 +71,7 @@ class Scheduler:
         )
 
         # Create the task
-        task = await QueuedTask.query.create(
+        task = QueuedTask(
             name=name or f"Scheduled: {function_name}",
             module_name=module_name,
             function_name=function_name,
@@ -85,6 +81,7 @@ class Scheduler:
             date_enqueued=date_enqueued,
             state=QueuedTaskState.enqueued,
         )
+        await task.save()
 
         logger.info(f"Scheduled task {task.id} ({module_name}.{function_name}) for {date_enqueued}")
 
@@ -110,6 +107,10 @@ class Scheduler:
 
         if task.state in [QueuedTaskState.done, QueuedTaskState.failed, QueuedTaskState.cancelled]:
             return False
+
+        if task.state == QueuedTaskState.enqueued:
+            await task.delete()
+            return True
 
         task.mark_as_cancelled()
         await task.save()

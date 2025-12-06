@@ -15,8 +15,7 @@ from fastedgy.orm.manager import (
 )
 from fastedgy.orm.view import create_view
 from fastedgy.orm.registry import lazy_register_model
-
-from pydantic import ConfigDict
+from fastedgy.schemas import ConfigDict
 
 from sqlalchemy import MetaData, Selectable, Table
 
@@ -41,6 +40,19 @@ class BaseModel(Model):
     model_config = ConfigDict(
         extra="ignore",
     )
+
+    def model_dump(self, **kwargs):
+        """Override model_dump to serialize datetime with timezone."""
+        from fastedgy.serializers import datetime_serializer
+
+        data = super().model_dump(**kwargs)
+
+        if isinstance(data, dict):
+            for key, value in data.items():
+                if isinstance(value, datetime):
+                    data[key] = datetime_serializer(value)
+
+        return data
 
     query: ClassVar[Union[WorkspaceableManager, QuerySet]] = WorkspaceableManager()
     query_related: ClassVar[Union[WorkspaceableRedirectManager, QuerySet]] = (
@@ -111,6 +123,23 @@ class BaseView(Model):
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
         lazy_register_model(cls)
+
+    model_config = ConfigDict(
+        extra="ignore",
+    )
+
+    def model_dump(self, **kwargs):
+        """Override model_dump to serialize datetime with timezone."""
+        from fastedgy.serializers import datetime_serializer
+
+        data = super().model_dump(**kwargs)
+
+        if isinstance(data, dict):
+            for key, value in data.items():
+                if isinstance(value, datetime):
+                    data[key] = datetime_serializer(value)
+
+        return data
 
     query: ClassVar[Union[WorkspaceableManager, "QuerySet"]] = WorkspaceableManager()
     query_related: ClassVar[Union[WorkspaceableRedirectManager, "QuerySet"]] = (

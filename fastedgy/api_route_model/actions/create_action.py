@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Callable, Coroutine, Any
 
 from fastapi import APIRouter, Body
-from pydantic import BaseModel
+from fastedgy.schemas import BaseModel
 
 from fastedgy import context
 from fastedgy.dependencies import get_service

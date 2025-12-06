@@ -3,8 +3,7 @@
 
 from fastapi import HTTPException
 from fastapi.exceptions import RequestValidationError
-from pydantic import ValidationError
-from pydantic_core import ErrorDetails
+from fastedgy.schemas import ValidationError, ErrorDetails
 from sqlalchemy.exc import DBAPIError, IntegrityError
 
 from fastedgy.i18n import _t

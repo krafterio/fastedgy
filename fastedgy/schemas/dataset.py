@@ -2,7 +2,7 @@
 # MIT License (see LICENSE file).
 
 from typing import Any
-from pydantic import BaseModel
+from fastedgy.schemas import BaseModel
 
 
 class ResequenceRequest(BaseModel):

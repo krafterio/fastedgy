@@ -9,7 +9,7 @@ from fastedgy.orm.fields import BaseFieldType, ForeignKey, ManyToMany, OneToOne
 from fastedgy.orm.filter import get_filter_operators, FILTER_FIELD_TYPE_NAME_MAP
 from fastedgy.orm.utils import find_primary_key_field
 from fastedgy.schemas.dataset import MetadataModel, MetadataField
-from pydantic_core import PydanticUndefined
+from fastedgy.schemas import PydanticUndefined
 
 
 class MetadataFieldError(Exception): ...

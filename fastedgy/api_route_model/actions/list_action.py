@@ -37,7 +37,7 @@ from fastedgy.http import Request
 from fastedgy.orm.query import QuerySet
 from fastedgy.schemas.base import Pagination
 
-from pydantic import create_model
+from fastedgy.schemas import create_model
 
 
 class ListApiRouteAction(BaseApiRouteAction):

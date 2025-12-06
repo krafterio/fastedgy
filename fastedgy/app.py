@@ -775,7 +775,7 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
                 For example, if you have a model like:
 
                 ```python
-                from pydantic import BaseModel
+                from fastedgy.schemas import BaseModel
 
                 class Item(BaseModel):
                     name: str

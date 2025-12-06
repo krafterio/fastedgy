@@ -8,9 +8,7 @@ from pathlib import Path
 
 from fastedgy.http import Request
 from fastedgy.orm.query import QuerySet
-from fastedgy.schemas.base import Pagination
-
-from pydantic import BaseModel
+from fastedgy.schemas import BaseModel, Pagination
 
 if TYPE_CHECKING:
     from fastapi import UploadFile

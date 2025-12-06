@@ -11,7 +11,7 @@ from typing import Annotated, Type
 from urllib.parse import urlparse
 from fastedgy.dependencies import Inject, get_service, has_service, register_service
 from fastedgy.logger import LogLevel, LogOutput, LogFormat
-from pydantic import field_validator
+from fastedgy.schemas import field_validator
 from pydantic_settings import BaseSettings as PydanticBaseSettings, SettingsConfigDict
 
 

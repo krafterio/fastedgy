@@ -3,7 +3,7 @@
 
 from typing import Any
 
-from pydantic import ConfigDict
+from fastedgy.schemas import ConfigDict
 
 from fastedgy import context
 from fastedgy.orm import fields, Model

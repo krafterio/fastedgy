@@ -8,7 +8,7 @@ from enum import Enum
 from typing import Any, TYPE_CHECKING
 
 from fastedgy.orm import transaction
-from pydantic import BaseModel, ValidationError
+from fastedgy.schemas import BaseModel, ValidationError
 
 from fastedgy.metadata_model.utils import get_field_label_from_path
 from fastedgy.orm.query import QuerySet

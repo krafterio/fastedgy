@@ -56,12 +56,16 @@ class QueuedTaskLogger(logging.Logger):
             return
 
         try:
+            from fastedgy.orm import Database as EdgyDatabase, Registry
             from fastedgy.models.queued_task_log import (
                 BaseQueuedTaskLog as QueuedTaskLog,
             )
             from fastedgy.queued_task.models.queued_task_log import QueuedTaskLogType
 
             log_type = QueuedTaskLogType(level.lower())
+            registry = get_service(Registry)
+            database = get_service(EdgyDatabase)
+            QTL = cast(type["QueuedTaskLog"], registry.get_model("QueuedTaskLog"))
 
             if args:
                 try:
@@ -71,7 +75,7 @@ class QueuedTaskLogger(logging.Logger):
             else:
                 formatted_message = message
 
-            queued_task_log = QueuedTaskLog(
+            queued_task_log = QTL(
                 task=task,
                 log_type=log_type,
                 name=self.name,
@@ -79,7 +83,9 @@ class QueuedTaskLogger(logging.Logger):
                 info=str(kwargs) if kwargs else None,
                 logged_at=datetime.now(context.get_timezone()),
             )
-            await queued_task_log.save()
+
+            async with database.transaction():
+                await queued_task_log.save()
 
         except Exception as e:
             # Don't let database logging errors break the main logic

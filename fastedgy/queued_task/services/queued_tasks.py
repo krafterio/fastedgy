@@ -343,7 +343,11 @@ class QueuedTasks:
 
         await self.hook_registry.trigger_pre_create(task)
 
-        await task.save()
+        # Use isolated transaction for save
+        from fastedgy.orm import Database as EdgyDatabase
+        database: EdgyDatabase = get_service(EdgyDatabase)
+        async with database.transaction():
+            await task.save()
 
         await self.hook_registry.trigger_post_create(task)
 
@@ -462,7 +466,12 @@ class QueuedTasks:
             task.exception_name = None
             task.exception_message = None
             task.exception_info = None
-            await task.save()
+
+            # Use isolated transaction for save
+            from fastedgy.orm import Database as EdgyDatabase
+            db: EdgyDatabase = get_service(EdgyDatabase)
+            async with db.transaction():
+                await task.save()
             return task
         else:
             # Clone the task for done/failed/cancelled states
@@ -478,7 +487,12 @@ class QueuedTasks:
                 state=QueuedTaskState.enqueued,
                 date_enqueued=datetime.now(context.get_timezone()),
             )
-            await cloned_task.save()
+
+            # Use isolated transaction for save
+            from fastedgy.orm import Database as EdgyDatabase
+            database: EdgyDatabase = get_service(EdgyDatabase)
+            async with database.transaction():
+                await cloned_task.save()
             return cloned_task
 
     async def get_pending_tasks_count(self) -> int:

@@ -83,7 +83,11 @@ class QueueWorker:
                         exception_message=f"Parent task {task.parent_task.id} is {parent_state}",
                         exception_info="Parent task is not in 'done' state, cannot execute child",
                     )
-                    await task.save()
+
+                    # Use isolated transaction for save
+                    async def _op_save_failed():
+                        await task.save()
+                    await self._run_write_with_retry(_op_save_failed)
 
                     return {
                         "status": "error",
@@ -92,12 +96,12 @@ class QueueWorker:
                         "task_id": task.id,
                     }
 
-            # Run pre/post hooks + execution under a dedicated connection to avoid
+            # Run pre/post hooks + execution under a dedicated transaction to avoid
             # reentrancy with ORM implicit transactions
             from fastedgy.orm import Database as EdgyDatabase  # type: ignore
 
             database: EdgyDatabase = get_service(EdgyDatabase)
-            async with database.connection():
+            async with database.transaction():
                 await self.hook_registry.trigger_pre_run(task)
 
                 logger.debug(f"Executing task function for task {task.id}")
@@ -122,7 +126,11 @@ class QueueWorker:
                         exception_message=f"Parent task {parent.id} is {parent.state}",
                         exception_info=f"Parent task changed state to {parent.state} during child execution",
                     )
-                    await task.save()
+
+                    # Use isolated transaction for save
+                    async def _op_save_failed_2():
+                        await task.save()
+                    await self._run_write_with_retry(_op_save_failed_2)
 
                     return {
                         "status": "error",
@@ -314,7 +322,7 @@ class QueueWorker:
         attempt = 0
         while True:
             try:
-                async with database.connection():
+                async with database.transaction():
                     await op_coro_factory()
                 return
             except (DBAPIError, OperationalError) as e:  # type: ignore

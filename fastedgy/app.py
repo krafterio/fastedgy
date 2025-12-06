@@ -15,7 +15,7 @@ from fastedgy.dependencies import (
     register_service,
 )
 from fastedgy.logger import setup_logging
-from fastedgy.http import ContextRequestMiddleware
+from fastedgy.http import ContextRequestMiddleware, TimezoneMiddleware
 from fastedgy.i18n import LocaleMiddleware
 from fastedgy.orm import Registry, Database
 from fastedgy.orm.registry import register_lazy_models
@@ -870,7 +870,8 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
         monkay.set_instance(Instance(registry=registry, app=self))
         register_lazy_models(registry)
 
-        # Add middlewares (order matters: Context first, then Locale)
+        # Add middlewares (order matters: Context first, then Locale and Timezone)
+        self.add_middleware(TimezoneMiddleware)
         self.add_middleware(LocaleMiddleware)
         self.add_middleware(ContextRequestMiddleware)
 

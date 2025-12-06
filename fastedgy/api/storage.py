@@ -86,7 +86,7 @@ async def upload_attachments(
     Attachment: Any = registry.get_model("Attachment")
 
     # Build storage directory: attachments/YYYY/MM
-    now = datetime.now()
+    now = datetime.now(context.get_timezone())
     directory_path = f"attachments/{now.strftime('%Y/%m')}"
 
     files = []

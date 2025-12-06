@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 
 from typing import TYPE_CHECKING, Optional, Dict, Any, List, cast
 
+from fastedgy import context
 from fastedgy.dependencies import Inject, get_service
 from fastedgy.orm import Database, Registry
 from fastedgy.queued_task.config import QueuedTaskConfig
@@ -85,7 +86,7 @@ class QueueWorkerManager:
             self.worker_pool.max_workers = max_workers
 
         self.is_running = True
-        self.stats["started_at"] = datetime.now()
+        self.stats["started_at"] = datetime.now(context.get_timezone())
 
         logger.info(f"Starting QueueWorkerManager with {self.max_workers} max workers")
 
@@ -693,7 +694,9 @@ class QueueWorkerManager:
 
         uptime = None
         if self.stats["started_at"]:
-            uptime = (datetime.now() - self.stats["started_at"]).total_seconds()
+            uptime = (
+                datetime.now(context.get_timezone()) - self.stats["started_at"]
+            ).total_seconds()
 
         return {
             "is_running": self.is_running,
@@ -735,8 +738,8 @@ class QueueWorkerManager:
                     server_name=self.server_name,
                     max_workers=self.max_workers,
                     is_running=True,
-                    started_at=datetime.now(),
-                    last_heartbeat=datetime.now(),
+                    started_at=datetime.now(context.get_timezone()),
+                    last_heartbeat=datetime.now(context.get_timezone()),
                 )
                 await queued_task_worker.save()
                 self.worker_status_record = queued_task_worker
@@ -810,7 +813,7 @@ class QueueWorkerManager:
             )
             alive_servers = await QueuedTaskWorker.query.filter(
                 QueuedTaskWorker.columns.last_heartbeat
-                >= datetime.now() - timedelta(minutes=2),
+                >= datetime.now(context.get_timezone()) - timedelta(minutes=2),
                 QueuedTaskWorker.columns.is_running == True,
             ).all()
 

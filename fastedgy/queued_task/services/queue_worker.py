@@ -16,6 +16,7 @@ import random
 
 from typing import TYPE_CHECKING, Any, Dict, Optional, cast
 
+from fastedgy import context
 from fastedgy.dependencies import get_service
 from fastedgy.orm import Registry
 from fastedgy.queued_task.config import QueuedTaskConfig
@@ -38,8 +39,8 @@ class QueueWorker:
         self.worker_id = worker_id
         self.current_task: Optional[QueuedTask] = None
         self.is_busy = False
-        self.created_at = datetime.now()
-        self.last_activity = datetime.now()
+        self.created_at = datetime.now(context.get_timezone())
+        self.last_activity = datetime.now(context.get_timezone())
         self.hook_registry = get_service(QueueHookRegistry)
         self.config = get_service(QueuedTaskConfig)
 
@@ -55,7 +56,7 @@ class QueueWorker:
         """
         self.current_task = task
         self.is_busy = True
-        self.last_activity = datetime.now()
+        self.last_activity = datetime.now(context.get_timezone())
 
         QueuedTask = cast(
             type["QueuedTask"], get_service(Registry).get_model("QueuedTask")
@@ -214,7 +215,7 @@ class QueueWorker:
         finally:
             self.current_task = None
             self.is_busy = False
-            self.last_activity = datetime.now()
+            self.last_activity = datetime.now(context.get_timezone())
 
     async def _execute_task_function(self, task: "QueuedTask") -> Any:
         """Load and execute the task function with proper context"""
@@ -290,7 +291,9 @@ class QueueWorker:
         if self.is_busy:
             return False
 
-        idle_duration = (datetime.now() - self.last_activity).total_seconds()
+        idle_duration = (
+            datetime.now(context.get_timezone()) - self.last_activity
+        ).total_seconds()
         return idle_duration > self.config.worker_idle_timeout
 
     def __str__(self):

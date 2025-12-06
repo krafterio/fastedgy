@@ -119,7 +119,7 @@ async def password_reset(
 
     user = await User.query.filter(
         User.columns.reset_pwd_token == data.token,
-        User.columns.reset_pwd_expires_at >= datetime.now(),
+        User.columns.reset_pwd_expires_at >= datetime.now(context.get_timezone()),
     ).first()
 
     if not user:
@@ -153,7 +153,9 @@ async def password_forgot(
         )
 
     user.reset_pwd_token = str(uuid4())
-    user.reset_pwd_expires_at = datetime.now() + timedelta(hours=1)
+    user.reset_pwd_expires_at = datetime.now(context.get_timezone()) + timedelta(
+        hours=1
+    )
     await user.save()
 
     recovery_url = (
@@ -187,7 +189,7 @@ async def password_validate(
 
     user = await User.query.filter(
         User.columns.reset_pwd_token == data.token,
-        User.columns.reset_pwd_expires_at >= datetime.now(),
+        User.columns.reset_pwd_expires_at >= datetime.now(context.get_timezone()),
     ).first()
 
     if not user:

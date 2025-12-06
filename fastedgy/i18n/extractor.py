@@ -19,6 +19,7 @@ from babel.messages import Catalog
 from babel.messages.pofile import write_po, read_po
 
 from fastedgy.config import BaseSettings
+from fastedgy import context
 
 
 @dataclass
@@ -122,7 +123,7 @@ class I18nExtractor:
                     with open(po_file, "rb") as f:
                         catalog = read_po(f, locale=loc)
 
-                    catalog.revision_date = datetime.now()
+                    catalog.revision_date = datetime.now(context.get_timezone())
                 else:
                     catalog = self._create_catalog(loc)
 
@@ -244,7 +245,7 @@ class I18nExtractor:
 
     def _create_catalog(self, locale: str) -> Catalog:
         """Create a new catalog with clean headers."""
-        now = datetime.now()
+        now = datetime.now(context.get_timezone())
         catalog = Catalog(
             locale=locale,
             creation_date=now,

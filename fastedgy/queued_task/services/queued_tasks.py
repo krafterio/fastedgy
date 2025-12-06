@@ -25,6 +25,8 @@ import json
 
 import logging
 
+from fastedgy import context
+from fastedgy import context as fastedgy_context
 from fastedgy.dependencies import Inject, get_service
 from fastedgy.orm import Registry
 from fastedgy.lifecycle import AppLifecycle
@@ -336,7 +338,7 @@ class QueuedTasks:
             context=context or {},
             parent_task=parent_task,
             state=QueuedTaskState.enqueued,
-            date_enqueued=datetime.now(),
+            date_enqueued=datetime.now(fastedgy_context.get_timezone()),
         )
 
         await self.hook_registry.trigger_pre_create(task)
@@ -454,7 +456,7 @@ class QueuedTasks:
         elif task.state == QueuedTaskState.stopped:
             # Just re-enqueue the existing task
             task.state = QueuedTaskState.enqueued
-            task.date_enqueued = datetime.now()
+            task.date_enqueued = datetime.now(context.get_timezone())
             task.date_started = None
             task.date_stopped = None
             task.exception_name = None
@@ -474,7 +476,7 @@ class QueuedTasks:
                 context=task.context.copy() if task.context else {},
                 parent_task=task.parent_task,
                 state=QueuedTaskState.enqueued,
-                date_enqueued=datetime.now(),
+                date_enqueued=datetime.now(context.get_timezone()),
             )
             await cloned_task.save()
             return cloned_task

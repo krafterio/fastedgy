@@ -485,7 +485,7 @@ requires-dist = [
     { name = "bcrypt", specifier = "~=4.3" },
     { name = "click", specifier = "~=8.2" },
     { name = "dill", specifier = "~=0.4" },
-    { name = "edgy", extras = ["postgres"], specifier = "~=0.34" },
+    { name = "edgy", extras = ["postgres"], specifier = "~=0.35" },
     { name = "fastapi", specifier = "~=0.115" },
     { name = "html2text", specifier = "~=2025.4" },
     { name = "httpx", specifier = "~=0.28" },

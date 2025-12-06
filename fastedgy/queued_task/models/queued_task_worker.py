@@ -7,6 +7,7 @@ from datetime import datetime
 
 from typing import Optional
 
+from fastedgy import context
 from fastedgy.orm import Model, fields
 
 
@@ -54,25 +55,27 @@ class QueuedTaskWorkerMixin(Model):
         """Check if server is alive (heartbeat within last 2 minutes)"""
         if not self.last_heartbeat:
             return False
-        return (datetime.now() - self.last_heartbeat).total_seconds() < 120
+        return (
+            datetime.now(context.get_timezone()) - self.last_heartbeat
+        ).total_seconds() < 120
 
     def update_stats(self, active: int, idle: int, is_running: bool = True):
         """Update worker statistics"""
         self.active_workers = active
         self.idle_workers = idle
         self.is_running = is_running
-        self.last_heartbeat = datetime.now()
+        self.last_heartbeat = datetime.now(context.get_timezone())
 
     def mark_as_started(self, max_workers: int):
         """Mark server as started"""
         self.max_workers = max_workers
         self.is_running = True
-        self.started_at = datetime.now()
-        self.last_heartbeat = datetime.now()
+        self.started_at = datetime.now(context.get_timezone())
+        self.last_heartbeat = datetime.now(context.get_timezone())
 
     def mark_as_stopped(self):
         """Mark server as stopped"""
         self.is_running = False
         self.active_workers = 0
         self.idle_workers = 0
-        self.last_heartbeat = datetime.now()
+        self.last_heartbeat = datetime.now(context.get_timezone())

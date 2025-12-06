@@ -7,6 +7,7 @@ import logging
 from datetime import datetime
 from typing import cast
 
+from fastedgy import context
 from fastedgy.dependencies import get_service
 from fastedgy.queued_task.context import get_current_task
 from fastedgy.queued_task.config import QueuedTaskConfig
@@ -76,7 +77,7 @@ class QueuedTaskLogger(logging.Logger):
                 name=self.name,
                 message=formatted_message,
                 info=str(kwargs) if kwargs else None,
-                logged_at=datetime.now(),
+                logged_at=datetime.now(context.get_timezone()),
             )
             await queued_task_log.save()
 

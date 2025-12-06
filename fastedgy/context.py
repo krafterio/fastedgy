@@ -4,6 +4,9 @@
 from contextvars import ContextVar, Token
 from enum import Enum
 from typing import TYPE_CHECKING, Union
+from zoneinfo import ZoneInfo
+
+from fastedgy.timezone import get_timezone_info
 
 if TYPE_CHECKING:
     from fastedgy.http import Request
@@ -30,6 +33,23 @@ def get_request() -> Union["Request", None]:
 
 def reset_request(token: Token) -> None:
     _current_request.reset(token)
+
+
+def set_timezone(timezone: str | ZoneInfo) -> None:
+    req = get_request()
+    if req:
+        req.state.timezone = (
+            ZoneInfo(timezone) if isinstance(timezone, str) else timezone
+        )
+
+
+def get_timezone() -> ZoneInfo:
+    req = get_request()
+
+    if req and hasattr(req.state, "timezone"):
+        return req.state.timezone
+
+    return get_timezone_info()
 
 
 def set_locale(locale: str) -> None:
@@ -143,6 +163,8 @@ __all__ = [
     "set_request",
     "get_request",
     "reset_request",
+    "set_timezone",
+    "get_timezone",
     "set_locale",
     "get_locale",
     "set_user",

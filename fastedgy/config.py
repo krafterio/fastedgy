@@ -130,6 +130,9 @@ class BaseSettings(PydanticBaseSettings):
     # Storage
     data_path: str | None = None
 
+    # Queued Task
+    queued_task_log_level: LogLevel | None = None
+
     # Images
     image_quality: int = 80
 

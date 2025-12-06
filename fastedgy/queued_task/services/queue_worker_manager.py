@@ -81,6 +81,8 @@ class QueueWorkerManager:
             logger.warning("Worker manager is already running")
             return
 
+        self._configure_logging()
+
         if max_workers:
             self.max_workers = max_workers
             self.worker_pool.max_workers = max_workers
@@ -183,6 +185,29 @@ class QueueWorkerManager:
             )
         except Exception:
             pass
+
+    def _configure_logging(self) -> None:
+        """Configure logging levels for queued task loggers."""
+        from fastedgy.config import BaseSettings
+
+        settings = get_service(BaseSettings)
+
+        if settings.queued_task_log_level is not None:
+            target_level = getattr(logging, settings.queued_task_log_level.value.upper())
+        else:
+            root_level = logging.getLogger().level
+
+            if root_level == logging.NOTSET:
+                target_level = getattr(logging, settings.log_level.value.upper())
+            else:
+                target_level = root_level
+
+        logging.getLogger("queued_task.context").setLevel(target_level)
+        logging.getLogger("queued_task.hooks").setLevel(target_level)
+        logging.getLogger("queued_task.manager").setLevel(target_level)
+        logging.getLogger("queued_task.worker").setLevel(target_level)
+        logging.getLogger("queued_task.worker_pool").setLevel(target_level)
+        logging.getLogger("queued_tasks").setLevel(target_level)
 
     async def _notification_listener(self) -> None:
         """Listen for PostgreSQL notifications and trigger processing outside the LISTEN connection.

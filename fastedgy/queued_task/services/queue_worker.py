@@ -29,7 +29,6 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger("queued_task.worker")
-logger.setLevel(logging.DEBUG)
 
 
 class QueueWorker:

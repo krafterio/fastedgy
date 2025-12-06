@@ -86,7 +86,7 @@ class QueuedTasks:
         self,
         func: Callable[P, Any],
         *args: P.args,
-        parent: QueuedTaskRef | None = None,
+        parent: QueuedTaskRef | None = None,  # type: ignore
         **kwargs: P.kwargs,
     ) -> QueuedTaskRef:
         """
@@ -319,6 +319,7 @@ class QueuedTasks:
         context: Optional[Dict[str, Any]] = None,
         name: Optional[str] = None,
         parent_task: Optional["QueuedTask"] = None,
+        auto_remove: bool = False,
     ) -> "QueuedTask":
         """Create a new task in the queue"""
         # Validation: must have either module/function or serialized function
@@ -339,6 +340,7 @@ class QueuedTasks:
             parent_task=parent_task,
             state=QueuedTaskState.enqueued,
             date_enqueued=datetime.now(fastedgy_context.get_timezone()),
+            auto_remove=auto_remove,
         )
 
         await self.hook_registry.trigger_pre_create(task)
@@ -363,6 +365,7 @@ class QueuedTasks:
         kwargs: Optional[Dict[str, Any]] = None,
         context: Optional[Dict[str, Any]] = None,
         name: Optional[str] = None,
+        auto_remove: bool = False,
     ) -> "QueuedTask":
         """Create a child task that depends on a parent task"""
         parent_task = await self.get_task_by_id(parent_task_id)
@@ -378,6 +381,7 @@ class QueuedTasks:
             context=context,
             name=name,
             parent_task=parent_task,
+            auto_remove=auto_remove,
         )
 
     async def add_child_task_async(

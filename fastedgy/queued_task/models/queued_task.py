@@ -99,6 +99,9 @@ class QueuedTaskMixin(BaseModel):
     date_ended: Optional[datetime] = fields.DateTimeField(
         null=True, label="Date de fin"
     )  # type: ignore
+    auto_remove: bool = fields.BooleanField(
+        default=False, label="Suppression automatique après succès"
+    )  # type: ignore
     date_done: Optional[datetime] = fields.DateTimeField(
         null=True, label="Date de succès"
     )  # type: ignore

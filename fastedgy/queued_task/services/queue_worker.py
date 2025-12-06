@@ -156,9 +156,24 @@ class QueueWorker:
 
             await self._run_write_with_retry(_op_mark_done)
 
-            logger.info(
-                f"Worker {self.worker_id} completed task {task.id} successfully"
-            )
+            # Auto-remove task if enabled
+            if task.auto_remove:
+                async def _op_auto_remove():
+                    from sqlalchemy import text
+                    from fastedgy.orm import Database as EdgyDatabase  # type: ignore
+
+                    database: EdgyDatabase = get_service(EdgyDatabase)
+                    sql = text("DELETE FROM queued_tasks WHERE id = :id")
+                    await database.execute(sql, {"id": task.id})
+
+                await self._run_write_with_retry(_op_auto_remove)
+                logger.info(
+                    f"Worker {self.worker_id} completed and auto-removed task {task.id}"
+                )
+            else:
+                logger.info(
+                    f"Worker {self.worker_id} completed task {task.id} successfully"
+                )
 
             return {
                 "status": "success",

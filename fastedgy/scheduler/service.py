@@ -31,6 +31,7 @@ class Scheduler:
         kwargs: dict[str, Any] | None = None,
         context: dict[str, Any] | None = None,
         name: str | None = None,
+        auto_remove: bool = True,
     ) -> "QueuedTask":
         """
         Schedule a task for future execution.
@@ -42,6 +43,7 @@ class Scheduler:
             kwargs: Keyword arguments for the function
             context: Optional context dictionary
             name: Optional name for the task
+            auto_remove: Auto-remove task after successful execution
 
         Returns:
             The created QueuedTask instance
@@ -83,6 +85,7 @@ class Scheduler:
             context=context or {},
             date_enqueued=date_enqueued,
             state=QueuedTaskState.enqueued,
+            auto_remove=auto_remove,
         )
         await task.save()
 

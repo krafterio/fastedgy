@@ -42,6 +42,9 @@ def set_timezone(timezone: str | ZoneInfo) -> None:
             ZoneInfo(timezone) if isinstance(timezone, str) else timezone
         )
 
+def has_timezone() -> bool:
+    req = get_request()
+    return req and hasattr(req.state, "timezone") and req.state.timezone is not None
 
 def get_timezone() -> ZoneInfo:
     req = get_request()

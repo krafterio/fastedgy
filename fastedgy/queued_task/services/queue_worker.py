@@ -166,12 +166,45 @@ class QueueWorker:
                     from fastedgy.orm import Database as EdgyDatabase  # type: ignore
 
                     database: EdgyDatabase = get_service(EdgyDatabase)
+
+                    # Check task state is not failed
+                    check_state_sql = text(
+                        "SELECT state FROM queued_tasks WHERE id = :id"
+                    ).bindparams(id=task.id)
+                    result = await database.fetch_all(check_state_sql)
+                    if (
+                        result
+                        and len(result) > 0
+                        and result[0][0] == QueuedTaskState.failed
+                    ):
+                        logger.warning(
+                            f"Worker {self.worker_id} skipping auto-remove for task {task.id}: state is 'failed'"
+                        )
+                        return
+
+                    # Check for error or critical logs
+                    check_logs_sql = text(
+                        "SELECT COUNT(*) FROM queued_task_logs "
+                        "WHERE task = :id AND log_type IN ('error', 'critical')"
+                    ).bindparams(id=task.id)
+                    log_result = await database.fetch_all(check_logs_sql)
+                    if log_result and len(log_result) > 0 and log_result[0][0] > 0:
+                        logger.warning(
+                            f"Worker {self.worker_id} skipping auto-remove for task {task.id}: found {log_result[0][0]} error/critical log(s)"
+                        )
+                        return
+
+                    # All checks passed, proceed with deletion
                     sql = text("DELETE FROM queued_tasks WHERE id = :id")
                     await database.execute(sql, {"id": task.id})
 
                 await self._run_write_with_retry(_op_auto_remove)
                 logger.info(
                     f"Worker {self.worker_id} completed and auto-removed task {task.id}"
+                )
+            elif task.state == QueuedTaskState.failed:
+                logger.info(
+                    f"Worker {self.worker_id} failed task {task.id}, keeping it"
                 )
             else:
                 logger.info(

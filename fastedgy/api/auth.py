@@ -27,6 +27,7 @@ from fastedgy.schemas.auth import (
 from fastedgy.schemas.base import SimpleMessage
 from fastedgy.mail import Mail
 from fastedgy import context
+from fastedgy.bus import BaseEvent, Bus
 from jose import jwt, JWTError
 from datetime import datetime, timedelta
 
@@ -35,13 +36,36 @@ if TYPE_CHECKING:
     from fastedgy.models.user import BaseUser as User
 
 
+class AuthEvent(BaseEvent):
+    """Base class for authentication events"""
+
+    def __init__(self, user: "User", access_token: str, refresh_token: str):
+        self.user = user
+        self.access_token = access_token
+        self.refresh_token = refresh_token
+
+
+class OnAuthLoginEvent(AuthEvent):
+    """Event dispatched when a user successfully logs in"""
+
+    pass
+
+
+class OnAuthRefreshTokenEvent(AuthEvent):
+    """Event dispatched when a refresh token is used to generate new tokens"""
+
+    pass
+
+
 router = APIRouter(prefix="/auth", tags=["auth"])
 public_router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @public_router.post("/token")
 async def login_for_access_token(
-    form_data: LoginRequest = Body(), settings: BaseSettings = Inject(BaseSettings)
+    form_data: LoginRequest = Body(),
+    settings: BaseSettings = Inject(BaseSettings),
+    bus: Bus = Inject(Bus),
 ) -> Token:
     user = await authenticate_user(form_data.username, form_data.password)
 
@@ -58,6 +82,12 @@ async def login_for_access_token(
     )
     refresh_token = create_refresh_token(data={"sub": user.email})
 
+    await bus.dispatch(
+        OnAuthLoginEvent(
+            user=user, access_token=access_token, refresh_token=refresh_token
+        )
+    )
+
     return Token(
         access_token=access_token,
         refresh_token=refresh_token,
@@ -70,6 +100,7 @@ async def refresh_access_token(
     token_data: TokenRefresh,
     settings: BaseSettings = Inject(BaseSettings),
     registry: Registry = Inject(Registry),
+    bus: Bus = Inject(Bus),
 ) -> Token:
     User = cast(type["User"], registry.get_model("User"))
 
@@ -101,6 +132,12 @@ async def refresh_access_token(
         data={"sub": user.email}, expires_delta=access_token_expires
     )
     new_refresh_token = create_refresh_token(data={"sub": user.email})
+
+    await bus.dispatch(
+        OnAuthRefreshTokenEvent(
+            user=user, access_token=new_access_token, refresh_token=new_refresh_token
+        )
+    )
 
     return Token(
         access_token=new_access_token,

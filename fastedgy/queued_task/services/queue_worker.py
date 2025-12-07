@@ -86,6 +86,7 @@ class QueueWorker:
                     # Use isolated transaction for save
                     async def _op_save_failed():
                         await task.save()
+
                     await self._run_write_with_retry(_op_save_failed)
 
                     return {
@@ -129,6 +130,7 @@ class QueueWorker:
                     # Use isolated transaction for save
                     async def _op_save_failed_2():
                         await task.save()
+
                     await self._run_write_with_retry(_op_save_failed_2)
 
                     return {
@@ -158,6 +160,7 @@ class QueueWorker:
 
             # Auto-remove task if enabled
             if task.auto_remove:
+
                 async def _op_auto_remove():
                     from sqlalchemy import text
                     from fastedgy.orm import Database as EdgyDatabase  # type: ignore

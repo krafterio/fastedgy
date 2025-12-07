@@ -193,7 +193,9 @@ class QueueWorkerManager:
         settings = get_service(BaseSettings)
 
         if settings.queued_task_log_level is not None:
-            target_level = getattr(logging, settings.queued_task_log_level.value.upper())
+            target_level = getattr(
+                logging, settings.queued_task_log_level.value.upper()
+            )
         else:
             root_level = logging.getLogger().level
 

@@ -347,6 +347,7 @@ class QueuedTasks:
 
         # Use isolated transaction for save
         from fastedgy.orm import Database as EdgyDatabase
+
         database: EdgyDatabase = get_service(EdgyDatabase)
         async with database.transaction():
             await task.save()
@@ -473,6 +474,7 @@ class QueuedTasks:
 
             # Use isolated transaction for save
             from fastedgy.orm import Database as EdgyDatabase
+
             db: EdgyDatabase = get_service(EdgyDatabase)
             async with db.transaction():
                 await task.save()
@@ -494,6 +496,7 @@ class QueuedTasks:
 
             # Use isolated transaction for save
             from fastedgy.orm import Database as EdgyDatabase
+
             database: EdgyDatabase = get_service(EdgyDatabase)
             async with database.transaction():
                 await cloned_task.save()

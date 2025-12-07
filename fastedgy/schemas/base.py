@@ -38,6 +38,7 @@ class BaseModel(PydanticBaseModel):
 
         if isinstance(value, datetime):
             from fastedgy.serializers import datetime_serializer
+
             return datetime_serializer(value)
 
         return result

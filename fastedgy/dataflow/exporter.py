@@ -127,6 +127,8 @@ def format_value(value: Any) -> str | None:
         return str(value)
     elif isinstance(value, Enum):
         return value.value
+    elif isinstance(value, list):
+        return "\n".join([str(format_value(v)) for v in value if v is not None])
     else:
         # Clean HTML tags from text values using html2text
         text_value = str(value)

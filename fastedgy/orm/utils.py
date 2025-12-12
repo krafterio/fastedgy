@@ -32,6 +32,8 @@ def extract_field_names(record: dict, parent_field: str = "") -> list[str]:
 
         if isinstance(record_val, dict):
             fields.extend(extract_field_names(record_val, record_field_name))
+        elif isinstance(record_val, list) and len(record_val) > 0 and isinstance(record_val[0], dict):
+            fields.extend(extract_field_names(record_val[0], record_field_name))
         else:
             fields.append(record_field_name)
 

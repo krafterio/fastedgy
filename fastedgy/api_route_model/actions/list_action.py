@@ -107,8 +107,8 @@ async def list_items_action[M = TypeModel](
     try:
         query = query or model_cls.query
         query = filter_query(query, filters)
-        query = inject_order_by(query, order_by)
         query = optimize_query_filter_fields(query, fields)
+        query = inject_order_by(query, order_by)
 
         for transformer in vtr.get_transformers(
             PrePaginateViewTransformer, model_cls, transformers

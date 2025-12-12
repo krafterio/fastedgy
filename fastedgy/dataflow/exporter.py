@@ -60,8 +60,8 @@ async def export_data[M](
     try:
         query = query or model_cls.query
         query = filter_query(query, filters)
-        query = inject_order_by(query, order_by)
         query = optimize_query_filter_fields(query, fields)
+        query = inject_order_by(query, order_by)
 
         items = await query.limit(limit).offset(offset).all()
     except InvalidFilterError as e:

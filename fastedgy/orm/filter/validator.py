@@ -78,6 +78,10 @@ def validate_filter_field(model_cls: type[Model], field_path: str) -> bool:
 
         field_info = current_cls.meta.fields.get(part)
 
+        # Exclude ComputedField (not stored in DB, cannot be filtered)
+        if hasattr(field_info, "getter"):
+            return False
+
         if i < len(parts) - 1:
             if hasattr(field_info, "target"):
                 current_cls = field_info.target

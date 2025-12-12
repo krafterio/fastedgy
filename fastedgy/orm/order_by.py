@@ -99,14 +99,14 @@ def parse_order_by(model_cls: type[Model], order_by_input: OrderByInput) -> Orde
 
 def _is_valid_field_path(model_cls: type[Model], field_path: str) -> bool:
     """
-    Check if a field path (including relations) is valid.
+    Check if a field path (including relations) is valid and orderable.
 
     Args:
         model_cls: The model class
         field_path: Field path like 'name' or 'relation.field'
 
     Returns:
-        True if valid, False otherwise
+        True if valid and orderable (stored in DB), False otherwise
     """
     parts = field_path.split(".")
     current_cls = model_cls
@@ -118,6 +118,10 @@ def _is_valid_field_path(model_cls: type[Model], field_path: str) -> bool:
 
             # Get the field type and check if it's a relation
             field = current_cls.meta.fields.get(part)
+
+            # Exclude ComputedField (not stored in DB, cannot be ordered)
+            if hasattr(field, "getter"):
+                return False
 
             if hasattr(field, "target"):
                 current_cls = field.target

@@ -331,7 +331,9 @@ def _convert_value_by_field_type(
                         **EXTRA_FIELD_TYPE_OPTIONS[extra_field.field_type]
                     )
         else:
-            field = current_cls.meta.fields[part]
+            field = current_cls.meta.fields.get(part)
+            if not field:
+                return value  # Field not found, return value as-is
 
         if field and hasattr(field, "target"):
             current_cls = field.target

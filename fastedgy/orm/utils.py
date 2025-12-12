@@ -121,9 +121,8 @@ async def get_value_from_path(instance: Model, path: str) -> Any | None:
             return await _resolve(value, rest or ["id"])
 
         if rest:
-            raise ValueError(
-                f"Le champ '{key}' n'est pas une relation, impossible de continuer avec '{'.'.join(rest)}'"
-            )
+            # Field is not a relation but path continues, silently return None
+            return None
 
         return value
 

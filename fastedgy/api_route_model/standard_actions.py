@@ -7,6 +7,9 @@ from fastedgy.api_route_model.actions.create_action import CreateApiRouteAction
 from fastedgy.api_route_model.actions.delete_action import DeleteApiRouteAction
 from fastedgy.api_route_model.actions.export_action import ExportApiRouteAction
 from fastedgy.api_route_model.actions.import_action import ImportApiRouteAction
+from fastedgy.api_route_model.actions.import_template_action import (
+    ImportTemplateApiRouteAction,
+)
 from fastedgy.api_route_model.actions.get_action import GetApiRouteAction
 from fastedgy.api_route_model.actions.list_action import ListApiRouteAction
 from fastedgy.api_route_model.actions.patch_action import PatchApiRouteAction
@@ -18,6 +21,7 @@ def register_standard_api_route_model_actions():
     arar.register_action(ListApiRouteAction)
     arar.register_action(ExportApiRouteAction)
     arar.register_action(ImportApiRouteAction)
+    arar.register_action(ImportTemplateApiRouteAction)
     arar.register_action(GetApiRouteAction)
     arar.register_action(CreateApiRouteAction)
     arar.register_action(PatchApiRouteAction)

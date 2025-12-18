@@ -78,9 +78,9 @@ async def login_for_access_token(
 
     access_token_expires = timedelta(minutes=settings.auth_access_token_expire_minutes)
     access_token = create_access_token(
-        data={"sub": user.email}, expires_delta=access_token_expires
+        data={"sub": user.email or user.username}, expires_delta=access_token_expires
     )
-    refresh_token = create_refresh_token(data={"sub": user.email})
+    refresh_token = create_refresh_token(data={"sub": user.email or user.username})
 
     await bus.dispatch(
         OnAuthLoginEvent(

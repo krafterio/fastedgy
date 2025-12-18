@@ -191,19 +191,23 @@ class Mail:
         recipients = email.get("To", "")
         logger.debug(f"Sending email to {recipients}")
 
+        smtp = aiosmtplib.SMTP(
+            hostname=self.settings.smtp_host,
+            port=self.settings.smtp_port,
+            start_tls=self.settings.smtp_use_tls,
+            username=self.settings.smtp_username,
+            password=self.settings.smtp_password,
+        )
+
         try:
-            await aiosmtplib.send(
-                email,
-                hostname=self.settings.smtp_host,
-                port=self.settings.smtp_port,
-                start_tls=self.settings.smtp_use_tls,
-                username=self.settings.smtp_username,
-                password=self.settings.smtp_password,
-            )
+            await smtp.connect()
+            await smtp.send_message(email)
             logger.debug(f"Email sent successfully to {recipients}")
         except Exception as e:
             logger.error(f"Failed to send email: {str(e)}")
             raise
+        finally:
+            smtp.close()
 
 
 class SilentUndefined(Undefined):

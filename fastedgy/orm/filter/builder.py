@@ -31,19 +31,22 @@ from fastedgy.orm.filter.operators import (
 )
 from fastedgy.orm.filter.parser import parse_filter_input
 from fastedgy.orm.filter.validator import validate_filters
-from fastedgy.orm.filter.utils import _has_relation_filter, _convert_value
+from fastedgy.orm.filter.utils import _has_duplicating_relation_filter, _convert_value
 
 
-def build_filter_expression(
-    model_cls: type[Model], filters: FilterRule | FilterCondition
-) -> Any | None:
-    cond_query = cast(
+def _get_cond_query(model_cls: type[Model]) -> QuerySet:
+    """Helper to get the query object for building conditions."""
+    return cast(
         QuerySet,
         model_cls.global_query
         if hasattr(model_cls, "global_query")
         else model_cls.query,
     )
 
+
+def build_filter_expression(
+    model_cls: type[Model], filters: FilterRule | FilterCondition
+) -> Any | None:
     if isinstance(filters, FilterRule):
         field = filters.field
         operator_method = FILTER_OPERATORS_SQL.get(filters.operator, None)
@@ -75,17 +78,13 @@ def build_filter_expression(
                     f"Operator '{filters.operator}' requires {unpack_count} values in list"
                 )
 
-            return cond_query.and_(
-                column.between(*value)
-                if use_col
-                else operator_dict_method(cond_query, field, value)
-            )
+            if use_col:
+                return column.between(*value)
+            return operator_dict_method(_get_cond_query(model_cls), field, value)
 
-        return cond_query.and_(
-            operator_method(column, value)
-            if use_col
-            else operator_dict_method(cond_query, field, value)
-        )
+        if use_col:
+            return operator_method(column, value)
+        return operator_dict_method(_get_cond_query(model_cls), field, value)
 
     if not filters.rules:
         return None
@@ -103,6 +102,8 @@ def build_filter_expression(
 
     if len(expressions) == 1:
         return expressions[0]
+
+    cond_query = _get_cond_query(model_cls)
 
     if filters.condition == "|":
         return cond_query.or_(*expressions)
@@ -144,7 +145,10 @@ def filter_query(
     if expression is not None:
         query = query.filter(expression)
 
-        if _has_relation_filter(filters) and query.distinct_on is None:
+        if (
+            _has_duplicating_relation_filter(query.model_class, filters)
+            and query.distinct_on is None
+        ):
             primary_key = find_primary_key_field(query.model_class)
             if primary_key:
                 query = query.distinct(primary_key)

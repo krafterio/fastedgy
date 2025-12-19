@@ -121,6 +121,50 @@ def _has_relation_filter(filters: Filter | None) -> bool:
     return False
 
 
+def _has_duplicating_relation_filter(model_cls: Any, filters: Filter | None) -> bool:
+    """
+    Check if filters contain relations that can create duplicate rows.
+    Only ManyToMany and OneToMany relations can create duplicates.
+    ForeignKey and OneToOne are N:1 or 1:1 relationships, no duplicates possible.
+    """
+    from fastedgy.orm.fields import ManyToMany, ForeignKey, OneToOne
+
+    if not filters:
+        return False
+
+    if isinstance(filters, FilterRule):
+        if "." not in filters.field:
+            return False
+
+        relation_name = filters.field.split(".")[0]
+
+        if relation_name.startswith("extra_"):
+            return False
+
+        field_type = model_cls.meta.fields.get(relation_name)
+
+        if field_type is None:
+            return False
+
+        if isinstance(field_type, (ForeignKey, OneToOne)):
+            return False
+
+        if isinstance(field_type, ManyToMany):
+            return True
+
+        if hasattr(field_type, "related_from"):
+            return True
+
+        return False
+
+    if isinstance(filters, FilterCondition):
+        return any(
+            _has_duplicating_relation_filter(model_cls, rule) for rule in filters.rules
+        )
+
+    return False
+
+
 def _convert_value(value: Any | None, callback: Callable) -> Any:
     if isinstance(value, str):
         try:
@@ -151,5 +195,6 @@ __all__ = [
     "merge_filters",
     "add_prefix_on_fields",
     "_has_relation_filter",
+    "_has_duplicating_relation_filter",
     "_convert_value",
 ]

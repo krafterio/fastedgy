@@ -14,6 +14,7 @@ def serve(
     ctx: CliContext, host: str, port: int, http_workers: int | None, reload: bool
 ):
     """Start the development server."""
+    import os
     import uvicorn
     from fastedgy.cli import console, Table, Panel
 
@@ -23,6 +24,12 @@ def serve(
     table = Table(title="Server Configuration")
     table.add_column("Parameter", style="cyan")
     table.add_column("Value", style="green")
+
+    if http_workers is None:
+        auto_workers = int(os.environ.get("WEB_CONCURRENCY", 1))
+        http_workers_display = f"auto ({auto_workers})"
+    else:
+        http_workers_display = str(http_workers)
 
     db_pool_size = ctx.settings.computed_database_pool_size
     db_max_overflow = ctx.settings.computed_database_max_overflow
@@ -40,7 +47,7 @@ def serve(
     table.add_row("Host", host)
     table.add_row("Port", str(port))
     table.add_row("Mode", "development" if reload else "production")
-    table.add_row("HTTP Workers", str(http_workers or "auto"))
+    table.add_row("HTTP Workers", http_workers_display)
     table.add_row("DB Pool Size", db_pool_display)
     table.add_row("DB Max Overflow", db_overflow_display)
     table.add_row("Log Level", ctx.settings.log_level.value)

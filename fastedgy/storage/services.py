@@ -178,7 +178,7 @@ class Storage:
 
     def _save_image(
         self,
-        img: "Image.Image",
+        img: "Image.Image",  # type: ignore[name-defined]
         dest: Path,
         pil_format: str,
         quality: int,  # type: ignore[name-defined]
@@ -232,7 +232,7 @@ class Storage:
                 ] or mime_type
 
             # Resize
-            if mode == "contain" or not (w and h):
+            if mode == "contain":
                 resized = img.resize((tw, th), Image.LANCZOS)  # type: ignore
                 final_img = resized
             else:
@@ -287,7 +287,7 @@ class Storage:
         # We'll still compute actual dimensions in generator; name records requested box.
         req_w = 0 if w is None else w
         req_h = 0 if h is None else h
-        mode_name = "cover" if str(mode).lower() == "cover" and (w and h) else "contain"
+        mode_name = "cover" if str(mode).lower() == "cover" else "contain"
 
         cache_dir = self._get_image_cache_dir_for(
             source_relative_path, global_storage=global_storage

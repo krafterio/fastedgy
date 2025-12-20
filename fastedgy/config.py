@@ -109,6 +109,7 @@ class BaseSettings(PydanticBaseSettings):
 
     # HTTP
     http_workers: int | None = None
+    http_limit_concurrency: int | None = None
 
     # Logging
     log_level: LogLevel = LogLevel.INFO

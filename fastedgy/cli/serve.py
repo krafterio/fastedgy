@@ -24,10 +24,25 @@ def serve(
     table.add_column("Parameter", style="cyan")
     table.add_column("Value", style="green")
 
+    db_pool_size = ctx.settings.computed_database_pool_size
+    db_max_overflow = ctx.settings.computed_database_max_overflow
+    db_pool_display = (
+        str(ctx.settings.database_pool_size)
+        if ctx.settings.database_pool_size is not None
+        else f"auto ({db_pool_size})"
+    )
+    db_overflow_display = (
+        str(ctx.settings.database_max_overflow)
+        if ctx.settings.database_max_overflow is not None
+        else f"auto ({db_max_overflow})"
+    )
+
     table.add_row("Host", host)
     table.add_row("Port", str(port))
     table.add_row("Mode", "development" if reload else "production")
     table.add_row("HTTP Workers", str(http_workers or "auto"))
+    table.add_row("DB Pool Size", db_pool_display)
+    table.add_row("DB Max Overflow", db_overflow_display)
     table.add_row("Log Level", ctx.settings.log_level.value)
     table.add_row("Log Output", ctx.settings.log_output.value)
     table.add_row("URL", f"http://{host}:{port}")

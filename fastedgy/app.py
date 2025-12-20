@@ -855,8 +855,8 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
 
         db = Database(
             settings.database_url,
-            pool_size=settings.database_pool_size,
-            max_overflow=settings.database_max_overflow,
+            pool_size=settings.computed_database_pool_size,
+            max_overflow=settings.computed_database_max_overflow,
         )
         registry = Registry(db)
 

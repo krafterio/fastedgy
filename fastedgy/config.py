@@ -118,8 +118,8 @@ class BaseSettings(PydanticBaseSettings):
 
     # Database
     database_url: str = ""
-    database_pool_size: int = 20
-    database_max_overflow: int = 10
+    database_pool_size: int | None = None
+    database_max_overflow: int | None = None
 
     # Auth
     auth_secret_key: str = ""
@@ -198,6 +198,43 @@ class BaseSettings(PydanticBaseSettings):
     @cached_property
     def db_name(self) -> str:
         return urlparse(self.database_url).path.lstrip("/")
+
+    @cached_property
+    def computed_database_pool_size(self) -> int:
+        """
+        Calculate optimal database pool size based on available CPU cores.
+
+        Formula: (cpu_cores * 2) + spare_connections
+        - Development (1-2 cores): 5
+        - Small production (2-4 cores): 10-20
+        - Medium production (4-8 cores): 20-30
+
+        Returns user-defined value if set, otherwise calculates automatically.
+        """
+        if self.database_pool_size is not None:
+            return self.database_pool_size
+
+        cpu_count = os.cpu_count() or 2
+
+        # Formula: (cpu_cores * 2) + 5 spare connections
+        # Capped between 5 and 50 for safety
+        calculated = min(max((cpu_count * 2) + 5, 5), 50)
+        return calculated
+
+    @cached_property
+    def computed_database_max_overflow(self) -> int:
+        """
+        Calculate optimal database max overflow based on pool size.
+
+        Formula: pool_size / 2 (50% overflow capacity)
+
+        Returns user-defined value if set, otherwise calculates automatically.
+        """
+        if self.database_max_overflow is not None:
+            return self.database_max_overflow
+
+        # 50% of pool size as overflow capacity
+        return max(self.computed_database_pool_size // 2, 5)
 
     @cached_property
     def computed_translations_paths(self) -> list[str]:

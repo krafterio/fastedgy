@@ -5,6 +5,7 @@ import mimetypes
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, cast
 from pathlib import Path
+from urllib.parse import quote
 
 
 from fastapi import APIRouter, HTTPException, Query, Request, UploadFile, File
@@ -275,11 +276,18 @@ async def download_attachment(
                 while chunk := f.read(chunk_size):
                     yield chunk
 
+        # Support UTF-8 filenames (RFC 5987) for accents, special characters, etc.
+        ascii_filename = (
+            filename.encode("ascii", "ignore").decode("ascii") or "download"
+        )
+        encoded_filename = quote(filename, safe="")
+        content_disposition = "attachment" if force_download else "inline"
+
         headers = {
             "Content-Disposition": (
-                f'attachment; filename="{filename}"'
-                if force_download
-                else f'inline; filename="{filename}"'
+                f"{content_disposition}; "
+                f'filename="{ascii_filename}"; '
+                f"filename*=UTF-8''{encoded_filename}"
             ),
         }
 
@@ -333,11 +341,16 @@ async def download_file(
             while chunk := f.read(chunk_size):
                 yield chunk
 
+    # Support UTF-8 filenames (RFC 5987) for accents, special characters, etc.
+    ascii_filename = filename.encode("ascii", "ignore").decode("ascii") or "download"
+    encoded_filename = quote(filename, safe="")
+    content_disposition = "attachment" if force_download else "inline"
+
     headers = {
         "Content-Disposition": (
-            f'attachment; filename="{filename}"'
-            if force_download
-            else f'inline; filename="{filename}"'
+            f"{content_disposition}; "
+            f'filename="{ascii_filename}"; '
+            f"filename*=UTF-8''{encoded_filename}"
         ),
     }
 

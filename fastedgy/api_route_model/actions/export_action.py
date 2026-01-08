@@ -1,7 +1,7 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import Callable, Coroutine, Any
+from typing import TypeVar, Callable, Coroutine, Any
 
 from fastapi import APIRouter, Query, HTTPException
 
@@ -32,6 +32,9 @@ from fastedgy.orm.field_selector import optimize_query_filter_fields
 from fastedgy.orm.query import QuerySet
 
 from starlette.responses import Response, StreamingResponse
+
+
+M = TypeVar("M", bound=TypeModel)
 
 
 class ExportApiRouteAction(BaseApiRouteAction):
@@ -65,7 +68,7 @@ class ExportApiRouteAction(BaseApiRouteAction):
         )
 
 
-def generate_export_items[M = TypeModel](
+def generate_export_items(
     model_cls: type[M],
 ) -> Callable[[Request, str, int, int, str, str, str], Coroutine[Any, Any, Response]]:
     async def export_items(
@@ -91,7 +94,7 @@ def generate_export_items[M = TypeModel](
     return export_items
 
 
-async def export_items_action[M = TypeModel](
+async def export_items_action(
     request: Request,
     model_cls: type[M],
     format: str = "csv",

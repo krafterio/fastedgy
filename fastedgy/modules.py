@@ -2,14 +2,16 @@
 # MIT License (see LICENSE file).
 
 import importlib
-from typing import Any
+from typing import TypeVar
+
+A = TypeVar("A")
 
 
 class ImportFromStringError(Exception):
     pass
 
 
-def import_from_string[A: Any = Any](import_str: str | A) -> A:
+def import_from_string(import_str: str | A) -> A:
     if not isinstance(import_str, str):
         return import_str
 

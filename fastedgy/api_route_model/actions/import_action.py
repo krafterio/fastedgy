@@ -1,7 +1,7 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import Callable, Coroutine, Any
+from typing import TypeVar, Callable, Coroutine, Any
 
 from fastapi import APIRouter, File, UploadFile
 
@@ -25,6 +25,9 @@ from fastedgy.dataflow.importer import (
 from fastedgy.dependencies import get_service
 from fastedgy.http import Request
 from fastedgy.orm.query import QuerySet
+
+
+M = TypeVar("M", bound=TypeModel)
 
 
 class ImportApiRouteAction(BaseApiRouteAction):
@@ -53,7 +56,7 @@ class ImportApiRouteAction(BaseApiRouteAction):
         )
 
 
-def generate_import_items[M = TypeModel](
+def generate_import_items(
     model_cls: type[M],
 ) -> Callable[[Request, UploadFile], Coroutine[Any, Any, ImportResult]]:
     async def import_items(
@@ -69,7 +72,7 @@ def generate_import_items[M = TypeModel](
     return import_items
 
 
-async def import_items_action[M = TypeModel](
+async def import_items_action(
     request: Request,
     model_cls: type[M],
     file: UploadFile,

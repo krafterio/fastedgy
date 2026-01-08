@@ -2,7 +2,7 @@
 # MIT License (see LICENSE file).
 
 from datetime import datetime
-from typing import Callable, Any, Coroutine
+from typing import TypeVar, Callable, Any, Coroutine
 
 from fastapi import APIRouter, Path, Body
 
@@ -36,6 +36,8 @@ from fastedgy.api_route_model.view_transformer import (
     PreSaveTransformer,
 )
 
+M = TypeVar("M", bound=TypeModel)
+
 
 class PatchApiRouteAction(BaseApiRouteAction):
     """Action for patching model instance."""
@@ -59,7 +61,7 @@ class PatchApiRouteAction(BaseApiRouteAction):
         )
 
 
-def generate_patch_item[M = TypeModel](
+def generate_patch_item(
     model_cls: M,
 ) -> Callable[[Request, int, M], Coroutine[Any, Any, M | dict[str, Any]]]:
     async def patch_item(
@@ -80,7 +82,7 @@ def generate_patch_item[M = TypeModel](
 
 
 @transaction
-async def patch_item_action[M = TypeModel](
+async def patch_item_action(
     request: Request,
     model_cls: M,
     item_id: int,

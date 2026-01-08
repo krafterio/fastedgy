@@ -27,6 +27,7 @@ from starlette.requests import Request
 from contextlib import asynccontextmanager
 from typing import (
     Annotated,
+    Generic,
     TypeVar,
     Optional,
     List,
@@ -42,9 +43,10 @@ from typing_extensions import Doc, deprecated
 
 
 T = TypeVar("T")
+S = TypeVar("S", bound=BaseSettings)
 
 
-class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
+class FastEdgy(FastAPI, Generic[S]):
     def __init__(
         self: AppType,
         *,

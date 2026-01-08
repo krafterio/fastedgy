@@ -2,7 +2,7 @@
 # MIT License (see LICENSE file).
 
 from datetime import datetime
-from typing import Callable, Coroutine, Any
+from typing import TypeVar, Callable, Coroutine, Any
 
 from fastapi import APIRouter, Body
 from fastedgy.schemas import BaseModel
@@ -32,6 +32,8 @@ from fastedgy.api_route_model.view_transformer import (
 )
 from fastedgy.orm import transaction
 
+M = TypeVar("M", bound=TypeModel)
+
 
 class CreateApiRouteAction(BaseApiRouteAction):
     """Action for creating model instance."""
@@ -55,7 +57,7 @@ class CreateApiRouteAction(BaseApiRouteAction):
         )
 
 
-def generate_create_item[M = TypeModel](
+def generate_create_item(
     model_cls: M,
 ) -> Callable[[Request, M], Coroutine[Any, Any, M]]:
     async def create_item(
@@ -74,7 +76,7 @@ def generate_create_item[M = TypeModel](
 
 
 @transaction
-async def create_item_action[M = TypeModel](
+async def create_item_action(
     request: Request,
     model_cls: M,
     item_data: BaseModel,

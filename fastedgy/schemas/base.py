@@ -1,7 +1,7 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import Any, TypeVar
+from typing import Any, Generic, TypeVar
 from datetime import datetime
 
 from pydantic import BaseModel as PydanticBaseModel, computed_field, field_serializer
@@ -47,7 +47,7 @@ class BaseModel(PydanticBaseModel):
 M = TypeVar("M", bound=BaseModel)
 
 
-class Pagination[M = Any](BaseModel):
+class Pagination(BaseModel, Generic[M]):
     """
     Generic schema for paginated list responses.
 
@@ -76,7 +76,7 @@ class Pagination[M = Any](BaseModel):
         return (self.total + self.limit - 1) // self.limit
 
 
-class List[M = Any](Pagination[M]):
+class List(Pagination[M]):
     pass
 
 

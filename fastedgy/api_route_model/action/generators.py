@@ -3,13 +3,15 @@
 
 import json
 from copy import copy
-from typing import get_origin, Union, get_args, Any
+from typing import get_origin, Union, get_args, Any, TypeVar
 
 from fastedgy.schemas import create_model
 from fastedgy.api_route_model.registry import TypeModel
 
+M = TypeVar("M", bound=TypeModel)
 
-def generate_output_model[M = TypeModel](model_cls: M) -> type[M]:
+
+def generate_output_model(model_cls: M) -> type[M]:
     from fastedgy.schemas import Field as PydanticField
     from fastedgy.api_route_model.action.relations import is_relation_field
     from edgy.core.db.fields.foreign_keys import ForeignKey
@@ -55,7 +57,7 @@ def generate_output_model[M = TypeModel](model_cls: M) -> type[M]:
     return create_model(f"{model_cls.__name__}", **fields)
 
 
-def generate_input_create_model[M = TypeModel](model_cls: M) -> type[M]:
+def generate_input_create_model(model_cls: M) -> type[M]:
     """Generate Pydantic input model for POST with M2M/O2M support."""
     from fastedgy.schemas import Field as PydanticField
     from fastedgy.api_route_model.action.relations import is_relation_field
@@ -113,7 +115,7 @@ def generate_input_create_model[M = TypeModel](model_cls: M) -> type[M]:
     return create_model(f"{model_cls.__name__}Create", **fields)
 
 
-def generate_input_patch_model[M = TypeModel](model_cls: M) -> type[M]:
+def generate_input_patch_model(model_cls: M) -> type[M]:
     """Generate Pydantic input model for PATCH with M2M/O2M support."""
     from fastedgy.schemas import Field as PydanticField
     from fastedgy.api_route_model.action.relations import is_relation_field

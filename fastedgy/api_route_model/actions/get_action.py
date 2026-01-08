@@ -1,7 +1,7 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import Callable, Coroutine, Any
+from typing import TypeVar, Callable, Coroutine, Any
 
 from fastapi import APIRouter, HTTPException, Path
 
@@ -27,6 +27,9 @@ from fastedgy.orm.query import QuerySet
 from fastedgy.orm.exceptions import ObjectNotFound
 
 
+M = TypeVar("M", bound=TypeModel)
+
+
 class GetApiRouteAction(BaseApiRouteAction):
     """Action for retrieveing model instance."""
 
@@ -49,7 +52,7 @@ class GetApiRouteAction(BaseApiRouteAction):
         )
 
 
-def generate_get_item[M = TypeModel](
+def generate_get_item(
     model_cls: M,
 ) -> Callable[[Request, int], Coroutine[Any, Any, M]]:
     async def get_item(
@@ -67,7 +70,7 @@ def generate_get_item[M = TypeModel](
     return get_item
 
 
-async def get_item_action[M = TypeModel](
+async def get_item_action(
     request: Request,
     model_cls: M,
     item_id: int,
@@ -97,7 +100,7 @@ async def get_item_action[M = TypeModel](
         raise HTTPException(status_code=404, detail=f"{model_cls.__name__} not found")
 
 
-async def view_item_action[M = TypeModel](
+async def view_item_action(
     request: Request,
     model_cls: M,
     item,

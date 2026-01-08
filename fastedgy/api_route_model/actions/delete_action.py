@@ -1,7 +1,7 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import Callable, Any, Coroutine
+from typing import TypeVar, Callable, Any, Coroutine
 
 from fastapi import APIRouter, Path
 
@@ -22,6 +22,9 @@ from fastedgy.dependencies import get_service
 from fastedgy.orm import transaction
 from fastedgy.orm.query import QuerySet
 from fastedgy.http import Request
+
+
+M = TypeVar("M", bound=TypeModel)
 
 
 class DeleteApiRouteAction(BaseApiRouteAction):
@@ -47,7 +50,7 @@ class DeleteApiRouteAction(BaseApiRouteAction):
         )
 
 
-def generate_delete_item[M = TypeModel](
+def generate_delete_item(
     model_cls: M,
 ) -> Callable[[Request, int], Coroutine[Any, Any, None]]:
     async def delete_item(
@@ -64,7 +67,7 @@ def generate_delete_item[M = TypeModel](
 
 
 @transaction
-async def delete_item_action[M = TypeModel](
+async def delete_item_action(
     request: Request,
     model_cls: M,
     item_id: int,

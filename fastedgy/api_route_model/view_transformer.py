@@ -3,12 +3,14 @@
 
 from abc import ABC, abstractmethod
 
-from typing import Any, TYPE_CHECKING
+from typing import Any, Generic, TypeVar, TYPE_CHECKING
 from pathlib import Path
 
 from fastedgy.http import Request
 from fastedgy.orm.query import QuerySet
 from fastedgy.schemas import BaseModel, Pagination
+
+M = TypeVar("M")
 
 if TYPE_CHECKING:
     from fastapi import UploadFile
@@ -28,35 +30,35 @@ class PrePaginateViewTransformer(BaseViewTransformer):
     ) -> QuerySet: ...
 
 
-class PostPaginateViewTransformer[M = BaseModel](BaseViewTransformer):
+class PostPaginateViewTransformer(BaseViewTransformer, Generic[M]):
     @abstractmethod
     async def post_paginate(
         self, request: Request, pagination: Pagination[M], ctx: dict[str, Any]
     ) -> None: ...
 
 
-class PreLoadRecordViewTransformer[M = BaseModel](BaseViewTransformer):
+class PreLoadRecordViewTransformer(BaseViewTransformer, Generic[M]):
     @abstractmethod
     async def pre_load_record(
         self, request: Request, query: QuerySet, ctx: dict[str, Any]
     ) -> QuerySet: ...
 
 
-class GetViewsTransformer[M = BaseModel](BaseViewTransformer):
+class GetViewsTransformer(BaseViewTransformer, Generic[M]):
     @abstractmethod
     async def get_views(
         self, request: Request, items: list[M], ctx: dict[str, Any]
     ) -> None: ...
 
 
-class GetViewTransformer[M = BaseModel](BaseViewTransformer):
+class GetViewTransformer(BaseViewTransformer, Generic[M]):
     @abstractmethod
     async def get_view(
         self, request: Request, item: M, item_dump: dict[str, Any], ctx: dict[str, Any]
     ) -> dict[str, Any]: ...
 
 
-class PreSaveTransformer[M = BaseModel](BaseViewTransformer):
+class PreSaveTransformer(BaseViewTransformer, Generic[M]):
     @abstractmethod
     async def pre_save(
         self,
@@ -68,7 +70,7 @@ class PreSaveTransformer[M = BaseModel](BaseViewTransformer):
     ) -> None: ...
 
 
-class PostSaveTransformer[M = BaseModel](BaseViewTransformer):
+class PostSaveTransformer(BaseViewTransformer, Generic[M]):
     @abstractmethod
     async def post_save(
         self,
@@ -80,14 +82,14 @@ class PostSaveTransformer[M = BaseModel](BaseViewTransformer):
     ) -> None: ...
 
 
-class PreDeleteTransformer[M = BaseModel](BaseViewTransformer):
+class PreDeleteTransformer(BaseViewTransformer, Generic[M]):
     @abstractmethod
     async def pre_delete(
         self, request: Request, record: M, ctx: dict[str, Any]
     ) -> None: ...
 
 
-class PostDeleteTransformer[M = BaseModel](BaseViewTransformer):
+class PostDeleteTransformer(BaseViewTransformer, Generic[M]):
     @abstractmethod
     async def post_delete(
         self, request: Request, record: M, ctx: dict[str, Any]

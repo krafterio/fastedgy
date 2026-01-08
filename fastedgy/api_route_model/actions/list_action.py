@@ -1,7 +1,7 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import Callable, Coroutine, Any, cast
+from typing import TypeVar, Callable, Coroutine, Any, cast
 
 from fastapi import APIRouter, Query, HTTPException
 
@@ -40,6 +40,9 @@ from fastedgy.schemas.base import Pagination
 from fastedgy.schemas import create_model
 
 
+M = TypeVar("M", bound=TypeModel)
+
+
 class ListApiRouteAction(BaseApiRouteAction):
     """Action for listing model instances."""
 
@@ -62,7 +65,7 @@ class ListApiRouteAction(BaseApiRouteAction):
         )
 
 
-def generate_list_items[M = TypeModel](
+def generate_list_items(
     model_cls: M,
 ) -> Callable[[Request, int, int, str, str], Coroutine[Any, Any, Pagination[M]]]:
     async def list_items(
@@ -89,7 +92,7 @@ def generate_list_items[M = TypeModel](
     return list_items
 
 
-async def list_items_action[M = TypeModel](
+async def list_items_action(
     request: Request,
     model_cls: M,
     query: QuerySet | None = None,

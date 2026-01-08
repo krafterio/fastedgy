@@ -1,7 +1,7 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import Callable, Coroutine, Any
+from typing import TypeVar, Callable, Coroutine, Any
 
 from fastapi import APIRouter, Query, HTTPException
 
@@ -16,6 +16,9 @@ from fastedgy.api_route_model.registry import (
 from fastedgy.http import Request
 
 from starlette.responses import Response, StreamingResponse
+
+
+M = TypeVar("M", bound=TypeModel)
 
 
 class ImportTemplateApiRouteAction(BaseApiRouteAction):
@@ -49,7 +52,7 @@ class ImportTemplateApiRouteAction(BaseApiRouteAction):
         )
 
 
-def generate_import_template[M = TypeModel](
+def generate_import_template(
     model_cls: type[M],
 ) -> Callable[[Request, str, int, int, str, str, str], Coroutine[Any, Any, Response]]:
     async def import_template(
@@ -67,7 +70,7 @@ def generate_import_template[M = TypeModel](
     return import_template  # type: ignore
 
 
-async def import_template_action[M = TypeModel](
+async def import_template_action(
     request: Request,
     model_cls: type[M],
     format: str = "csv",

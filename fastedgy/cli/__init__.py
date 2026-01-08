@@ -7,6 +7,7 @@ from typing import (
     Awaitable,
     Callable,
     Dict,
+    Generic,
     Optional,
     Type,
     TypeVar,
@@ -20,6 +21,7 @@ P = ParamSpec("P")
 R = TypeVar("R")
 T = TypeVar("T")
 A = TypeVar("A")
+S = TypeVar("S")
 
 import asyncio
 import importlib
@@ -533,7 +535,7 @@ def pass_meta_key(
     return decorator
 
 
-class CliContext[S: BaseSettings = BaseSettings, A: FastEdgy = FastEdgy]:
+class CliContext(Generic[S, A]):
     """CLI application context containing settings and app instance."""
 
     def __init__(self, settings: S):

@@ -1,6 +1,8 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+from typing import Generic, TypeVar
+
 from fastedgy.schemas import BaseModel
 
 
@@ -13,7 +15,10 @@ class UploadedAttachment(BaseModel):
     height: int | None = None
 
 
-class UploadedAttachments[T: UploadedAttachment](BaseModel):
+T = TypeVar("T", bound=UploadedAttachment)
+
+
+class UploadedAttachments(BaseModel, Generic[T]):
     attachments: list[T]
 
 

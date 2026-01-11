@@ -24,6 +24,8 @@ from fastedgy.schemas.storage import UploadedAttachments, UploadedModelField
 from fastedgy.i18n import _t
 from fastedgy.api_route_model.registry import ViewTransformerRegistry
 from fastedgy.api_route_model.view_transformer import (
+    PostDeleteFileTransformer,
+    PreDeleteFileTransformer,
     PreUploadTransformer,
     PostUploadTransformer,
     PreDownloadTransformer,
@@ -206,6 +208,7 @@ async def upload_model_field_file(
 
 @manage_router.delete("/file/{model:str}/{model_id}/{field:str}")
 async def delete_file(
+    request: Request,
     model: str,
     field: str,
     model_id: int,
@@ -213,12 +216,32 @@ async def delete_file(
 ) -> None:
     try:
         record = await _get_record(model, field, model_id)
+        meta_registry = get_service(MetadataModelRegistry)
+        meta_model = await meta_registry.get_metadata(model)
+        model_cls = await meta_registry.get_model_from_metadata(meta_model)
+        vtr = get_service(ViewTransformerRegistry)
+        transformers_ctx: dict[str, Any] = {}
+        global_storage = False
+
+        for transformer in vtr.get_transformers(
+            PreDeleteFileTransformer, model_cls, None
+        ):
+            global_storage = await transformer.pre_delete_file(
+                request, model, model_id, field, record, transformers_ctx
+            )
 
         if getattr(record, field):
-            await storage.delete(getattr(record, field))
+            await storage.delete(getattr(record, field), global_storage=global_storage)
 
         setattr(record, field, None)
         await record.save()
+
+        for transformer in vtr.get_transformers(
+            PostDeleteFileTransformer, model_cls, None
+        ):
+            await transformer.post_delete_file(
+                request, model, model_id, field, record, transformers_ctx
+            )
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except ObjectNotFound:

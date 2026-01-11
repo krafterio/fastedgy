@@ -153,6 +153,39 @@ class PostDownloadTransformer(BaseViewTransformer):
     ) -> Path: ...
 
 
+class PreDeleteFileTransformer(BaseViewTransformer):
+    @abstractmethod
+    async def pre_delete_file(
+        self,
+        request: Request,
+        model: str,
+        model_id: int,
+        field: str,
+        record: "EdgyBaseModel",
+        ctx: dict[str, Any],
+    ) -> bool:
+        """
+        Pre-delete file transformer.
+
+        Returns:
+            bool: Whether to use global storage (True) or workspace storage (False)
+        """
+        ...
+
+
+class PostDeleteFileTransformer(BaseViewTransformer):
+    @abstractmethod
+    async def post_delete_file(
+        self,
+        request: Request,
+        model: str,
+        model_id: int,
+        field: str,
+        record: "EdgyBaseModel",
+        ctx: dict[str, Any],
+    ) -> None: ...
+
+
 class PreExportTransformer(BaseViewTransformer):
     @abstractmethod
     async def pre_export(

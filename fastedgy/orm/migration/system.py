@@ -6,7 +6,11 @@ def process_system_objects_revision_directives(context, revision, directives):
     """
     Remove operations that target system objects from PostgreSQL extensions.
     """
-    _remove_system_objects_operations(context, directives[0].upgrade_ops.ops)
+    if directives[0].upgrade_ops:
+        _remove_system_objects_operations(context, directives[0].upgrade_ops.ops)
+
+    if directives[0].downgrade_ops:
+        _remove_system_objects_operations(context, directives[0].downgrade_ops.ops)
 
 
 def _get_extension_objects(context):

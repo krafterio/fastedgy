@@ -168,17 +168,25 @@ def replace_view(operations, operation: ReplaceViewOperation) -> None:
 
 @renderers.dispatch_for(CreateViewOperation)
 def render_create_view(_, operation: CreateViewOperation) -> str:
-    return f"op.create_view('{operation.name}', '''{operation.definition}''')"
+    escaped_definition = operation.definition.replace("'", "\\'")
+    return f"op.create_view('{operation.name}', '''{escaped_definition}''')"
 
 
 @renderers.dispatch_for(DropViewOperation)
 def render_drop_view(_, operation: DropViewOperation) -> str:
-    return f"op.drop_view('{operation.name}', '''{operation.reverse_definition}''')"
+    escaped_definition = operation.reverse_definition.replace("'", "\\'")
+    return f"op.drop_view('{operation.name}', '''{escaped_definition}''')"
 
 
 @renderers.dispatch_for(ReplaceViewOperation)
 def render_replace_view(_, operation: ReplaceViewOperation) -> str:
-    return f"op.replace_view('{operation.name}', '''{operation.definition}''', '''{operation.reverse_definition}''')"
+    escaped_definition = operation.definition.replace("'", "\\'")
+    escaped_reverse = (
+        operation.reverse_definition.replace("'", "\\'")
+        if operation.reverse_definition
+        else ""
+    )
+    return f"op.replace_view('{operation.name}', '''{escaped_definition}''', '''{escaped_reverse}''')"
 
 
 def normalize_sql(sql: str, clean_null_cast: bool = False) -> str:

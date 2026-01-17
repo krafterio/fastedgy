@@ -246,14 +246,25 @@ def normalize_sql(sql: str, clean_null_cast: bool = False) -> str:
 
 def process_view_model_revision_directives(context, revision, directives) -> None:
     if directives[0].upgrade_ops:
-        _reorder_view_model_operations(directives[0].upgrade_ops)
+        _reorder_view_model_operations(directives[0].upgrade_ops, reverse=False)
+
+    if directives[0].downgrade_ops:
+        _reorder_view_model_operations(directives[0].downgrade_ops, reverse=True)
 
 
-def _reorder_view_model_operations(upgrade_ops: UpgradeOps) -> None:
+def _reorder_view_model_operations(
+    upgrade_ops: UpgradeOps, reverse: bool = False
+) -> None:
     """
-    Reorder operations to ensure view operations are in the correct order:
+    Reorder operations to ensure view operations are in the correct order.
+
+    For upgrade (reverse=False):
     - Drop views at the beginning (before table modifications)
     - Create/Replace views at the end (after table modifications)
+
+    For downgrade (reverse=True):
+    - Create/Replace views at the beginning (before table modifications)
+    - Drop views at the end (after table modifications)
 
     This prevents errors when views depend on newly created/modified columns.
     """
@@ -269,8 +280,10 @@ def _reorder_view_model_operations(upgrade_ops: UpgradeOps) -> None:
         else:
             other_ops.append(op)
 
-    # Reorder: drops first, then table ops, then creates/replaces
-    upgrade_ops.ops[:] = drop_views + other_ops + create_replace_views
+    if reverse:
+        upgrade_ops.ops[:] = create_replace_views + other_ops + drop_views
+    else:
+        upgrade_ops.ops[:] = drop_views + other_ops + create_replace_views
 
 
 def _remove_redundant_aliases(match):

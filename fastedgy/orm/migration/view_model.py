@@ -57,7 +57,7 @@ def compare_view(
 
         for row in rows:
             if row[1] not in extension_views:
-                db_views[(row[0], row[1])] = normalize_sql(row[2])
+                db_views[(row[0], row[1])] = row[2]
 
     # Define all views from the models
     model_views = defaultdict()
@@ -99,14 +99,14 @@ def compare_view(
     for key in model_views.keys() & db_views.keys():
         model_def = model_views[key]
         model_def_for_db = normalize_sql(model_def, True)
-        db_def = db_views[key]
+        db_def = normalize_sql(db_views[key], True)
 
         if model_def_for_db != db_def:
             schema, name = key
             if _check_db_view_difference(
                 autogen_context.connection, name, model_def, db_def, schema
             ):
-                replace_ops.append(ReplaceViewOperation(name, model_def, db_def))
+                replace_ops.append(ReplaceViewOperation(name, model_def, db_views[key]))
 
     # Add operations (they will be reordered later by fastedgy_process_revision_directives)
     for op in drop_ops:
@@ -214,8 +214,11 @@ def normalize_sql(sql: str, clean_null_cast: bool = False) -> str:
         use_space_around_operators=True,
     )
 
+    # Remove PostgreSQL type casts (::TYPE)
+    # BUT NEVER remove 'end' keyword from CASE WHEN statements
+    # Use negative lookbehind to avoid matching 'end::type'
     formatted = re.sub(
-        r"(::)\s*[a-zA-Z0-9_.\s]+?(\s+varying)?(?=\s+as\s+|\s*,|\s*\)|\s*$)",
+        r"(?<!end)(::)\s*[a-zA-Z0-9_.\s]+?(\s+varying)?(?=\s+as\s+|\s*,|\s*\)|\s*$)",
         "",
         formatted,
     )
@@ -226,6 +229,7 @@ def normalize_sql(sql: str, clean_null_cast: bool = False) -> str:
     formatted = re.sub(r"\s+", " ", formatted)
     formatted = re.sub(r"\(\s*", "(", formatted)
     formatted = re.sub(r"\s*\)", ")", formatted)
+    # Remove redundant aliases (handled in _remove_redundant_aliases function)
     formatted = re.sub(
         r'([a-zA-Z0-9_."()]+)\s+as\s+("[a-zA-Z0-9_]+"|[a-zA-Z0-9_]+)',
         _remove_redundant_aliases,
@@ -289,6 +293,12 @@ def _reorder_view_model_operations(
 def _remove_redundant_aliases(match):
     expr = match.group(1).strip()
     alias = match.group(2).strip().strip('"')
+
+    # NEVER remove 'end' keyword from CASE WHEN statements
+    # Check if expression ends with 'end' as a word boundary
+    if re.search(r"\bend\s*$", expr, flags=re.IGNORECASE):
+        return match.group(0)
+
     expr_last = expr.split(".")[-1].strip('"')
 
     if expr_last == alias:

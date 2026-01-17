@@ -103,7 +103,10 @@ def compare_view(
 
         if model_def_for_db != db_def:
             schema, name = key
-            replace_ops.append(ReplaceViewOperation(name, model_def, db_def))
+            if _check_db_view_difference(
+                autogen_context.connection, name, model_def, db_def, schema
+            ):
+                replace_ops.append(ReplaceViewOperation(name, model_def, db_def))
 
     # Add operations (they will be reordered later by fastedgy_process_revision_directives)
     for op in drop_ops:
@@ -279,6 +282,56 @@ def _remove_redundant_aliases(match):
         return expr
 
     return match.group(0)
+
+
+def _check_db_view_difference(
+    connection, view_name: str, model_def: str, db_def: str, schema: str = "public"
+) -> bool:
+    """
+    Check if a view definition is different from the database view.
+
+    This function creates a temporary view with the model's SQL definition,
+    reads PostgreSQL's normalized version, and compares it with the existing
+    view's SQL. This eliminates false positives from SQL formatting differences.
+
+    Returns True if the views are truly different, False otherwise.
+    """
+    temp_view_name = f"_alembic_temp_check_{view_name}"
+
+    try:
+        connection.execute(text(f"DROP VIEW IF EXISTS {temp_view_name} CASCADE"))
+        connection.commit()
+
+        connection.execute(text(f"CREATE VIEW {temp_view_name} AS {model_def}"))
+        connection.commit()
+
+        result = connection.execute(
+            text(
+                "SELECT view_definition FROM information_schema.views "
+                "WHERE table_schema = :schema AND table_name = :name"
+            ),
+            {"schema": schema, "name": temp_view_name},
+        )
+        row = result.fetchone()
+
+        if not row:
+            return True
+
+        temp_normalized = normalize_sql(row[0])
+
+        connection.execute(text(f"DROP VIEW IF EXISTS {temp_view_name} CASCADE"))
+        connection.commit()
+
+        return temp_normalized != db_def
+
+    except Exception:
+        try:
+            connection.execute(text(f"DROP VIEW IF EXISTS {temp_view_name} CASCADE"))
+            connection.commit()
+        except:
+            pass
+
+        return True
 
 
 __all__ = [

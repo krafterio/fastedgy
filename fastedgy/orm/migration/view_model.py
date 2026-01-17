@@ -78,17 +78,22 @@ def compare_view(
                 )
                 model_views[(schema, model.meta.tablename)] = definition
 
-    # Create new views
-    for key, model_def in model_views.items():
-        if key not in db_views:
-            schema, name = key
-            upgrade_ops.ops.append(CreateViewOperation(name, model_def))
+    # Collect view operations
+    drop_ops = []
+    create_ops = []
+    replace_ops = []
 
     # Drop old views
     for key, db_def in db_views.items():
         if key not in model_views:
             schema, name = key
-            upgrade_ops.ops.append(DropViewOperation(name, db_def))
+            drop_ops.append(DropViewOperation(name, db_def))
+
+    # Create new views
+    for key, model_def in model_views.items():
+        if key not in db_views:
+            schema, name = key
+            create_ops.append(CreateViewOperation(name, model_def))
 
     # Replace views
     for key in model_views.keys() & db_views.keys():
@@ -98,7 +103,14 @@ def compare_view(
 
         if model_def_for_db != db_def:
             schema, name = key
-            upgrade_ops.ops.append(ReplaceViewOperation(name, model_def, db_def))
+            replace_ops.append(ReplaceViewOperation(name, model_def, db_def))
+
+    # Add operations (they will be reordered later by fastedgy_process_revision_directives)
+    for op in drop_ops:
+        upgrade_ops.ops.append(op)
+
+    for op in create_ops + replace_ops:
+        upgrade_ops.ops.append(op)
 
 
 @Operations.register_operation("create_view")
@@ -229,6 +241,35 @@ def normalize_sql(sql: str, clean_null_cast: bool = False) -> str:
     return formatted
 
 
+def process_view_model_revision_directives(context, revision, directives) -> None:
+    if directives[0].upgrade_ops:
+        _reorder_view_model_operations(directives[0].upgrade_ops)
+
+
+def _reorder_view_model_operations(upgrade_ops: UpgradeOps) -> None:
+    """
+    Reorder operations to ensure view operations are in the correct order:
+    - Drop views at the beginning (before table modifications)
+    - Create/Replace views at the end (after table modifications)
+
+    This prevents errors when views depend on newly created/modified columns.
+    """
+    drop_views = []
+    create_replace_views = []
+    other_ops = []
+
+    for op in upgrade_ops.ops:
+        if isinstance(op, DropViewOperation):
+            drop_views.append(op)
+        elif isinstance(op, (CreateViewOperation, ReplaceViewOperation)):
+            create_replace_views.append(op)
+        else:
+            other_ops.append(op)
+
+    # Reorder: drops first, then table ops, then creates/replaces
+    upgrade_ops.ops[:] = drop_views + other_ops + create_replace_views
+
+
 def _remove_redundant_aliases(match):
     expr = match.group(1).strip()
     alias = match.group(2).strip().strip('"')
@@ -246,4 +287,5 @@ __all__ = [
     "DropViewOperation",
     "ReplaceViewOperation",
     "normalize_sql",
+    "process_view_model_revision_directives",
 ]

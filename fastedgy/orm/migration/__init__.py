@@ -24,6 +24,9 @@ def fastedgy_process_revision_directives(context, revision, directives):
     process_vector_revision_directives(context, revision, directives)
     process_postgis_revision_directives(context, revision, directives)
 
+    # Ensure view model operations are in the correct order
+    process_view_model_revision_directives(context, revision, directives)
+
 
 __all__ = [
     "fastedgy_process_revision_directives",

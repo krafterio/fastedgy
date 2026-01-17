@@ -239,7 +239,14 @@ def normalize_sql(sql: str, clean_null_cast: bool = False) -> str:
 
     if clean_null_cast:
         formatted = re.sub(
-            r"cast\s*\(\s*null\s+as\s+[^)]+\)", "null", sql, flags=re.IGNORECASE
+            r"cast\s*\(\s*null\s+as\s+[^)]+\)", "null", formatted, flags=re.IGNORECASE
+        )
+        # Also remove ::type after NULL
+        formatted = re.sub(
+            r"\bnull\s*::\s*[a-zA-Z0-9_.\s]+(\s+with\s+time\s+zone)?",
+            "null",
+            formatted,
+            flags=re.IGNORECASE,
         )
 
     formatted = formatted.strip()
@@ -340,7 +347,7 @@ def _check_db_view_difference(
         if not row:
             return True
 
-        temp_normalized = normalize_sql(row[0])
+        temp_normalized = normalize_sql(row[0], True)
 
         connection.execute(text(f"DROP VIEW IF EXISTS {temp_view_name} CASCADE"))
         connection.commit()

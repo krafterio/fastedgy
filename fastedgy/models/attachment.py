@@ -9,7 +9,7 @@ from fastedgy.storage.models.attachment import (
 
 
 class BaseAttachment(AttachmentMixin):
-    class Meta:  # type: ignore
+    class Meta(AttachmentMixin.Meta):  # type: ignore
         abstract = True
 
 

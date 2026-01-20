@@ -22,7 +22,7 @@ class WorkspaceableMixin(Model):
             pass
     """
 
-    class Meta:
+    class Meta(Model.Meta):
         abstract = True
 
     model_config = ConfigDict(
@@ -89,7 +89,7 @@ class BlameableMixin(Model):
             pass
     """
 
-    class Meta:
+    class Meta(Model.Meta):
         abstract = True
 
     model_config = ConfigDict(

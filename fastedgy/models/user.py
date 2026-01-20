@@ -8,7 +8,7 @@ from fastedgy.models.base import BaseModel
 
 
 class BaseUser(BaseModel):
-    class Meta(BaseModel.Meta):  # type: ignore
+    class Meta(BaseModel.Meta):
         abstract = True
         label = "Utilisateur"
         label_plural = "Utilisateurs"

@@ -28,7 +28,7 @@ class QueuedTaskLogMixin(BaseModel):
     This provides all the queues task log logic without registering as a model.
     """
 
-    class Meta:  # type: ignore
+    class Meta(BaseModel.Meta):
         abstract = True
         label = "Log des tâches en file d'attente"
         label_plural = "Logs des tâches en file d'attente"

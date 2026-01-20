@@ -16,7 +16,7 @@ class QueuedTaskWorkerMixin(Model):
     Mixin for tracking queue workers status across multiple servers/instances
     """
 
-    class Meta:
+    class Meta(Model.Meta):
         abstract = True
         label = "Worker des tâches en file d'attente"
         label_plural = "Workers des tâches en file d'attente"

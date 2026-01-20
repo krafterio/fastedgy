@@ -30,7 +30,7 @@ class QueuedTaskMixin(BaseModel):
     This provides all the queues task logic without registering as a model.
     """
 
-    class Meta:  # type: ignore
+    class Meta(BaseModel.Meta):
         abstract = True
         label = "Tâche en file d'attente"
         label_plural = "Tâches en file d'attente"

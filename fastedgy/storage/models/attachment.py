@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
 
 class AttachmentMixin(BaseModel):
-    class Meta:  # type: ignore
+    class Meta(BaseModel.Meta):
         abstract = True
         label = _ts("Pièce jointe")
         label_plural = _ts("Pièces jointes")
@@ -93,7 +93,7 @@ class AttachmentType(str, Enum):
 
 
 class AttachmentPathMixin(AttachmentMixin):
-    class Meta:  # type: ignore
+    class Meta(AttachmentMixin.Meta):
         abstract = True
         indexes = [
             fields.Index(fields=["path"]),

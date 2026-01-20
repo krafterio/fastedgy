@@ -29,7 +29,7 @@ class BaseModel(Model):
         default_factory=datetime.now, auto_now=True, label="Mis à jour le"
     )  # type: ignore
 
-    class Meta:
+    class Meta(Model.Meta):
         abstract = True
         exclude_secrets = True
 
@@ -77,7 +77,7 @@ class BaseView(Model):
 
 
     class MergedUserContactView(BaseView):
-        class Meta:
+        class Meta(BaseView.Meta):
             tablename = "merged_user_contact_view"
 
         # Common Fields
@@ -115,7 +115,7 @@ class BaseView(Model):
     ```
     """
 
-    class Meta:
+    class Meta(Model.Meta):
         abstract = True
         exclude_secrets = True
         is_view = True

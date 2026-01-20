@@ -94,8 +94,40 @@ class QueuedTaskLogger(logging.Logger):
                 logged_at=datetime.now(context.get_timezone()),
             )
 
-            async with database.transaction():
-                await queued_task_log.save()
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    await queued_task_log.save()
+                    break
+                except Exception as retry_error:
+                    error_type_name = type(retry_error).__name__
+                    error_message = str(retry_error).lower()
+
+                    if (
+                        "foreign key constraint" in error_message
+                        or "ForeignKeyViolationError" in error_type_name
+                    ):
+                        return
+
+                    if (
+                        "SerializationError" in error_type_name
+                        or "serialization" in error_message
+                    ):
+                        if attempt < max_retries - 1:
+                            await asyncio.sleep(0.1 * (attempt + 1))
+                            continue
+                        return
+
+                    if (
+                        "NoActiveSQLTransactionError" in error_type_name
+                        or "savepoint" in error_message.lower()
+                    ):
+                        if attempt < max_retries - 1:
+                            await asyncio.sleep(0.1 * (attempt + 1))
+                            continue
+                        return
+
+                    raise
 
         except Exception as e:
             error_type_name = type(e).__name__
@@ -104,6 +136,8 @@ class QueuedTaskLogger(logging.Logger):
             if (
                 "foreign key constraint" in error_message
                 or "ForeignKeyViolationError" in error_type_name
+                or "SerializationError" in error_type_name
+                or "serialization" in error_message
             ):
                 return
 

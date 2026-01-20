@@ -61,11 +61,13 @@ class QueuedTaskLogger(logging.Logger):
                 BaseQueuedTaskLog as QueuedTaskLog,
             )
             from fastedgy.queued_task.models.queued_task_log import QueuedTaskLogType
+            from fastedgy.models.queued_task import BaseQueuedTask as QueuedTask
 
             log_type = QueuedTaskLogType(level.lower())
             registry = get_service(Registry)
             database = get_service(EdgyDatabase)
             QTL = cast(type["QueuedTaskLog"], registry.get_model("QueuedTaskLog"))
+            QT = cast(type["QueuedTask"], registry.get_model("QueuedTask"))
 
             if args:
                 try:
@@ -74,6 +76,14 @@ class QueuedTaskLogger(logging.Logger):
                     formatted_message = f"{message} {args}"
             else:
                 formatted_message = message
+
+            task_id = task.id if hasattr(task, "id") else None
+            if task_id:
+                existing_task = await QT.query.filter(
+                    QT.columns.id == task_id
+                ).get_or_none()
+                if not existing_task:
+                    return
 
             queued_task_log = QTL(
                 task=task,
@@ -88,9 +98,16 @@ class QueuedTaskLogger(logging.Logger):
                 await queued_task_log.save()
 
         except Exception as e:
-            # Don't let database logging errors break the main logic
-            # Log to native logger only
-            super().error(f"Failed to log to database: {e}")
+            error_type_name = type(e).__name__
+            error_message = str(e).lower()
+
+            if (
+                "foreign key constraint" in error_message
+                or "ForeignKeyViolationError" in error_type_name
+            ):
+                return
+
+            super().error(f"Failed to log to database: {e}", exc_info=False)
 
     def _log_with_db(self, level: int, message: str, *args, **kwargs) -> None:
         """Enhanced logging that includes database logging"""

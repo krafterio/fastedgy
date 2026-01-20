@@ -8,10 +8,30 @@ from fastedgy.models.base import BaseModel
 
 
 class BaseUser(BaseModel):
-    class Meta:  # type: ignore
+    class Meta(BaseModel.Meta):  # type: ignore
         abstract = True
         label = "Utilisateur"
         label_plural = "Utilisateurs"
+        model_name: str | None = None
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+
+        meta = getattr(cls, "Meta", None)
+        if not meta or getattr(meta, "abstract", False):
+            return
+
+        if BaseUser.Meta.model_name is None:
+            BaseUser.Meta.model_name = cls.__name__
+            return
+
+        if BaseUser.Meta.model_name == cls.__name__:
+            return
+
+        raise RuntimeError(
+            f"Multiple user models detected: "
+            f"{BaseUser.Meta.model_name} and {cls.__name__}"
+        )
 
     email: str | None = fields.EmailField(unique=True, label="Email")  # type: ignore
     name: str | None = fields.CharField(max_length=255, null=True, label="Nom")  # type: ignore

@@ -15,7 +15,7 @@ def generate_slug(length=10) -> str:
 
 
 class BaseWorkspace(BaseModel):
-    class Meta:
+    class Meta(BaseModel.Meta):
         abstract = True
         label = "Espace de travail"
         label_plural = "Espaces de travail"
@@ -24,6 +24,26 @@ class BaseWorkspace(BaseModel):
             fields.Index(fields=["name"]),
             fields.Index(fields=["slug"]),
         ]
+        model_name: str | None = None
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+
+        meta = getattr(cls, "Meta", None)
+        if not meta or getattr(meta, "abstract", False):
+            return
+
+        if BaseWorkspace.Meta.model_name is None:
+            BaseWorkspace.Meta.model_name = cls.__name__
+            return
+
+        if BaseWorkspace.Meta.model_name == cls.__name__:
+            return
+
+        raise RuntimeError(
+            f"Multiple workspace models detected: "
+            f"{BaseWorkspace.Meta.model_name} and {cls.__name__}"
+        )
 
     name: str | None = fields.CharField(max_length=255, null=True, label="Nom")  # type: ignore
     slug: str | None = fields.CharField(max_length=32, unique=True, label="Slug")  # type: ignore

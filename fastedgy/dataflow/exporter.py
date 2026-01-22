@@ -10,6 +10,8 @@ from enum import Enum
 
 from typing import Any, Coroutine
 
+from fastedgy.api_route_model.params import RelationDelimiter
+
 from fastapi import HTTPException
 
 from fastedgy.orm.order_by import inject_order_by
@@ -37,6 +39,7 @@ async def export_data[M](
     order_by: str | None = None,
     fields: str | None = None,
     filters: str | None = None,
+    relation_delimiter: RelationDelimiter = RelationDelimiter.newline,
 ) -> Coroutine[Any, Any, StreamingResponse]:
     """
     Export data from a QuerySet to a file format (CSV, XLSX, ODS).
@@ -50,6 +53,7 @@ async def export_data[M](
         order_by: Ordering specification
         fields: Fields to include in export
         filters: Filter specification
+        relation_delimiter: Delimiter for relation values (one2many, many2many)
 
     Returns:
         StreamingResponse with the exported file
@@ -87,7 +91,11 @@ async def export_data[M](
         row_data = []
 
         for field_name in field_names:
-            row_data.append(format_value(await get_value_from_path(item, field_name)))
+            row_data.append(
+                format_value(
+                    await get_value_from_path(item, field_name), relation_delimiter
+                )
+            )
 
         data_rows.append(row_data)
 
@@ -113,7 +121,9 @@ async def export_data[M](
     raise HTTPException(status_code=400, detail=f"Unsupported export format: {format}")
 
 
-def format_value(value: Any) -> str | None:
+def format_value(
+    value: Any, relation_delimiter: RelationDelimiter = RelationDelimiter.newline
+) -> str | None:
     """Format a value for export based on its type."""
     if value is None:
         return None
@@ -128,7 +138,10 @@ def format_value(value: Any) -> str | None:
     elif isinstance(value, Enum):
         return value.value
     elif isinstance(value, list):
-        return "\n".join([str(format_value(v)) for v in value if v is not None])
+        separator = relation_delimiter.get_separator()
+        return separator.join(
+            [str(format_value(v, relation_delimiter)) for v in value if v is not None]
+        )
     else:
         # Clean HTML tags from text values using html2text
         text_value = str(value)

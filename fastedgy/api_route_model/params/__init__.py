@@ -16,6 +16,11 @@ from fastedgy.api_route_model.params.filter import (
     FilterHeader,
 )
 
+from fastedgy.api_route_model.params.relation_delimiter import (
+    RelationDelimiter,
+    RelationDelimiterQuery,
+)
+
 
 __all__ = [
     # Order By
@@ -27,4 +32,7 @@ __all__ = [
     # Filter
     "FilterQuery",
     "FilterHeader",
+    # Relation Delimiter
+    "RelationDelimiter",
+    "RelationDelimiterQuery",
 ]

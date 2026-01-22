@@ -10,6 +10,8 @@ from fastedgy.api_route_model.params import (
     OrderByQuery,
     FieldSelectorHeader,
     FilterHeader,
+    RelationDelimiter,
+    RelationDelimiterQuery,
 )
 from fastedgy.api_route_model.registry import (
     TypeModel,
@@ -67,7 +69,10 @@ class ExportApiRouteAction(BaseApiRouteAction):
 
 def generate_export_items[M = TypeModel](
     model_cls: type[M],
-) -> Callable[[Request, str, int, int, str, str, str], Coroutine[Any, Any, Response]]:
+) -> Callable[
+    [Request, str, int, int, str, str, str, RelationDelimiter],
+    Coroutine[Any, Any, Response],
+]:
     async def export_items(
         request: Request,
         format: str = Query("csv", description="Export format (csv, xlsx, ods)"),
@@ -76,6 +81,7 @@ def generate_export_items[M = TypeModel](
         order_by: str | None = OrderByQuery(),
         fields: str | None = FieldSelectorHeader(),
         filters: str | None = FilterHeader(),
+        relation_delimiter: RelationDelimiter = RelationDelimiterQuery(),
     ) -> StreamingResponse:
         return await export_items_action(
             request,
@@ -86,6 +92,7 @@ def generate_export_items[M = TypeModel](
             order_by=order_by,
             fields=fields,
             filters=filters,
+            relation_delimiter=relation_delimiter,
         )
 
     return export_items
@@ -101,6 +108,7 @@ async def export_items_action[M = TypeModel](
     order_by: str | None = None,
     fields: str | None = None,
     filters: str | None = None,
+    relation_delimiter: RelationDelimiter = RelationDelimiter.newline,
     transformers: list[BaseViewTransformer] | None = None,
     transformers_ctx: dict[str, Any] | None = None,
 ) -> StreamingResponse:
@@ -162,6 +170,7 @@ async def export_items_action[M = TypeModel](
         order_by=None,  # Already applied
         fields=fields,
         filters=None,  # Already applied
+        relation_delimiter=relation_delimiter,
     )
 
     # Post-export transformers (can modify file content/filename)

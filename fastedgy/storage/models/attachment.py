@@ -25,8 +25,8 @@ if TYPE_CHECKING:
 class AttachmentMixin(BaseModel):
     class Meta(BaseModel.Meta):
         abstract = True
-        label = _ts("Pièce jointe")
-        label_plural = _ts("Pièces jointes")
+        label = _ts("Attachment")
+        label_plural = _ts("Attachments")
         indexes = [
             fields.Index(fields=["parent"]),
         ]
@@ -160,7 +160,7 @@ async def on_pre_save(
             ).get(id=parent_id)
 
             if getattr(p, "type", None) == AttachmentType.file:
-                raise ValueError(_t("Le parent ne peut pas être un fichier"))
+                raise ValueError(_t("The parent cannot be a file"))
 
             parent_path = p.path
             parent_parent_ids = p.parent_ids or []
@@ -197,7 +197,7 @@ async def on_pre_update(
         p = await Attachment.query.only("id", "type").get(id=new_parent_id)
 
         if p.type == AttachmentType.file:
-            raise ValueError(_t("Le parent ne peut pas être un fichier"))
+            raise ValueError(_t("The parent cannot be a file"))
 
     # snapshot if name or parent changes
     if ("name" in values) or ("parent" in values) or ("parent_id" in column_values):

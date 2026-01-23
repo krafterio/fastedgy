@@ -21,7 +21,6 @@ class ChoiceEnum(str, Enum):
 
         class UserRole(ChoiceEnum):
             admin = _ts("Administrator")
-            agent = _ts("Commercial")
             user = _ts("User")
     """
 

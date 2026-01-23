@@ -7,6 +7,9 @@ from datetime import date, datetime
 from enum import Enum
 from typing import Any, TYPE_CHECKING
 
+from sqlalchemy.exc import IntegrityError, DataError, ProgrammingError
+
+from fastedgy.i18n import _t
 from fastedgy.orm import transaction
 from fastedgy.schemas import BaseModel, ValidationError
 
@@ -66,6 +69,135 @@ def _format_error_message(error: Exception) -> str:
         return "; ".join(errors)
 
     # For other exceptions, return the message as-is
+    return str(error)
+
+
+def _format_db_error_message(
+    error: Exception, model_cls: type["Model"] | None = None
+) -> str:
+    """
+    Format database error messages to be user-friendly.
+
+    Handles IntegrityError, DataError, ProgrammingError from SQLAlchemy.
+    Uses translation for localized messages.
+
+    Args:
+        error: The exception to format
+        model_cls: Optional model class to get field labels from metadata
+    """
+
+    def _get_field_label(field_name: str) -> str:
+        """Get field label from model metadata, or return field name as fallback."""
+        if model_cls and field_name:
+            try:
+                return get_field_label_from_path(model_cls, field_name)
+            except Exception:
+                pass
+        return field_name
+
+    # Handle integrity errors (constraint violations)
+    if isinstance(error, IntegrityError):
+        error_msg = str(error.orig) if hasattr(error, "orig") else str(error)
+
+        # Handle unique constraint violations
+        if "unique constraint" in error_msg.lower() or "UniqueViolationError" in str(
+            getattr(error, "orig", error).__class__.__name__
+        ):
+            field_name = None
+            if "Key (" in error_msg:
+                field_part = error_msg.split("Key (")[1].split(")")[0]
+                field_name = field_part
+
+            if field_name:
+                field_label = _get_field_label(field_name)
+                return str(
+                    _t(
+                        "An entry with this value already exists for the field '{field_name}'.",
+                        field_name=field_label,
+                    )
+                )
+            return str(_t("This entry already exists in the database."))
+
+        # Handle foreign key violations
+        if (
+            "foreign key constraint" in error_msg.lower()
+            or "ForeignKeyViolationError"
+            in str(getattr(error, "orig", error).__class__.__name__)
+        ):
+            return str(
+                _t("The reference to a related resource is invalid or does not exist.")
+            )
+
+        # Handle check constraint violations
+        if "check constraint" in error_msg.lower() or "CheckViolationError" in str(
+            getattr(error, "orig", error).__class__.__name__
+        ):
+            return str(
+                _t("The provided data does not meet the validation constraints.")
+            )
+
+        # Handle not null constraint violations
+        if (
+            "not-null constraint" in error_msg.lower()
+            or "null value" in error_msg.lower()
+            or "NotNullViolationError"
+            in str(getattr(error, "orig", error).__class__.__name__)
+        ):
+            # Try to extract field name from error message
+            # PostgreSQL format: null value in column "field_name" violates not-null constraint
+            field_name = None
+            if 'column "' in error_msg:
+                field_name = error_msg.split('column "')[1].split('"')[0]
+            elif "column " in error_msg.lower():
+                # Alternative format without quotes
+                parts = error_msg.lower().split("column ")
+                if len(parts) > 1:
+                    field_name = parts[1].split()[0].strip("\"'")
+
+            if field_name:
+                field_label = _get_field_label(field_name)
+                return str(
+                    _t(
+                        "A required field is missing: '{field_name}'.",
+                        field_name=field_label,
+                    )
+                )
+            return str(_t("A required field is missing."))
+
+        # Generic integrity error
+        return str(_t("The provided data violates a database integrity constraint."))
+
+    # Handle data errors (type mismatches, invalid values)
+    if isinstance(error, DataError):
+        error_msg = str(error.orig) if hasattr(error, "orig") else str(error)
+
+        if "invalid input syntax" in error_msg.lower():
+            return str(_t("Invalid data format. Please check the values in your file."))
+
+        if "numeric field overflow" in error_msg.lower():
+            return str(_t("A numeric value is too large for the field."))
+
+        return str(_t("The data format is invalid. Please check your values."))
+
+    # Handle programming errors (SQL errors, type mismatches in queries)
+    if isinstance(error, ProgrammingError):
+        error_msg = str(error.orig) if hasattr(error, "orig") else str(error)
+
+        if "operator does not exist" in error_msg.lower():
+            return str(
+                _t("Invalid data type for the field. Please check the value format.")
+            )
+
+        if "column" in error_msg.lower() and "does not exist" in error_msg.lower():
+            return str(
+                _t("A field referenced in the file does not exist in the database.")
+            )
+
+        return str(
+            _t("An error occurred processing the data. Please verify the file format.")
+        )
+
+    # Fallback: return original message
     return str(error)
 
 
@@ -345,23 +477,58 @@ async def process_row(
 
     # Check if we should UPDATE or CREATE
     identifier_value = None
+    identifier_value_raw = None
+    identifier_field_obj = None
     if identifier_field:
         # Find the header that maps to the identifier field
         for header, field_name in field_mapping.items():
             if field_name == identifier_field:
-                identifier_value = row_data.get(header, "").strip()
+                identifier_value_raw = row_data.get(header, "").strip()
+                identifier_field_obj = model_cls.meta.fields.get(identifier_field)
                 break
+
+        # Convert identifier to correct type before querying
+        if identifier_value_raw and identifier_field_obj:
+            identifier_value = convert_value(identifier_value_raw, identifier_field_obj)
+            if identifier_value is None:
+                # Conversion failed - invalid format
+                field_label = get_field_label_from_path(model_cls, identifier_field)
+                raise ValueError(
+                    str(
+                        _t(
+                            "Invalid value '{value}' for field '{field}'. Please check the format.",
+                            value=identifier_value_raw,
+                            field=field_label,
+                        )
+                    )
+                )
+        elif identifier_value_raw:
+            # No field object found, use raw value as fallback
+            identifier_value = identifier_value_raw
 
     # Determine action: UPDATE if identifier is filled, CREATE otherwise
     existing_record = None
     if identifier_value:
         # Try to find existing record
-        q = query or model_cls.query
-        existing_record = await q.filter(**{identifier_field: identifier_value}).first()
+        try:
+            q = query or model_cls.query
+            existing_record = await q.filter(
+                **{identifier_field: identifier_value}
+            ).first()
+        except (DataError, ProgrammingError) as e:
+            # Handle type mismatch errors gracefully
+            raise ValueError(_format_db_error_message(e, model_cls))
 
         if not existing_record:
+            field_label = get_field_label_from_path(model_cls, identifier_field)
             raise ValueError(
-                f"Record with {identifier_field}={identifier_value} not found"
+                str(
+                    _t(
+                        "No record found with {field} = '{value}'.",
+                        field=field_label,
+                        value=identifier_value_raw,
+                    )
+                )
             )
 
     # Convert row data to model fields
@@ -400,23 +567,31 @@ async def process_row(
     # Create or update record
     if existing_record:
         # UPDATE using query.update() for proper transaction handling
-        q = query or model_cls.query
-        await q.filter(**{identifier_field: identifier_value}).update(**model_data)
+        try:
+            q = query or model_cls.query
+            await q.filter(**{identifier_field: identifier_value}).update(**model_data)
 
-        # Refresh the record to get updated values
-        existing_record = await q.filter(**{identifier_field: identifier_value}).first()
+            # Refresh the record to get updated values
+            existing_record = await q.filter(
+                **{identifier_field: identifier_value}
+            ).first()
 
-        # Handle relational fields
-        await process_relational_data(existing_record, relational_data)
+            # Handle relational fields
+            await process_relational_data(existing_record, relational_data)
+        except (IntegrityError, DataError, ProgrammingError) as e:
+            raise ValueError(_format_db_error_message(e, model_cls))
 
         result.updated += 1
     else:
         # CREATE using query.create() for proper transaction handling
-        q = query or model_cls.query
-        record = await q.create(**model_data)
+        try:
+            q = query or model_cls.query
+            record = await q.create(**model_data)
 
-        # Handle relational fields
-        await process_relational_data(record, relational_data)
+            # Handle relational fields
+            await process_relational_data(record, relational_data)
+        except (IntegrityError, DataError, ProgrammingError) as e:
+            raise ValueError(_format_db_error_message(e, model_cls))
 
         result.created += 1
 

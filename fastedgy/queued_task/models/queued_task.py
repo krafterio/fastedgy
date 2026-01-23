@@ -5,23 +5,22 @@ from typing import Any, Optional, TYPE_CHECKING
 
 from datetime import datetime, timezone
 
-from enum import Enum
-
 from fastedgy.orm import Model, fields
+from fastedgy.i18n import _ts
 from fastedgy.models.base import BaseModel
 
 if TYPE_CHECKING:
     from fastedgy.models.queued_task import QueuedTask
 
 
-class QueuedTaskState(str, Enum):
-    enqueued = "enqueued"
-    waiting = "waiting"
-    doing = "doing"
-    stopped = "stopped"
-    done = "done"
-    failed = "failed"
-    cancelled = "cancelled"
+class QueuedTaskState(fields.ChoiceEnum):
+    enqueued = _ts("Enqueued")
+    waiting = _ts("Waiting")
+    doing = _ts("Doing")
+    stopped = _ts("Stopped")
+    done = _ts("Done")
+    failed = _ts("Failed")
+    cancelled = _ts("Cancelled")
 
 
 class QueuedTaskMixin(BaseModel):

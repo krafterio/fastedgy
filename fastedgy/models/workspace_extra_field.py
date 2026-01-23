@@ -1,22 +1,21 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from enum import Enum
-
 from fastedgy.models.queued_task import OrderByList
 from fastedgy.orm import fields
 from fastedgy.models.base import BaseModel
 from fastedgy.models.mixins import WorkspaceableMixin
+from fastedgy.i18n import _ts
 
 
-class WorkspaceExtraFieldType(Enum):
-    boolean = "boolean"
-    char = "char"
-    date = "date"
-    datetime = "datetime"
-    float = "float"
-    integer = "integer"
-    text = "text"
+class WorkspaceExtraFieldType(fields.ChoiceEnum):
+    boolean = _ts("Boolean")
+    char = _ts("Char")
+    date = _ts("Date")
+    datetime = _ts("Datetime")
+    float = _ts("Float")
+    integer = _ts("Integer")
+    text = _ts("Text")
 
 
 EXTRA_FIELDS_MAP = {

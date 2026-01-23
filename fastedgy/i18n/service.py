@@ -27,7 +27,9 @@ class TranslatableString(str):
 
         try:
             if not has_service(BaseSettings):
-                return self.message.format(**self.kwargs) if self.kwargs else self.message
+                return (
+                    self.message.format(**self.kwargs) if self.kwargs else self.message
+                )
 
             return get_service(I18n).translate(self.message, **self.kwargs)
         except Exception:

@@ -114,6 +114,23 @@ def get_filter_operators_for_extra_field(field_type) -> list[str]:
     return FILTER_OPERATORS_FIELD_MAP.get(field_class, [])
 
 
+def get_field_choices(field: BaseFieldType) -> list[tuple[str, str]] | None:
+    """
+    Extract choices from a ChoiceField.
+
+    Returns a list of tuples (value, label) or None if not a choice field.
+    """
+    if not hasattr(field, "choices") or field.choices is None:
+        return None
+
+    # Check if we have custom labels (from fastedgy's ChoiceField)
+    if hasattr(field, "_choice_labels") and field._choice_labels:
+        return [(name, str(label)) for name, label in field._choice_labels.items()]
+
+    # Fallback for standard edgy ChoiceField (enum without custom labels)
+    return [(member.name, str(member.value)) for member in field.choices]
+
+
 def generate_metadata_field_type(field: BaseFieldType) -> str:
     if name := FILTER_FIELD_TYPE_NAME_MAP.get(field.__class__.__name__):
         return name
@@ -168,6 +185,7 @@ def generate_metadata_field(model_cls: Model, field: BaseFieldType) -> MetadataF
         extra=False,
         filter_operators=filter_operators,
         target=generate_metadata_name(target_model) if target_model else None,
+        choices=get_field_choices(field),
     )
 
 
@@ -381,6 +399,7 @@ __all__ = [
     "generate_metadata_fields",
     "add_extra_fields",
     "get_filter_operators_for_extra_field",
+    "get_field_choices",
     "generate_metadata_field_type",
     "generate_metadata_field",
     "add_inverse_relations",

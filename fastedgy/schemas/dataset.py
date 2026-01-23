@@ -53,6 +53,7 @@ class MetadataField(BaseModel):
     extra: bool
     filter_operators: list[str]
     target: str | None = None
+    choices: list[tuple[str, str]] | None = None
 
 
 class MetadataModel(BaseModel):

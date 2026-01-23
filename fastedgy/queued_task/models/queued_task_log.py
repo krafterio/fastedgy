@@ -5,21 +5,20 @@ from typing import TYPE_CHECKING, Optional
 
 from datetime import datetime
 
-from enum import Enum
-
 from fastedgy.orm import fields
+from fastedgy.i18n import _ts
 from fastedgy.models.base import BaseModel
 
 if TYPE_CHECKING:
     from fastedgy.models.queued_task import BaseQueuedTask as QueuedTask
 
 
-class QueuedTaskLogType(str, Enum):
-    critical = "critical"
-    error = "error"
-    warning = "warning"
-    info = "info"
-    debug = "debug"
+class QueuedTaskLogType(fields.ChoiceEnum):
+    critical = _ts("Critical")
+    error = _ts("Error")
+    warning = _ts("Warning")
+    info = _ts("Info")
+    debug = _ts("Debug")
 
 
 class QueuedTaskLogMixin(BaseModel):

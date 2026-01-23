@@ -23,11 +23,64 @@ from fastedgy.orm.filter import (
     filter_query,
     InvalidFilterError,
 )
+from fastedgy.orm.fields import FieldExportConverter
 from fastedgy.metadata_model.utils import get_field_label_from_path
 from fastedgy.orm.query import QuerySet
-from fastedgy.orm.utils import get_value_from_path
+from fastedgy.orm.utils import get_value_from_path, get_field_from_path
 
 from starlette.responses import StreamingResponse
+
+
+def parse_field_with_converter(field_expr: str) -> tuple[str, str | None]:
+    """
+    Parse a field expression and extract the converter if present.
+
+    Args:
+        field_expr: Field expression (e.g., "status", "status:label", "company.status:label")
+
+    Returns:
+        Tuple of (field_path, converter) where converter is None if not specified
+    """
+    if ":" in field_expr:
+        # Split only on the last : to handle paths like "relation.field:converter"
+        parts = field_expr.rsplit(":", 1)
+        return parts[0], parts[1]
+    return field_expr, None
+
+
+def apply_export_converter(
+    model_cls: type, field_path: str, value: Any, converter: str | None
+) -> Any:
+    """
+    Apply export converter to a value if the field supports it.
+
+    Args:
+        model_cls: The model class
+        field_path: Path to the field (e.g., "status" or "company.status")
+        value: The value to convert
+        converter: Name of the converter to apply, or None
+
+    Returns:
+        The converted value, or original value if no converter applicable
+    """
+    if value is None:
+        return None
+
+    # Get the field from the path
+    field = get_field_from_path(model_cls, field_path)
+
+    if field is None:
+        return value
+
+    # Check if the field has a stored export converter class
+    # (Edgy uses a factory pattern, so field.__class__ is not the original class)
+    converter_class = getattr(field, "_export_converter_class", None)
+    if converter_class is not None and issubclass(
+        converter_class, FieldExportConverter
+    ):
+        return converter_class.export_convert(field, value, converter)
+
+    return value
 
 
 async def export_data[M](
@@ -76,7 +129,22 @@ async def export_data[M](
         else:
             raise e
 
-    field_names = clean_field_names_from_input(model_cls, fields)
+    # Parse field expressions to extract converters
+    field_expressions = []
+    if fields:
+        if isinstance(fields, str):
+            field_expressions = [f.strip() for f in fields.split(",") if f.strip()]
+        else:
+            field_expressions = fields
+
+    # Extract field paths and converters
+    field_paths_with_converters = [
+        parse_field_with_converter(expr) for expr in field_expressions
+    ]
+
+    # Get clean field paths (without converters) for query optimization
+    field_paths_only = [path for path, _ in field_paths_with_converters]
+    field_names = clean_field_names_from_input(model_cls, field_paths_only)
 
     if not field_names or len(field_names) == 1 and field_names[0] == "id":
         field_names = [
@@ -84,6 +152,11 @@ async def export_data[M](
             for field_name, field in model_cls.meta.fields.items()
             if not field.exclude and not hasattr(field, "target")
         ]
+        # No converters for auto-generated field list
+        field_paths_with_converters = [(name, None) for name in field_names]
+
+    # Build a map of field_path -> converter for quick lookup
+    converter_map = {path: conv for path, conv in field_paths_with_converters}
 
     data_rows = []
 
@@ -91,11 +164,14 @@ async def export_data[M](
         row_data = []
 
         for field_name in field_names:
-            row_data.append(
-                format_value(
-                    await get_value_from_path(item, field_name), relation_delimiter
-                )
-            )
+            value = await get_value_from_path(item, field_name)
+
+            # Apply converter if specified
+            converter = converter_map.get(field_name)
+            if converter is not None:
+                value = apply_export_converter(model_cls, field_name, value, converter)
+
+            row_data.append(format_value(value, relation_delimiter))
 
         data_rows.append(row_data)
 
@@ -246,6 +322,8 @@ def generate_ods_export(
 
 
 __all__ = [
+    "parse_field_with_converter",
+    "apply_export_converter",
     "export_data",
     "format_value",
     "generate_csv_export",

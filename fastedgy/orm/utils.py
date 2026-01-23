@@ -87,6 +87,45 @@ def get_columns(mixed):
     return sa.inspect(mixed).columns
 
 
+def get_field_from_path(model_cls: type[Model], path: str) -> Any | None:
+    """
+    Get a field object from a model by following a dot-separated path.
+
+    Args:
+        model_cls: The model class to start from
+        path: Dot-separated path to the field (e.g., "status" or "company.status")
+
+    Returns:
+        The field object or None if not found
+    """
+    parts = path.split(".")
+    current_model = model_cls
+
+    for i, part in enumerate(parts):
+        if current_model is None:
+            return None
+
+        field = current_model.meta.fields.get(part)
+
+        if field is None:
+            return None
+
+        # If this is the last part, return the field
+        if i == len(parts) - 1:
+            return field
+
+        # Otherwise, navigate to the related model
+        if hasattr(field, "target"):
+            current_model = field.target
+        elif hasattr(field, "related_from"):
+            current_model = field.related_from
+        else:
+            # Field doesn't have a relation, can't continue
+            return None
+
+    return None
+
+
 async def get_value_from_path(instance: Model, path: str) -> Any | None:
     async def _resolve(
         obj_or_list: Model | list[Model], path_parts: list[str] | None
@@ -137,5 +176,6 @@ __all__ = [
     "find_primary_key_field",
     "extract_field_names",
     "get_columns",
+    "get_field_from_path",
     "get_value_from_path",
 ]

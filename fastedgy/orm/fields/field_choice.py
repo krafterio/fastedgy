@@ -10,6 +10,8 @@ from pydantic_core import CoreSchema, core_schema
 from edgy.core.db.fields import ChoiceField as EdgyChoiceField
 from edgy.core.db.fields.types import BaseFieldType
 
+from .field_converter import FieldExportConverter
+
 
 class ChoiceEnum(str, Enum):
     """
@@ -102,7 +104,7 @@ class _ChoiceMirrorEnum(str, Enum):
         return self.name
 
 
-class ChoiceField(EdgyChoiceField):
+class ChoiceField(EdgyChoiceField, FieldExportConverter[Enum | None, str | None]):
     """
     Custom ChoiceField that stores enum names (left side of =) in the database
     while preserving the enum values as labels (which can be TranslatedStrings).
@@ -122,6 +124,10 @@ class ChoiceField(EdgyChoiceField):
     Comparison works naturally:
         record.status == Status.draft  # True
         record.status == "draft"       # True
+
+    Export converters:
+        - "value": Returns the enum name (e.g., "draft")
+        - "label": Returns the translated label (e.g., "Draft")
     """
 
     def __new__(cls, choices: type[Enum], **kwargs: Any) -> BaseFieldType:
@@ -139,6 +145,41 @@ class ChoiceField(EdgyChoiceField):
         )
 
         return super().__new__(cls, choices=mirror_enum, **kwargs)
+
+    @classmethod
+    def get_export_converters(cls) -> list[str]:
+        """Return available export converters: value and label."""
+        return ["value", "label"]
+
+    @classmethod
+    def export_convert(
+        cls, field_obj: BaseFieldType, value: Enum | None, converter: str | None
+    ) -> str | None:
+        """
+        Convert choice value for export.
+
+        Args:
+            field_obj: The ChoiceField instance
+            value: The enum value to convert
+            converter: "value" for name, "label" for translated label, None for default
+
+        Returns:
+            Converted string value
+        """
+        if value is None:
+            return None
+
+        # Get the enum name
+        name = value.name if isinstance(value, Enum) else str(value)
+
+        if converter == "label":
+            # Return the translated label from _choice_labels
+            if hasattr(field_obj, "_choice_labels"):
+                return str(field_obj._choice_labels.get(name, name))  # type: ignore
+            return name
+
+        # Default or "value": return the name
+        return name
 
 
 __all__ = [

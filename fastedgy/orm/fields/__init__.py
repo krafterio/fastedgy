@@ -41,6 +41,7 @@ from edgy.core.db.fields.types import BaseFieldType
 from edgy.core.db.datastructures import Index, UniqueConstraint
 
 from .field_choice import ChoiceEnum, ChoiceField
+from .field_converter import FieldExportConverter
 from .field_html import HTMLField
 from .field_phone import PhoneField
 from .field_point import Point, PointField
@@ -78,6 +79,7 @@ __all__ = [
     "URLField",
     "UUIDField",
     "ExcludeField",
+    "FieldExportConverter",
     "FileField",
     "ForeignKey",
     "ImageField",

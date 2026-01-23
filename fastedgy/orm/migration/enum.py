@@ -273,46 +273,67 @@ def _generate_automatic_enum_mapping(
     """
     Generate automatic value mapping for enum migration when values are removed/added.
     Returns mapping dict or None if no mapping needed.
+
+    First attempts case-insensitive matching between old and new values.
+    Only values without any match are considered truly removed.
     """
-    removed_values = set(old_values) - set(new_values)
-
-    if not removed_values:
-        return None
-
-    # Check if columns using this enum are nullable
-    is_nullable = False
-    try:
-        result = autogen_context.connection.execute(  # type: ignore
-            text(
-                "SELECT c.is_nullable FROM information_schema.columns c "
-                "JOIN pg_type t ON c.udt_name = t.typname "
-                "JOIN pg_namespace n ON t.typnamespace = n.oid "
-                "WHERE t.typname = :enum_name AND n.nspname = :schema_name "
-                "LIMIT 1"
-            ),
-            {
-                "enum_name": enum_name,
-                "schema_name": autogen_context.dialect.default_schema_name or "public",  # type: ignore
-            },
-        ).fetchone()
-
-        if result:
-            is_nullable = result[0] == "YES"
-    except Exception:
-        # Fallback if query fails
-        is_nullable = False
+    # Build a case-insensitive lookup for new values
+    new_values_lower_map = {v.lower(): v for v in new_values}
 
     mapping = {}
-    for removed_value in removed_values:
-        if is_nullable:
-            # Map to null if column is nullable
-            mapping[removed_value] = None
-        elif new_values:
-            # Map to first new value if column is not nullable
-            mapping[removed_value] = new_values[0]
+    truly_removed_values = []
+
+    for old_value in old_values:
+        # Check if exact match exists in new values
+        if old_value in new_values:
+            # No mapping needed for exact matches
+            continue
+
+        # Try case-insensitive match
+        old_value_lower = old_value.lower()
+        if old_value_lower in new_values_lower_map:
+            # Found case-insensitive match - map old to new
+            mapping[old_value] = new_values_lower_map[old_value_lower]
         else:
-            # This shouldn't happen but fallback to None
-            mapping[removed_value] = None
+            # No match found - this value is truly removed
+            truly_removed_values.append(old_value)
+
+    # Handle truly removed values (no case-insensitive match found)
+    if truly_removed_values:
+        # Check if columns using this enum are nullable
+        is_nullable = False
+        try:
+            result = autogen_context.connection.execute(  # type: ignore
+                text(
+                    "SELECT c.is_nullable FROM information_schema.columns c "
+                    "JOIN pg_type t ON c.udt_name = t.typname "
+                    "JOIN pg_namespace n ON t.typnamespace = n.oid "
+                    "WHERE t.typname = :enum_name AND n.nspname = :schema_name "
+                    "LIMIT 1"
+                ),
+                {
+                    "enum_name": enum_name,
+                    "schema_name": autogen_context.dialect.default_schema_name
+                    or "public",  # type: ignore
+                },
+            ).fetchone()
+
+            if result:
+                is_nullable = result[0] == "YES"
+        except Exception:
+            # Fallback if query fails
+            is_nullable = False
+
+        for removed_value in truly_removed_values:
+            if is_nullable:
+                # Map to null if column is nullable
+                mapping[removed_value] = None
+            elif new_values:
+                # Map to first new value if column is not nullable
+                mapping[removed_value] = new_values[0]
+            else:
+                # This shouldn't happen but fallback to None
+                mapping[removed_value] = None
 
     return mapping if mapping else None
 

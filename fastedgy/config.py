@@ -247,10 +247,10 @@ class BaseSettings(PydanticBaseSettings):
         if os.path.exists(fastedgy_translations):
             paths.append(fastedgy_translations)
 
-        # 2. Project translations (higher priority)
-        project_translations = os.path.join(self.project_path, "translations")
-        if os.path.exists(project_translations):
-            paths.append(project_translations)
+        # 2. Server translations (higher priority)
+        server_translations = os.path.join(self.server_path, "translations")
+        if os.path.exists(server_translations):
+            paths.append(server_translations)
 
         # 3. Custom translations paths (highest priority)
         paths.extend(self.translations_paths)

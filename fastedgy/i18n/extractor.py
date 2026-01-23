@@ -171,9 +171,9 @@ class I18nExtractor:
             tuple[str, str]: (scan_path, translations_dir)
         """
         if not package:
-            # Default: use project paths
+            # Default: use server paths from config
             return self.settings.server_path, os.path.join(
-                self.settings.project_path, "translations"
+                self.settings.server_path, "translations"
             )
 
         # Try to import the package to get its path

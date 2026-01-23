@@ -561,8 +561,7 @@ async def process_row(
                 )
             else:
                 # Regular scalar field
-                converted_value = convert_value(value, field)
-                model_data[field_name] = converted_value
+                model_data[field_name] = convert_value(value, field)
 
     # Create or update record
     if existing_record:
@@ -583,6 +582,16 @@ async def process_row(
 
         result.updated += 1
     else:
+        # CREATE: remove None values for fields with defaults (ORM will use default)
+        for field_name in list(model_data.keys()):
+            if model_data[field_name] is None:
+                field = model_cls.meta.fields.get(field_name)
+                if field and (
+                    getattr(field, "default", None) is not None
+                    or getattr(field, "server_default", None) is not None
+                ):
+                    del model_data[field_name]
+
         # CREATE using query.create() for proper transaction handling
         try:
             q = query or model_cls.query

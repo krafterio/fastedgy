@@ -97,13 +97,16 @@ async def import_template_action[M = TypeModel](
     field_names = clean_field_names_from_input(model_cls, fields)
 
     if not field_names or len(field_names) == 1 and field_names[0] == "id":
-        # Default: exclude primary key fields
+        # Default: exclude primary key, read-only, and auto-managed fields
         field_names = [
             field_name
             for field_name, field in model_cls.meta.fields.items()
             if not field.exclude
             and not hasattr(field, "target")
             and not getattr(field, "primary_key", False)
+            and not getattr(field, "read_only", False)
+            and not getattr(field, "auto_now", False)
+            and not getattr(field, "auto_now_add", False)
         ]
     else:
         # Check if user explicitly requested ID in their input

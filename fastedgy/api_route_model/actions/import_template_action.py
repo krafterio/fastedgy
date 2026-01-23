@@ -105,7 +105,17 @@ async def import_template_action[M = TypeModel](
             and not hasattr(field, "target")
             and not getattr(field, "primary_key", False)
         ]
-    # else: keep user-specified fields as-is (including ID if requested)
+    else:
+        # Check if user explicitly requested ID in their input
+        # clean_field_names_from_input always adds "id", so we need to check original input
+        user_requested_id = False
+        if fields:
+            fields_list = fields.split(",") if isinstance(fields, str) else fields
+            user_requested_id = "id" in [f.strip() for f in fields_list]
+
+        # Remove ID if not explicitly requested by user
+        if not user_requested_id:
+            field_names = [f for f in field_names if f != "id"]
 
     # Get field labels for headers
     field_labels = [

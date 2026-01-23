@@ -97,11 +97,15 @@ async def import_template_action[M = TypeModel](
     field_names = clean_field_names_from_input(model_cls, fields)
 
     if not field_names or len(field_names) == 1 and field_names[0] == "id":
+        # Default: exclude primary key fields
         field_names = [
             field_name
             for field_name, field in model_cls.meta.fields.items()
-            if not field.exclude and not hasattr(field, "target")
+            if not field.exclude
+            and not hasattr(field, "target")
+            and not getattr(field, "primary_key", False)
         ]
+    # else: keep user-specified fields as-is (including ID if requested)
 
     # Get field labels for headers
     field_labels = [

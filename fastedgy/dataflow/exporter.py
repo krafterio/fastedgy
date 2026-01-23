@@ -23,7 +23,6 @@ from fastedgy.orm.filter import (
     filter_query,
     InvalidFilterError,
 )
-from fastedgy.orm.fields import FieldExportConverter
 from fastedgy.metadata_model.utils import get_field_label_from_path
 from fastedgy.orm.query import QuerySet
 from fastedgy.orm.utils import get_value_from_path, get_field_from_path
@@ -72,12 +71,13 @@ def apply_export_converter(
     if field is None:
         return value
 
-    # Check if the field has a stored export converter class
-    # (Edgy uses a factory pattern, so field.__class__ is not the original class)
+    # Check if the field has an export converter class stored
+    # (set by FieldExportConverter.__init_subclass__)
+    # We need to use the stored class because Edgy's factory pattern
+    # creates a new class that doesn't inherit our methods
     converter_class = getattr(field, "_export_converter_class", None)
-    if converter_class is not None and issubclass(
-        converter_class, FieldExportConverter
-    ):
+    if converter_class is not None and hasattr(converter_class, "export_convert"):
+        # Call export_convert as an unbound method, passing field as self
         return converter_class.export_convert(field, value, converter)
 
     return value

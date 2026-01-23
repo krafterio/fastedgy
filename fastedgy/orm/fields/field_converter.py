@@ -4,8 +4,6 @@
 from abc import abstractmethod
 from typing import Any, Generic, TypeVar
 
-from edgy.core.db.fields.types import BaseFieldType
-
 # TypeVars for field values - input and output can be different types
 InputT = TypeVar("InputT")
 OutputT = TypeVar("OutputT")
@@ -21,22 +19,24 @@ class FieldExportConverter(Generic[InputT, OutputT]):
     Example usage in a field class:
 
         class MyField(FieldFactory, FieldExportConverter[MyType, str]):
-            @classmethod
-            def get_export_converters(cls) -> list[str]:
+            def get_export_converters(self) -> list[str]:
                 return ["value", "formatted"]
 
-            @classmethod
-            def export_convert(cls, field_obj, value, converter):
+            def export_convert(self, value, converter):
                 if converter == "formatted":
                     return format_value(value)
                 return value
+
+    Note: Due to Edgy's factory pattern, we store _export_converter_class
+    in kwargs to preserve the original class reference for export operations.
     """
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
 
         # Wrap __new__ to automatically add _export_converter_class
-        # This works regardless of inheritance order
+        # This is needed because Edgy creates a new class dynamically
+        # and the original methods are not inherited
         original_new = cls.__new__
 
         def patched_new(__cls: type, *args: Any, **kw: Any) -> Any:
@@ -45,9 +45,8 @@ class FieldExportConverter(Generic[InputT, OutputT]):
 
         cls.__new__ = patched_new  # type: ignore
 
-    @classmethod
     @abstractmethod
-    def get_export_converters(cls) -> list[str]:
+    def get_export_converters(self) -> list[str]:
         """
         Return list of available converter names for export.
 
@@ -56,16 +55,12 @@ class FieldExportConverter(Generic[InputT, OutputT]):
         """
         ...
 
-    @classmethod
     @abstractmethod
-    def export_convert(
-        cls, field_obj: BaseFieldType, value: InputT, converter: str | None
-    ) -> OutputT:
+    def export_convert(self, value: InputT, converter: str | None) -> OutputT:
         """
         Convert value using the specified converter during export.
 
         Args:
-            field_obj: The field instance containing metadata (e.g., _choice_labels)
             value: The value to convert (type depends on the field)
             converter: Name of the converter to apply, or None for default behavior
 

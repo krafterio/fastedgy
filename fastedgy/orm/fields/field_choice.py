@@ -11,9 +11,10 @@ from edgy.core.db.fields import ChoiceField as EdgyChoiceField
 from edgy.core.db.fields.types import BaseFieldType
 
 from .field_converter import FieldExportConverter
+from ...i18n import TranslatableString
 
 
-class ChoiceEnum(str, Enum):
+class ChoiceEnum(TranslatableString, Enum):
     """
     Base class for choice enums that can be used with ChoiceField.
 
@@ -129,10 +130,9 @@ class ChoiceField(EdgyChoiceField, FieldExportConverter[Enum | None, str | None]
         - "label": Returns the translated label (e.g., "Draft")
     """
 
-    def __new__(cls, choices: type[Enum], **kwargs: Any) -> BaseFieldType:
-        # Store the original labels mapping (name -> label value)
-        kwargs["_choice_labels"] = {member.name: member.value for member in choices}
+    _choice_labels: dict[str, str | TranslatableString]
 
+    def __new__(cls, choices: type[Enum], **kwargs: Any) -> BaseFieldType:
         # Create a mirror enum where value = name (for DB storage)
         # Using _ChoiceMirrorEnum as base for proper comparison support
         mirror_enum = cast(
@@ -143,41 +143,30 @@ class ChoiceField(EdgyChoiceField, FieldExportConverter[Enum | None, str | None]
             ),
         )
 
-        return super().__new__(cls, choices=mirror_enum, **kwargs)
+        obj = super().__new__(cls, choices=mirror_enum, **kwargs)
+        cast("ChoiceField", obj)._choice_labels = {
+            member.name: member.value for member in choices
+        }
+        return obj
 
-    @classmethod
-    def get_export_converters(cls) -> list[str]:
-        """Return available export converters: value and label."""
+    @property
+    def choice_labels(self) -> dict[str, str | TranslatableString]:
+        return self._choice_labels
+
+    def get_export_converters(self) -> list[str]:
         return ["value", "label"]
 
-    @classmethod
-    def export_convert(
-        cls, field_obj: BaseFieldType, value: Enum | None, converter: str | None
-    ) -> str | None:
-        """
-        Convert choice value for export.
-
-        Args:
-            field_obj: The ChoiceField instance
-            value: The enum value to convert
-            converter: "value" for name, "label" for translated label, None for default
-
-        Returns:
-            Converted string value
-        """
+    def export_convert(self, value: Enum | None, converter: str | None) -> str | None:
         if value is None:
             return None
 
-        # Get the enum name
         name = value.name if isinstance(value, Enum) else str(value)
 
         if converter == "label":
-            # Return the translated label from _choice_labels
-            if hasattr(field_obj, "_choice_labels"):
-                return str(field_obj._choice_labels.get(name, name))  # type: ignore
-            return name
+            # Use _choice_labels directly because Edgy's factory pattern
+            # doesn't preserve our property, only the stored attribute
+            return str(self._choice_labels.get(name, name))
 
-        # Default or "value": return the name
         return name
 
 

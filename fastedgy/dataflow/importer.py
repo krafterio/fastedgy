@@ -53,19 +53,79 @@ class ImportFailedError(Exception):
         )
 
 
-def _format_error_message(error: Exception) -> str:
+def _format_error_message(
+    error: Exception, model_cls: type["Model"] | None = None
+) -> str:
     """
     Format error message to be user-friendly.
 
     Extracts essential information from Pydantic ValidationError and other exceptions.
+
+    Args:
+        error: The exception to format
+        model_cls: Optional model class to get field labels from metadata
     """
     if isinstance(error, ValidationError):
         # Parse Pydantic validation errors
         errors = []
         for err in error.errors():
-            field = ".".join(str(loc) for loc in err["loc"])
+            field_path = ".".join(str(loc) for loc in err["loc"])
             msg = err["msg"]
-            errors.append(f"{field}: {msg}")
+            err_type = err.get("type", "")
+
+            # Get field label from model metadata
+            field_label = field_path
+            if model_cls:
+                try:
+                    field_label = get_field_label_from_path(model_cls, field_path)
+                except Exception:
+                    pass
+
+            # Format message based on error type
+            if err_type == "missing" or "required" in msg.lower():
+                errors.append(
+                    str(_t("The '{field}' field is required.", field=field_label))
+                )
+            elif err_type == "string_type" or "string" in msg.lower():
+                errors.append(
+                    str(
+                        _t(
+                            "The '{field}' field must be a text value.",
+                            field=field_label,
+                        )
+                    )
+                )
+            elif err_type == "int_type" or "integer" in msg.lower():
+                errors.append(
+                    str(
+                        _t(
+                            "The '{field}' field must be an integer.",
+                            field=field_label,
+                        )
+                    )
+                )
+            elif err_type == "float_type" or "float" in msg.lower():
+                errors.append(
+                    str(
+                        _t(
+                            "The '{field}' field must be a number.",
+                            field=field_label,
+                        )
+                    )
+                )
+            elif err_type == "bool_type" or "boolean" in msg.lower():
+                errors.append(
+                    str(
+                        _t(
+                            "The '{field}' field must be true or false.",
+                            field=field_label,
+                        )
+                    )
+                )
+            else:
+                # Fallback: use field label with original message
+                errors.append(f"{field_label}: {msg}")
+
         return "; ".join(errors)
 
     # For other exceptions, return the message as-is
@@ -273,7 +333,7 @@ async def import_data[M](
         except Exception as e:
             result.errors += 1
             # Clean error message (extract essential info from Pydantic ValidationError)
-            error_message = _format_error_message(e)
+            error_message = _format_error_message(e, model_cls)
             result.error_details.append(
                 {
                     "row": row_idx,

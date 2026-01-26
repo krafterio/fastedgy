@@ -41,7 +41,9 @@ class BaseModel(PydanticBaseModel):
 
             return datetime_serializer(value)
 
-        if hasattr(value, "__get_pydantic_core_schema__"):
+        if hasattr(value, "__get_pydantic_core_schema__") and not isinstance(
+            value, PydanticBaseModel
+        ):
             from pydantic import TypeAdapter
 
             ta = TypeAdapter(value)

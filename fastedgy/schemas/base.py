@@ -1,6 +1,7 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+from enum import Enum
 from typing import Any, TypeVar
 from datetime import datetime
 
@@ -32,16 +33,22 @@ class BaseModel(PydanticBaseModel):
 
     @field_serializer("*", mode="wrap", when_used="json")
     @classmethod
-    def _serialize_datetime_fields(cls, value, handler, info):
-        """Serialize all datetime fields with timezone from context."""
-        result = handler(value)
+    def _serialize_fields(cls, value, handler, info):
+        """Serialize all datetime fields with timezone from context and use custom pydantic adapter."""
 
         if isinstance(value, datetime):
             from fastedgy.serializers import datetime_serializer
 
             return datetime_serializer(value)
 
-        return result
+        if hasattr(value, "__get_pydantic_core_schema__"):
+            from pydantic import TypeAdapter
+
+            ta = TypeAdapter(value)
+
+            return ta.dump_python(value)
+
+        return handler(value)
 
 
 M = TypeVar("M", bound=BaseModel)

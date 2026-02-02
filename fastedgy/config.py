@@ -121,6 +121,7 @@ class BaseSettings(PydanticBaseSettings):
     database_url: str = ""
     database_pool_size: int | None = None
     database_max_overflow: int | None = None
+    database_isolation_level: str = "READ COMMITTED"
 
     # Auth
     auth_secret_key: str = ""

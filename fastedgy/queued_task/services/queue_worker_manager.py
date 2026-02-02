@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Optional, Dict, Any, List, cast
 
 from fastedgy import context
+from fastedgy.config import BaseSettings
 from fastedgy.dependencies import Inject, get_service
 from fastedgy.orm import Database, Registry
 from fastedgy.queued_task.config import QueuedTaskConfig
@@ -376,7 +377,10 @@ class QueueWorkerManager:
         """
         try:
             # Use a short transaction with lower isolation to reduce conflicts
-            async with self.database.transaction(isolation_level="READ COMMITTED"):
+            settings = get_service(BaseSettings)
+            async with self.database.transaction(
+                isolation_level=settings.database_isolation_level
+            ):
                 # Claim the next task atomically and return its id
                 from sqlalchemy import text
 
@@ -671,7 +675,10 @@ class QueueWorkerManager:
                                  EXECUTE FUNCTION notify_new_queued_task(); \
                              """
 
-        async with self.database.transaction():
+        settings = get_service(BaseSettings)
+        async with self.database.transaction(
+            isolation_level=settings.database_isolation_level
+        ):
             # Create/update function
             await self.database.execute(function_sql)
 

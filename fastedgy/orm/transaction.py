@@ -3,6 +3,7 @@
 
 from functools import wraps
 from typing import TypeVar, Callable, Any, Coroutine
+from fastedgy.config import BaseSettings
 from fastedgy.dependencies import get_service
 from fastedgy.orm import Registry
 
@@ -37,8 +38,9 @@ def transaction(
     @wraps(func)
     async def wrapper(*args: Any, **kwargs: Any) -> T:
         db = get_service(Registry).database
+        settings = get_service(BaseSettings)
 
-        async with db.transaction():
+        async with db.transaction(isolation_level=settings.database_isolation_level):
             return await func(*args, **kwargs)
 
     return wrapper

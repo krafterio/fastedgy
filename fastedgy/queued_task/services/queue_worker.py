@@ -17,6 +17,7 @@ import random
 from typing import TYPE_CHECKING, Any, Dict, Optional, cast
 
 from fastedgy import context
+from fastedgy.config import BaseSettings
 from fastedgy.dependencies import get_service
 from fastedgy.orm import Registry
 from fastedgy.queued_task.config import QueuedTaskConfig
@@ -101,7 +102,10 @@ class QueueWorker:
             from fastedgy.orm import Database as EdgyDatabase  # type: ignore
 
             database: EdgyDatabase = get_service(EdgyDatabase)
-            async with database.transaction():
+            settings = get_service(BaseSettings)
+            async with database.transaction(
+                isolation_level=settings.database_isolation_level
+            ):
                 await self.hook_registry.trigger_pre_run(task)
 
                 logger.debug(f"Executing task function for task {task.id}")
@@ -368,11 +372,14 @@ class QueueWorker:
         from fastedgy.orm import Database as EdgyDatabase  # type: ignore
 
         database: EdgyDatabase = get_service(EdgyDatabase)
+        settings = get_service(BaseSettings)
 
         attempt = 0
         while True:
             try:
-                async with database.transaction():
+                async with database.transaction(
+                    isolation_level=settings.database_isolation_level
+                ):
                     await op_coro_factory()
                 return
             except (DBAPIError, OperationalError) as e:  # type: ignore

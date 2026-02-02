@@ -27,6 +27,7 @@ import logging
 
 from fastedgy import context
 from fastedgy import context as fastedgy_context
+from fastedgy.config import BaseSettings
 from fastedgy.dependencies import Inject, get_service
 from fastedgy.orm import Registry
 from fastedgy.lifecycle import AppLifecycle
@@ -349,7 +350,10 @@ class QueuedTasks:
         from fastedgy.orm import Database as EdgyDatabase
 
         database: EdgyDatabase = get_service(EdgyDatabase)
-        async with database.transaction():
+        settings = get_service(BaseSettings)
+        async with database.transaction(
+            isolation_level=settings.database_isolation_level
+        ):
             await task.save()
 
         await self.hook_registry.trigger_post_create(task)
@@ -476,7 +480,10 @@ class QueuedTasks:
             from fastedgy.orm import Database as EdgyDatabase
 
             db: EdgyDatabase = get_service(EdgyDatabase)
-            async with db.transaction():
+            settings = get_service(BaseSettings)
+            async with db.transaction(
+                isolation_level=settings.database_isolation_level
+            ):
                 await task.save()
             return task
         else:
@@ -498,7 +505,10 @@ class QueuedTasks:
             from fastedgy.orm import Database as EdgyDatabase
 
             database: EdgyDatabase = get_service(EdgyDatabase)
-            async with database.transaction():
+            settings = get_service(BaseSettings)
+            async with database.transaction(
+                isolation_level=settings.database_isolation_level
+            ):
                 await cloned_task.save()
             return cloned_task
 

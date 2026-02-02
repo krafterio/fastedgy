@@ -4,7 +4,8 @@
 from typing import Any, cast
 from fastapi import APIRouter, HTTPException
 
-from fastedgy.dependencies import Inject
+from fastedgy.config import BaseSettings
+from fastedgy.dependencies import Inject, get_service
 from fastedgy.metadata_model import MetadataModelRegistry, TypeMapMetadataModels
 from fastedgy.metadata_model.generator import generate_class_name
 from fastedgy.orm import Model, Registry
@@ -59,7 +60,10 @@ async def resequence(
                 status_code=400, detail="Some IDs in the target list do not exist"
             )
 
-        async with model_class.query.database.transaction():  # type: ignore
+        settings = get_service(BaseSettings)
+        async with model_class.query.database.transaction(  # type: ignore
+            isolation_level=settings.database_isolation_level
+        ):
             records_by_id = {record.id: record for record in existing_records}
             sequence_index = 0
 

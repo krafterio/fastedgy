@@ -63,7 +63,7 @@ class QueuedTaskLogger(logging.Logger):
             from fastedgy.queued_task.models.queued_task_log import QueuedTaskLogType
             from fastedgy.models.queued_task import BaseQueuedTask as QueuedTask
 
-            log_type = QueuedTaskLogType(level.lower())
+            log_type = QueuedTaskLogType[level.lower()]
             registry = get_service(Registry)
             database = get_service(EdgyDatabase)
             QTL = cast(type["QueuedTaskLog"], registry.get_model("QueuedTaskLog"))

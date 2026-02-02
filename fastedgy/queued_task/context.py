@@ -120,8 +120,18 @@ async def _update_task_context_async(
 ) -> None:
     """Update task context in database asynchronously"""
     try:
-        # Update the task context field
-        db = get_service(Database)
+        from fastedgy.queued_task.config import QueuedTaskConfig
+
+        config = get_service(QueuedTaskConfig)
+
+        # Use manager registry if available (separate DB connection for queue operations)
+        # to avoid transaction conflicts with the main application database
+        manager_registry = config.get_manager_registry()
+        if manager_registry is not None:
+            db = manager_registry.database
+        else:
+            db = get_service(Database)
+
         query = (
             task.__class__.query.table.update()
             .where(task.__class__.query.table.c.id == task.id)

@@ -56,7 +56,7 @@ class QueuedTaskLogger(logging.Logger):
             return
 
         try:
-            from fastedgy.orm import Database as EdgyDatabase, Registry
+            from fastedgy.orm import Registry
             from fastedgy.models.queued_task_log import (
                 BaseQueuedTaskLog as QueuedTaskLog,
             )
@@ -64,8 +64,15 @@ class QueuedTaskLogger(logging.Logger):
             from fastedgy.models.queued_task import BaseQueuedTask as QueuedTask
 
             log_type = QueuedTaskLogType[level.lower()]
-            registry = get_service(Registry)
-            database = get_service(EdgyDatabase)
+
+            # Use manager registry if available (separate DB connection for queue operations)
+            # to avoid transaction conflicts with the main application database
+            manager_registry = self.config.get_manager_registry()
+            if manager_registry is not None:
+                registry = manager_registry
+            else:
+                registry = get_service(Registry)
+
             QTL = cast(type["QueuedTaskLog"], registry.get_model("QueuedTaskLog"))
             QT = cast(type["QueuedTask"], registry.get_model("QueuedTask"))
 

@@ -14,7 +14,6 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Optional, Dict, Any, List, cast
 
 from fastedgy import context
-from fastedgy.config import BaseSettings
 from fastedgy.dependencies import Inject, get_service
 from fastedgy.orm import Database, Registry
 from fastedgy.queued_task.config import QueuedTaskConfig
@@ -101,6 +100,18 @@ class QueueWorkerManager:
             logger.error(f"Failed to initialize database, aborting worker startup: {e}")
             raise RuntimeError(f"Queue system initialization failed: {e}")
 
+        # Initialize dedicated manager registry for queue operations
+        # (separate DB connection to avoid transaction conflicts)
+        try:
+            await self.config.init_manager_registry()
+            logger.info(
+                "Manager registry initialized with dedicated database connection"
+            )
+        except Exception as e:
+            self.is_running = False
+            logger.error(f"Failed to initialize manager registry: {e}")
+            raise RuntimeError(f"Manager registry initialization failed: {e}")
+
         # Register this server in the database
         await self._register_server()
 
@@ -174,6 +185,13 @@ class QueueWorkerManager:
 
         # Mark server as stopped in database
         await self._unregister_server()
+
+        # Close manager registry database connection
+        try:
+            await self.config.close_manager_registry()
+            logger.debug("Manager registry closed")
+        except Exception as e:
+            logger.error(f"Error closing manager registry: {e}")
 
         self.manager_tasks.clear()
         logger.info("QueueWorkerManager stopped")
@@ -377,10 +395,7 @@ class QueueWorkerManager:
         """
         try:
             # Use a short transaction with lower isolation to reduce conflicts
-            settings = get_service(BaseSettings)
-            async with self.database.transaction(
-                isolation_level=settings.database_isolation_level
-            ):
+            async with self.database.transaction(isolation_level="READ COMMITTED"):
                 # Claim the next task atomically and return its id
                 from sqlalchemy import text
 
@@ -675,10 +690,7 @@ class QueueWorkerManager:
                                  EXECUTE FUNCTION notify_new_queued_task(); \
                              """
 
-        settings = get_service(BaseSettings)
-        async with self.database.transaction(
-            isolation_level=settings.database_isolation_level
-        ):
+        async with self.database.transaction():
             # Create/update function
             await self.database.execute(function_sql)
 

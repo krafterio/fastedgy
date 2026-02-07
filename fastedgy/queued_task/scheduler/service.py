@@ -3,9 +3,10 @@
 
 import logging
 from datetime import datetime, timedelta
-from typing import Any, Callable, TYPE_CHECKING, cast
+from typing import Any, Callable, TYPE_CHECKING
 
 from fastedgy import context as fastedgy_context
+from fastedgy.dependencies import get_service
 from fastedgy.orm import Registry
 from fastedgy.queued_task.models.queued_task import QueuedTaskState
 
@@ -41,7 +42,7 @@ class Scheduler:
             run_at: Datetime for execution OR timedelta (delay from now)
             args: Positional arguments for the function
             kwargs: Keyword arguments for the function
-            context: Optional context dictionary
+            context: Optional context dictionary (overrides hook-provided context keys)
             name: Optional name for the task
             auto_remove: Auto-remove task after successful execution
 
@@ -72,22 +73,20 @@ class Scheduler:
             module_name = func.__module__
             function_name = func.__name__
 
-        # Get the QueuedTask model dynamically to avoid circular imports
-        QueuedTask = cast(type["QueuedTask"], self.registry.get_model("QueuedTask"))
+        # Use QueuedTasks service to create task with proper hooks
+        from fastedgy.queued_task.services.queued_tasks import QueuedTasks
 
-        # Create the task
-        task = QueuedTask(
-            name=name or f"Scheduled: {function_name}",
+        queued_tasks = get_service(QueuedTasks)
+        task = await queued_tasks.create_task(
             module_name=module_name,
             function_name=function_name,
             args=args or [],
             kwargs=kwargs or {},
             context=context or {},
-            date_enqueued=date_enqueued,
-            state=QueuedTaskState.enqueued,
+            name=name or f"Scheduled: {function_name}",
             auto_remove=auto_remove,
+            date_enqueued=date_enqueued,
         )
-        await task.save()
 
         logger.info(
             f"Scheduled task {task.id} ({module_name}.{function_name}) for {date_enqueued}"
@@ -105,6 +104,8 @@ class Scheduler:
         Returns:
             True if cancelled, False if not found or already done/failed
         """
+        from typing import cast
+
         QueuedTask = cast(type["QueuedTask"], self.registry.get_model("QueuedTask"))
 
         task = await QueuedTask.query.get_or_none(id=task_id)

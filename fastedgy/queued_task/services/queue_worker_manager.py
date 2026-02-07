@@ -19,6 +19,7 @@ from fastedgy.orm import Database, Registry
 from fastedgy.queued_task.config import QueuedTaskConfig
 from fastedgy.queued_task.models.queued_task import QueuedTaskState
 from fastedgy.queued_task.services.worker_pool import WorkerPool
+from fastedgy.queued_task.scheduler.cron_scheduler import CronScheduler
 
 
 if TYPE_CHECKING:
@@ -59,6 +60,7 @@ class QueueWorkerManager:
         self.is_running = False
         self.manager_tasks: List[asyncio.Task] = []
         self.worker_status_record: Optional["QueuedTaskWorker"] = None
+        self.cron_scheduler: Optional[CronScheduler] = None
         self.shutdown_event = asyncio.Event()
 
         # Statistics
@@ -70,7 +72,9 @@ class QueueWorkerManager:
             "polling_cycles": 0,
         }
 
-    async def start_workers(self, max_workers: Optional[int] = None) -> None:
+    async def start_workers(
+        self, max_workers: Optional[int] = None, no_scheduler: bool = False
+    ) -> None:
         """
         Start the worker manager system
 
@@ -130,6 +134,15 @@ class QueueWorkerManager:
             asyncio.create_task(self._heartbeat_task(), name="heartbeat_task"),
         ]
 
+        # Conditionally start CronScheduler
+        if not no_scheduler:
+            self.cron_scheduler = CronScheduler()
+            self.manager_tasks.append(
+                asyncio.create_task(self.cron_scheduler.run(), name="cron_scheduler")
+            )
+        else:
+            logger.info("CronScheduler disabled (--no-scheduler)")
+
         logger.info("QueueWorkerManager started successfully")
 
         # Wait for shutdown signal or task completion
@@ -168,6 +181,11 @@ class QueueWorkerManager:
 
         logger.info("Stopping QueueWorkerManager...")
         self.is_running = False
+
+        # Stop CronScheduler if running
+        if self.cron_scheduler:
+            self.cron_scheduler.stop()
+            self.cron_scheduler = None
 
         # Cancel all manager tasks
         for task in self.manager_tasks:
@@ -229,6 +247,7 @@ class QueueWorkerManager:
         logging.getLogger("queued_task.worker").setLevel(target_level)
         logging.getLogger("queued_task.worker_pool").setLevel(target_level)
         logging.getLogger("queued_tasks").setLevel(target_level)
+        logging.getLogger("queued_task.scheduler").setLevel(target_level)
 
     async def _notification_listener(self) -> None:
         """Listen for PostgreSQL notifications and trigger processing outside the LISTEN connection.

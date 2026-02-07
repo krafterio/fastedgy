@@ -60,9 +60,9 @@ class TextLightFormatter(logging.Formatter):
         logging.INFO: lambda text: click.style(text, fg="green") if click else text,
         logging.WARNING: lambda text: click.style(text, fg="yellow") if click else text,
         logging.ERROR: lambda text: click.style(text, fg="red") if click else text,
-        logging.CRITICAL: lambda text: click.style(text, fg="bright_red")
-        if click
-        else text,
+        logging.CRITICAL: lambda text: (
+            click.style(text, fg="bright_red") if click else text
+        ),
     }
 
     def __init__(self):

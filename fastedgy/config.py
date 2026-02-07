@@ -11,8 +11,22 @@ from typing import Annotated, Type
 from urllib.parse import urlparse
 from fastedgy.dependencies import Inject, get_service, has_service, register_service
 from fastedgy.logger import LogLevel, LogOutput, LogFormat
+from pydantic import BeforeValidator
 from fastedgy.schemas import field_validator
-from pydantic_settings import BaseSettings as PydanticBaseSettings, SettingsConfigDict
+from pydantic_settings import (
+    BaseSettings as PydanticBaseSettings,
+    SettingsConfigDict,
+    NoDecode,
+)
+
+
+def _parse_csv_list(v):
+    if isinstance(v, str):
+        return [s.strip() for s in v.split(",") if s.strip()]
+    return v
+
+
+CsvList = Annotated[list[str], NoDecode, BeforeValidator(_parse_csv_list)]
 
 
 SERVER_FILES = [
@@ -133,6 +147,10 @@ class BaseSettings(PydanticBaseSettings):
 
     # Queued Task
     queued_task_log_level: LogLevel | None = None
+
+    # Scheduled Tasks
+    enabled_scheduled_tasks: CsvList = []
+    disabled_scheduled_tasks: CsvList = []
 
     # Images
     image_quality: int = 80

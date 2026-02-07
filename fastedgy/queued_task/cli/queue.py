@@ -65,7 +65,7 @@ async def clear(ctx: CliContext):
             console.print(f"[red]Error clearing tasks: {str(e)}[/red]")
 
 
-async def start(ctx: CliContext, workers: int | None):
+async def start(ctx: CliContext, workers: int | None, no_scheduler: bool = False):
     """Start queue workers only (no HTTP server)"""
     console.print(f"[yellow]Starting {workers} queue workers...[/yellow]")
     console.print("[green]Starting workers in queue-only mode[/green]")
@@ -82,7 +82,7 @@ async def start(ctx: CliContext, workers: int | None):
                 worker_service.max_workers = workers
                 worker_service.worker_pool.max_workers = workers
 
-            await worker_service.start_workers(workers)
+            await worker_service.start_workers(workers, no_scheduler=no_scheduler)
 
         except Exception as e:
             console.print(f"[red]Error starting workers: {str(e)}[/red]")

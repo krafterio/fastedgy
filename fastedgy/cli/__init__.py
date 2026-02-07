@@ -578,6 +578,11 @@ def main():
     except Exception:
         pass
     register_cli_commands(cli)
+
+    from fastedgy.queued_task.scheduler.cli import register_scheduler_cli_commands
+
+    register_scheduler_cli_commands(cli)
+
     cli()
 
 

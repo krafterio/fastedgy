@@ -320,6 +320,7 @@ class QueuedTasks:
         name: Optional[str] = None,
         parent_task: Optional["QueuedTask"] = None,
         auto_remove: bool = False,
+        date_enqueued: Optional[datetime] = None,
     ) -> "QueuedTask":
         """Create a new task in the queue"""
         # Validation: must have either module/function or serialized function
@@ -339,7 +340,8 @@ class QueuedTasks:
             context=context or {},
             parent_task=parent_task,
             state=QueuedTaskState.enqueued,
-            date_enqueued=datetime.now(fastedgy_context.get_timezone()),
+            date_enqueued=date_enqueued
+            or datetime.now(fastedgy_context.get_timezone()),
             auto_remove=auto_remove,
         )
 

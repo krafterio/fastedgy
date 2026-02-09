@@ -213,6 +213,31 @@ class QueueWorker:
                 "task_id": task.id,
             }
 
+        except asyncio.CancelledError:
+            # Graceful shutdown: mark task as stopped
+            async def _op_mark_stopped():
+                from sqlalchemy import text
+
+                database = self._get_manager_database()
+                sql = text(
+                    "UPDATE queued_tasks SET state = 'stopped'::queuedtaskstate, "
+                    "date_stopped = NOW(), date_ended = NOW(), "
+                    "execution_time = EXTRACT(EPOCH FROM (NOW() - COALESCE(date_started, NOW()))), "
+                    "updated_at = NOW() "
+                    "WHERE id = :id AND state = 'doing'::queuedtaskstate"
+                )
+                await database.execute(sql, {"id": task.id})
+
+            try:
+                await self._run_write_with_retry(_op_mark_stopped)
+                logger.info(
+                    f"Worker {self.worker_id} marked task {task.id} as stopped (cancelled)"
+                )
+            except Exception as save_err:
+                logger.error(f"Failed to mark task {task.id} as stopped: {save_err}")
+
+            raise  # Re-raise CancelledError
+
         except Exception as e:
             # 4) Best-effort set task as failed with retry
             async def _op_mark_failed():

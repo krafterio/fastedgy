@@ -187,6 +187,28 @@ class QueueWorkerManager:
             self.cron_scheduler.stop()
             self.cron_scheduler = None
 
+        # Mark in-progress tasks as stopped before pool shutdown
+        for worker in self.worker_pool.get_busy_workers():
+            if worker.current_task:
+                try:
+                    from sqlalchemy import text
+
+                    sql = text(
+                        "UPDATE queued_tasks SET state = 'stopped'::queuedtaskstate, "
+                        "date_stopped = NOW(), date_ended = NOW(), "
+                        "execution_time = EXTRACT(EPOCH FROM (NOW() - COALESCE(date_started, NOW()))), "
+                        "updated_at = NOW() "
+                        "WHERE id = :id AND state = 'doing'::queuedtaskstate"
+                    )
+                    await self.database.execute(sql, {"id": worker.current_task.id})
+                    logger.info(
+                        f"Marked task {worker.current_task.id} as stopped (graceful shutdown)"
+                    )
+                except Exception as e:
+                    logger.error(
+                        f"Failed to mark task {worker.current_task.id} as stopped: {e}"
+                    )
+
         # Cancel all manager tasks
         for task in self.manager_tasks:
             task.cancel()

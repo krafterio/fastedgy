@@ -4,7 +4,8 @@
 from enum import Enum
 from typing import Any, cast
 
-from pydantic import GetCoreSchemaHandler
+from pydantic import GetCoreSchemaHandler, GetJsonSchemaHandler
+from pydantic.json_schema import JsonSchemaValue
 from pydantic_core import CoreSchema, core_schema
 
 from edgy.core.db.fields import ChoiceField as EdgyChoiceField
@@ -79,6 +80,13 @@ class ChoiceEnum(TranslatableString, Enum):
                 serialize, info_arg=False, return_schema=core_schema.str_schema()
             ),
         )
+
+    @classmethod
+    def __get_pydantic_json_schema__(
+        cls, _core_schema: CoreSchema, handler: GetJsonSchemaHandler
+    ) -> JsonSchemaValue:
+        member_names = [m.name for m in cls.__members__.values()]
+        return {"type": "string", "enum": member_names}
 
 
 class _ChoiceMirrorEnum(str, Enum):

@@ -108,12 +108,13 @@ async def list_items_action[M = TypeModel](
         query = query or model_cls.query
         query = filter_query(query, filters)
         query = optimize_query_filter_fields(query, fields)
-        query = inject_order_by(query, order_by)
 
         for transformer in vtr.get_transformers(
             PrePaginateViewTransformer, model_cls, transformers
         ):
             query = await transformer.pre_paginate(request, query, transformers_ctx)
+
+        query = inject_order_by(query, order_by)
 
         total = await query.count()
         items = await query.limit(limit).offset(offset).all()

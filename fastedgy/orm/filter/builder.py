@@ -3,6 +3,8 @@
 
 from typing import Any, cast
 
+from sqlalchemy import exists, select as sa_select, literal_column
+
 from fastedgy.orm import Model
 from fastedgy.orm.fields import (
     BaseFieldType,
@@ -89,10 +91,20 @@ def build_filter_expression(
     if not filters.rules:
         return None
 
+    is_or = filters.condition == "|"
+
     expressions = []
 
     for rule in filters.rules:
-        expr = build_filter_expression(model_cls, rule)
+        # For OR conditions, use EXISTS subqueries for relation-based rules
+        # to ensure each branch evaluates independently with its own JOIN context
+        if is_or and isinstance(rule, FilterRule) and "." in rule.field:
+            expr = _build_exists_expression(model_cls, rule)
+        else:
+            expr = None
+
+        if expr is None:
+            expr = build_filter_expression(model_cls, rule)
 
         if expr is not None:
             expressions.append(expr)
@@ -105,10 +117,149 @@ def build_filter_expression(
 
     cond_query = _get_cond_query(model_cls)
 
-    if filters.condition == "|":
+    if is_or:
         return cond_query.or_(*expressions)
 
     return cond_query.and_(*expressions)
+
+
+def _build_exists_expression(
+    model_cls: type[Model], filters: FilterRule
+) -> Any | None:
+    """
+    Build an EXISTS subquery for a relation-based filter rule.
+
+    Used for relation-based rules in OR conditions to ensure each branch
+    evaluates independently with its own JOIN context, instead of sharing
+    JOINs with other branches.
+    """
+    field = filters.field
+    operator_method = FILTER_OPERATORS_SQL.get(filters.operator, None)
+
+    if not operator_method:
+        return None
+
+    value = _convert_value_by_field_type(model_cls, field, filters.value)
+
+    # Resolve field type and append related column if the leaf is a relation
+    field_type = _find_field_type_in_model(model_cls, field)
+    resolved_field = field
+
+    if isinstance(field_type, ForeignKey):
+        resolved_field += "." + list(field_type.related_columns.keys())[0]
+    elif isinstance(field_type, OneToOne):
+        resolved_field += "." + list(field_type.related_columns.keys())[0]
+    elif isinstance(field_type, ManyToMany):
+        resolved_field += "." + list(field_type.related_columns.keys())[0]
+    elif field_type == "OneToMany":
+        resolved_field += "." + list(field_type.related_columns.keys())[0]
+
+    parts = resolved_field.split(".")
+    current_model = model_cls
+    from_table = None
+    root_link_condition = None
+    join_entries = []  # list of (table, join_condition) for subsequent JOINs
+
+    for i, part in enumerate(parts[:-1]):
+        field_info = current_model.meta.fields[part]
+
+        if hasattr(field_info, "related_from"):
+            # Reverse relation (OneToMany): related_model has FK pointing back
+            related_model = field_info.related_from
+
+            # Find the FK field on related_model whose related_name == part
+            fk_field_name = None
+            for fname, finfo in related_model.meta.fields.items():
+                if getattr(finfo, "related_name", None) == part:
+                    fk_field_name = fname
+                    break
+
+            if fk_field_name is None:
+                return None
+
+            current_pk = find_primary_key_field(current_model)
+
+            if from_table is None:
+                from_table = related_model.table
+                root_link_condition = (
+                    related_model.table.columns[fk_field_name]
+                    == model_cls.table.columns[current_pk]
+                )
+            else:
+                join_entries.append((
+                    related_model.table,
+                    related_model.table.columns[fk_field_name]
+                    == current_model.table.columns[current_pk],
+                ))
+
+            current_model = related_model
+
+        elif hasattr(field_info, "target"):
+            # Forward FK
+            related_model = field_info.target
+            pk_col = list(field_info.related_columns.keys())[0]
+
+            if from_table is None:
+                from_table = related_model.table
+                root_link_condition = (
+                    related_model.table.columns[pk_col]
+                    == model_cls.table.columns[part]
+                )
+            else:
+                join_entries.append((
+                    related_model.table,
+                    related_model.table.columns[pk_col]
+                    == current_model.table.columns[part],
+                ))
+
+            current_model = related_model
+
+        elif hasattr(field_info, "related_model"):
+            related_model = field_info.related_model
+
+            if from_table is None:
+                from_table = related_model.table
+                root_link_condition = (
+                    related_model.table.columns["id"]
+                    == model_cls.table.columns[part]
+                )
+            else:
+                join_entries.append((
+                    related_model.table,
+                    related_model.table.columns["id"]
+                    == current_model.table.columns[part],
+                ))
+
+            current_model = related_model
+        else:
+            return None
+
+    if from_table is None or root_link_condition is None:
+        return None
+
+    # Final column and filter condition
+    final_column = current_model.table.columns[parts[-1]]
+
+    if filters.operator in FILTER_OPERATORS_SQL_UNPACK:
+        filter_cond = final_column.between(*value)
+    elif filters.operator in ("is true", "is false", "is empty", "is not empty"):
+        filter_cond = operator_method(final_column)
+    else:
+        filter_cond = operator_method(final_column, value)
+
+    # Build EXISTS subquery with independent JOINs
+    select_from = from_table
+    for table, cond in join_entries:
+        select_from = select_from.join(table, cond)
+
+    subq = (
+        sa_select(literal_column("1"))
+        .select_from(select_from)
+        .where(root_link_condition)
+        .where(filter_cond)
+    )
+
+    return exists(subq)
 
 
 def filter_query(

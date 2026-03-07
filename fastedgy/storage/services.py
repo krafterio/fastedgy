@@ -348,6 +348,7 @@ class Storage:
 
         # Check cache
         if await self.cache_adapter.exists(cache_path):
+            await self.cache_adapter.touch(cache_path)
             return f"__cache__:{cache_path}", mime_type
 
         # Read source from adapter, generate cache
@@ -565,6 +566,19 @@ class Storage:
             return True
 
         return False
+
+    async def cleanup_image_cache(self) -> int:
+        """Delete cached optimized images older than cache_max_age_days.
+
+        Returns the number of files deleted.
+        """
+        max_age = self.settings.cache_max_age_days
+        if max_age is None:
+            return 0
+
+        return await self.cache_adapter.delete_old_files(
+            "cache_optimized_images", max_age * 86400
+        )
 
     # --------------------
     # Internal helpers

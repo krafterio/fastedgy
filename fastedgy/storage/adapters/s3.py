@@ -139,6 +139,33 @@ class S3Adapter(StorageAdapter):
             response = await s3.head_object(Bucket=self.bucket, Key=self._key(path))
             return response["ContentLength"]
 
+    async def delete_old_files(self, prefix: str, max_age_seconds: float) -> int:
+        from datetime import datetime, timezone
+
+        cutoff = datetime.now(timezone.utc).timestamp() - max_age_seconds
+        deleted = 0
+
+        async with self._client() as s3:
+            s3_prefix = self._key(prefix).rstrip("/") + "/"
+            paginator = s3.get_paginator("list_objects_v2")
+
+            async for page in paginator.paginate(Bucket=self.bucket, Prefix=s3_prefix):
+                objects = page.get("Contents", [])
+                to_delete = []
+                for obj in objects:
+                    last_modified = obj["LastModified"]
+                    if last_modified.timestamp() < cutoff:
+                        to_delete.append({"Key": obj["Key"]})
+
+                if to_delete:
+                    await s3.delete_objects(
+                        Bucket=self.bucket,
+                        Delete={"Objects": to_delete},
+                    )
+                    deleted += len(to_delete)
+
+        return deleted
+
 
 __all__ = [
     "S3Adapter",

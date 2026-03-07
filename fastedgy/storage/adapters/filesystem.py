@@ -67,6 +67,41 @@ class FilesystemAdapter(StorageAdapter):
     async def file_size(self, path: str) -> int:
         return self._full_path(path).stat().st_size
 
+    async def touch(self, path: str) -> None:
+        full = self._full_path(path)
+        if full.exists():
+            os.utime(full)
+
+    async def delete_old_files(self, prefix: str, max_age_seconds: float) -> int:
+        import time
+
+        root = self._full_path(prefix)
+        if not root.exists():
+            return 0
+
+        cutoff = time.time() - max_age_seconds
+        deleted = 0
+
+        for dirpath, _, filenames in os.walk(root):
+            for fname in filenames:
+                fpath = os.path.join(dirpath, fname)
+                try:
+                    if os.path.getmtime(fpath) < cutoff:
+                        os.unlink(fpath)
+                        deleted += 1
+                except OSError:
+                    pass
+
+        # Remove empty directories
+        for dirpath, dirnames, filenames in os.walk(root, topdown=False):
+            if not filenames and not dirnames:
+                try:
+                    os.rmdir(dirpath)
+                except OSError:
+                    pass
+
+        return deleted
+
 
 __all__ = [
     "FilesystemAdapter",

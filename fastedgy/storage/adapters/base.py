@@ -52,6 +52,14 @@ class StorageAdapter(ABC):
         """Return the size of the file in bytes."""
         ...
 
+    async def touch(self, path: str) -> None:
+        """Update the modification time of a file. No-op by default."""
+        pass
+
+    async def delete_old_files(self, prefix: str, max_age_seconds: float) -> int:
+        """Delete files under prefix older than max_age_seconds. Returns count deleted."""
+        return 0
+
 
 __all__ = [
     "StorageAdapter",

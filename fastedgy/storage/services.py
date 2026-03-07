@@ -69,8 +69,9 @@ class Storage:
         """Return the workspace prefix for storage paths."""
         workspace = context.get_workspace()
         if workspace and not global_storage:
-            return str(workspace.id)
-        return ""
+            folder = self.settings.storage_workspace_folder
+            return f"{folder}/{workspace.id}"
+        return "global"
 
     def _resolve_path(self, path: str, global_storage: bool = False) -> str:
         """Build a full relative path with workspace prefix."""
@@ -83,9 +84,12 @@ class Storage:
     # Backward-compatible path methods (filesystem only)
     def get_base_path(self, global_storage: bool = False) -> Path:
         workspace = context.get_workspace()
-        workspace_id = str(workspace.id) if workspace and not global_storage else ""
+        if workspace and not global_storage:
+            sub = os.path.join(self.settings.storage_workspace_folder, str(workspace.id))
+        else:
+            sub = "global"
 
-        return Path(os.path.join(self.settings.storage_data_path, workspace_id))
+        return Path(os.path.join(self.settings.storage_data_path, sub))
 
     def get_directory_path(
         self, path: str, ensure_exists: bool = True, global_storage: bool = False
@@ -163,11 +167,12 @@ class Storage:
 
     def _get_cache_path(self, path: str, global_storage: bool = False) -> str:
         """Return the cache-relative path for a given path."""
-        prefix = self._get_workspace_prefix(global_storage)
+        workspace = context.get_workspace()
         clean = path.strip("/")
-        if prefix:
-            return f"{prefix}/cache_optimized_images/{clean}"
-        return f"cache_optimized_images/{clean}"
+        if workspace and not global_storage:
+            folder = self.settings.storage_workspace_folder
+            return f"cache_optimized_images/{folder}/{workspace.id}/{clean}"
+        return f"cache_optimized_images/global/{clean}"
 
     def _is_image_path(self, path: str) -> bool:
         name = path.rsplit("/", 1)[-1] if "/" in path else path
@@ -551,9 +556,12 @@ class Storage:
         workspace = context.get_workspace()
 
         if workspace:
-            prefix = str(workspace.id)
-            await self.adapter.delete_directory(prefix)
-            await self.cache_adapter.delete_directory(prefix)
+            folder = self.settings.storage_workspace_folder
+            data_prefix = f"{folder}/{workspace.id}"
+            cache_prefix = f"cache_optimized_images/{folder}/{workspace.id}"
+            await self.adapter.delete_directory(data_prefix)
+            await self.cache_adapter.delete_directory(data_prefix)
+            await self.cache_adapter.delete_directory(cache_prefix)
             return True
 
         return False

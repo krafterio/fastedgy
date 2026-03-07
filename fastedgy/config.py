@@ -146,6 +146,7 @@ class BaseSettings(PydanticBaseSettings):
     data_path: str | None = None
     storage_adapter: str = "filesystem"
     storage_cache_adapter: str = "filesystem"
+    storage_workspace_folder: str = "workspace"
 
     # S3
     s3_endpoint: str | None = None

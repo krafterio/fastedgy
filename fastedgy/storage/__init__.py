@@ -3,9 +3,13 @@
 
 from fastedgy.storage.services import Storage
 from fastedgy.storage.models import AttachmentMixin, AttachmentType
+from fastedgy.storage.adapters import StorageAdapter, FilesystemAdapter, S3Adapter
 
 __all__ = [
     "Storage",
+    "StorageAdapter",
+    "FilesystemAdapter",
+    "S3Adapter",
     "AttachmentMixin",
     "AttachmentType",
 ]

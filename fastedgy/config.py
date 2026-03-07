@@ -144,6 +144,16 @@ class BaseSettings(PydanticBaseSettings):
 
     # Storage
     data_path: str | None = None
+    storage_adapter: str = "filesystem"
+    storage_cache_adapter: str = "filesystem"
+
+    # S3
+    s3_endpoint: str | None = None
+    s3_region: str | None = None
+    s3_access_key_id: str | None = None
+    s3_secret_access_key: str | None = None
+    s3_bucket: str | None = None
+    s3_prefix: str | None = None
 
     # Queued Task
     queued_task_log_level: LogLevel | None = None

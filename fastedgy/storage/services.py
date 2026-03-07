@@ -6,10 +6,9 @@ import io
 import uuid
 import mimetypes
 import base64
-import shutil
 
 from pathlib import Path
-from typing import Any
+from typing import Any, AsyncIterator
 
 from fastapi import UploadFile
 
@@ -18,6 +17,8 @@ from fastedgy.config import BaseSettings
 from fastedgy.dependencies import Inject, get_service
 from fastedgy.i18n import _t
 from fastedgy.orm import Registry
+from fastedgy.storage.adapters.base import StorageAdapter
+from fastedgy.storage.adapters.filesystem import FilesystemAdapter
 
 try:
     from PIL import Image  # type: ignore
@@ -25,10 +26,61 @@ except Exception:  # pragma: no cover - Pillow optional at runtime
     Image = None  # type: ignore
 
 
+def _create_adapter(settings: BaseSettings, adapter_name: str) -> StorageAdapter:
+    """Create a storage adapter from its name and settings."""
+    if adapter_name == "s3":
+        from fastedgy.storage.adapters.s3 import S3Adapter
+
+        if not settings.s3_bucket:
+            raise ValueError("S3_BUCKET is required when using the s3 storage adapter")
+
+        return S3Adapter(
+            bucket=settings.s3_bucket,
+            region=settings.s3_region,
+            endpoint=settings.s3_endpoint,
+            access_key_id=settings.s3_access_key_id,
+            secret_access_key=settings.s3_secret_access_key,
+            prefix=settings.s3_prefix,
+        )
+
+    # Default: filesystem
+    return FilesystemAdapter(root=settings.storage_data_path)
+
+
 class Storage:
     def __init__(self, settings: BaseSettings = Inject(BaseSettings)):
         self.settings = settings
+        self.adapter: StorageAdapter = _create_adapter(settings, settings.storage_adapter)
+        self.cache_adapter: FilesystemAdapter = FilesystemAdapter(
+            root=settings.storage_data_path
+        )
+        if settings.storage_cache_adapter != "filesystem":
+            self.cache_adapter = _create_adapter(settings, settings.storage_cache_adapter)
 
+    @property
+    def is_filesystem(self) -> bool:
+        """Check if the main adapter is filesystem-based."""
+        return isinstance(self.adapter, FilesystemAdapter)
+
+    # --------------------
+    # Path helpers
+    # --------------------
+    def _get_workspace_prefix(self, global_storage: bool = False) -> str:
+        """Return the workspace prefix for storage paths."""
+        workspace = context.get_workspace()
+        if workspace and not global_storage:
+            return str(workspace.id)
+        return ""
+
+    def _resolve_path(self, path: str, global_storage: bool = False) -> str:
+        """Build a full relative path with workspace prefix."""
+        prefix = self._get_workspace_prefix(global_storage)
+        clean = path.strip("/")
+        if prefix:
+            return f"{prefix}/{clean}" if clean else prefix
+        return clean
+
+    # Backward-compatible path methods (filesystem only)
     def get_base_path(self, global_storage: bool = False) -> Path:
         workspace = context.get_workspace()
         workspace_id = str(workspace.id) if workspace and not global_storage else ""
@@ -74,45 +126,57 @@ class Storage:
         return str(file_path.relative_to(data_path))
 
     # --------------------
+    # Adapter-based file operations
+    # --------------------
+    async def file_exists(self, relative_path: str, global_storage: bool = False) -> bool:
+        """Check if a file exists in storage."""
+        full_path = self._resolve_path(relative_path, global_storage)
+        return await self.adapter.exists(full_path)
+
+    async def file_size(self, relative_path: str, global_storage: bool = False) -> int:
+        """Get the size of a file in storage."""
+        full_path = self._resolve_path(relative_path, global_storage)
+        return await self.adapter.file_size(full_path)
+
+    async def read_file(self, relative_path: str, global_storage: bool = False) -> bytes:
+        """Read a file from storage."""
+        full_path = self._resolve_path(relative_path, global_storage)
+        return await self.adapter.read(full_path)
+
+    async def stream_file(
+        self, relative_path: str, global_storage: bool = False, chunk_size: int = 1024 * 1024
+    ) -> AsyncIterator[bytes]:
+        """Stream a file from storage."""
+        full_path = self._resolve_path(relative_path, global_storage)
+        async for chunk in self.adapter.read_stream(full_path, chunk_size):
+            yield chunk
+
+    # --------------------
     # Image optimization
     # --------------------
     def _get_image_quality(self) -> int:
-        """Return image quality from settings, defaulting to 80.
-
-        Uses settings.image_quality when available.
-        """
         try:
             q = int(getattr(self.settings, "image_quality", 80))
         except Exception:
             q = 80
         return max(1, min(100, q))
 
-    def _get_cache_root(self, global_storage: bool = False) -> Path:
-        return self.get_directory_path(
-            "cache_optimized_images", ensure_exists=True, global_storage=global_storage
-        )
+    def _get_cache_path(self, path: str, global_storage: bool = False) -> str:
+        """Return the cache-relative path for a given path."""
+        prefix = self._get_workspace_prefix(global_storage)
+        clean = path.strip("/")
+        if prefix:
+            return f"{prefix}/cache_optimized_images/{clean}"
+        return f"cache_optimized_images/{clean}"
 
-    def _get_image_cache_dir_for(
-        self, source_relative_path: str, global_storage: bool = False
-    ) -> Path:
-        """Return the cache directory for a given source relative path.
-
-        Example: attachments/2025/09/abc.webp → cache_optimized_images/attachments/2025/09/abc.webp/
-        """
-        safe_rel_parts = Path(source_relative_path.strip("/")).parts
-        cache_root = self._get_cache_root(global_storage=global_storage)
-        cache_dir = cache_root.joinpath(*safe_rel_parts)
-        os.makedirs(cache_dir, exist_ok=True)
-        return cache_dir
-
-    def _is_image_path(self, path: Path) -> bool:
-        mime = mimetypes.guess_type(path.name)[0]
+    def _is_image_path(self, path: str) -> bool:
+        name = path.rsplit("/", 1)[-1] if "/" in path else path
+        mime = mimetypes.guess_type(name)[0]
         return bool(mime and mime.startswith("image/"))
 
     def _clamp_dimensions(
         self, ow: int, oh: int, w: int | None, h: int | None
     ) -> tuple[int | None, int | None]:
-        """Clamp requested dimensions to not exceed original while preserving None."""
         cw = None if w is None else min(w, ow)
         ch = None if h is None else min(h, oh)
         return cw, ch
@@ -120,15 +184,6 @@ class Storage:
     def _compute_target_size(
         self, ow: int, oh: int, w: int | None, h: int | None, mode: str
     ) -> tuple[int, int, str]:
-        """Compute final width/height and actual fit mode used.
-
-        - If only one of w/h provided, maintain aspect ratio (no crop).
-        - If both provided:
-          - contain: fit inside w x h (no crop)
-          - cover: fill w x h then center-crop
-        Returns (tw, th, mode) where mode is 'contain' or 'cover' actually used.
-        """
-        # When only one side provided → aspect-preserving resize
         if w and not h:
             scale = w / ow
             th = int(round(oh * scale))
@@ -139,7 +194,6 @@ class Storage:
             return max(1, tw), h, "contain"
 
         if not w or not h:
-            # Neither provided: return original
             return ow, oh, "contain"
 
         mode = "cover" if str(mode).lower() == "cover" else "contain"
@@ -149,17 +203,12 @@ class Storage:
             th = int(round(oh * scale))
             return max(1, tw), max(1, th), mode
         else:
-            # cover: scale to cover then we'll crop later
             scale = max(w / ow, h / oh)
             tw = int(round(ow * scale))
             th = int(round(oh * scale))
             return max(1, tw), max(1, th), mode
 
     def _format_from_ext(self, ext: str | None, fallback: str) -> tuple[str, str]:
-        """Return (pil_format, mime_type) from extension.
-
-        ext must be like 'jpg'|'png'|'webp'. Fallback is extension inferred from source.
-        """
         e = (ext or fallback or "").lower().lstrip(".")
         if e in ("jpg", "jpeg"):
             return "JPEG", "image/jpeg"
@@ -167,7 +216,6 @@ class Storage:
             return "PNG", "image/png"
         if e == "webp":
             return "WEBP", "image/webp"
-        # default to original fallback if unknown
         if fallback in ("jpg", "jpeg"):
             return "JPEG", "image/jpeg"
         if fallback == "png":
@@ -176,13 +224,12 @@ class Storage:
             return "WEBP", "image/webp"
         return "JPEG", "image/jpeg"
 
-    def _save_image(
+    def _save_image_to_bytes(
         self,
         img: "Image.Image",  # type: ignore[name-defined]
-        dest: Path,
         pil_format: str,
-        quality: int,  # type: ignore[name-defined]
-    ) -> None:  # type: ignore[name-defined]
+        quality: int,
+    ) -> bytes:
         save_kwargs: dict[str, Any] = {}
         if pil_format == "JPEG":
             if img.mode in ("RGBA", "P"):
@@ -191,54 +238,52 @@ class Storage:
                 {"optimize": True, "quality": quality, "progressive": True}
             )
         elif pil_format == "PNG":
-            # compress_level 0..9 (inverse of quality). Map roughly.
             compress_level = max(0, min(9, round((100 - quality) * 9 / 100)))
             save_kwargs.update({"optimize": True, "compress_level": compress_level})
         elif pil_format == "WEBP":
             save_kwargs.update({"quality": quality, "method": 4})
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        img.save(dest, pil_format, **save_kwargs)
 
-    def _generate_cache_image(
+        buf = io.BytesIO()
+        img.save(buf, pil_format, **save_kwargs)
+        return buf.getvalue()
+
+    async def _generate_cache_image(
         self,
-        source_path: Path,
-        cache_path: Path,
+        source_data: bytes,
+        source_name: str,
+        cache_path: str,
         *,
         w: int | None,
         h: int | None,
         mode: str,
         out_ext: str | None,
-    ) -> tuple[Path, str]:
-        """Generate optimized image in cache and return (cache_path, mime_type)."""
-        if Image is None:
-            # Pillow not available → no optimization
-            return source_path, mimetypes.guess_type(source_path.name)[
-                0
-            ] or "application/octet-stream"
+    ) -> tuple[str, bytes, str]:
+        """Generate optimized image and save to cache.
 
-        with Image.open(source_path) as img:  # type: ignore[attr-defined]
+        Returns (cache_path, image_bytes, mime_type).
+        If no optimization needed, returns original data.
+        """
+        if Image is None:
+            mime = mimetypes.guess_type(source_name)[0] or "application/octet-stream"
+            return cache_path, source_data, mime
+
+        with Image.open(io.BytesIO(source_data)) as img:  # type: ignore[attr-defined]
             ow, oh = img.size
-            # Clamp dimensions so we never upscale beyond original
             w, h = self._clamp_dimensions(ow, oh, w, h)
             tw, th, mode = self._compute_target_size(ow, oh, w, h, mode)
 
-            # If requested dimensions are equal to original and no format change, return original
-            src_ext = source_path.suffix.lower().lstrip(".")
+            src_ext = source_name.rsplit(".", 1)[-1].lower() if "." in source_name else ""
             out_format, mime_type = self._format_from_ext(out_ext, src_ext)
 
             if (tw, th) == (ow, oh) and out_format.lower() == src_ext.lower():
-                return source_path, mimetypes.guess_type(source_path.name)[
-                    0
-                ] or mime_type
+                mime = mimetypes.guess_type(source_name)[0] or mime_type
+                return cache_path, source_data, mime
 
-            # Resize
             if mode == "contain":
                 resized = img.resize((tw, th), Image.LANCZOS)  # type: ignore
                 final_img = resized
             else:
-                # cover: first resize to (tw, th), then center-crop to requested (w, h)
                 resized = img.resize((tw, th), Image.LANCZOS)  # type: ignore
-                # target crop size is the requested (w, h) clamped
                 cw = w or tw
                 ch = h or th
                 left = max(0, (tw - cw) // 2)
@@ -248,10 +293,14 @@ class Storage:
                 final_img = resized.crop((left, top, right, bottom))
 
             quality = self._get_image_quality()
-            self._save_image(final_img, cache_path, out_format, quality)
-            return cache_path, mime_type
+            data = self._save_image_to_bytes(final_img, out_format, quality)
 
-    def get_optimized_or_original(
+            # Save to cache adapter
+            await self.cache_adapter.write(cache_path, data, mime_type)
+
+            return cache_path, data, mime_type
+
+    async def get_optimized_or_original(
         self,
         source_relative_path: str,
         *,
@@ -260,53 +309,47 @@ class Storage:
         mode: str = "contain",
         out_ext: str | None = None,
         global_storage: bool = False,
-    ) -> tuple[Path, str]:
-        """Return a path to an optimized (or original) file and its MIME type.
+    ) -> tuple[str, str]:
+        """Return (relative_path, mime_type) for serving.
 
-        - If the source is not an image or no optimization requested, returns original.
-        - Otherwise, returns cached optimized image, generating it when missing.
+        The returned path is either the original or a cached optimized version.
+        Use stream_download() to actually stream the content.
         """
-        # Resolve source absolute path
-        source_path = self.get_file_path(
-            source_relative_path, ensure_exists=False, global_storage=global_storage
-        )
-        if not source_path.exists():
-            return source_path, mimetypes.guess_type(source_path.name)[
-                0
-            ] or "application/octet-stream"
+        source_name = source_relative_path.rsplit("/", 1)[-1] if "/" in source_relative_path else source_relative_path
+        full_source = self._resolve_path(source_relative_path, global_storage)
 
-        # Quick exit if not an image or no options provided
-        is_image = self._is_image_path(source_path)
+        if not await self.adapter.exists(full_source):
+            mime = mimetypes.guess_type(source_name)[0] or "application/octet-stream"
+            return source_relative_path, mime
+
+        is_image = self._is_image_path(source_relative_path)
         options_provided = any([w, h, out_ext, (mode and mode != "contain")])
-        if (not is_image) or (not options_provided):
-            return source_path, mimetypes.guess_type(source_path.name)[
-                0
-            ] or "application/octet-stream"
 
-        # Compute cache file name from final requested parameters (use 0 when None for name stability)
-        # We'll still compute actual dimensions in generator; name records requested box.
+        if (not is_image) or (not options_provided):
+            mime = mimetypes.guess_type(source_name)[0] or "application/octet-stream"
+            return source_relative_path, mime
+
+        # Compute cache path
         req_w = 0 if w is None else w
         req_h = 0 if h is None else h
         mode_name = "cover" if str(mode).lower() == "cover" else "contain"
 
-        cache_dir = self._get_image_cache_dir_for(
-            source_relative_path, global_storage=global_storage
-        )
-        # Determine extension to write
-        src_ext = source_path.suffix.lower().lstrip(".")
+        src_ext = source_name.rsplit(".", 1)[-1].lower() if "." in source_name else ""
         out_fmt, mime_type = self._format_from_ext(out_ext, src_ext)
-        out_ext_final = {"JPEG": "jpg", "PNG": "png", "WEBP": "webp"}.get(
-            out_fmt, "jpg"
-        )
-        cache_name = f"{mode_name}_w{req_w}_h{req_h}.{out_ext_final}"
-        cache_path = cache_dir.joinpath(cache_name)
+        out_ext_final = {"JPEG": "jpg", "PNG": "png", "WEBP": "webp"}.get(out_fmt, "jpg")
 
-        if cache_path.exists():
-            return cache_path, mime_type
+        cache_rel = self._get_cache_path(source_relative_path, global_storage)
+        cache_path = f"{cache_rel}/{mode_name}_w{req_w}_h{req_h}.{out_ext_final}"
 
-        # Generate and save cache
-        return self._generate_cache_image(
-            source_path,
+        # Check cache
+        if await self.cache_adapter.exists(cache_path):
+            return f"__cache__:{cache_path}", mime_type
+
+        # Read source from adapter, generate cache
+        source_data = await self.adapter.read(full_source)
+        cache_path, _, mime_type = await self._generate_cache_image(
+            source_data,
+            source_name,
             cache_path,
             w=w,
             h=h,
@@ -314,6 +357,61 @@ class Storage:
             out_ext=out_ext if out_ext else src_ext,
         )
 
+        return f"__cache__:{cache_path}", mime_type
+
+    async def stream_download(
+        self,
+        resolved_path: str,
+        global_storage: bool = False,
+        chunk_size: int = 1024 * 1024,
+    ) -> AsyncIterator[bytes]:
+        """Stream a file for download based on the path from get_optimized_or_original.
+
+        Handles both cached images (via cache_adapter) and original files (via adapter).
+        """
+        if resolved_path.startswith("__cache__:"):
+            cache_path = resolved_path[len("__cache__:"):]
+            async for chunk in self.cache_adapter.read_stream(cache_path, chunk_size):
+                yield chunk
+        else:
+            full_path = self._resolve_path(resolved_path, global_storage)
+            async for chunk in self.adapter.read_stream(full_path, chunk_size):
+                yield chunk
+
+    async def stream_range_download(
+        self,
+        resolved_path: str,
+        start: int,
+        end: int,
+        global_storage: bool = False,
+        chunk_size: int = 1024 * 1024,
+    ) -> AsyncIterator[bytes]:
+        """Stream a byte range of a file for download (inclusive start and end)."""
+        if resolved_path.startswith("__cache__:"):
+            cache_path = resolved_path[len("__cache__:"):]
+            async for chunk in self.cache_adapter.read_range_stream(cache_path, start, end, chunk_size):
+                yield chunk
+        else:
+            full_path = self._resolve_path(resolved_path, global_storage)
+            async for chunk in self.adapter.read_range_stream(full_path, start, end, chunk_size):
+                yield chunk
+
+    async def get_file_size_for_download(
+        self,
+        resolved_path: str,
+        global_storage: bool = False,
+    ) -> int:
+        """Get file size for a resolved path (from get_optimized_or_original)."""
+        if resolved_path.startswith("__cache__:"):
+            cache_path = resolved_path[len("__cache__:"):]
+            return await self.cache_adapter.file_size(cache_path)
+        else:
+            full_path = self._resolve_path(resolved_path, global_storage)
+            return await self.adapter.file_size(full_path)
+
+    # --------------------
+    # Upload operations
+    # --------------------
     async def upload(
         self,
         file: UploadFile,
@@ -322,15 +420,6 @@ class Storage:
         global_storage: bool = False,
         create_attachment: bool = False,
     ) -> str:
-        """Upload any file type and optionally auto-register an Attachment model.
-
-        Behavior:
-        - Always writes the file to storage using a generated filename if not provided.
-        - If the "Attachment" model exists in the Registry, also creates a corresponding
-          Attachment record (type "file"). Otherwise, only the file is written.
-
-        Returns the relative storage path.
-        """
         if not file.filename:
             raise ValueError("Missing filename")
 
@@ -359,10 +448,6 @@ class Storage:
         global_storage: bool = False,
         create_attachment: bool = False,
     ) -> str:
-        """Upload a file from a data URL and optionally create an Attachment record.
-
-        Accepts any data URL content type.
-        """
         if not data.startswith("data:"):
             raise ValueError("Content is not a data URL")
 
@@ -392,10 +477,6 @@ class Storage:
         global_storage: bool = False,
         create_attachment: bool = False,
     ) -> str:
-        """Download a remote file and store it locally, optionally creating Attachment.
-
-        Accepts any content type returned by the server.
-        """
         try:
             import httpx
 
@@ -424,21 +505,19 @@ class Storage:
                 _t("Error while downloading the file: {error}", error=str(e))
             )
 
+    # --------------------
+    # Delete operations
+    # --------------------
     async def delete(
         self,
         file_path: str | None,
         global_storage: bool = False,
         delete_record: bool = False,
     ) -> bool:
-        """Delete an Attachment record (if configured) and then remove the file.
-
-        Always returns True on success, False on unexpected exceptions.
-        """
         try:
             if not file_path:
                 return True
 
-            # If Attachment model exists, delete records first
             registry: Registry = get_service(Registry)
 
             try:
@@ -451,24 +530,19 @@ class Storage:
                     for att in attachments:
                         await att.delete()
             except Exception:
-                # Ignore model-related failures and proceed with file removal
                 pass
 
-            # Remove the file itself
-            path = self.get_file_path(
-                file_path, ensure_exists=False, global_storage=global_storage
-            )
-            if os.path.exists(path):
-                os.remove(path)
+            # Delete the file via adapter
+            full_path = self._resolve_path(file_path, global_storage)
+            await self.adapter.delete(full_path)
 
-            # Remove optimized cache directory for this file (best-effort)
+            # Delete optimized cache (best-effort)
             try:
-                cache_dir = self._get_image_cache_dir_for(
-                    file_path, global_storage=global_storage
-                )
-                shutil.rmtree(cache_dir, ignore_errors=True)
+                cache_rel = self._get_cache_path(file_path, global_storage)
+                await self.cache_adapter.delete_directory(cache_rel)
             except Exception:
                 pass
+
             return True
         except Exception:
             return False
@@ -477,15 +551,17 @@ class Storage:
         workspace = context.get_workspace()
 
         if workspace:
-            return await self.delete(str(workspace.id))
+            prefix = str(workspace.id)
+            await self.adapter.delete_directory(prefix)
+            await self.cache_adapter.delete_directory(prefix)
+            return True
 
         return False
 
+    # --------------------
+    # Internal helpers
+    # --------------------
     def _ensure_filename(self, filename: str | None, ext: str) -> str:
-        """Return a usable filename template, generating one when missing.
-
-        Replaces the {ext} placeholder with the provided extension.
-        """
         if not filename:
             filename = str(uuid.uuid4()) + ".{ext}"
         return filename.replace("{ext}", ext)
@@ -502,31 +578,21 @@ class Storage:
         original_name: str | None,
         create_attachment: bool = False,
     ) -> str:
-        """Write file to storage and optionally create an Attachment record.
-
-        Returns the relative storage path.
-        """
         from fastedgy.storage.models.attachment import AttachmentType
 
         safe_filename = self._ensure_filename(filename, ext)
-        path = os.path.join(directory_path, safe_filename)
-        file_path = self.get_file_path(
-            path, ensure_exists=True, global_storage=global_storage
-        )
-        relative_path = self.get_relative_path(file_path, global_storage=global_storage)
+        relative_path = f"{directory_path.strip('/')}/{safe_filename}"
 
-        # Remove optimized cache directory if this file exists
-        if file_path.exists():
-            try:
-                cache_dir = self._get_image_cache_dir_for(
-                    relative_path, global_storage=global_storage
-                )
-                shutil.rmtree(cache_dir, ignore_errors=True)
-            except Exception:
-                pass
+        # Delete existing cache if file is being overwritten
+        try:
+            cache_rel = self._get_cache_path(relative_path, global_storage)
+            await self.cache_adapter.delete_directory(cache_rel)
+        except Exception:
+            pass
 
-        with open(file_path, "wb") as f:
-            f.write(content)
+        # Write via adapter
+        full_path = self._resolve_path(relative_path, global_storage)
+        await self.adapter.write(full_path, content, mime_type)
 
         if not create_attachment:
             return relative_path
@@ -537,7 +603,6 @@ class Storage:
         try:
             if "Attachment" in registry.models:
                 AttachmentModel: Any = registry.get_model("Attachment")
-                # Try to extract image dimensions when applicable
                 img_width: int | None = None
                 img_height: int | None = None
                 if (mime_type or "").startswith("image/"):
@@ -547,7 +612,6 @@ class Storage:
                         with Image.open(io.BytesIO(content)) as img:  # type: ignore
                             img_width, img_height = img.size
                     except Exception:
-                        # Pillow unsupported image -> ignore
                         pass
                 base_name = (
                     os.path.splitext(os.path.basename(original_name))[0]
@@ -568,7 +632,6 @@ class Storage:
                 )
                 await attachment.save()
         except Exception:
-            # Never fail the upload if attachment creation fails
             pass
 
         return relative_path

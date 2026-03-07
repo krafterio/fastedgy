@@ -2,6 +2,7 @@
 # MIT License (see LICENSE file).
 
 import mimetypes
+import re as _re
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, cast
 from pathlib import Path
@@ -42,6 +43,7 @@ if TYPE_CHECKING:
     from fastedgy.models.base import BaseModel
     from fastedgy.models.attachment import BaseAttachment
 
+_RANGE_RE = _re.compile(r"bytes=(\d+)-(\d*)")
 
 attachments_router = APIRouter(prefix="/storage", tags=["storage"])
 manage_attachments_router = APIRouter(prefix="/storage", tags=["storage"])
@@ -248,9 +250,90 @@ async def delete_file(
         raise HTTPException(status_code=404, detail=_t("Model not found"))
 
 
+def _build_download_headers(
+    filename: str, force_download: bool = False
+) -> dict[str, str]:
+    ascii_filename = (
+        filename.encode("ascii", "ignore").decode("ascii") or "download"
+    )
+    encoded_filename = quote(filename, safe="")
+    content_disposition = "attachment" if force_download else "inline"
+
+    return {
+        "Content-Disposition": (
+            f"{content_disposition}; "
+            f'filename="{ascii_filename}"; '
+            f"filename*=UTF-8''{encoded_filename}"
+        ),
+    }
+
+
+def _parse_range(range_header: str | None, total_size: int) -> tuple[int, int] | None:
+    """Parse a Range header and return (start, end) inclusive, or None."""
+    if not range_header:
+        return None
+    match = _RANGE_RE.match(range_header)
+    if not match:
+        return None
+    start = int(match.group(1))
+    end = int(match.group(2)) if match.group(2) else total_size - 1
+    end = min(end, total_size - 1)
+    if start > end or start >= total_size:
+        return None
+    return start, end
+
+
+async def _serve_download(
+    request: Request,
+    storage: Storage,
+    resolved_path: str,
+    content_type: str,
+    filename: str,
+    force_download: bool,
+    global_storage: bool,
+) -> Response:
+    """Serve a file download with Range request support."""
+    total_size = await storage.get_file_size_for_download(
+        resolved_path, global_storage=global_storage
+    )
+
+    range_header = request.headers.get("range")
+    byte_range = _parse_range(range_header, total_size)
+
+    headers = _build_download_headers(filename, force_download)
+    headers["Accept-Ranges"] = "bytes"
+
+    if byte_range:
+        start, end = byte_range
+        content_length = end - start + 1
+        headers["Content-Range"] = f"bytes {start}-{end}/{total_size}"
+        headers["Content-Length"] = str(content_length)
+
+        return StreamingResponse(
+            storage.stream_range_download(
+                resolved_path,
+                start,
+                end,
+                global_storage=global_storage,
+            ),
+            status_code=206,
+            media_type=content_type,
+            headers=headers,
+        )
+
+    headers["Content-Length"] = str(total_size)
+
+    return StreamingResponse(
+        storage.stream_download(resolved_path, global_storage=global_storage),
+        media_type=content_type,
+        headers=headers,
+    )
+
+
 @attachments_router.get("/download/attachments/{id:int}")
 async def download_attachment(
     id: int,
+    request: Request,
     force_download: bool = Query(False),
     w: int | None = Query(None),
     h: int | None = Query(None),
@@ -259,11 +342,7 @@ async def download_attachment(
     storage: Storage = Inject(Storage),
     registry: Registry = Inject(Registry),
 ) -> Response:
-    """Download an attachment by its ID.
-
-    This endpoint retrieves an attachment record from the database,
-    then streams the corresponding file from storage with the correct filename.
-    """
+    """Download an attachment by its ID."""
     try:
         if "Attachment" not in registry.models:
             raise HTTPException(
@@ -273,49 +352,35 @@ async def download_attachment(
         AttachmentModel: Any = registry.get_model("Attachment")
         record = await AttachmentModel.query.get(id=id)
 
-        # Resolve optimized or original path (pass workspace/global flag from record if available)
-        served_path, content_type = storage.get_optimized_or_original(
+        global_storage = getattr(record, "is_global", False)
+
+        resolved_path, content_type = await storage.get_optimized_or_original(
             record.storage_path,
             w=w,
             h=h,
             mode=m,
             out_ext=e,
-            global_storage=getattr(record, "is_global", False),
+            global_storage=global_storage,
         )
 
-        if not served_path.exists():
-            raise HTTPException(status_code=404, detail=_t("Attachment not found"))
+        # Check file exists
+        if not resolved_path.startswith("__cache__:"):
+            if not await storage.file_exists(
+                resolved_path, global_storage=global_storage
+            ):
+                raise HTTPException(
+                    status_code=404, detail=_t("Attachment not found")
+                )
 
-        # Build filename: attachment name + ensured extension from served file
-        served_ext = served_path.suffix.lstrip(".")
+        # Build filename
+        served_ext = resolved_path.rsplit(".", 1)[-1] if "." in resolved_path else ""
         filename = record.name
-        if not filename.lower().endswith(f".{served_ext}"):
+        if served_ext and not filename.lower().endswith(f".{served_ext}"):
             filename = f"{record.name}.{served_ext}"
 
-        async def file_stream():
-            chunk_size = 1024 * 1024  # 1MB
-
-            with open(served_path, "rb") as f:
-                while chunk := f.read(chunk_size):
-                    yield chunk
-
-        # Support UTF-8 filenames (RFC 5987) for accents, special characters, etc.
-        ascii_filename = (
-            filename.encode("ascii", "ignore").decode("ascii") or "download"
-        )
-        encoded_filename = quote(filename, safe="")
-        content_disposition = "attachment" if force_download else "inline"
-
-        headers = {
-            "Content-Disposition": (
-                f"{content_disposition}; "
-                f'filename="{ascii_filename}"; '
-                f"filename*=UTF-8''{encoded_filename}"
-            ),
-        }
-
-        return StreamingResponse(
-            file_stream(), media_type=content_type, headers=headers
+        return await _serve_download(
+            request, storage, resolved_path, content_type,
+            filename, force_download, global_storage,
         )
     except ObjectNotFound:
         raise HTTPException(status_code=404, detail=_t("Attachment not found"))
@@ -339,48 +404,29 @@ async def download_file(
     for transformer in vtr.get_transformers(PreDownloadTransformer, None, None):
         global_storage = await transformer.pre_download(request, path, transformers_ctx)
 
-    served_path, content_type = storage.get_optimized_or_original(
+    resolved_path, content_type = await storage.get_optimized_or_original(
         path, w=w, h=h, mode=m, out_ext=e, global_storage=global_storage
     )
 
-    if not served_path.exists():
-        raise HTTPException(status_code=404, detail="Fichier non trouvé")
+    # Check file exists
+    if not resolved_path.startswith("__cache__:"):
+        if not await storage.file_exists(resolved_path, global_storage=global_storage):
+            raise HTTPException(status_code=404, detail="Fichier non trouvé")
 
     for transformer in vtr.get_transformers(PostDownloadTransformer, None, None):
-        served_path = await transformer.post_download(
-            request, path, served_path, transformers_ctx
+        resolved_path = await transformer.post_download(
+            request, path, resolved_path, transformers_ctx
         )
 
-    # Build filename based on original path but adopt served extension
+    # Build filename
     src_name = Path(path).name
     base = src_name.rsplit(".", 1)[0]
-    served_ext = served_path.suffix.lstrip(".")
+    served_ext = resolved_path.rsplit(".", 1)[-1] if "." in resolved_path else ""
     filename = f"{base}.{served_ext}" if served_ext else src_name
 
-    async def file_stream():
-        chunk_size = 1024 * 1024  # 1MB
-
-        with open(served_path, "rb") as f:
-            while chunk := f.read(chunk_size):
-                yield chunk
-
-    # Support UTF-8 filenames (RFC 5987) for accents, special characters, etc.
-    ascii_filename = filename.encode("ascii", "ignore").decode("ascii") or "download"
-    encoded_filename = quote(filename, safe="")
-    content_disposition = "attachment" if force_download else "inline"
-
-    headers = {
-        "Content-Disposition": (
-            f"{content_disposition}; "
-            f'filename="{ascii_filename}"; '
-            f"filename*=UTF-8''{encoded_filename}"
-        ),
-    }
-
-    return StreamingResponse(
-        file_stream(),
-        media_type=content_type,
-        headers=headers,
+    return await _serve_download(
+        request, storage, resolved_path, content_type,
+        filename, force_download, global_storage,
     )
 
 

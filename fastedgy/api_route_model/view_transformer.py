@@ -4,7 +4,6 @@
 from abc import ABC, abstractmethod
 
 from typing import Any, TYPE_CHECKING
-from pathlib import Path
 
 from fastedgy.http import Request
 from fastedgy.orm.query import QuerySet
@@ -148,9 +147,9 @@ class PostDownloadTransformer(BaseViewTransformer):
         self,
         request: Request,
         path: str,
-        served_path: Path,
+        resolved_path: str,
         ctx: dict[str, Any],
-    ) -> Path: ...
+    ) -> str: ...
 
 
 class PreDeleteFileTransformer(BaseViewTransformer):

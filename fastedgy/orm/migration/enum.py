@@ -35,43 +35,47 @@ def process_enum_revision_directives(context, revision, directives):
             if hasattr(op, "enum_name"):
                 enums_being_created.add(op.enum_name)
 
-    if not enums_being_created:
-        return
+    # Process all operations to replace sa.Enum column types with ReferenceEnum
+    # (including enums that already exist in the DB and are reused by new tables)
+    has_replacements = _replace_enum_column_types(upgrade_ops.ops, enums_being_created)
 
-    # Process all operations to fix enum column types
-    _replace_enum_column_types(upgrade_ops.ops, enums_being_created)
-
-    # Add fastedgy import to the migration
-    if enums_being_created:
+    # Add fastedgy import to the migration when ReferenceEnum is used
+    if enums_being_created or has_replacements:
         directives[0].imports.add("import fastedgy")
 
 
 def _replace_enum_column_types(ops, enums_being_created):
-    """Recursively replace enum column types in all operations"""
+    """Recursively replace enum column types in all operations. Returns True if any replacements were made."""
     from alembic.operations.ops import AddColumnOp, CreateTableOp
 
+    has_replacements = False
     for op in ops:
         if isinstance(op, AddColumnOp):
             # Replace single column in AddColumnOp
-            _replace_column_enum_by_reference_enum(op.column, enums_being_created)
+            if _replace_column_enum_by_reference_enum(op.column, enums_being_created):
+                has_replacements = True
         elif isinstance(op, CreateTableOp):
             # Replace all columns in CreateTableOp
             for column in op.columns:
-                _replace_column_enum_by_reference_enum(column, enums_being_created)
+                if _replace_column_enum_by_reference_enum(column, enums_being_created):
+                    has_replacements = True
         elif hasattr(op, "ops"):
             # Recursively process nested operations (like batch operations)
-            _replace_enum_column_types(op.ops, enums_being_created)
+            if _replace_enum_column_types(op.ops, enums_being_created):
+                has_replacements = True
+    return has_replacements
 
 
 def _replace_column_enum_by_reference_enum(column, enums_being_created):
-    """Replace a single column's enum type if it references an enum being created"""
+    """Replace a single column's enum type if it references an enum being created. Returns True if replaced."""
     if not hasattr(column, "type"):
-        return
+        return False
 
     if isinstance(column.type, sa.Enum):
         enum_name = column.type.name
         if enum_name:
             column.type = ReferenceEnum(name=enum_name)
+            return True
     elif isinstance(column.type, postgresql.ENUM) and not isinstance(
         column.type, ReferenceEnum
     ):
@@ -79,6 +83,8 @@ def _replace_column_enum_by_reference_enum(column, enums_being_created):
         if hasattr(column.type, "name") and column.type.name:
             # Use our custom type that always renders with create_type=False
             column.type = ReferenceEnum(name=column.type.name)
+            return True
+    return False
 
 
 @comparators.dispatch_for("schema")

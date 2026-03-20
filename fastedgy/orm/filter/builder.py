@@ -63,9 +63,12 @@ def build_filter_expression(
         operator_method = FILTER_OPERATORS_SQL.get(filters.operator, None)
         operator_dict_method = FILTER_DICT_OPERATORS_SQL.get(filters.operator, None)
 
-        # Special case: fulltext search operator
+        # Special case: fulltext search operators
         if filters.operator == "search":
             return _build_fulltext_search_expression(model_cls, field, filters.value)
+
+        if filters.operator == "search_fuzzy":
+            return _build_fulltext_fuzzy_expression(model_cls, field, filters.value)
 
         if not operator_method or not operator_dict_method:
             raise InvalidFilterError(f"Operator '{filters.operator}' is not supported")
@@ -362,6 +365,117 @@ def _build_fulltext_search_expression(
         ).bindparams(search_value=parsed)
 
 
+def _fuzzy_correct_sql(
+    column_name: str, tablename: str, term: str, param_name: str
+) -> str:
+    """
+    Build a SQL subquery that corrects a single term via ts_stat + pg_trgm similarity.
+    Returns the corrected word or the original term if no match.
+    All done in a single SQL expression — no round-trip.
+    """
+    return (
+        f"coalesce("
+        f"(SELECT word FROM ts_stat('SELECT {column_name} FROM {tablename}') "
+        f"WHERE similarity(word, :{param_name}) > 0.3 "
+        f"ORDER BY similarity(word, :{param_name}) DESC LIMIT 1), "
+        f":{param_name})"
+    )
+
+
+def _build_fulltext_fuzzy_expression(
+    model_cls: type[Model], field_name: str, value: str
+) -> Any:
+    """
+    Build a fulltext search expression with inline fuzzy term correction.
+    Each term is corrected via a ts_stat subquery using pg_trgm similarity,
+    then used in a standard tsquery. All in one SQL query, sync, no round-trip.
+    """
+    from fastedgy.orm.filter.search_parser import _tokenize
+
+    locale = _get_fulltext_locale()
+    pg_language = get_pg_language(locale)
+    column_name = f"{field_name}_{locale}"
+    tablename = str(model_cls.meta.tablename)
+
+    raw_value = value.strip()
+    if not raw_value:
+        return None
+
+    tokens = _tokenize(raw_value)
+    if not tokens:
+        return None
+
+    tsquery_parts = []
+    bind_params = {}
+    param_idx = 0
+
+    for token in tokens:
+        if token.type == "phrase":
+            # Correct each word in the phrase
+            phrase_words = token.value.split(" <-> ")
+            corrected_words = []
+            for word in phrase_words:
+                param_name = f"ft_{param_idx}"
+                bind_params[param_name] = word
+                corrected_words.append(
+                    _fuzzy_correct_sql(column_name, tablename, word, param_name)
+                )
+                param_idx += 1
+            # phrase: word1 <-> word2 (no :*)
+            phrase_expr = " || ' <-> ' || ".join(corrected_words)
+            tsquery_parts.append(("mandatory", f"({phrase_expr})"))
+
+        elif token.type == "mandatory":
+            bare = token.value.rstrip(":*")
+            param_name = f"ft_{param_idx}"
+            bind_params[param_name] = bare
+            corrected = _fuzzy_correct_sql(column_name, tablename, bare, param_name)
+            tsquery_parts.append(("mandatory", f"({corrected} || ':*')"))
+            param_idx += 1
+
+        elif token.type == "excluded":
+            bare = token.value.rstrip(":*")
+            param_name = f"ft_{param_idx}"
+            bind_params[param_name] = bare
+            corrected = _fuzzy_correct_sql(column_name, tablename, bare, param_name)
+            tsquery_parts.append(("excluded", f"({corrected} || ':*')"))
+            param_idx += 1
+
+        else:  # bare
+            bare = token.value.rstrip(":*")
+            param_name = f"ft_{param_idx}"
+            bind_params[param_name] = bare
+            corrected = _fuzzy_correct_sql(column_name, tablename, bare, param_name)
+            tsquery_parts.append(("optional", f"({corrected} || ':*')"))
+            param_idx += 1
+
+    if not tsquery_parts:
+        return None
+
+    # Build the combined tsquery expression
+    optional = [expr for typ, expr in tsquery_parts if typ == "optional"]
+    mandatory = [expr for typ, expr in tsquery_parts if typ == "mandatory"]
+    excluded = [expr for typ, expr in tsquery_parts if typ == "excluded"]
+
+    query_parts = []
+    if optional:
+        or_expr = " || ' | ' || ".join(optional)
+        if len(optional) > 1:
+            query_parts.append(f"'(' || {or_expr} || ')'")
+        else:
+            query_parts.append(or_expr)
+    for expr in mandatory:
+        query_parts.append(f"'(' || {expr} || ')'")
+    for expr in excluded:
+        query_parts.append(f"'!(' || {expr} || ')'")
+
+    combined_tsquery = " || ' & ' || ".join(query_parts)
+
+    sql_expr = f"{tablename}.{column_name} @@ to_tsquery('{pg_language}', unaccent({combined_tsquery}))"
+
+    return text(sql_expr).bindparams(**bind_params)
+
+
 def _collect_fulltext_search_rules(
     filters: Filter | None,
 ) -> dict[str, list[str]]:
@@ -375,7 +489,7 @@ def _collect_fulltext_search_rules(
         return result
 
     if isinstance(filters, FilterRule):
-        if filters.operator == "search" and filters.value:
+        if filters.operator in ("search", "search_fuzzy") and filters.value:
             parsed = parse_search_input(filters.value)
             if parsed:
                 result.setdefault(filters.field, []).append(parsed)

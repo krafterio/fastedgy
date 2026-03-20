@@ -4,6 +4,34 @@
 from __future__ import annotations
 
 import re
+import unicodedata
+
+
+# All Unicode quote characters → normalized to ASCII "
+_QUOTE_CHARS = re.compile(
+    r'["\u00AB\u00BB\u2018\u2019\u201A\u201B\u201C\u201D\u201E\u201F\u2039\u203A\u300C\u300D\u300E\u300F\uFF02]'
+)
+
+
+def _normalize_input(raw: str) -> str:
+    """
+    Normalize search input:
+    - Convert all Unicode quote variants to ASCII "
+    - Keep +, -, alphanumeric, spaces, and ASCII "
+    - Strip everything else
+    """
+    # Normalize quotes
+    raw = _QUOTE_CHARS.sub('"', raw)
+
+    # Keep only: alphanumeric, spaces, ", +, -, ', -
+    result = []
+    for ch in raw:
+        if ch.isalnum() or ch in (" ", '"', "+", "-", "'", "-"):
+            result.append(ch)
+        else:
+            result.append(" ")
+
+    return "".join(result)
 
 
 def parse_search_input(raw: str) -> str:
@@ -17,27 +45,18 @@ def parse_search_input(raw: str) -> str:
     - -word → excluded (NOT)
     - Multiple bare words → OR between them
     - +/- terms are combined with AND to the rest
-
-    Examples:
-        "courses"           → "courses:*"
-        "courses semaine"   → "courses:* | semaine:*"
-        "+courses semaine"  → "courses:* & semaine:*"
-        "-annulées courses" → "courses:* & !annulées:*"
-        '"repas midi"'      → "repas <-> midi"
-        'courses +semaine -annulées "repas midi"'
-            → "(courses:*) & (semaine:*) & !(annulées:*) & (repas <-> midi)"
     """
-    raw = raw.strip()
-    if not raw:
+    raw = _normalize_input(raw.strip())
+    if not raw.strip():
         return ""
 
     tokens = _tokenize(raw)
     if not tokens:
         return ""
 
-    mandatory = []  # AND terms (+ prefix or quoted)
-    excluded = []  # NOT terms (- prefix)
-    optional = []  # OR terms (bare words)
+    mandatory = []
+    excluded = []
+    optional = []
 
     for token in tokens:
         if token.type == "mandatory":
@@ -46,12 +65,11 @@ def parse_search_input(raw: str) -> str:
             excluded.append(token.value)
         elif token.type == "phrase":
             mandatory.append(token.value)
-        else:  # bare
+        else:
             optional.append(token.value)
 
     parts = []
 
-    # Optional terms combined with OR
     if optional:
         or_expr = " | ".join(optional)
         if len(optional) > 1:
@@ -59,11 +77,9 @@ def parse_search_input(raw: str) -> str:
         else:
             parts.append(or_expr)
 
-    # Mandatory terms combined with AND
     for term in mandatory:
         parts.append(f"({term})")
 
-    # Excluded terms combined with AND NOT
     for term in excluded:
         parts.append(f"!({term})")
 
@@ -79,16 +95,13 @@ class _Token:
 
 
 def _tokenize(raw: str) -> list[_Token]:
-    """
-    Tokenize the search input into typed tokens.
-    """
+    """Tokenize the normalized search input into typed tokens."""
     tokens = []
     i = 0
 
     while i < len(raw):
         ch = raw[i]
 
-        # Skip whitespace
         if ch.isspace():
             i += 1
             continue
@@ -101,23 +114,40 @@ def _tokenize(raw: str) -> list[_Token]:
             phrase = raw[i + 1 : end].strip()
             if phrase:
                 words = phrase.split()
+                words = [w for w in words if w]
                 if words:
                     tokens.append(_Token("phrase", " <-> ".join(words)))
             i = end + 1
             continue
 
-        # +word (mandatory)
-        if ch == "+" and i + 1 < len(raw) and not raw[i + 1].isspace():
-            word, i = _read_word(raw, i + 1)
-            if word:
-                tokens.append(_Token("mandatory", f"{word}:*"))
+        # +word or + word (mandatory)
+        if ch == "+":
+            # Skip spaces between + and word
+            j = i + 1
+            while j < len(raw) and raw[j].isspace():
+                j += 1
+            if j < len(raw) and raw[j].isalnum():
+                word, i = _read_word(raw, j)
+                if word:
+                    tokens.append(_Token("mandatory", f"{word}:*"))
+                continue
+            i += 1
             continue
 
-        # -word (excluded)
-        if ch == "-" and i + 1 < len(raw) and not raw[i + 1].isspace():
-            word, i = _read_word(raw, i + 1)
+        # -word or - word (excluded)
+        if ch == "-":
+            j = i + 1
+            while j < len(raw) and raw[j].isspace():
+                j += 1
+            if j < len(raw) and raw[j].isalnum():
+                word, i = _read_word(raw, j)
             if word:
                 tokens.append(_Token("excluded", f"{word}:*"))
+            continue
+
+        # Skip non-alphanumeric
+        if not ch.isalnum():
+            i += 1
             continue
 
         # Bare word
@@ -129,11 +159,12 @@ def _tokenize(raw: str) -> list[_Token]:
 
 
 def _read_word(raw: str, start: int) -> tuple[str, int]:
-    """Read a word (non-whitespace, non-quote sequence) from position start."""
+    """Read a word (alphanumeric + hyphens/apostrophes) from position start."""
     end = start
-    while end < len(raw) and not raw[end].isspace() and raw[end] != '"':
+    while end < len(raw) and (raw[end].isalnum() or raw[end] in ("'", "-")):
         end += 1
-    return raw[start:end], end
+    word = raw[start:end].strip("'-")
+    return word, end
 
 
 __all__ = [

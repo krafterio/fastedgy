@@ -5,6 +5,8 @@ from .view_model import *
 from .enum import *
 from .vector import *
 from .postgis import *
+from .unaccent import *
+from .pg_trgm import *
 from .fulltext import *
 from .system import *
 
@@ -43,4 +45,6 @@ __all__ = [
     "process_fulltext_revision_directives",
     "enable_unaccent_extension",
     "disable_unaccent_extension",
+    "enable_pg_trgm_extension",
+    "disable_pg_trgm_extension",
 ]

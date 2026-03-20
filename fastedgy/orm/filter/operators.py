@@ -104,8 +104,9 @@ FilterOperator: TypeAlias = Literal[
     "spatial touches",
     "spatial crosses",
     "spatial overlaps",
-    # Fulltext search operator
+    # Fulltext search operators
     "search",
+    "search_fuzzy",
 ]
 
 
@@ -145,6 +146,7 @@ FILTER_OPERATORS_SQL = {
     "is not empty": lambda c, v=None: c.is_not(null()),
     # Fulltext search — handled as special case in builder
     "search": None,
+    "search_fuzzy": None,
     # Distance operators
     "l1 distance": lambda c, v=None: c.l1_distance(v),
     "l1 distance <": lambda c, v=None: c.l1_distance_lt(v),
@@ -326,6 +328,7 @@ FILTER_DICT_OPERATORS_SQL = {
     ),
     # Fulltext search — handled as special case in builder
     "search": None,
+    "search_fuzzy": None,
 }
 
 
@@ -653,6 +656,7 @@ FILTER_OPERATORS_FIELD_MAP = {
     ],
     FulltextField: [
         "search",
+        "search_fuzzy",
     ],
 }
 

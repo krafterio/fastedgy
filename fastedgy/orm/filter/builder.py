@@ -338,17 +338,44 @@ def _get_fulltext_locale() -> str:
         return "en"
 
 
+def _resolve_fulltext_field(
+    model_cls: type[Model], field_path: str
+) -> tuple[type[Model], str, str]:
+    """
+    Resolve a fulltext field path (e.g. "search_value" or "task_category.search_value")
+    to the target model class, tablename, and leaf field name.
+
+    Returns:
+        (target_model_cls, tablename, leaf_field_name)
+    """
+    parts = field_path.split(".")
+    current_cls = model_cls
+
+    for part in parts[:-1]:
+        field_info = current_cls.meta.fields.get(part)
+        if field_info is None:
+            break
+        if hasattr(field_info, "target"):
+            current_cls = field_info.target
+        elif hasattr(field_info, "related_from"):
+            current_cls = field_info.related_from
+        else:
+            break
+
+    return current_cls, str(current_cls.meta.tablename), parts[-1]
+
+
 def _build_fulltext_search_expression(
-    model_cls: type[Model], field_name: str, value: str
+    model_cls: type[Model], field_path: str, value: str
 ) -> Any:
     """
     Build a fulltext search WHERE expression:
-    column_locale @@ to_tsquery('language', unaccent('parsed_tsquery'))
+    tablename.column_locale @@ to_tsquery('language', unaccent('parsed_tsquery'))
     """
+    target_cls, tablename, field_name = _resolve_fulltext_field(model_cls, field_path)
     locale = _get_fulltext_locale()
     pg_language = get_pg_language(locale)
     column_name = f"{field_name}_{locale}"
-    tablename = str(model_cls.meta.tablename)
 
     parsed = parse_search_input(value)
     if not parsed:
@@ -359,7 +386,6 @@ def _build_fulltext_search_expression(
             f"{tablename}.{column_name} @@ to_tsquery('{pg_language}', unaccent(:search_value))"
         ).bindparams(search_value=parsed)
     except Exception:
-        # Fallback without unaccent
         return text(
             f"{tablename}.{column_name} @@ to_tsquery('{pg_language}', :search_value)"
         ).bindparams(search_value=parsed)
@@ -383,7 +409,7 @@ def _fuzzy_correct_sql(
 
 
 def _build_fulltext_fuzzy_expression(
-    model_cls: type[Model], field_name: str, value: str
+    model_cls: type[Model], field_path: str, value: str
 ) -> Any:
     """
     Build a fulltext search expression with inline fuzzy term correction.
@@ -392,10 +418,10 @@ def _build_fulltext_fuzzy_expression(
     """
     from fastedgy.orm.filter.search_parser import _tokenize
 
+    target_cls, tablename, field_name = _resolve_fulltext_field(model_cls, field_path)
     locale = _get_fulltext_locale()
     pg_language = get_pg_language(locale)
     column_name = f"{field_name}_{locale}"
-    tablename = str(model_cls.meta.tablename)
 
     raw_value = value.strip()
     if not raw_value:
@@ -471,7 +497,19 @@ def _build_fulltext_fuzzy_expression(
 
     combined_tsquery = " || ' & ' || ".join(query_parts)
 
-    sql_expr = f"{tablename}.{column_name} @@ to_tsquery('{pg_language}', unaccent({combined_tsquery}))"
+    # Parse the original input as-is for prefix matching (like "search" operator)
+    original_parsed = parse_search_input(value)
+
+    if original_parsed:
+        # OR between original prefix match and fuzzy-corrected match
+        sql_expr = (
+            f"({tablename}.{column_name} @@ to_tsquery('{pg_language}', unaccent(:_original_search))"
+            f" OR "
+            f"{tablename}.{column_name} @@ to_tsquery('{pg_language}', unaccent({combined_tsquery})))"
+        )
+        bind_params["_original_search"] = original_parsed
+    else:
+        sql_expr = f"{tablename}.{column_name} @@ to_tsquery('{pg_language}', unaccent({combined_tsquery}))"
 
     return text(sql_expr).bindparams(**bind_params)
 
@@ -518,9 +556,13 @@ def _add_fulltext_rank_extra_select(
     locale = _get_fulltext_locale()
     pg_language = get_pg_language(locale)
 
-    for field_name, tsqueries in search_rules.items():
+    for field_path, tsqueries in search_rules.items():
+        target_cls, tablename, field_name = _resolve_fulltext_field(
+            query.model_class, field_path
+        )
         column_name = f"{field_name}_{locale}"
-        label_name = f"_{field_name}_rank"
+        qualified_column = f"{tablename}.{column_name}"
+        label_name = f"_{field_path}_rank"
 
         # Combine multiple tsqueries with || (OR) for ranking
         if len(tsqueries) == 1:
@@ -533,24 +575,24 @@ def _add_fulltext_rank_extra_select(
         try:
             if len(tsqueries) == 1:
                 rank_expr = literal_column(
-                    f"ts_rank({column_name}, to_tsquery('{pg_language}', unaccent('{combined_tsquery}')))"
+                    f"ts_rank({qualified_column}, to_tsquery('{pg_language}', unaccent('{combined_tsquery}')))"
                 ).label(label_name)
             else:
                 rank_expr = literal_column(
-                    f"ts_rank({column_name}, {combined_tsquery})"
+                    f"ts_rank({qualified_column}, {combined_tsquery})"
                 ).label(label_name)
         except Exception:
             # Fallback without unaccent
             if len(tsqueries) == 1:
                 rank_expr = literal_column(
-                    f"ts_rank({column_name}, to_tsquery('{pg_language}', '{combined_tsquery}'))"
+                    f"ts_rank({qualified_column}, to_tsquery('{pg_language}', '{combined_tsquery}'))"
                 ).label(label_name)
             else:
                 combined_no_unaccent = " || ".join(
                     f"to_tsquery('{pg_language}', '{tq}')" for tq in tsqueries
                 )
                 rank_expr = literal_column(
-                    f"ts_rank({column_name}, {combined_no_unaccent})"
+                    f"ts_rank({qualified_column}, {combined_no_unaccent})"
                 ).label(label_name)
 
         query = query.extra_select(rank_expr)

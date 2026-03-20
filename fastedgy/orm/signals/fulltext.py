@@ -68,7 +68,7 @@ async def _handle_fulltext_save(instance: Any, **kwargs: dict[str, Any]) -> None
         if not pk_field:
             return
 
-        record_pk = getattr(instance, pk_field, None)
+        record_pk = instance.__dict__.get(pk_field)
         if record_pk is None:
             return
 
@@ -83,7 +83,7 @@ async def _handle_fulltext_save(instance: Any, **kwargs: dict[str, Any]) -> None
             bind_params = {"pk_value": record_pk}
 
             for idx, (src_field, weight) in enumerate(searchable_fields.items()):
-                value = getattr(instance, src_field, None)
+                value = instance.__dict__.get(src_field)
 
                 if isinstance(value, dict):
                     value = value.get(locale)
@@ -122,7 +122,7 @@ def register_all_fulltext_signals() -> None:
     try:
         from edgy import monkay
 
-        registry = monkay.instance.registry
+        registry = monkay.instance.registry  # type: ignore
 
         for model_cls in registry.models.values():
             has_fulltext = False

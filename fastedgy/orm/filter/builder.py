@@ -3,7 +3,14 @@
 
 from typing import Any, cast
 
-from sqlalchemy import exists, select as sa_select, literal_column
+from sqlalchemy import (
+    exists,
+    select as sa_select,
+    literal_column,
+    text,
+    func,
+    column as sa_column,
+)
 
 from fastedgy.orm import Model
 from fastedgy.orm.fields import (
@@ -34,6 +41,8 @@ from fastedgy.orm.filter.operators import (
 from fastedgy.orm.filter.parser import parse_filter_input
 from fastedgy.orm.filter.validator import validate_filters
 from fastedgy.orm.filter.utils import _has_duplicating_relation_filter, _convert_value
+from fastedgy.orm.filter.search_parser import parse_search_input
+from fastedgy.orm.fields.field_fulltext import get_pg_language
 
 
 def _get_cond_query(model_cls: type[Model]) -> QuerySet:
@@ -53,6 +62,10 @@ def build_filter_expression(
         field = filters.field
         operator_method = FILTER_OPERATORS_SQL.get(filters.operator, None)
         operator_dict_method = FILTER_DICT_OPERATORS_SQL.get(filters.operator, None)
+
+        # Special case: fulltext search operator
+        if filters.operator == "search":
+            return _build_fulltext_search_expression(model_cls, field, filters.value)
 
         if not operator_method or not operator_dict_method:
             raise InvalidFilterError(f"Operator '{filters.operator}' is not supported")
@@ -123,9 +136,7 @@ def build_filter_expression(
     return cond_query.and_(*expressions)
 
 
-def _build_exists_expression(
-    model_cls: type[Model], filters: FilterRule
-) -> Any | None:
+def _build_exists_expression(model_cls: type[Model], filters: FilterRule) -> Any | None:
     """
     Build an EXISTS subquery for a relation-based filter rule.
 
@@ -186,11 +197,13 @@ def _build_exists_expression(
                     == model_cls.table.columns[current_pk]
                 )
             else:
-                join_entries.append((
-                    related_model.table,
-                    related_model.table.columns[fk_field_name]
-                    == current_model.table.columns[current_pk],
-                ))
+                join_entries.append(
+                    (
+                        related_model.table,
+                        related_model.table.columns[fk_field_name]
+                        == current_model.table.columns[current_pk],
+                    )
+                )
 
             current_model = related_model
 
@@ -202,15 +215,16 @@ def _build_exists_expression(
             if from_table is None:
                 from_table = related_model.table
                 root_link_condition = (
-                    related_model.table.columns[pk_col]
-                    == model_cls.table.columns[part]
+                    related_model.table.columns[pk_col] == model_cls.table.columns[part]
                 )
             else:
-                join_entries.append((
-                    related_model.table,
-                    related_model.table.columns[pk_col]
-                    == current_model.table.columns[part],
-                ))
+                join_entries.append(
+                    (
+                        related_model.table,
+                        related_model.table.columns[pk_col]
+                        == current_model.table.columns[part],
+                    )
+                )
 
             current_model = related_model
 
@@ -220,15 +234,16 @@ def _build_exists_expression(
             if from_table is None:
                 from_table = related_model.table
                 root_link_condition = (
-                    related_model.table.columns["id"]
-                    == model_cls.table.columns[part]
+                    related_model.table.columns["id"] == model_cls.table.columns[part]
                 )
             else:
-                join_entries.append((
-                    related_model.table,
-                    related_model.table.columns["id"]
-                    == current_model.table.columns[part],
-                ))
+                join_entries.append(
+                    (
+                        related_model.table,
+                        related_model.table.columns["id"]
+                        == current_model.table.columns[part],
+                    )
+                )
 
             current_model = related_model
         else:
@@ -303,6 +318,128 @@ def filter_query(
             primary_key = find_primary_key_field(query.model_class)
             if primary_key:
                 query = query.distinct(primary_key)
+
+    # Add ts_rank extra_select for fulltext search fields
+    query = _add_fulltext_rank_extra_select(query, filters)
+
+    return query
+
+
+def _get_fulltext_locale() -> str:
+    """Get the current locale from the fastedgy execution context."""
+    try:
+        from fastedgy import context
+
+        return context.get_locale()
+    except Exception:
+        return "en"
+
+
+def _build_fulltext_search_expression(
+    model_cls: type[Model], field_name: str, value: str
+) -> Any:
+    """
+    Build a fulltext search WHERE expression:
+    column_locale @@ to_tsquery('language', unaccent('parsed_tsquery'))
+    """
+    locale = _get_fulltext_locale()
+    pg_language = get_pg_language(locale)
+    column_name = f"{field_name}_{locale}"
+    tablename = str(model_cls.meta.tablename)
+
+    parsed = parse_search_input(value)
+    if not parsed:
+        return None
+
+    try:
+        return text(
+            f"{tablename}.{column_name} @@ to_tsquery('{pg_language}', unaccent(:search_value))"
+        ).bindparams(search_value=parsed)
+    except Exception:
+        # Fallback without unaccent
+        return text(
+            f"{tablename}.{column_name} @@ to_tsquery('{pg_language}', :search_value)"
+        ).bindparams(search_value=parsed)
+
+
+def _collect_fulltext_search_rules(
+    filters: Filter | None,
+) -> dict[str, list[str]]:
+    """
+    Collect all fulltext search rules from parsed filters.
+    Returns dict mapping field_name to list of parsed tsquery strings.
+    """
+    result: dict[str, list[str]] = {}
+
+    if filters is None:
+        return result
+
+    if isinstance(filters, FilterRule):
+        if filters.operator == "search" and filters.value:
+            parsed = parse_search_input(filters.value)
+            if parsed:
+                result.setdefault(filters.field, []).append(parsed)
+        return result
+
+    if isinstance(filters, FilterCondition):
+        for rule in filters.rules:
+            for field_name, tsqueries in _collect_fulltext_search_rules(rule).items():
+                result.setdefault(field_name, []).extend(tsqueries)
+
+    return result
+
+
+def _add_fulltext_rank_extra_select(
+    query: QuerySet, filters: Filter | None
+) -> QuerySet:
+    """
+    Scan filters for fulltext search operators and add ts_rank() as extra_select.
+    This makes the rank available for ordering via inject_order_by().
+    """
+    search_rules = _collect_fulltext_search_rules(filters)
+
+    if not search_rules:
+        return query
+
+    locale = _get_fulltext_locale()
+    pg_language = get_pg_language(locale)
+
+    for field_name, tsqueries in search_rules.items():
+        column_name = f"{field_name}_{locale}"
+        label_name = f"_{field_name}_rank"
+
+        # Combine multiple tsqueries with || (OR) for ranking
+        if len(tsqueries) == 1:
+            combined_tsquery = tsqueries[0]
+        else:
+            combined_tsquery = " || ".join(
+                f"to_tsquery('{pg_language}', unaccent('{tq}'))" for tq in tsqueries
+            )
+
+        try:
+            if len(tsqueries) == 1:
+                rank_expr = literal_column(
+                    f"ts_rank({column_name}, to_tsquery('{pg_language}', unaccent('{combined_tsquery}')))"
+                ).label(label_name)
+            else:
+                rank_expr = literal_column(
+                    f"ts_rank({column_name}, {combined_tsquery})"
+                ).label(label_name)
+        except Exception:
+            # Fallback without unaccent
+            if len(tsqueries) == 1:
+                rank_expr = literal_column(
+                    f"ts_rank({column_name}, to_tsquery('{pg_language}', '{combined_tsquery}'))"
+                ).label(label_name)
+            else:
+                combined_no_unaccent = " || ".join(
+                    f"to_tsquery('{pg_language}', '{tq}')" for tq in tsqueries
+                )
+                rank_expr = literal_column(
+                    f"ts_rank({column_name}, {combined_no_unaccent})"
+                ).label(label_name)
+
+        query = query.extra_select(rank_expr)
 
     return query
 

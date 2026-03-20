@@ -89,6 +89,12 @@ def validate_filter_field(model_cls: type[Model], field_path: str) -> bool:
                 current_cls = field_info.related_from
             else:
                 return False
+        else:
+            # Last field in path: check filterable
+            if not getattr(
+                field_info, "filterable", not getattr(field_info, "exclude", False)
+            ):
+                return False
 
     return True
 

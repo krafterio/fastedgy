@@ -10,6 +10,8 @@ from edgy.core.signals import (
     post_delete,
 )
 
+from .fulltext import register_fulltext_signals, register_all_fulltext_signals
+
 
 __all__ = [
     "pre_save",
@@ -18,4 +20,6 @@ __all__ = [
     "post_update",
     "pre_delete",
     "post_delete",
+    "register_fulltext_signals",
+    "register_all_fulltext_signals",
 ]

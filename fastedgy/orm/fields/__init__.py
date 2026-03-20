@@ -46,6 +46,16 @@ from .field_html import HTMLField
 from .field_phone import PhoneField
 from .field_point import Point, PointField
 from .field_vector import Vector, VectorField
+from .field_fulltext import (
+    FulltextField,
+    SearchWeight,
+    SEARCH_WEIGHT_FIELD_MAP,
+    resolve_search_weight,
+    get_searchable_fields,
+    get_pg_language,
+    escape_sql,
+    recompute_fulltext,
+)
 
 
 __all__ = [
@@ -94,6 +104,14 @@ __all__ = [
     "PhoneField",
     "Point",
     "PointField",
+    "FulltextField",
     "Vector",
     "VectorField",
+    "SearchWeight",
+    "SEARCH_WEIGHT_FIELD_MAP",
+    "resolve_search_weight",
+    "get_searchable_fields",
+    "get_pg_language",
+    "escape_sql",
+    "recompute_fulltext",
 ]

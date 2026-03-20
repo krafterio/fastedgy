@@ -5,7 +5,13 @@ import re
 
 from fastedgy import context
 from fastedgy.orm import Model
-from fastedgy.orm.fields import BaseFieldType, ForeignKey, ManyToMany, OneToOne
+from fastedgy.orm.fields import (
+    BaseFieldType,
+    ForeignKey,
+    ManyToMany,
+    OneToOne,
+    get_searchable_fields,
+)
 from fastedgy.orm.filter import get_filter_operators, FILTER_FIELD_TYPE_NAME_MAP
 from fastedgy.orm.utils import find_primary_key_field
 from fastedgy.schemas.dataset import MetadataModel, MetadataField
@@ -44,18 +50,35 @@ async def generate_metadata_model(model_cls: Model) -> MetadataModel:
         sortable_field = "sequence"
 
     fields = await generate_metadata_fields(model_cls)
-    has_searchable_fields = False
-    for field in fields.values():
-        if field.searchable:
-            has_searchable_fields = True
-            break
+
+    # Resolve searchable_fields and search_field from FulltextField discovery
+    searchable_fields_map = get_searchable_fields(model_cls)
+    searchable_fields_list = list(searchable_fields_map.keys())
+
+    # Find the first FulltextField for search_field (or use Meta.search_field override)
+    search_field = (
+        getattr(model_cls.Meta, "search_field", None)
+        if hasattr(model_cls, "Meta")
+        else None
+    )
+    if search_field is None:
+        for field_name, field_info in model_cls.meta.fields.items():
+            if getattr(field_info, "is_fulltext_field", False):
+                search_field = field_name
+                break
+
+    # Model is searchable if it has a FulltextField AND at least one searchable source field
+    has_fulltext_field = search_field is not None
+    is_searchable = has_fulltext_field and len(searchable_fields_list) > 0
 
     metadata = MetadataModel(
         name=name,
         api_name=api_name,
         label=str(label),
         label_plural=str(label_plural),
-        searchable=has_searchable_fields,
+        searchable=is_searchable,
+        searchable_fields=searchable_fields_list,
+        search_field=search_field if is_searchable else None,
         sortable=sortable_field is not None,
         sortable_field=sortable_field,
         fields=fields,
@@ -67,8 +90,13 @@ async def generate_metadata_model(model_cls: Model) -> MetadataModel:
 async def generate_metadata_fields(model_cls: Model) -> dict[str, MetadataField]:
     fields = {}
     for field_name, field_info in model_cls.meta.fields.items():
-        if not field_info.exclude or (
-            hasattr(field_info, "is_m2m") and field_info.is_m2m
+        is_filterable = getattr(
+            field_info, "filterable", not getattr(field_info, "exclude", False)
+        )
+        if (
+            not field_info.exclude
+            or (hasattr(field_info, "is_m2m") and field_info.is_m2m)
+            or is_filterable
         ):
             fields[field_name] = generate_metadata_field(model_cls, field_info)
 

@@ -3,10 +3,10 @@
 
 from typing import Any
 
-from fastedgy.schemas import ConfigDict
-
 from fastedgy import context
 from fastedgy.orm import fields, Model
+from fastedgy.i18n import _ts
+from fastedgy.schemas import ConfigDict
 
 
 class WorkspaceableMixin(Model):
@@ -124,7 +124,29 @@ class BlameableMixin(Model):
         return await super().save(force_insert, values, force_save)
 
 
+class SearchableMixin(Model):
+    """
+    Mixin to automatically add a FulltextField for full-text search.
+
+    Discovers searchable source fields automatically (CharField, TextField, etc.)
+    and generates tsvector columns per locale at migration time.
+
+    Usage:
+        class Product(BaseModel, SearchableMixin):
+            name = fields.CharField(max_length=200)
+            description = fields.TextField(null=True)
+    """
+
+    class Meta(Model.Meta):
+        abstract = True
+
+    search_value = fields.FulltextField(
+        label=_ts("Valeur de recherche texte"),
+    )
+
+
 __all__ = [
     "WorkspaceableMixin",
     "BlameableMixin",
+    "SearchableMixin",
 ]

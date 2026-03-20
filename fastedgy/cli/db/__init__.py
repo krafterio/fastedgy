@@ -21,6 +21,11 @@ cli.register_commands_in_group(
     ],
 )
 
+# Register fulltext-reindex command
+from fastedgy.cli.db.fulltext import fulltext_reindex
+
+db.add_command(fulltext_reindex)
+
 
 __all__ = [
     "db",

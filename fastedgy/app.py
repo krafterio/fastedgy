@@ -870,6 +870,10 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
         monkay.set_instance(Instance(registry=registry, app=self))
         register_lazy_models(registry)
 
+        from fastedgy.orm.signals.fulltext import register_all_fulltext_signals
+
+        register_all_fulltext_signals()
+
         # Add middlewares (order matters: Context first, then Locale and Timezone)
         self.add_middleware(TimezoneMiddleware)
         self.add_middleware(LocaleMiddleware)

@@ -5,6 +5,7 @@ from .view_model import *
 from .enum import *
 from .vector import *
 from .postgis import *
+from .fulltext import *
 from .system import *
 
 
@@ -23,6 +24,7 @@ def fastedgy_process_revision_directives(context, revision, directives):
     process_enum_revision_directives(context, revision, directives)
     process_vector_revision_directives(context, revision, directives)
     process_postgis_revision_directives(context, revision, directives)
+    process_fulltext_revision_directives(context, revision, directives)
 
     # Ensure view model operations are in the correct order
     process_view_model_revision_directives(context, revision, directives)
@@ -38,4 +40,7 @@ __all__ = [
     "disable_vector_extension",
     "enable_postgis_extension",
     "disable_postgis_extension",
+    "process_fulltext_revision_directives",
+    "enable_unaccent_extension",
+    "disable_unaccent_extension",
 ]

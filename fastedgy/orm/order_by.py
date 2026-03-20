@@ -3,6 +3,8 @@
 
 from typing import Literal, TypeAlias
 
+from sqlalchemy import asc as sa_asc, desc as sa_desc
+
 from fastedgy.orm import Model
 from fastedgy.orm.query import QuerySet
 
@@ -17,11 +19,28 @@ def inject_order_by(query: QuerySet, order_by: OrderByInput) -> QuerySet:
     order_by_fields = parse_order_by(query.model_class, order_by)
 
     if order_by_fields:
-        formatted_fields = [
-            ("-" if direction == "desc" else "") + field.replace(".", "__")
-            for field, direction in order_by_fields
-        ]
-        distinct_fields = [field.replace(".", "__") for field, _ in order_by_fields]
+        # Check for extra_select rank labels (generic mechanism)
+        rank_fields = _extract_rank_fields(query, order_by_fields)
+
+        # Build formatted fields, replacing rank fields with raw ordering
+        formatted_fields = []
+        distinct_fields = []
+        raw_order_expressions = []
+
+        for field, direction in order_by_fields:
+            label_name = f"_{field}_rank"
+
+            if label_name in rank_fields:
+                # Order by the extra_select label instead of the column
+                expr = rank_fields[label_name]
+                raw_order_expressions.append(
+                    sa_desc(expr) if direction == "desc" else sa_asc(expr)
+                )
+            else:
+                formatted_fields.append(
+                    ("-" if direction == "desc" else "") + field.replace(".", "__")
+                )
+                distinct_fields.append(field.replace(".", "__"))
 
         if query.distinct_on is not None and len(query.distinct_on) > 0:
             distinct_on_fields = [
@@ -44,9 +63,39 @@ def inject_order_by(query: QuerySet, order_by: OrderByInput) -> QuerySet:
 
             query = query.distinct(*distinct_fields)
 
-        query = query.order_by(*formatted_fields)
+        if formatted_fields:
+            query = query.order_by(*formatted_fields)
+
+        # Apply raw order expressions for rank fields
+        # These are applied via SQLAlchemy directly on the queryset
+        if raw_order_expressions:
+            for expr in raw_order_expressions:
+                query = query.order_by(expr)
 
     return query
+
+
+def _extract_rank_fields(query: QuerySet, order_by_fields: OrderByList) -> dict:
+    """
+    Generic mechanism: check if any order_by field has a matching
+    _{field_name}_rank label in query._extra_select.
+
+    Returns dict mapping label_name to the SQLAlchemy labeled column.
+    """
+    result = {}
+
+    if not hasattr(query, "_extra_select") or not query._extra_select:
+        return result
+
+    for field, direction in order_by_fields:
+        label_name = f"_{field}_rank"
+
+        for extra in query._extra_select:
+            if hasattr(extra, "name") and extra.name == label_name:
+                result[label_name] = extra
+                break
+
+    return result
 
 
 def parse_order_by(model_cls: type[Model], order_by_input: OrderByInput) -> OrderByList:
@@ -122,6 +171,10 @@ def _is_valid_field_path(model_cls: type[Model], field_path: str) -> bool:
             # Exclude ComputedField (not stored in DB, cannot be ordered)
             if hasattr(field, "getter"):
                 return False
+
+            # Accept FulltextField (dynamic columns, ordered via extra_select rank)
+            if getattr(field, "is_fulltext_field", False):
+                return True
 
             if hasattr(field, "target"):
                 current_cls = field.target

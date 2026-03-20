@@ -11,6 +11,7 @@ from fastedgy.orm.fields import (
     BaseFieldType,
     ForeignKeyFieldFactory,
     FieldFactory,
+    FulltextField,
     IntegerField,
     BooleanField,
     CharField,
@@ -103,6 +104,8 @@ FilterOperator: TypeAlias = Literal[
     "spatial touches",
     "spatial crosses",
     "spatial overlaps",
+    # Fulltext search operator
+    "search",
 ]
 
 
@@ -140,6 +143,8 @@ FILTER_OPERATORS_SQL = {
     "is false": lambda c, v=None: c.is_(False),
     "is empty": lambda c, v=None: c.is_(null()),
     "is not empty": lambda c, v=None: c.is_not(null()),
+    # Fulltext search — handled as special case in builder
+    "search": None,
     # Distance operators
     "l1 distance": lambda c, v=None: c.l1_distance(v),
     "l1 distance <": lambda c, v=None: c.l1_distance_lt(v),
@@ -319,6 +324,8 @@ FILTER_DICT_OPERATORS_SQL = {
     "spatial overlaps": lambda qs, f, v: Q(
         **{f"{f.replace('.', '__')}__spatial_overlaps": v}
     ),
+    # Fulltext search — handled as special case in builder
+    "search": None,
 }
 
 
@@ -644,6 +651,9 @@ FILTER_OPERATORS_FIELD_MAP = {
         "is empty",
         "is not empty",
     ],
+    FulltextField: [
+        "search",
+    ],
 }
 
 
@@ -659,6 +669,7 @@ FILTER_FIELD_TYPE_NAME_MAP = {
     "ManyToMany": "many2many",
     "ManyToManyField": "many2many",
     "OneToMany": "one2many",
+    "FulltextField": "fulltext",
 }
 
 

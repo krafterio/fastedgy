@@ -149,15 +149,19 @@ class FulltextField(BaseField):
     ) -> Sequence[sqlalchemy.Index]:
         """Generate one GIN index per tsvector column."""
         locales = _get_available_locales()
+        tablename = (
+            str(self.owner.meta.tablename)
+            if hasattr(self, "owner") and self.owner
+            else "unknown"
+        )
         indexes = []
         for locale in locales:
             col_name = f"{name}_{locale}"
-            # Find the matching column
             for col in columns:
                 if col.name == col_name:
                     indexes.append(
                         sqlalchemy.Index(
-                            f"idx_{col_name}_gin",
+                            f"idx_{tablename}_{col_name}_gin",
                             col,
                             postgresql_using="gin",
                         )

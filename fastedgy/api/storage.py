@@ -253,9 +253,7 @@ async def delete_file(
 def _build_download_headers(
     filename: str, force_download: bool = False
 ) -> dict[str, str]:
-    ascii_filename = (
-        filename.encode("ascii", "ignore").decode("ascii") or "download"
-    )
+    ascii_filename = filename.encode("ascii", "ignore").decode("ascii") or "download"
     encoded_filename = quote(filename, safe="")
     content_disposition = "attachment" if force_download else "inline"
 
@@ -368,9 +366,7 @@ async def download_attachment(
             if not await storage.file_exists(
                 resolved_path, global_storage=global_storage
             ):
-                raise HTTPException(
-                    status_code=404, detail=_t("Attachment not found")
-                )
+                raise HTTPException(status_code=404, detail=_t("Attachment not found"))
 
         # Build filename
         served_ext = resolved_path.rsplit(".", 1)[-1] if "." in resolved_path else ""
@@ -379,8 +375,13 @@ async def download_attachment(
             filename = f"{record.name}.{served_ext}"
 
         return await _serve_download(
-            request, storage, resolved_path, content_type,
-            filename, force_download, global_storage,
+            request,
+            storage,
+            resolved_path,
+            content_type,
+            filename,
+            force_download,
+            global_storage,
         )
     except ObjectNotFound:
         raise HTTPException(status_code=404, detail=_t("Attachment not found"))
@@ -425,8 +426,13 @@ async def download_file(
     filename = f"{base}.{served_ext}" if served_ext else src_name
 
     return await _serve_download(
-        request, storage, resolved_path, content_type,
-        filename, force_download, global_storage,
+        request,
+        storage,
+        resolved_path,
+        content_type,
+        filename,
+        force_download,
+        global_storage,
     )
 
 

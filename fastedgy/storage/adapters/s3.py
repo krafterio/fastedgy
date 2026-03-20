@@ -75,7 +75,9 @@ class S3Adapter(StorageAdapter):
             response = await s3.get_object(Bucket=self.bucket, Key=self._key(path))
             return await response["Body"].read()
 
-    async def read_stream(self, path: str, chunk_size: int = 1024 * 1024) -> AsyncIterator[bytes]:
+    async def read_stream(
+        self, path: str, chunk_size: int = 1024 * 1024
+    ) -> AsyncIterator[bytes]:
         async with self._client() as s3:
             response = await s3.get_object(Bucket=self.bucket, Key=self._key(path))
             stream = response["Body"]
@@ -101,7 +103,9 @@ class S3Adapter(StorageAdapter):
                     break
                 yield chunk
 
-    async def write(self, path: str, data: bytes, content_type: str | None = None) -> None:
+    async def write(
+        self, path: str, data: bytes, content_type: str | None = None
+    ) -> None:
         async with self._client() as s3:
             kwargs: dict = {
                 "Bucket": self.bucket,
@@ -130,9 +134,7 @@ class S3Adapter(StorageAdapter):
                     delete_request = {
                         "Objects": [{"Key": obj["Key"]} for obj in objects]
                     }
-                    await s3.delete_objects(
-                        Bucket=self.bucket, Delete=delete_request
-                    )
+                    await s3.delete_objects(Bucket=self.bucket, Delete=delete_request)
 
     async def file_size(self, path: str) -> int:
         async with self._client() as s3:

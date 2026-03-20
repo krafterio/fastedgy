@@ -19,13 +19,17 @@ class StorageAdapter(ABC):
         ...
 
     @abstractmethod
-    async def read_stream(self, path: str, chunk_size: int = 1024 * 1024) -> AsyncIterator[bytes]:
+    async def read_stream(
+        self, path: str, chunk_size: int = 1024 * 1024
+    ) -> AsyncIterator[bytes]:
         """Stream file content in chunks."""
         ...
         yield b""  # pragma: no cover - make it a valid async generator
 
     @abstractmethod
-    async def write(self, path: str, data: bytes, content_type: str | None = None) -> None:
+    async def write(
+        self, path: str, data: bytes, content_type: str | None = None
+    ) -> None:
         """Write data to a file at the given path."""
         ...
 

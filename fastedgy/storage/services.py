@@ -50,12 +50,16 @@ def _create_adapter(settings: BaseSettings, adapter_name: str) -> StorageAdapter
 class Storage:
     def __init__(self, settings: BaseSettings = Inject(BaseSettings)):
         self.settings = settings
-        self.adapter: StorageAdapter = _create_adapter(settings, settings.storage_adapter)
+        self.adapter: StorageAdapter = _create_adapter(
+            settings, settings.storage_adapter
+        )
         self.cache_adapter: FilesystemAdapter = FilesystemAdapter(
             root=settings.storage_data_path
         )
         if settings.storage_cache_adapter != "filesystem":
-            self.cache_adapter = _create_adapter(settings, settings.storage_cache_adapter)
+            self.cache_adapter = _create_adapter(
+                settings, settings.storage_cache_adapter
+            )
 
     @property
     def is_filesystem(self) -> bool:
@@ -85,7 +89,9 @@ class Storage:
     def get_base_path(self, global_storage: bool = False) -> Path:
         workspace = context.get_workspace()
         if workspace and not global_storage:
-            sub = os.path.join(self.settings.storage_workspace_folder, str(workspace.id))
+            sub = os.path.join(
+                self.settings.storage_workspace_folder, str(workspace.id)
+            )
         else:
             sub = "global"
 
@@ -132,7 +138,9 @@ class Storage:
     # --------------------
     # Adapter-based file operations
     # --------------------
-    async def file_exists(self, relative_path: str, global_storage: bool = False) -> bool:
+    async def file_exists(
+        self, relative_path: str, global_storage: bool = False
+    ) -> bool:
         """Check if a file exists in storage."""
         full_path = self._resolve_path(relative_path, global_storage)
         return await self.adapter.exists(full_path)
@@ -142,13 +150,18 @@ class Storage:
         full_path = self._resolve_path(relative_path, global_storage)
         return await self.adapter.file_size(full_path)
 
-    async def read_file(self, relative_path: str, global_storage: bool = False) -> bytes:
+    async def read_file(
+        self, relative_path: str, global_storage: bool = False
+    ) -> bytes:
         """Read a file from storage."""
         full_path = self._resolve_path(relative_path, global_storage)
         return await self.adapter.read(full_path)
 
     async def stream_file(
-        self, relative_path: str, global_storage: bool = False, chunk_size: int = 1024 * 1024
+        self,
+        relative_path: str,
+        global_storage: bool = False,
+        chunk_size: int = 1024 * 1024,
     ) -> AsyncIterator[bytes]:
         """Stream a file from storage."""
         full_path = self._resolve_path(relative_path, global_storage)
@@ -277,7 +290,9 @@ class Storage:
             w, h = self._clamp_dimensions(ow, oh, w, h)
             tw, th, mode = self._compute_target_size(ow, oh, w, h, mode)
 
-            src_ext = source_name.rsplit(".", 1)[-1].lower() if "." in source_name else ""
+            src_ext = (
+                source_name.rsplit(".", 1)[-1].lower() if "." in source_name else ""
+            )
             out_format, mime_type = self._format_from_ext(out_ext, src_ext)
 
             if (tw, th) == (ow, oh) and out_format.lower() == src_ext.lower():
@@ -320,7 +335,11 @@ class Storage:
         The returned path is either the original or a cached optimized version.
         Use stream_download() to actually stream the content.
         """
-        source_name = source_relative_path.rsplit("/", 1)[-1] if "/" in source_relative_path else source_relative_path
+        source_name = (
+            source_relative_path.rsplit("/", 1)[-1]
+            if "/" in source_relative_path
+            else source_relative_path
+        )
         full_source = self._resolve_path(source_relative_path, global_storage)
 
         if not await self.adapter.exists(full_source):
@@ -341,7 +360,9 @@ class Storage:
 
         src_ext = source_name.rsplit(".", 1)[-1].lower() if "." in source_name else ""
         out_fmt, mime_type = self._format_from_ext(out_ext, src_ext)
-        out_ext_final = {"JPEG": "jpg", "PNG": "png", "WEBP": "webp"}.get(out_fmt, "jpg")
+        out_ext_final = {"JPEG": "jpg", "PNG": "png", "WEBP": "webp"}.get(
+            out_fmt, "jpg"
+        )
 
         cache_rel = self._get_cache_path(source_relative_path, global_storage)
         cache_path = f"{cache_rel}/{mode_name}_w{req_w}_h{req_h}.{out_ext_final}"
@@ -376,7 +397,7 @@ class Storage:
         Handles both cached images (via cache_adapter) and original files (via adapter).
         """
         if resolved_path.startswith("__cache__:"):
-            cache_path = resolved_path[len("__cache__:"):]
+            cache_path = resolved_path[len("__cache__:") :]
             async for chunk in self.cache_adapter.read_stream(cache_path, chunk_size):
                 yield chunk
         else:
@@ -394,12 +415,16 @@ class Storage:
     ) -> AsyncIterator[bytes]:
         """Stream a byte range of a file for download (inclusive start and end)."""
         if resolved_path.startswith("__cache__:"):
-            cache_path = resolved_path[len("__cache__:"):]
-            async for chunk in self.cache_adapter.read_range_stream(cache_path, start, end, chunk_size):
+            cache_path = resolved_path[len("__cache__:") :]
+            async for chunk in self.cache_adapter.read_range_stream(
+                cache_path, start, end, chunk_size
+            ):
                 yield chunk
         else:
             full_path = self._resolve_path(resolved_path, global_storage)
-            async for chunk in self.adapter.read_range_stream(full_path, start, end, chunk_size):
+            async for chunk in self.adapter.read_range_stream(
+                full_path, start, end, chunk_size
+            ):
                 yield chunk
 
     async def get_file_size_for_download(
@@ -409,7 +434,7 @@ class Storage:
     ) -> int:
         """Get file size for a resolved path (from get_optimized_or_original)."""
         if resolved_path.startswith("__cache__:"):
-            cache_path = resolved_path[len("__cache__:"):]
+            cache_path = resolved_path[len("__cache__:") :]
             return await self.cache_adapter.file_size(cache_path)
         else:
             full_path = self._resolve_path(resolved_path, global_storage)

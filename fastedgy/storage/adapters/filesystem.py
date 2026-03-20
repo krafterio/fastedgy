@@ -27,7 +27,9 @@ class FilesystemAdapter(StorageAdapter):
         with open(self._full_path(path), "rb") as f:
             return f.read()
 
-    async def read_stream(self, path: str, chunk_size: int = 1024 * 1024) -> AsyncIterator[bytes]:
+    async def read_stream(
+        self, path: str, chunk_size: int = 1024 * 1024
+    ) -> AsyncIterator[bytes]:
         full = self._full_path(path)
         with open(full, "rb") as f:
             while chunk := f.read(chunk_size):
@@ -48,7 +50,9 @@ class FilesystemAdapter(StorageAdapter):
                 remaining -= len(chunk)
                 yield chunk
 
-    async def write(self, path: str, data: bytes, content_type: str | None = None) -> None:
+    async def write(
+        self, path: str, data: bytes, content_type: str | None = None
+    ) -> None:
         full = self._full_path(path)
         os.makedirs(full.parent, exist_ok=True)
         with open(full, "wb") as f:

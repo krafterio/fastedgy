@@ -89,8 +89,12 @@ async def delete_item_action[M = TypeModel](
             PreDeleteTransformer, model_cls, transformers
         ):
             await transformer.pre_delete(request, item, transformers_ctx)
+            override = transformers_ctx.pop("override_item", None)
+            if override is not None:
+                item = override
 
-        await item.delete()
+        if not transformers_ctx.get("skip_delete"):
+            await item.delete()
 
         for transformer in vtr.get_transformers(
             PostDeleteTransformer, model_cls, transformers

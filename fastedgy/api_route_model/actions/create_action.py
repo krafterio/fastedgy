@@ -116,9 +116,13 @@ async def create_item_action[M = TypeModel](
             PreSaveTransformer, model_cls, transformers
         ):
             await transformer.pre_save(request, item, item_data, transformers_ctx, True)
+            override = transformers_ctx.pop("override_item", None)
+            if override is not None:
+                item = override
 
-        await item.save()
-        await item.load()
+        if not transformers_ctx.get("skip_save"):
+            await item.save()
+            await item.load()
 
         # Process relational fields after save
         await process_relational_fields(item, model_cls, relational_data)

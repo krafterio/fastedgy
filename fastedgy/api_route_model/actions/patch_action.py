@@ -96,18 +96,19 @@ async def patch_item_action[M = TypeModel](
     )
 
     query = query or model_cls.query
-    query = query.filter(id=item_id)
     query = optimize_query_filter_fields(query, fields)
     transformers_ctx = transformers_ctx or {}
     vtr = get_service(ViewTransformerRegistry)
 
     try:
+        transformers_ctx["item_id"] = item_id
         for transformer in vtr.get_transformers(
             PreLoadRecordViewTransformer, model_cls, transformers
         ):
             query = await transformer.pre_load_record(request, query, transformers_ctx)
 
-        item = await query.get()
+        resolved_id = transformers_ctx.get("item_id", item_id)
+        item = await query.filter(id=resolved_id).get()
 
         # Separate relational and scalar fields
         relational_data = {}

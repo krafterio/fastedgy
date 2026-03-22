@@ -78,12 +78,14 @@ async def delete_item_action[M = TypeModel](
         transformers_ctx = transformers_ctx or {}
         query = query or model_cls.query
 
+        transformers_ctx["item_id"] = item_id
         for transformer in vtr.get_transformers(
             PreLoadRecordViewTransformer, model_cls, transformers
         ):
             query = await transformer.pre_load_record(request, query, transformers_ctx)
 
-        item = await query.filter(id=item_id).get()
+        resolved_id = transformers_ctx.get("item_id", item_id)
+        item = await query.filter(id=resolved_id).get()
 
         for transformer in vtr.get_transformers(
             PreDeleteTransformer, model_cls, transformers

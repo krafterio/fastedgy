@@ -106,7 +106,8 @@ async def list_items_action[M = TypeModel](
 
     try:
         query = query or model_cls.query
-        query = filter_query(query, filters)
+        transformers_ctx["filters"] = filters
+        transformers_ctx["order_by"] = order_by
         query = optimize_query_filter_fields(query, fields)
 
         for transformer in vtr.get_transformers(
@@ -114,7 +115,8 @@ async def list_items_action[M = TypeModel](
         ):
             query = await transformer.pre_paginate(request, query, transformers_ctx)
 
-        query = inject_order_by(query, order_by)
+        query = filter_query(query, transformers_ctx.get("filters"))
+        query = inject_order_by(query, transformers_ctx.get("order_by"))
 
         total = await query.count()
         items = await query.limit(limit).offset(offset).all()

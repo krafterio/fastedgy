@@ -47,7 +47,7 @@ class CronScheduler:
         enabled_tasks = {
             name: td
             for name, td in registry.get_all().items()
-            if registry.is_task_enabled(name)
+            if td.cron and registry.is_task_enabled(name)
         }
 
         logger.info(f"CronScheduler started with {len(enabled_tasks)} active task(s)")
@@ -71,7 +71,7 @@ class CronScheduler:
 
                 for name, task_def in registry.get_all().items():
                     try:
-                        if not registry.is_task_enabled(name):
+                        if not task_def.cron or not registry.is_task_enabled(name):
                             continue
 
                         if self._cron_matches(task_def.cron, current_minute):

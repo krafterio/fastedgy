@@ -119,7 +119,7 @@ class Mail:
                     f"Template '{template_name}' is missing required '{tpl_part.value}' block"
                 )
 
-            logger.warning(
+            logger.debug(
                 f"Template '{template_name}' doesn't have '{tpl_part.value}' block"
             )
             return None

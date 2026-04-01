@@ -15,14 +15,18 @@ from fastedgy.orm.filter.utils import is_rule, is_condition
 
 
 def validate_filters(
-    model_cls: type[Model], filters: Filter | None
+    model_cls: type[Model],
+    filters: Filter | None,
+    allow_excluded: bool = False,
 ) -> FilterCondition | None:
     if not filters:
         return None
 
     # Filter Rule
     if is_rule(filters):
-        if not validate_filter_field(model_cls, filters.field):
+        if not validate_filter_field(
+            model_cls, filters.field, allow_excluded=allow_excluded
+        ):
             raise InvalidFilterError(f"Invalid filter field: {filters.field}")
 
         if not validate_filter_operator(model_cls, filters.field, filters.operator):
@@ -37,7 +41,9 @@ def validate_filters(
         validated_rules = []
 
         for rule in filters.rules:
-            validated_rule = validate_filters(model_cls, rule)
+            validated_rule = validate_filters(
+                model_cls, rule, allow_excluded=allow_excluded
+            )
 
             if validated_rule:
                 validated_rules.append(validated_rule)
@@ -51,7 +57,9 @@ def validate_filters(
     raise InvalidFilterError("Invalid filter expression")
 
 
-def validate_filter_field(model_cls: type[Model], field_path: str) -> bool:
+def validate_filter_field(
+    model_cls: type[Model], field_path: str, allow_excluded: bool = False
+) -> bool:
     if not field_path:
         return False
 
@@ -91,10 +99,13 @@ def validate_filter_field(model_cls: type[Model], field_path: str) -> bool:
                 return False
         else:
             # Last field in path: check filterable
-            if not getattr(
-                field_info, "filterable", not getattr(field_info, "exclude", False)
-            ):
-                return False
+            is_excluded = getattr(field_info, "exclude", False)
+            if is_excluded and not allow_excluded:
+                if not getattr(field_info, "filterable", False):
+                    return False
+            elif not is_excluded:
+                if not getattr(field_info, "filterable", True):
+                    return False
 
     return True
 

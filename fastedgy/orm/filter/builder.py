@@ -284,6 +284,7 @@ def filter_query(
     query: QuerySet,
     filters: str | list | FilterTuple | Filter | None,
     restrict_error: bool = False,
+    allow_excluded: bool = False,
 ) -> QuerySet:
     has_filters = filters is not None
 
@@ -299,7 +300,9 @@ def filter_query(
         if has_filters and not filters:
             raise InvalidFilterError("Invalid format of filters")
 
-        filters = validate_filters(query.model_class, filters)
+        filters = validate_filters(
+            query.model_class, filters, allow_excluded=allow_excluded
+        )
     except InvalidFilterError:
         if has_filters and restrict_error:
             primary_key = find_primary_key_field(query.model_class)

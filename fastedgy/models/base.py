@@ -42,9 +42,20 @@ class BaseModel(Model):
     )
 
     def model_dump(self, **kwargs):
-        """Override model_dump to serialize datetime with timezone."""
+        """Override model_dump to serialize datetime with timezone.
+
+        `warnings=False` is set by default to silence Pydantic's
+        `PydanticSerializationUnexpectedValue` for ForeignKey fields. Edgy
+        annotates them with `SkipValidation()`, which re-runs the related
+        model's serialiser on the raw FK id when the relation isn't loaded
+        via `select_related` — the dump is correct (the int IS the FK id)
+        but Pydantic flags the type mismatch on every CRUD response.
+        Callers can still pass `warnings=True` (or `'error'`) explicitly to
+        opt back in.
+        """
         from fastedgy.serializers import datetime_serializer
 
+        kwargs.setdefault("warnings", False)
         data = super().model_dump(**kwargs)
 
         if isinstance(data, dict):
@@ -129,9 +140,20 @@ class BaseView(Model):
     )
 
     def model_dump(self, **kwargs):
-        """Override model_dump to serialize datetime with timezone."""
+        """Override model_dump to serialize datetime with timezone.
+
+        `warnings=False` is set by default to silence Pydantic's
+        `PydanticSerializationUnexpectedValue` for ForeignKey fields. Edgy
+        annotates them with `SkipValidation()`, which re-runs the related
+        model's serialiser on the raw FK id when the relation isn't loaded
+        via `select_related` — the dump is correct (the int IS the FK id)
+        but Pydantic flags the type mismatch on every CRUD response.
+        Callers can still pass `warnings=True` (or `'error'`) explicitly to
+        opt back in.
+        """
         from fastedgy.serializers import datetime_serializer
 
+        kwargs.setdefault("warnings", False)
         data = super().model_dump(**kwargs)
 
         if isinstance(data, dict):

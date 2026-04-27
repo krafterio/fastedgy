@@ -7,9 +7,9 @@ from typing import Callable, Any, Coroutine
 from fastapi import APIRouter, Path, Body
 
 from fastedgy.dependencies import get_service
-from fastedgy import context
 from fastedgy.http import Request
 from fastedgy.orm import transaction
+from fastedgy.timezone import ensure_aware
 from fastedgy.orm.query import QuerySet
 from fastedgy.api_route_model.action import (
     BaseApiRouteAction,
@@ -119,9 +119,8 @@ async def patch_item_action[M = TypeModel](
             value = getattr(item_data, key)
             field = model_cls.model_fields.get(key)
 
-            # Add local timezone to naive datetime
-            if isinstance(value, datetime) and value.tzinfo is None:
-                value = value.replace(tzinfo=context.get_timezone())
+            if isinstance(value, datetime):
+                value = ensure_aware(value)
 
             if field and is_relation_field(field):
                 relational_data[key] = value

@@ -28,8 +28,9 @@ def register_fulltext_signals(model_cls: type) -> None:
     _registered_models.add(model_cls)
 
     @post_save.connect_via(model_cls)
-    async def on_fulltext_save(_, instance, **kwargs: dict[str, Any]):
-        await _handle_fulltext_save(instance, **kwargs)
+    async def on_fulltext_save(_, instance, model_instance=None, **kwargs: dict[str, Any]):
+        target = model_instance if model_instance is not None else instance
+        await _handle_fulltext_save(target, **kwargs)
 
 
 async def _handle_fulltext_save(instance: Any, **kwargs: dict[str, Any]) -> None:

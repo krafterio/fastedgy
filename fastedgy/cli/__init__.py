@@ -140,9 +140,13 @@ def cli_json_log(name: str, message: str, **fields) -> None:
 
     Extra keyword arguments are passed through ``logging.extra`` and
     serialized as top-level JSON fields by :class:`JsonFormatter`.
+    Field names that collide with :class:`logging.LogRecord` reserved
+    attributes (``created``, ``name``, ``module``, …) are silently
+    suffixed with ``_`` to avoid the ``KeyError`` that Python's logging
+    raises on overwrite.
     """
     import sys
-    from fastedgy.logger import JsonFormatter
+    from fastedgy.logger import JsonFormatter, _LOG_RECORD_RESERVED_ATTRS
 
     json_logger = logging.getLogger(name)
     json_logger.setLevel(logging.INFO)
@@ -153,7 +157,11 @@ def cli_json_log(name: str, message: str, **fields) -> None:
         handler.setFormatter(JsonFormatter())
         json_logger.addHandler(handler)
 
-    json_logger.info(message, extra=fields)
+    safe_fields = {
+        (f"{k}_" if k in _LOG_RECORD_RESERVED_ATTRS else k): v
+        for k, v in fields.items()
+    }
+    json_logger.info(message, extra=safe_fields)
 
 
 def register_commands_in_group(

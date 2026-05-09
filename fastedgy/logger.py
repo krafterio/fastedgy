@@ -184,6 +184,8 @@ def setup_logging(
     format: LogFormat | str = LogFormat.TEXT,
     log_file: str | None = None,
 ):
+    logging.captureWarnings(True)
+
     root_logger = logging.getLogger()
     root_logger.setLevel(getattr(logging, level.value.upper()))
 

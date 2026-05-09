@@ -82,6 +82,35 @@ class TextLightFormatter(logging.Formatter):
         return super().format(recordcopy)
 
 
+_LOG_RECORD_RESERVED_ATTRS = frozenset(
+    {
+        "args",
+        "asctime",
+        "created",
+        "exc_info",
+        "exc_text",
+        "filename",
+        "funcName",
+        "levelname",
+        "levelno",
+        "lineno",
+        "message",
+        "module",
+        "msecs",
+        "msg",
+        "name",
+        "pathname",
+        "process",
+        "processName",
+        "relativeCreated",
+        "stack_info",
+        "thread",
+        "threadName",
+        "taskName",
+    }
+)
+
+
 class JsonFormatter(logging.Formatter):
     def format(self, record):
         log_record = {
@@ -91,10 +120,14 @@ class JsonFormatter(logging.Formatter):
             "message": record.getMessage(),
         }
 
+        for key, value in record.__dict__.items():
+            if key not in _LOG_RECORD_RESERVED_ATTRS and not key.startswith("_"):
+                log_record[key] = value
+
         if record.exc_info:
             log_record["exception"] = self.formatException(record.exc_info)
 
-        return json.dumps(log_record)
+        return json.dumps(log_record, default=str)
 
 
 class DatabaseConnectionFilter(logging.Filter):

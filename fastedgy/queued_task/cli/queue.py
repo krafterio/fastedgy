@@ -4,7 +4,8 @@
 from os import cpu_count
 from typing import cast
 
-from fastedgy.cli import console, Table, CliContext
+from fastedgy.cli import console, Table, CliContext, cli_json_log
+from fastedgy.logger import LogFormat
 
 from fastedgy.orm import Registry
 from fastedgy.queued_task.services.queued_tasks import QueuedTasks
@@ -67,25 +68,45 @@ async def clear(ctx: CliContext):
 
 async def start(ctx: CliContext, workers: int | None, no_scheduler: bool = False):
     """Start queue workers only (no HTTP server)"""
-    console.print(f"[yellow]Starting {workers} queue workers...[/yellow]")
-    console.print("[green]Starting workers in queue-only mode[/green]")
-    console.print("[yellow]Press Ctrl+C to stop workers[/yellow]")
+    resolved_workers = cpu_count() or 1 if workers is None or workers < 0 else workers
+
+    if ctx.settings.log_format == LogFormat.JSON:
+        cli_json_log(
+            "fastedgy.cli.queue",
+            "Starting queue workers",
+            config={
+                "workers": resolved_workers,
+                "mode": "queue-only",
+                "scheduler": not no_scheduler,
+            },
+        )
+    else:
+        console.print(f"[yellow]Starting {resolved_workers} queue workers...[/yellow]")
+        console.print("[green]Starting workers in queue-only mode[/green]")
+        console.print("[yellow]Press Ctrl+C to stop workers[/yellow]")
 
     async with ctx.lifespan():
         try:
             worker_service = ctx.get(QueueWorkerManager)
 
-            workers = cpu_count() or 1 if workers is None or workers < 0 else workers
-
             # Override max workers if specified
-            if workers != worker_service.max_workers:
-                worker_service.max_workers = workers
-                worker_service.worker_pool.max_workers = workers
+            if resolved_workers != worker_service.max_workers:
+                worker_service.max_workers = resolved_workers
+                worker_service.worker_pool.max_workers = resolved_workers
 
-            await worker_service.start_workers(workers, no_scheduler=no_scheduler)
+            await worker_service.start_workers(
+                resolved_workers, no_scheduler=no_scheduler
+            )
 
         except Exception as e:
-            console.print(f"[red]Error starting workers: {str(e)}[/red]")
+            if ctx.settings.log_format == LogFormat.JSON:
+                cli_json_log(
+                    "fastedgy.cli.queue",
+                    "Error starting workers",
+                    error=str(e),
+                )
+            else:
+                console.print(f"[red]Error starting workers: {str(e)}[/red]")
 
 
 async def stats(ctx: CliContext):

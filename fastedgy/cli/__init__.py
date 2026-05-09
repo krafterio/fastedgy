@@ -130,6 +130,32 @@ def getCliLogger(suffix: str) -> logging.Logger:
     return logger.getChild(suffix)
 
 
+def cli_json_log(name: str, message: str, **fields) -> None:
+    """Emit a single JSON log record on stdout, bypassing Rich.
+
+    Used by long-running CLI commands (e.g. ``serve``, ``queue start``)
+    to render their startup banner as a one-line JSON record when
+    ``LOG_FORMAT=json`` — so log shippers that split on newlines (OVH
+    LDP, Fluent Bit, …) ingest one record per banner.
+
+    Extra keyword arguments are passed through ``logging.extra`` and
+    serialized as top-level JSON fields by :class:`JsonFormatter`.
+    """
+    import sys
+    from fastedgy.logger import JsonFormatter
+
+    json_logger = logging.getLogger(name)
+    json_logger.setLevel(logging.INFO)
+    json_logger.propagate = False
+
+    if not json_logger.handlers:
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setFormatter(JsonFormatter())
+        json_logger.addHandler(handler)
+
+    json_logger.info(message, extra=fields)
+
+
 def register_commands_in_group(
     package_name: str,
     cli_group: click.Group,
@@ -670,6 +696,7 @@ __all__ = [
     "Table",
     # App
     "getCliLogger",
+    "cli_json_log",
     "cli",
     "main",
 ]

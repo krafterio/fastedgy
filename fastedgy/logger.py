@@ -4,6 +4,7 @@
 import json
 import logging
 import os
+import re
 import sys
 
 from copy import copy
@@ -82,6 +83,27 @@ class TextLightFormatter(logging.Formatter):
         return super().format(recordcopy)
 
 
+_ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;?]*[a-zA-Z]")
+
+
+def _strip_ansi(value):
+    """Recursively strip ANSI terminal escape sequences from string values.
+
+    Used by :class:`JsonFormatter` so that records carrying terminal-styled
+    content (e.g. uvicorn's ``color_message``) come out clean in JSON, since
+    the JSON output is consumed by log shippers, not terminals.
+    """
+    if isinstance(value, str):
+        return _ANSI_ESCAPE_RE.sub("", value)
+    if isinstance(value, dict):
+        return {k: _strip_ansi(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_strip_ansi(v) for v in value]
+    if isinstance(value, tuple):
+        return tuple(_strip_ansi(v) for v in value)
+    return value
+
+
 _LOG_RECORD_RESERVED_ATTRS = frozenset(
     {
         "args",
@@ -113,19 +135,28 @@ _LOG_RECORD_RESERVED_ATTRS = frozenset(
 
 class JsonFormatter(logging.Formatter):
     def format(self, record):
+        message = _strip_ansi(record.getMessage())
         log_record = {
             "timestamp": self.formatTime(record),
             "name": record.name,
             "level": record.levelname,
-            "message": record.getMessage(),
+            "message": message,
         }
 
         for key, value in record.__dict__.items():
-            if key not in _LOG_RECORD_RESERVED_ATTRS and not key.startswith("_"):
-                log_record[key] = value
+            if key in _LOG_RECORD_RESERVED_ATTRS or key.startswith("_"):
+                continue
+            cleaned = _strip_ansi(value)
+            # Drop extras that duplicate the message once stripped — typically
+            # uvicorn's ``color_message`` (colored variant of ``message``).
+            if cleaned == message:
+                continue
+            log_record[key] = cleaned
 
         if record.exc_info:
-            log_record["exception"] = self.formatException(record.exc_info)
+            log_record["exception"] = _strip_ansi(
+                self.formatException(record.exc_info)
+            )
 
         return json.dumps(log_record, default=str)
 

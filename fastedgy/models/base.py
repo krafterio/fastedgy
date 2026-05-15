@@ -20,6 +20,39 @@ from fastedgy.schemas import ConfigDict
 from sqlalchemy import MetaData, Selectable, Table
 
 
+def _fix_inherited_abstract(cls: type) -> None:
+    """Edgy's metaclass detects ``abstract`` via ``getattr(meta_class, "abstract", False)``
+    which traverses the MRO. Subclasses that extend ``BaseModel.Meta`` or
+    ``BaseView.Meta`` therefore silently inherit ``abstract = True`` and are
+    excluded from registration. Reset it for concrete subclasses that have
+    their own fields but did not explicitly opt into abstract.
+    """
+    own_meta = cls.__dict__.get("Meta")
+    if (
+        own_meta is None
+        or not isinstance(own_meta, type)
+        or "abstract" in own_meta.__dict__
+        or not getattr(cls, "meta", None)
+        or not cls.meta.abstract
+        or not cls.meta.fields
+    ):
+        return
+
+    cls.meta.abstract = False
+
+    if "pk" not in cls.meta.fields:
+        from edgy.core.db.fields.base import PKField
+
+        pk_field = PKField(exclude=True, name="pk", inherit=False, no_copy=True)
+        pk_field.owner = cls
+        cls.meta.fields["pk"] = pk_field
+        model_fields_on_class = getattr(cls, "__pydantic_fields__", None)
+        if model_fields_on_class is None:
+            model_fields_on_class = getattr(cls, "model_fields", None)
+        if model_fields_on_class is not None:
+            model_fields_on_class["pk"] = pk_field
+
+
 class BaseModel(Model):
     id: int | None = fields.IntegerField(primary_key=True, label="ID")  # type: ignore
     created_at: datetime | None = fields.DateTimeField(
@@ -35,6 +68,7 @@ class BaseModel(Model):
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
+        _fix_inherited_abstract(cls)
         lazy_register_model(cls)
 
     model_config = ConfigDict(
@@ -133,6 +167,7 @@ class BaseView(Model):
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
+        _fix_inherited_abstract(cls)
         lazy_register_model(cls)
 
     model_config = ConfigDict(

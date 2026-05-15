@@ -3,9 +3,10 @@
 
 from edgy.core.db.fields.factories import FieldFactory
 from edgy.core.db.fields.types import BaseFieldType
+from sqlalchemy import Column, Index
 from sqlalchemy.types import UserDefinedType
 from sqlalchemy.dialects.postgresql.base import ischema_names
-from typing import Any
+from typing import Any, Sequence
 
 
 class Point(UserDefinedType):
@@ -155,6 +156,7 @@ class PointField(FieldFactory, tuple):
         cls,
         *,
         srid: int = 4326,
+        index: bool = True,
         **kwargs: Any,
     ) -> BaseFieldType:
         kwargs = {
@@ -176,6 +178,49 @@ class PointField(FieldFactory, tuple):
         srid = kwargs.get("srid", 4326)
         if not isinstance(srid, int) or srid <= 0:
             raise ValueError("srid must be a positive integer")
+
+    @classmethod
+    def get_column(
+        cls,
+        field_obj: BaseFieldType,
+        name: str,
+        original_fn: Any = None,
+    ) -> Column | None:
+        # Strip `index` from the produced column so SQLAlchemy doesn't create a
+        # default btree index. We emit a GIST index instead via
+        # `get_global_constraints`. We can't toggle `field_obj.index` around
+        # `original_fn(name)`: edgy copies fields during model class creation
+        # and `repack` keeps the partial's captured `original_fn` bound to the
+        # pre-copy field instance, so mutations to the post-copy field_obj
+        # aren't visible to it. Mutating the resulting Column is reliable.
+        col = original_fn(name)
+        if col is not None:
+            col.index = False
+        return col
+
+    @classmethod
+    def get_global_constraints(
+        cls,
+        field_obj: BaseFieldType,
+        name: str,
+        columns: Sequence[Column],
+        schemes: Sequence[str] = (),
+        *,
+        original_fn: Any = None,
+    ) -> Sequence[Any]:
+        results = list(original_fn(name, columns, schemes)) if original_fn else []
+        if field_obj.index:
+            owner = getattr(field_obj, "owner", None)
+            tablename = getattr(getattr(owner, "meta", None), "tablename", None) or ""
+            for col in columns:
+                results.append(
+                    Index(
+                        f"idx_{tablename}_{col.name}" if tablename else f"idx_{col.name}",
+                        col,
+                        postgresql_using="gist",
+                    )
+                )
+        return results
 
 
 __all__ = [

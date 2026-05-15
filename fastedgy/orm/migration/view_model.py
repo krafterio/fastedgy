@@ -222,13 +222,38 @@ def normalize_sql(sql: str, clean_null_cast: bool = False) -> str:
         "",
         formatted,
     )
+    # Remove remaining PG type casts before operators/keywords/whitespace
+    # (e.g. `(col)::text <> ...`, `'x'::enum_type and ...`)
+    formatted = re.sub(
+        r"(?<!end)(::)\s*[a-zA-Z_][a-zA-Z0-9_]*(?:\s+with\s+time\s+zone)?",
+        "",
+        formatted,
+    )
     formatted = re.sub(r"varchar(\([0-9]+\))?", "", formatted, flags=re.IGNORECASE)
     formatted = re.sub(
         r"character varying(\([0-9]+\))?", "", formatted, flags=re.IGNORECASE
     )
+    # Normalize `!=` to `<>` (PG canonicalizes to `<>`)
+    formatted = formatted.replace("!=", "<>")
+    # Strip quotes around simple lowercase identifiers (PG quotes reserved keywords
+    # like "user"/"position" in its canonical view definition; the raw SQLAlchemy
+    # compile doesn't). Only safe because everything is already lowercased above and
+    # this normalization is for comparison only, never executed.
+    formatted = re.sub(r'"([a-z_][a-z0-9_]*)"', r"\1", formatted)
     formatted = re.sub(r"\s+", " ", formatted)
     formatted = re.sub(r"\(\s*", "(", formatted)
     formatted = re.sub(r"\s*\)", ")", formatted)
+    # Strip redundant single-expression parens (e.g. `where (a <> b)` -> `where a <> b`,
+    # `(col)::text` -> `col`). Iterate to peel nested layers. Skip parens preceded by
+    # an identifier (function calls, type modifiers).
+    prev = None
+    while prev != formatted:
+        prev = formatted
+        formatted = re.sub(
+            r"(?<![a-zA-Z0-9_])\(\s*([^()\s](?:[^()]*?[^()\s])?)\s*\)",
+            r"\1",
+            formatted,
+        )
     # Remove redundant aliases (handled in _remove_redundant_aliases function)
     formatted = re.sub(
         r'([a-zA-Z0-9_."()]+)\s+as\s+("[a-zA-Z0-9_]+"|[a-zA-Z0-9_]+)',
@@ -236,6 +261,11 @@ def normalize_sql(sql: str, clean_null_cast: bool = False) -> str:
         formatted,
         flags=re.IGNORECASE,
     )
+    # For single-table queries (no JOIN), strip the trailing table alias from FROM
+    # and drop `table.` / `alias.` qualifiers from column references. PG preserves
+    # these stylistic choices in its canonical form, which would otherwise produce
+    # spurious diffs between functionally-equivalent views.
+    formatted = _strip_single_table_qualifiers(formatted)
 
     if clean_null_cast:
         formatted = re.sub(
@@ -253,6 +283,48 @@ def normalize_sql(sql: str, clean_null_cast: bool = False) -> str:
     formatted = formatted.strip(";")
 
     return formatted
+
+
+_FROM_SINGLE_TABLE_RE = re.compile(
+    r"\bfrom\s+(\"?[a-zA-Z_][a-zA-Z0-9_]*\"?)(?:\s+(?!where\b|group\b|order\b|limit\b|offset\b|having\b|on\b|join\b|left\b|right\b|inner\b|outer\b|full\b|cross\b|union\b|except\b|intersect\b)(\"?[a-zA-Z_][a-zA-Z0-9_]*\"?))?",
+    flags=re.IGNORECASE,
+)
+
+
+def _strip_single_table_qualifiers(sql: str) -> str:
+    """Normalize single-table FROM clauses: drop the optional alias and any
+    ``table.`` / ``alias.`` column qualifiers. Skipped when the query has joins,
+    subqueries, set operations, or multiple FROM tables — there the qualifiers
+    carry meaning.
+    """
+    lowered = sql.lower()
+    if re.search(r"\bjoin\b|\bunion\b|\bexcept\b|\bintersect\b", lowered):
+        return sql
+    if lowered.count(" from ") > 1:
+        return sql
+    # multiple comma-separated tables in FROM -> bail
+    from_match = re.search(r"\bfrom\s+(.+?)(?=\s+where\b|\s+group\b|\s+order\b|\s+limit\b|\s+offset\b|\s+having\b|$)", lowered)
+    if from_match and "," in from_match.group(1):
+        return sql
+
+    match = _FROM_SINGLE_TABLE_RE.search(sql)
+    if not match:
+        return sql
+
+    table = match.group(1).strip('"')
+    alias = match.group(2)
+    qualifiers = {table}
+    if alias:
+        qualifiers.add(alias.strip('"'))
+        # Replace `from table alias` with `from table`
+        sql = sql[: match.start()] + f"from {match.group(1)}" + sql[match.end() :]
+
+    for q in qualifiers:
+        # Strip `q.` and `"q".` prefixes from identifiers (quoted or not).
+        sql = re.sub(rf'(?<![a-zA-Z0-9_."]){re.escape(q)}\.', "", sql)
+        sql = re.sub(rf'"{re.escape(q)}"\.', "", sql)
+
+    return sql
 
 
 def process_view_model_revision_directives(context, revision, directives) -> None:

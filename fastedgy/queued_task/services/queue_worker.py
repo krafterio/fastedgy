@@ -142,13 +142,20 @@ class QueueWorker:
                 from sqlalchemy import text
 
                 database = self._get_manager_database()
+                # State guard `AND state = 'doing'` makes the UPDATE
+                # idempotent and conflict-free with other terminal paths
+                # (stop_workers → 'stopped', cascade → 'failed'/'cancelled').
+                # Without it, concurrent UPDATEs on the same row trigger
+                # "could not serialize access due to concurrent update" in
+                # the postgres log AND can clobber a more authoritative
+                # terminal state set by another path.
                 sql = text(
                     "UPDATE queued_tasks SET state = 'done'::queuedtaskstate,\n"
                     "    date_done = NOW(),\n"
                     "    date_ended = NOW(),\n"
                     "    execution_time = EXTRACT(EPOCH FROM (NOW() - COALESCE(date_started, NOW()))),\n"
                     "    updated_at = NOW()\n"
-                    "WHERE id = :id"
+                    "WHERE id = :id AND state = 'doing'::queuedtaskstate"
                 )
                 await database.execute(sql, {"id": task.id})
 
@@ -244,6 +251,10 @@ class QueueWorker:
                 from sqlalchemy import text
 
                 database = self._get_manager_database()
+                # Same state guard as _op_mark_done: only flip to 'failed'
+                # if the task is still 'doing'. Avoids clobbering a terminal
+                # state already set by stop_workers ('stopped') or cascade
+                # ('cancelled'), and avoids the concurrent-UPDATE log noise.
                 sql = text(
                     "UPDATE queued_tasks SET state = 'failed'::queuedtaskstate,\n"
                     "    exception_name = :name,\n"
@@ -253,7 +264,7 @@ class QueueWorker:
                     "    date_ended = NOW(),\n"
                     "    execution_time = EXTRACT(EPOCH FROM (NOW() - COALESCE(date_started, NOW()))),\n"
                     "    updated_at = NOW()\n"
-                    "WHERE id = :id"
+                    "WHERE id = :id AND state = 'doing'::queuedtaskstate"
                 )
                 await database.execute(
                     sql,
@@ -389,7 +400,7 @@ class QueueWorker:
         return get_service(EdgyDatabase)
 
     async def _run_write_with_retry(
-        self, op_coro_factory, *, max_attempts: int = 3, base_delay: float = 0.05
+        self, op_coro_factory, *, max_attempts: int = 5, base_delay: float = 0.1
     ):
         """Run a small DB write with retries under a short-lived connection to avoid transaction reentrancy."""
         from sqlalchemy.exc import DBAPIError, OperationalError

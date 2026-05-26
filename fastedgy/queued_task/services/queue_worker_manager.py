@@ -631,64 +631,140 @@ class QueueWorkerManager:
         self, child_task: "QueuedTask", parent_task: "QueuedTask"
     ) -> None:
         """
-        Cascade parent failure to child tasks
-        """
-        try:
-            if parent_task.state == QueuedTaskState.failed:
-                child_task.mark_as_failed(
-                    exception_name="ParentTaskFailed",
-                    exception_message=f"Parent task {parent_task.id} failed",
-                    exception_info=f"Parent task '{parent_task.name}' failed, cascading to child",
-                )
-            elif parent_task.state == QueuedTaskState.cancelled:
-                child_task.mark_as_cancelled()
+        Cascade a parent's terminal state (failed/cancelled) to the given
+        task AND all of its descendants in a single recursive CTE UPDATE.
 
-            await child_task.save()
+        Idempotent and race-safe: only rows still in (enqueued, doing)
+        are touched; terminal states set by another path (worker
+        finalization, graceful shutdown) are preserved. Combined with
+        the state guard on QueueWorker._op_mark_done / _op_mark_failed,
+        any worker actively executing a descendant marked here will
+        complete naturally and its own finalize UPDATE becomes a no-op,
+        so the cascade-set state always wins.
+        """
+        if parent_task.state == QueuedTaskState.failed:
+            new_state = QueuedTaskState.failed
+            exception_name: Optional[str] = "ParentTaskFailed"
+            exception_message: Optional[str] = (
+                f"Parent task {parent_task.id} failed"
+            )
+            exception_info: Optional[str] = (
+                f"Parent task '{parent_task.name}' failed, cascading to descendants"
+            )
+        elif parent_task.state == QueuedTaskState.cancelled:
+            new_state = QueuedTaskState.cancelled
+            exception_name = None
+            exception_message = None
+            exception_info = None
+        else:
+            logger.warning(
+                f"_cascade_parent_failure called with non-terminal parent state "
+                f"{parent_task.state} (root {child_task.id}, parent {parent_task.id})"
+            )
+            return
+
+        try:
+            cascaded = await self._cascade_to_descendants(
+                root_task_id=child_task.id,
+                new_state=new_state,
+                exception_name=exception_name,
+                exception_message=exception_message,
+                exception_info=exception_info,
+            )
             logger.info(
-                f"Cascaded parent {parent_task.state} to child task {child_task.id}"
+                f"Cascaded {parent_task.state} from parent {parent_task.id} "
+                f"to {cascaded} descendant(s) including root {child_task.id}"
+            )
+        except Exception as e:
+            logger.error(
+                f"Error cascading {parent_task.state} from parent {parent_task.id} "
+                f"to descendants (root {child_task.id}): {e}"
             )
 
-            # Recursively cascade to grandchildren
-            await self._cascade_to_children(child_task)
-
-        except Exception as e:
-            logger.error(f"Error cascading parent failure: {e}")
-
-    async def _cascade_to_children(self, parent_task: "QueuedTask") -> None:
+    async def _cascade_to_descendants(
+        self,
+        root_task_id: int,
+        new_state: QueuedTaskState,
+        exception_name: Optional[str] = None,
+        exception_message: Optional[str] = None,
+        exception_info: Optional[str] = None,
+        max_depth: int = 100,
+    ) -> int:
         """
-        Recursively cascade task state to all children
+        Atomically mark a task AND all of its descendants with a terminal
+        state via a single recursive CTE UPDATE.
+
+        Replaces the previous N+1 + Python-recursive implementation which:
+        - issued one SELECT per tree level and one full-row UPDATE
+          (.save()) per node — clobbering columns concurrently written
+          by workers and generating "could not serialize access due to
+          concurrent update" noise on every collision,
+        - had no cap and would recurse forever on a cycle in the
+          parent_task graph,
+        - was not atomic across the tree (mid-cascade crash left the
+          subtree in an inconsistent half-failed state).
+
+        The recursive CTE walks the subtree server-side; the UPDATE
+        targets only rows still in (enqueued, doing), so terminal
+        states set by another path (worker finalization, graceful
+        shutdown) are preserved. A depth cap protects against accidental
+        cycles.
+
+        Args:
+            root_task_id: Anchor of the cascade (root itself is included).
+            new_state: Must be QueuedTaskState.failed or .cancelled.
+            exception_*: Only meaningful for 'failed' (uses COALESCE so
+                None doesn't overwrite existing values).
+            max_depth: Hard recursion cap — beyond this descendants are
+                silently skipped.
+
+        Returns:
+            Number of rows actually updated (root included).
         """
-        QueuedTask = cast(type["QueuedTask"], self.registry.get_model("QueuedTask"))
-        try:
-            children = await QueuedTask.query.filter(
-                QueuedTask.columns.parent_task == parent_task.id
-            ).all()
+        if new_state not in (QueuedTaskState.failed, QueuedTaskState.cancelled):
+            raise ValueError(
+                f"_cascade_to_descendants requires failed or cancelled, "
+                f"got {new_state}"
+            )
 
-            for child in children:
-                # Cascade to children that are enqueued OR doing
-                if child.state in [QueuedTaskState.enqueued, QueuedTaskState.doing]:
-                    if parent_task.state == QueuedTaskState.failed:
-                        child.mark_as_failed(
-                            exception_name="ParentTaskFailed",
-                            exception_message=f"Parent task {parent_task.id} failed",
-                            exception_info=f"Parent task '{parent_task.name}' failed, cascading to child",
-                        )
-                    elif parent_task.state == QueuedTaskState.cancelled:
-                        child.mark_as_cancelled()
+        from sqlalchemy import text
 
-                    await child.save()
-                    logger.info(
-                        f"Cascaded {parent_task.state} to child task {child.id} (was {child.state})"
-                    )
+        sql = text(
+            "WITH RECURSIVE descendants(id, depth) AS (\n"
+            "  SELECT id, 0 FROM queued_tasks WHERE id = :root_id\n"
+            "  UNION ALL\n"
+            "  SELECT c.id, d.depth + 1\n"
+            "  FROM queued_tasks c\n"
+            "  INNER JOIN descendants d ON c.parent_task = d.id\n"
+            "  WHERE d.depth < :max_depth\n"
+            ")\n"
+            "UPDATE queued_tasks t\n"
+            "SET state = :new_state::queuedtaskstate,\n"
+            "    date_failed    = CASE WHEN :new_state = 'failed'    THEN NOW() ELSE date_failed    END,\n"
+            "    date_cancelled = CASE WHEN :new_state = 'cancelled' THEN NOW() ELSE date_cancelled END,\n"
+            "    date_ended     = NOW(),\n"
+            "    exception_name    = COALESCE(:exception_name,    exception_name),\n"
+            "    exception_message = COALESCE(:exception_message, exception_message),\n"
+            "    exception_info    = COALESCE(:exception_info,    exception_info),\n"
+            "    updated_at = NOW()\n"
+            "FROM descendants d\n"
+            "WHERE t.id = d.id\n"
+            "  AND t.state IN ('enqueued'::queuedtaskstate, 'doing'::queuedtaskstate)\n"
+            "RETURNING t.id"
+        )
 
-                    # If child was doing, we should ideally signal the worker to stop
-                    # For now, the worker will complete but the final state will be overridden
-
-                    # Recursive cascade to grandchildren
-                    await self._cascade_to_children(child)
-
-        except Exception as e:
-            logger.error(f"Error cascading to children: {e}")
+        rows = await self.database.fetch_all(
+            sql,
+            {
+                "root_id": root_task_id,
+                "new_state": new_state.name,
+                "exception_name": exception_name,
+                "exception_message": exception_message,
+                "exception_info": exception_info,
+                "max_depth": max_depth,
+            },
+        )
+        return len(rows)
 
     async def _init_db(self) -> None:
         """

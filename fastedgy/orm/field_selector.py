@@ -39,6 +39,12 @@ def parse_field_selector_input(
         for field_name, field in model_cls.meta.fields.items():
             _add_field_selector(result, field)
 
+        # Pydantic @computed_field values are not part of meta.fields (which only
+        # holds ORM columns/relations), so the "+" wildcard would otherwise drop
+        # them. Include them here so computed properties are emitted like columns.
+        for computed_name in getattr(model_cls, "model_computed_fields", {}):
+            result[computed_name] = True
+
     for part in parts:
         if part == "+":
             continue
@@ -60,6 +66,10 @@ def parse_field_selector_input(
 
                 if extra_field_name in extra_fields:
                     result[field_path[0]] = True
+            elif field_path[0] in getattr(current_model, "model_computed_fields", {}):
+                # Explicitly requested @computed_field (not an ORM column, so
+                # absent from meta.fields). Mirror the "+" wildcard behaviour.
+                result[field_path[0]] = True
             else:
                 _add_field_selector(
                     current, current_model.meta.fields.get(field_path[0])
@@ -94,8 +104,11 @@ def parse_field_selector_input(
 
             if current and current_model:
                 field = current_model.meta.fields.get(last_field)
+                is_computed = last_field in getattr(
+                    current_model, "model_computed_fields", {}
+                )
 
-                if field:
+                if field or is_computed:
                     if isinstance(current, list):
                         current[0][last_field] = True
                     else:

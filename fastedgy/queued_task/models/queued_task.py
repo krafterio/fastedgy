@@ -101,6 +101,15 @@ class QueuedTaskMixin(BaseModel):
     auto_remove: bool = fields.BooleanField(
         default=False, label="Suppression automatique après succès"
     )  # type: ignore
+    # Lease ownership: server_name of the worker manager that claimed the
+    # task (set by the claim UPDATE, cleared on release/re-enqueue).
+    # Cross-checked against queued_task_workers heartbeats, it lets the
+    # reaper recover a 'doing' row immediately when its owner dies instead
+    # of waiting for the task-timeout criterion — essential with start-first
+    # deploys where several containers (= servers) briefly overlap.
+    claimed_by: Optional[str] = fields.CharField(
+        max_length=255, null=True, label="Serveur propriétaire"
+    )  # type: ignore
     date_done: Optional[datetime] = fields.DateTimeField(
         null=True, label="Date de succès"
     )  # type: ignore

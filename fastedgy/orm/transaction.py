@@ -131,6 +131,42 @@ async def with_transaction(
     raise AssertionError("unreachable")  # pragma: no cover
 
 
+async def retry_on_serialization(
+    op: Callable[[], Awaitable[T]],
+    *,
+    max_attempts: int = 3,
+    base_delay: float = 0.1,
+) -> T:
+    """Replay an idempotent operation on serialization conflicts (40001/40P01)
+    WITHOUT wrapping it in a transaction.
+
+    Companion to :func:`with_transaction` for operations that manage their own
+    transactions or catch integrity errors internally (e.g. an idempotent
+    upsert handling its unique-race with a caught IntegrityError): wrapping
+    those in an outer transaction would leave it poisoned after the internally
+    caught error. The op must be idempotent or refetch its own data — exactly
+    like a :func:`with_transaction` factory.
+    """
+    from sqlalchemy.exc import DBAPIError
+
+    for attempt in range(max_attempts):
+        try:
+            return await op()
+        except DBAPIError as e:
+            if not is_serialization_error(e) or attempt == max_attempts - 1:
+                raise
+            delay = base_delay * (2**attempt) + random.uniform(0, base_delay)
+            logger.debug(
+                "Serialization conflict in %s, retry %d/%d in %.3fs",
+                getattr(op, "__qualname__", op),
+                attempt + 1,
+                max_attempts,
+                delay,
+            )
+            await asyncio.sleep(delay)
+    raise AssertionError("unreachable")  # pragma: no cover
+
+
 @overload
 def transaction(
     func: Callable[..., Coroutine[Any, Any, T]],
@@ -207,5 +243,6 @@ def transaction(
 __all__ = [
     "transaction",
     "with_transaction",
+    "retry_on_serialization",
     "is_serialization_error",
 ]

@@ -576,12 +576,15 @@ class QueueWorkerManager:
                     "  LIMIT 1\n"
                     ")\n"
                     "UPDATE queued_tasks t\n"
-                    "SET state = 'doing'::queuedtaskstate, date_started = NOW()\n"
+                    "SET state = 'doing'::queuedtaskstate, date_started = NOW(),\n"
+                    "    claimed_by = :server_name\n"
                     "FROM next_task\n"
                     "WHERE t.id = next_task.id\n"
                     "RETURNING t.id"
                 )
-                row = await self.database.fetch_one(sql)
+                row = await self.database.fetch_one(
+                    sql.bindparams(server_name=self.server_name)
+                )
                 if not row:
                     return None
 
@@ -638,7 +641,7 @@ class QueueWorkerManager:
 
             sql = text(
                 "UPDATE queued_tasks SET state = 'enqueued'::queuedtaskstate, "
-                "date_started = NULL, updated_at = NOW() "
+                "date_started = NULL, claimed_by = NULL, updated_at = NOW() "
                 "WHERE id = :id AND state = 'doing'::queuedtaskstate"
             )
             await self.database.execute(sql.bindparams(id=task_id))
@@ -657,11 +660,39 @@ class QueueWorkerManager:
         crash): without recovery they stay 'doing' forever and silently block
         the cron scheduler dedup for tasks of the same name. Re-enqueue them.
 
-        Multi-server guard: skipped when another alive server exists (its
-        'doing' rows are legitimate in-flight work). In that case — and for the
-        ~2 min window where a hard-killed sibling still looks alive via its
-        last heartbeat — the timeout-based periodic reaper picks them up.
+        Ownership-aware (claimed_by lease):
+        - Rows claimed by THIS server_name are recovered unconditionally: we
+          just booted and hold no claims, so they necessarily belong to a
+          previous incarnation of this very container (docker restart keeps
+          the hostname).
+        - Rows claimed by another server are left to the periodic reaper,
+          which recovers them as soon as their owner's heartbeat goes stale
+          (start-first deploys legitimately overlap several containers).
+        - Legacy rows without owner (claimed_by IS NULL, pre-migration) keep
+          the conservative guard: only recovered when no other alive server
+          exists.
         """
+        from sqlalchemy import text
+
+        # (1) Own rows: always safe to recover.
+        own_sql = text(
+            "UPDATE queued_tasks "
+            "SET state = 'enqueued'::queuedtaskstate, date_started = NULL, "
+            "    claimed_by = NULL, updated_at = NOW() "
+            "WHERE state = 'doing'::queuedtaskstate AND claimed_by = :self_name "
+            "RETURNING id"
+        )
+        rows = await self.database.fetch_all(
+            own_sql.bindparams(self_name=self.server_name)
+        )
+        if rows:
+            ids = [row[0] for row in rows]
+            logger.warning(
+                f"Recovered {len(ids)} own task(s) orphaned in 'doing' by a "
+                f"previous incarnation of this server, re-enqueued: {ids}"
+            )
+
+        # (2) Ownerless legacy rows: conservative alive-server guard.
         QueuedTaskWorker = cast(
             type["QueuedTaskWorker"],
             self.registry.get_model("QueuedTaskWorker"),
@@ -674,45 +705,79 @@ class QueueWorkerManager:
         ).first()
         if other_alive:
             logger.info(
-                "Skipping orphaned 'doing' recovery: another alive server detected "
-                f"('{other_alive.server_name}') — periodic reaper will handle stale rows"
+                "Skipping ownerless 'doing' recovery: another alive server detected "
+                f"('{other_alive.server_name}') — the dead-owner reaper handles the rest"
             )
             return
 
-        from sqlalchemy import text
-
-        sql = text(
+        legacy_sql = text(
             "UPDATE queued_tasks "
-            "SET state = 'enqueued'::queuedtaskstate, date_started = NULL, updated_at = NOW() "
-            "WHERE state = 'doing'::queuedtaskstate "
+            "SET state = 'enqueued'::queuedtaskstate, date_started = NULL, "
+            "    claimed_by = NULL, updated_at = NOW() "
+            "WHERE state = 'doing'::queuedtaskstate AND claimed_by IS NULL "
             "RETURNING id"
         )
-        rows = await self.database.fetch_all(sql)
+        rows = await self.database.fetch_all(legacy_sql)
         if rows:
             ids = [row[0] for row in rows]
             logger.warning(
-                f"Recovered {len(ids)} task(s) orphaned in 'doing' by a previous "
-                f"non-graceful shutdown, re-enqueued: {ids}"
+                f"Recovered {len(ids)} ownerless task(s) orphaned in 'doing' by a "
+                f"previous non-graceful shutdown, re-enqueued: {ids}"
             )
 
     async def _reap_stale_tasks(self) -> None:
         """Periodic recovery of stuck rows (runs from the cleanup loop).
 
-        (1) 'doing' rows older than 2x task_timeout are zombies: the worker
-        enforces task_timeout on every execution, so no legitimate run can
-        last that long — either the finalize write failed or the owning
-        process died mid-run. They are marked 'failed' (TaskReaped) rather
-        than re-enqueued: a failed cron task unblocks the scheduler dedup
-        (next matching tick re-creates it) and a re-run loop on a task that
-        crashes its process is avoided.
+        (1) 'doing' rows whose owner is dead (claimed_by lease cross-checked
+        against queued_task_workers heartbeats) are re-enqueued immediately:
+        the owning process died mid-run — same situation as boot recovery,
+        detected from a surviving server. Essential with start-first deploys
+        where several containers overlap and a hard-killed sibling still
+        "looks alive" through its lingering heartbeat for ~2 minutes.
 
-        (2) 'enqueued' children whose parent ended failed/cancelled can never
+        (2) Remaining 'doing' rows older than 2x task_timeout are zombies
+        (the worker enforces task_timeout on every execution, so no
+        legitimate run can last that long): the owner is alive but the
+        finalize write was lost. They are marked 'failed' (TaskReaped)
+        rather than re-enqueued — a failed cron task unblocks the scheduler
+        dedup (next matching tick re-creates it).
+
+        (3) 'enqueued' children whose parent ended failed/cancelled can never
         be claimed (the claim SQL requires the parent to be 'done'): cascade
         the parent's terminal state to the whole subtree.
+
+        (4) Dead queued_task_workers rows are deleted (stale heartbeat).
         """
         from sqlalchemy import text
 
-        # (1) Timeout-stale 'doing' rows → failed (TaskReaped)
+        # (1) Dead-owner 'doing' rows → re-enqueued immediately. Safe against
+        # double-run: a stale heartbeat (4 missed 30s beats) means the process
+        # is dead or being killed — the heartbeat loop also touches the
+        # healthcheck liveness file, so a process unable to beat for 2 minutes
+        # has already been marked unhealthy and replaced by Swarm (90s).
+        dead_owner_sql = text(
+            "UPDATE queued_tasks t "
+            "SET state = 'enqueued'::queuedtaskstate, date_started = NULL, "
+            "    claimed_by = NULL, updated_at = NOW() "
+            "WHERE t.state = 'doing'::queuedtaskstate "
+            "  AND t.claimed_by IS NOT NULL "
+            "  AND NOT EXISTS ("
+            "    SELECT 1 FROM queued_task_workers w "
+            "    WHERE w.server_name = t.claimed_by "
+            "      AND w.is_running IS TRUE "
+            "      AND w.last_heartbeat >= NOW() - interval '2 minutes'"
+            "  ) "
+            "RETURNING t.id"
+        )
+        rows = await self.database.fetch_all(dead_owner_sql)
+        if rows:
+            ids = [row[0] for row in rows]
+            logger.warning(
+                f"Recovered {len(ids)} 'doing' task(s) whose owner is dead, "
+                f"re-enqueued: {ids}"
+            )
+
+        # (2) Timeout-stale 'doing' rows → failed (TaskReaped)
         stale_after = max(int(self.config.task_timeout or 0), 1) * 2
         # stale_after is a Python-computed int: safe to interpolate in the
         # message (binding it there would be typed as text by Postgres and
@@ -736,7 +801,7 @@ class QueueWorkerManager:
                 f"Reaped {len(ids)} stale 'doing' task(s) (older than {stale_after}s): {ids}"
             )
 
-        # (2) 'enqueued' children of terminally-failed parents → cascade
+        # (3) 'enqueued' children of terminally-failed parents → cascade
         orphan_sql = text(
             "SELECT c.id, p.id, p.state, p.name "
             "FROM queued_tasks c "
@@ -783,12 +848,13 @@ class QueueWorkerManager:
                     f"to descendants (root {child_id}): {e}"
                 )
 
-        # (3) Dead queued_task_workers rows: the heartbeat beats every 30s,
+        # (4) Dead queued_task_workers rows: the heartbeat beats every 30s,
         # so a row without a beat for 10 minutes belongs to a dead process —
         # typically a hard-killed container whose hostname is never reused,
         # left wrongly frozen at is_running=True. Deleting them keeps the
         # table clean (graceful stops already delete their own row) and the
-        # boot-recovery alive-server guard accurate.
+        # boot-recovery alive-server guard accurate. Runs after (1), whose
+        # dead-owner verdict is identical for a missing or a stale row.
         workers_sql = text(
             "DELETE FROM queued_task_workers "
             "WHERE last_heartbeat < NOW() - interval '10 minutes' "

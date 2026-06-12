@@ -470,6 +470,7 @@ class QueuedTasks:
             task.date_enqueued = datetime.now(context.get_timezone())
             task.date_started = None
             task.date_stopped = None
+            task.claimed_by = None
             task.exception_name = None
             task.exception_message = None
             task.exception_info = None

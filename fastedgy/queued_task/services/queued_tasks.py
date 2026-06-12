@@ -62,6 +62,8 @@ class TaskCreationRequest:
     kwargs: Dict[str, Any]
     parent_ref: Optional["QueuedTaskRef"] = None
     max_retries: Optional[int] = None
+    channel: Optional[str] = None
+    priority: Optional[int] = None
 
     def __post_init__(self):
         if self.args is None:
@@ -89,6 +91,8 @@ class QueuedTasks:
         *args: P.args,
         parent: QueuedTaskRef | None = None,  # type: ignore
         max_retries: int | None = None,  # type: ignore
+        channel: str | None = None,  # type: ignore
+        priority: int | None = None,  # type: ignore
         **kwargs: P.kwargs,
     ) -> QueuedTaskRef:
         """
@@ -97,6 +101,9 @@ class QueuedTasks:
 
         max_retries overrides the QUEUED_TASK_MAX_RETRIES auto-retry budget
         for this task (None = config default, 0 = no auto-retry).
+        channel selects the concurrency lane (None = 'default', capacities
+        from QUEUED_TASK_CHANNELS); priority orders the claim (higher runs
+        first, None = 0).
         """
         if "QueuedTask" not in self.registry.models:
             raise RuntimeError(
@@ -125,6 +132,8 @@ class QueuedTasks:
             kwargs=dict(kwargs),
             parent_ref=parent,
             max_retries=max_retries,
+            channel=channel,
+            priority=priority,
         )
 
         # Add to creation queue
@@ -238,6 +247,8 @@ class QueuedTasks:
             kwargs=kwargs,
             parent_task=parent_task,
             max_retries=request.max_retries,
+            channel=request.channel,
+            priority=request.priority,
         )
 
         return task.id or 0
@@ -247,6 +258,8 @@ class QueuedTasks:
         func: Callable[P, Any],
         *args: P.args,
         max_retries: int | None = None,  # type: ignore
+        channel: str | None = None,  # type: ignore
+        priority: int | None = None,  # type: ignore
         **kwargs: P.kwargs,
     ) -> "QueuedTask":
         """
@@ -270,7 +283,12 @@ class QueuedTasks:
 
         serializable_func = cast(SerializableCallable, func)
         return await self._create_queued_task(
-            serializable_func, args, kwargs, max_retries=max_retries
+            serializable_func,
+            args,
+            kwargs,
+            max_retries=max_retries,
+            channel=channel,
+            priority=priority,
         )
 
     async def _create_queued_task(
@@ -279,6 +297,8 @@ class QueuedTasks:
         args: tuple,
         kwargs: dict,
         max_retries: Optional[int] = None,
+        channel: Optional[str] = None,
+        priority: Optional[int] = None,
     ):
         """Create queued task - supports both regular and local functions"""
         try:
@@ -319,6 +339,8 @@ class QueuedTasks:
                 args=list(args),
                 kwargs=dict(kwargs),
                 max_retries=max_retries,
+                channel=channel,
+                priority=priority,
             )
 
             return task
@@ -340,6 +362,8 @@ class QueuedTasks:
         auto_remove: bool = False,
         date_enqueued: Optional[datetime] = None,
         max_retries: Optional[int] = None,
+        channel: Optional[str] = None,
+        priority: Optional[int] = None,
     ) -> "QueuedTask":
         """Create a new task in the queue"""
         # Validation: must have either module/function or serialized function
@@ -363,6 +387,8 @@ class QueuedTasks:
             or datetime.now(fastedgy_context.get_timezone()),
             auto_remove=auto_remove,
             max_retries=max_retries,
+            channel=channel or "default",
+            priority=priority if priority is not None else 0,
         )
 
         await self.hook_registry.trigger_pre_create(task)
@@ -521,6 +547,8 @@ class QueuedTasks:
                 auto_remove=task.auto_remove,
                 # Keep the per-task budget; retry_count starts fresh (default 0)
                 max_retries=task.max_retries,
+                channel=task.channel,
+                priority=task.priority,
             )
 
             # Isolated transaction with serialization-conflict retry

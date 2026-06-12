@@ -55,6 +55,8 @@ def scheduled_task(
     auto_remove: bool = True,
     enabled: bool = True,
     context: Optional[Dict[str, Any]] = None,
+    channel: Optional[str] = None,
+    priority: Optional[int] = None,
 ) -> Callable:
     """Decorator to register a function as a cron-scheduled task.
 
@@ -104,6 +106,8 @@ def scheduled_task(
             auto_remove=auto_remove,
             enabled=enabled,
             context=context,
+            channel=channel,
+            priority=priority,
         )
 
         registry = get_service(ScheduledTaskRegistry)

@@ -5,6 +5,8 @@ from typing import Any, Optional, TYPE_CHECKING
 
 from datetime import datetime, timezone
 
+from sqlalchemy import text
+
 from fastedgy.orm import Model, fields
 from fastedgy.i18n import _ts
 from fastedgy.models.base import BaseModel
@@ -46,6 +48,14 @@ class QueuedTaskMixin(BaseModel):
                 fields=["date_enqueued"], name="idx_queued_tasks_date_enqueued"
             ),
             fields.Index(fields=["date_ended"], name="idx_queued_tasks_date_ended"),
+            # Serves the claim's ORDER BY priority DESC, date_enqueued ASC —
+            # a mixed-direction sort that a uniform-direction btree cannot
+            # provide (every claim would top-1 sort the whole ready backlog).
+            # The TextClause carries the per-column direction.
+            fields.Index(
+                fields=["state", text("priority DESC"), "date_enqueued"],
+                name="idx_queued_tasks_state_priority",
+            ),
         ]
 
     name: Optional[str] = fields.CharField(
@@ -67,6 +77,16 @@ class QueuedTaskMixin(BaseModel):
     args: list = fields.JSONField(default=[], label="Arguments positionnels")  # type: ignore
     kwargs: dict = fields.JSONField(default={}, label="Arguments nommés")  # type: ignore
     context: dict = fields.JSONField(default={}, label="Contexte de la tâche")  # type: ignore
+
+    # Execution lane and ordering: the claim picks the highest-priority ready
+    # row among the channels that still have a free slot on the claiming
+    # container (capacities from QUEUED_TASK_CHANNELS), oldest first within
+    # equal priority. Channels are concurrency caps, priority is the global
+    # order — see QueuedTaskConfig.channels.
+    channel: str = fields.CharField(
+        max_length=64, default="default", label="Channel d'exécution"
+    )  # type: ignore
+    priority: int = fields.IntegerField(default=0, label="Priorité")  # type: ignore
 
     parent_task: Optional["QueuedTask"] = fields.ForeignKey(
         "QueuedTask", on_delete="CASCADE", null=True, label="Task parent"

@@ -9,6 +9,40 @@ if TYPE_CHECKING:
     from edgy import Database, Registry
 
 
+def _parse_channel_capacities(raw: str) -> dict[str, int]:
+    """Parse the QUEUED_TASK_CHANNELS env value ("sync:2,realtime:4").
+
+    Raises ValueError on a malformed entry — failing fast at import beats a
+    queue silently running without its capacity limits.
+    """
+    capacities: dict[str, int] = {}
+    for entry in raw.split(","):
+        entry = entry.strip()
+        if not entry:
+            continue
+        name, sep, capacity = entry.partition(":")
+        name = name.strip()
+        if not sep or not name:
+            raise ValueError(
+                f"Invalid QUEUED_TASK_CHANNELS entry '{entry}' "
+                f"(expected 'name:capacity')"
+            )
+        try:
+            value = int(capacity.strip())
+        except ValueError:
+            raise ValueError(
+                f"Invalid QUEUED_TASK_CHANNELS capacity for channel "
+                f"'{name}': '{capacity.strip()}' (expected an integer)"
+            ) from None
+        if value < 0:
+            raise ValueError(
+                f"Invalid QUEUED_TASK_CHANNELS capacity for channel "
+                f"'{name}': must be >= 0 (0 pauses the channel)"
+            )
+        capacities[name] = value
+    return capacities
+
+
 class QueuedTaskConfig:
     # Logging configuration
     enable_db_logging: bool = True
@@ -43,6 +77,17 @@ class QueuedTaskConfig:
     # seconds of a worker slot). Cancelled/stopped tasks are never retried.
     # Per-task override via add_task(..., max_retries=N); 0 disables.
     max_retries: int = int(os.environ.get("QUEUED_TASK_MAX_RETRIES", 3))
+
+    # Per-channel concurrency capacities ("sync:2,realtime:4"). A channel is
+    # a concurrency cap, not a dedicated worker pool: the shared workers
+    # simply never claim a task whose channel is already running `capacity`
+    # tasks ON THIS CONTAINER (counting is per manager — with N replicas the
+    # effective cap is N x capacity). Channels absent from the mapping are
+    # unbounded (limited by the worker count); capacity 0 pauses a channel
+    # (its tasks stay enqueued). Priority orders globally across channels.
+    channels: dict[str, int] = _parse_channel_capacities(
+        os.environ.get("QUEUED_TASK_CHANNELS", "")
+    )
 
     # Notification configuration
     use_postgresql_notify: bool = bool(

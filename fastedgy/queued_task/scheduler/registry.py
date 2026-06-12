@@ -26,6 +26,8 @@ class ScheduledTaskDef:
     auto_remove: bool = True
     enabled: bool = True
     context: Optional[Dict[str, Any]] = None
+    channel: Optional[str] = None
+    priority: Optional[int] = None
 
     @property
     def module_name(self) -> str:

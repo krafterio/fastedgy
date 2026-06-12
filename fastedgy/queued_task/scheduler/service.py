@@ -33,6 +33,8 @@ class Scheduler:
         context: dict[str, Any] | None = None,
         name: str | None = None,
         auto_remove: bool = True,
+        channel: str | None = None,
+        priority: int | None = None,
     ) -> "QueuedTask":
         """
         Schedule a task for future execution.
@@ -45,6 +47,8 @@ class Scheduler:
             context: Optional context dictionary (overrides hook-provided context keys)
             name: Optional name for the task
             auto_remove: Auto-remove task after successful execution
+            channel: Concurrency lane (None = 'default')
+            priority: Claim ordering, higher runs first (None = 0)
 
         Returns:
             The created QueuedTask instance
@@ -86,6 +90,8 @@ class Scheduler:
             name=name or f"Scheduled: {function_name}",
             auto_remove=auto_remove,
             date_enqueued=date_enqueued,
+            channel=channel,
+            priority=priority,
         )
 
         logger.info(

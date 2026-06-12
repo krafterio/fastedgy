@@ -173,6 +173,8 @@ class CronScheduler:
                             context=task_def.context or {},
                             name=task_def.name,
                             auto_remove=task_def.auto_remove,
+                            channel=task_def.channel,
+                            priority=task_def.priority,
                         )
 
                     logger.info(

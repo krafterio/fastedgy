@@ -11,6 +11,8 @@ import logging
 
 import time
 
+from collections import Counter
+
 from datetime import datetime, timedelta
 
 from pathlib import Path
@@ -67,6 +69,12 @@ class QueueWorkerManager:
         self.cron_scheduler: Optional[CronScheduler] = None
         self.shutdown_event = asyncio.Event()
         self._last_retention_purge: Optional[float] = None
+        # Per-channel running counts on THIS container (channel capacities are
+        # per manager, not cluster-wide). Guarded by _claim_lock on the
+        # increment side: the saturation check and the claim must be atomic,
+        # or concurrent _process_pending_tasks runs would overshoot the caps.
+        self._channel_running: Counter[str] = Counter()
+        self._claim_lock = asyncio.Lock()
 
         # Statistics
         self.stats = {
@@ -530,6 +538,7 @@ class QueueWorkerManager:
                     # 'stopped' snapshot and joined by nothing. Put the row
                     # back as if it had never been claimed.
                     if not self.is_running:
+                        self._channel_release(task)
                         await self._release_claimed_task(task.id)
                         break
 
@@ -549,13 +558,35 @@ class QueueWorkerManager:
     async def _claim_next_ready_task(self) -> Optional["QueuedTask"]:
         """Atomically claim the next ready task (state=enqueued and parent done) and mark it as doing.
 
-        Uses SELECT .. FOR UPDATE SKIP LOCKED to avoid double-claim across workers/servers.
-        Returns the claimed task model or None if none is available.
+        Uses SELECT .. FOR UPDATE SKIP LOCKED to avoid double-claim across
+        workers/servers. Picks the highest-priority row (oldest first within
+        equal priority) among the channels that still have a free slot on
+        this container. Returns the claimed task model or None.
+
+        The saturation check, the claim and the counter increment run under
+        _claim_lock: _process_pending_tasks is fired concurrently from
+        notifications, polling and task completions, and an unguarded
+        check-then-claim would overshoot the channel capacities. The work
+        held under the lock is BOUNDED (claim abandoned after 15s — same
+        deliberate-abandon pattern as _bounded_stop_write): a hung claim on a
+        black-holed connection must never hold the lock forever, or every
+        subsequent _process_pending_tasks would park its acquired worker on
+        the lock acquire and silently freeze the whole container. The model
+        load happens outside the lock — the claim RETURNINGs the channel so
+        the counter does not need the loaded model.
         """
+        claimed_id: Optional[int] = None
+        claimed_channel = "default"
         try:
-            # Use a short transaction with lower isolation to reduce conflicts
-            async with self.database.transaction(isolation_level="READ COMMITTED"):
-                # Claim the next task atomically and return its id
+            async with self._claim_lock:
+                # Channels that exhausted their per-container capacity (a
+                # missing Counter key reads as 0 without inserting it).
+                excluded_channels = [
+                    name
+                    for name, capacity in self.config.channels.items()
+                    if self._channel_running[name] >= capacity
+                ]
+
                 from sqlalchemy import text
 
                 sql = text(
@@ -564,6 +595,7 @@ class QueueWorkerManager:
                     "  FROM queued_tasks qt\n"
                     "  WHERE qt.state = 'enqueued'\n"
                     "    AND (qt.date_enqueued IS NULL OR qt.date_enqueued <= NOW())\n"
+                    "    AND NOT (qt.channel = ANY(CAST(:excluded AS text[])))\n"
                     "    AND (\n"
                     "      qt.parent_task IS NULL\n"
                     "      OR EXISTS (\n"
@@ -571,7 +603,7 @@ class QueueWorkerManager:
                     "        WHERE p.id = qt.parent_task AND p.state = 'done'\n"
                     "      )\n"
                     "    )\n"
-                    "  ORDER BY qt.date_enqueued\n"
+                    "  ORDER BY qt.priority DESC, qt.date_enqueued\n"
                     "  FOR UPDATE SKIP LOCKED\n"
                     "  LIMIT 1\n"
                     ")\n"
@@ -580,53 +612,122 @@ class QueueWorkerManager:
                     "    claimed_by = :server_name\n"
                     "FROM next_task\n"
                     "WHERE t.id = next_task.id\n"
-                    "RETURNING t.id"
+                    "RETURNING t.id, t.channel"
                 )
-                row = await self.database.fetch_one(
-                    sql.bindparams(server_name=self.server_name)
-                )
+
+                async def _do_claim():
+                    # Short transaction with lower isolation to reduce conflicts
+                    async with self.database.transaction(
+                        isolation_level="READ COMMITTED"
+                    ):
+                        return await self.database.fetch_one(
+                            sql.bindparams(
+                                server_name=self.server_name,
+                                excluded=excluded_channels,
+                            )
+                        )
+
+                claim_job = asyncio.create_task(_do_claim())
+                done, pending = await asyncio.wait({claim_job}, timeout=15)
+                if pending:
+                    # Deliberate abandon: cancel without awaiting (the rollback
+                    # of a black-holed connection can itself hang). If the
+                    # UPDATE actually committed server-side, the orphaned
+                    # 'doing' row is recovered by the reaper (TaskReaped →
+                    # auto-retry budget).
+                    claim_job.cancel()
+                    logger.error(
+                        "Claim query did not complete within 15s — abandoning "
+                        "this claim round (polling will retry)"
+                    )
+                    return None
+                row = claim_job.result()
                 if not row:
                     return None
 
                 try:
                     claimed_id = int(row[0])  # type: ignore[index]
+                    claimed_channel = str(row[1] or "default")  # type: ignore[index]
                 except Exception:
-                    try:
-                        claimed_id = int(row["id"])  # type: ignore[index]
-                    except Exception:
-                        claimed_id = None
+                    # Unparseable claim row: the DB row is 'doing' with no
+                    # local execution — the reaper recovers it.
+                    return None
 
-            if claimed_id is None:
-                # As a fallback, re-read the next doing task by date_started very recently assigned to this server window
-                # but to avoid complexity, simply indicate none
-                return None
-
-            # Load the task model instance. The claim transaction is already
-            # committed: if this load fails, the row would stay 'doing' forever
-            # while the caller treats None as "nothing to process" — release it
-            # back to 'enqueued' before propagating to the outer handler.
-            QueuedTask = cast(type["QueuedTask"], self.registry.get_model("QueuedTask"))
-            try:
-                task = await QueuedTask.query.filter(
-                    QueuedTask.columns.id == claimed_id
-                ).get_or_none()
-            except asyncio.CancelledError:
-                # Cancellation between claim commit and model load (shutdown
-                # teardown of a fire-and-forget _process_pending_tasks):
-                # revert the row, shielded so a re-cancellation cannot
-                # interrupt the UPDATE mid-flight.
-                await asyncio.shield(self._release_claimed_task(claimed_id))
-                raise
-            except Exception:
-                await self._release_claimed_task(claimed_id)
-                raise
-            if task is None:
-                # Row deleted between claim and load (concurrent cancel/remove)
-                return None
-            return task
+                # Count the claim against its channel; every exit path of the
+                # claimed task must release it (execution finally, shutdown
+                # release, load-failure paths below).
+                self._channel_running[claimed_channel] += 1
         except Exception as e:
             logger.error(f"Error claiming next ready task: {e}")
             return None
+
+        # Load the task model instance OUTSIDE the lock — a slow load must not
+        # block other claims. The claim transaction is already committed: if
+        # this load fails, the row would stay 'doing' forever while the caller
+        # treats None as "nothing to process" — release it back to 'enqueued'.
+        QueuedTask = cast(type["QueuedTask"], self.registry.get_model("QueuedTask"))
+        try:
+            task = await QueuedTask.query.filter(
+                QueuedTask.columns.id == claimed_id
+            ).get_or_none()
+        except asyncio.CancelledError:
+            # Cancellation between claim commit and model load (shutdown
+            # teardown of a fire-and-forget _process_pending_tasks):
+            # revert the row, shielded so a re-cancellation cannot
+            # interrupt the UPDATE mid-flight.
+            self._channel_release_name(claimed_channel)
+            await asyncio.shield(self._release_claimed_task(claimed_id))
+            raise
+        except Exception as e:
+            self._channel_release_name(claimed_channel)
+            await self._release_claimed_task(claimed_id)
+            logger.error(f"Error loading claimed task {claimed_id}: {e}")
+            return None
+        if task is None:
+            # Row deleted between claim and load (concurrent cancel/remove)
+            self._channel_release_name(claimed_channel)
+            return None
+        return task
+
+    def _channel_release(self, task: "QueuedTask") -> None:
+        """Give back the per-container channel slot taken by a claimed task."""
+        self._channel_release_name(getattr(task, "channel", None) or "default")
+
+    def _channel_release_name(self, channel: str) -> None:
+        """Decrement the per-container running count of a channel.
+
+        Counter ops are synchronous (no await between read and write), so no
+        lock is needed on the decrement side. Keys are dropped at zero to
+        keep the Counter bounded and never negative.
+        """
+        if self._channel_running[channel] <= 1:
+            self._channel_running.pop(channel, None)
+        else:
+            self._channel_running[channel] -= 1
+
+    async def _release_channel_when_thread_ends(
+        self, finished: asyncio.Event, task: "QueuedTask"
+    ) -> None:
+        """Hold a timed-out sync task's channel slot until its thread ends.
+
+        asyncio cannot kill the executor thread of a sync task that hit
+        task_timeout: its body keeps running after the worker is freed.
+        Releasing the channel slot at run_task return would let this very
+        container claim another task of the same lane (including the 30s
+        auto-retry of the SAME task) while the zombie thread still runs —
+        breaking the per-container capacity promise exactly where it matters
+        (rate-limit lanes of capacity 1). The worker slot, by contrast, is
+        deliberately freed immediately (documented run_in_executor
+        limitation).
+        """
+        await finished.wait()
+        self._channel_release(task)
+        logger.info(
+            f"Channel slot of timed-out sync task {task.id} released "
+            f"(executor thread finished)"
+        )
+        if self.is_running:
+            asyncio.create_task(self._process_pending_tasks())
 
     async def _release_claimed_task(self, task_id: int) -> None:
         """Best-effort revert of a freshly claimed task back to 'enqueued'.
@@ -1122,6 +1223,23 @@ class QueueWorkerManager:
             logger.error(f"Unexpected error executing task {task.id}: {e}")
 
         finally:
+            # Free the channel slot before re-processing, so the follow-up
+            # claim already sees the freed capacity. Exception: a timed-out
+            # SYNC task leaves a zombie executor thread behind — its slot is
+            # only released when the thread actually ends.
+            pending_sync = getattr(worker, "pending_sync_finished", None)
+            worker.pending_sync_finished = None
+            if pending_sync is not None and not pending_sync.is_set():
+                logger.warning(
+                    f"Task {task.id} timed out but its sync executor thread "
+                    f"is still running — holding its channel slot until the "
+                    f"thread finishes"
+                )
+                asyncio.create_task(
+                    self._release_channel_when_thread_ends(pending_sync, task)
+                )
+            else:
+                self._channel_release(task)
             # Return worker to pool
             await self.worker_pool.return_worker(worker)
             # Immediately try to claim next tasks to keep workers busy

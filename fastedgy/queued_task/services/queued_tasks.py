@@ -347,12 +347,12 @@ class QueuedTasks:
 
         await self.hook_registry.trigger_pre_create(task)
 
-        # Use isolated transaction for save
-        from fastedgy.orm import Database as EdgyDatabase
+        # Isolated transaction with serialization-conflict retry (databasez
+        # defaults to SERIALIZABLE): a transient 40001 must neither bubble up
+        # to the producer nor lose a cron fire.
+        from fastedgy.orm import with_transaction
 
-        database: EdgyDatabase = get_service(EdgyDatabase)
-        async with database.transaction():
-            await task.save()
+        await with_transaction(task.save)
 
         await self.hook_registry.trigger_post_create(task)
 
@@ -474,12 +474,10 @@ class QueuedTasks:
             task.exception_message = None
             task.exception_info = None
 
-            # Use isolated transaction for save
-            from fastedgy.orm import Database as EdgyDatabase
+            # Isolated transaction with serialization-conflict retry
+            from fastedgy.orm import with_transaction
 
-            db: EdgyDatabase = get_service(EdgyDatabase)
-            async with db.transaction():
-                await task.save()
+            await with_transaction(task.save)
             return task
         else:
             # Clone the task for done/failed/cancelled states
@@ -496,12 +494,10 @@ class QueuedTasks:
                 date_enqueued=datetime.now(context.get_timezone()),
             )
 
-            # Use isolated transaction for save
-            from fastedgy.orm import Database as EdgyDatabase
+            # Isolated transaction with serialization-conflict retry
+            from fastedgy.orm import with_transaction
 
-            database: EdgyDatabase = get_service(EdgyDatabase)
-            async with database.transaction():
-                await cloned_task.save()
+            await with_transaction(cloned_task.save)
             return cloned_task
 
     async def get_pending_tasks_count(self) -> int:

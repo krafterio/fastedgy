@@ -44,6 +44,21 @@ class QueuedTaskConfig:
         "QUEUED_TASK_NOTIFY_CHANNEL", "queued_new_task"
     )
 
+    # Dedicated manager DB pool sizing (bookkeeping writes: task states, logs,
+    # heartbeat). Kept small and explicit — without it the pool would silently
+    # fall back to SQLAlchemy defaults, ungoverned by any app configuration.
+    manager_db_pool_size: int = int(
+        os.environ.get("QUEUED_TASK_MANAGER_DB_POOL_SIZE", 5)
+    )
+    manager_db_max_overflow: int = int(
+        os.environ.get("QUEUED_TASK_MANAGER_DB_MAX_OVERFLOW", 5)
+    )
+
+    # Liveness file for container healthchecks, touched by the manager
+    # heartbeat every 30s (empty disables). Signals event-loop liveness only,
+    # deliberately not DB health.
+    health_file: str = os.environ.get("QUEUED_TASK_HEALTH_FILE", "")
+
     # Manager registry (dedicated database connection for queue management operations)
     _manager_registry: Optional["Registry"] = None
     _manager_database: Optional["Database"] = None
@@ -67,8 +82,13 @@ class QueuedTaskConfig:
         # Get main registry to access database URL and models
         main_registry = get_service(MainRegistry)
 
-        # Create dedicated database connection (same URL, separate connection pool)
-        self._manager_database = Database(str(main_registry.database.url))
+        # Create dedicated database connection (same URL, separate connection
+        # pool, explicitly sized)
+        self._manager_database = Database(
+            str(main_registry.database.url),
+            pool_size=self.manager_db_pool_size,
+            max_overflow=self.manager_db_max_overflow,
+        )
         await self._manager_database.connect()
 
         # Create dedicated registry with the new database
@@ -103,6 +123,12 @@ class QueuedTaskConfig:
         Should be called during worker shutdown (e.g., in QueueWorkerManager.stop_workers).
         """
         if self._manager_database is not None:
-            await self._manager_database.disconnect()
-            self._manager_database = None
-        self._manager_registry = None
+            try:
+                await self._manager_database.disconnect()
+            finally:
+                # Always reset, even when disconnect fails: a stale half-closed
+                # registry must never be reused by a later start.
+                self._manager_database = None
+                self._manager_registry = None
+        else:
+            self._manager_registry = None

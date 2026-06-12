@@ -11,11 +11,13 @@ import logging
 
 from datetime import datetime, timedelta
 
+from pathlib import Path
+
 from typing import TYPE_CHECKING, Optional, Dict, Any, List, cast
 
 from fastedgy import context
 from fastedgy.dependencies import Inject, get_service
-from fastedgy.orm import Database, Registry
+from fastedgy.orm import Database, Registry, with_transaction
 from fastedgy.queued_task.config import QueuedTaskConfig
 from fastedgy.queued_task.models.queued_task import QueuedTaskState
 from fastedgy.queued_task.services.worker_pool import WorkerPool
@@ -94,6 +96,12 @@ class QueueWorkerManager:
         self.is_running = True
         self.stats["started_at"] = datetime.now(context.get_timezone())
 
+        # Install signal handlers FIRST: the whole boot phase (db init,
+        # registry, recovery) would otherwise be deaf to SIGTERM — a redeploy
+        # landing in that window would burn the full stop_grace_period and
+        # end in a non-graceful kill.
+        self._setup_signal_handlers()
+
         logger.info(f"Starting QueueWorkerManager with {self.max_workers} max workers")
 
         # Initialize database triggers and functions
@@ -117,16 +125,29 @@ class QueueWorkerManager:
             raise RuntimeError(f"Manager registry initialization failed: {e}")
 
         # Register this server in the database
-        await self._register_server()
+        try:
+            await self._register_server()
+        except Exception:
+            # The dedicated manager pool is already connected: close it before
+            # propagating, otherwise a failed startup leaks the pool for the
+            # lifetime of the process embedding the manager.
+            self.is_running = False
+            try:
+                await self.config.close_manager_registry()
+            except Exception as close_err:
+                logger.error(
+                    f"Error closing manager registry after failed startup: {close_err}"
+                )
+            raise
+
+        # Liveness signal available as early as possible for healthchecks
+        self._touch_health_file()
 
         # Recover tasks orphaned in 'doing' by a previous non-graceful shutdown
         try:
             await self._recover_orphaned_doing_tasks()
         except Exception as e:
             logger.error(f"Orphaned 'doing' tasks recovery failed: {e}")
-
-        # Setup signal handlers for graceful shutdown
-        self._setup_signal_handlers()
 
         # Start all manager tasks
         self.manager_tasks = [
@@ -161,9 +182,35 @@ class QueueWorkerManager:
 
             # Wait for either all manager tasks to complete or shutdown signal
             done, pending = await asyncio.wait(
-                self.manager_tasks + [asyncio.create_task(self.shutdown_event.wait())],
+                self.manager_tasks
+                + [
+                    asyncio.create_task(
+                        self.shutdown_event.wait(), name="shutdown_event_wait"
+                    )
+                ],
                 return_when=asyncio.FIRST_COMPLETED,
             )
+
+            # Log why we are waking up: outside of a shutdown request, the
+            # only way to get here is a manager task that died or completed
+            # unexpectedly — without this, the cause of a full manager stop
+            # is never logged (and asyncio later emits a detached "Task
+            # exception was never retrieved").
+            for task in done:
+                if task.cancelled():
+                    continue
+                exc = task.exception()
+                if exc is not None:
+                    logger.error(
+                        f"Manager task '{task.get_name()}' died unexpectedly, "
+                        f"shutting down manager: {exc!r}",
+                        exc_info=exc,
+                    )
+                elif not self.shutdown_event.is_set():
+                    logger.error(
+                        f"Manager task '{task.get_name()}' completed "
+                        f"unexpectedly, shutting down manager"
+                    )
 
             # Cancel pending tasks
             for task in pending:
@@ -206,7 +253,10 @@ class QueueWorkerManager:
                         "updated_at = NOW() "
                         "WHERE id = :id AND state = 'doing'::queuedtaskstate"
                     )
-                    await self.database.execute(sql, {"id": worker.current_task.id})
+                    await self._bounded_stop_write(
+                        self.database.execute(sql, {"id": worker.current_task.id}),
+                        f"mark task {worker.current_task.id} stopped",
+                    )
                     logger.info(
                         f"Marked task {worker.current_task.id} as stopped (graceful shutdown)"
                     )
@@ -232,9 +282,12 @@ class QueueWorkerManager:
         # Mark server as stopped in database
         await self._unregister_server()
 
-        # Close manager registry database connection
+        # Close manager registry database connection (bounded: the config's
+        # try/finally resets its refs even when the disconnect is abandoned)
         try:
-            await self.config.close_manager_registry()
+            await self._bounded_stop_write(
+                self.config.close_manager_registry(), "close manager registry"
+            )
             logger.debug("Manager registry closed")
         except Exception as e:
             logger.error(f"Error closing manager registry: {e}")
@@ -283,80 +336,115 @@ class QueueWorkerManager:
         Uses the raw asyncpg connection add_listener API so that the LISTEN
         connection stays dedicated and task processing runs on separate pooled
         connections.
+
+        The connection is health-checked periodically and re-established with
+        exponential backoff when it dies (PostgreSQL restart, failover, idle
+        network cut): a dead LISTEN connection raises nothing by itself, so
+        without this the listener would silently stop receiving NOTIFY for the
+        rest of the process lifetime, leaving only the fallback polling.
         """
         if not self.config.use_postgresql_notify:
             logger.info("PostgreSQL NOTIFY/LISTEN disabled in config")
+            # Don't return: start_workers awaits the manager tasks with
+            # FIRST_COMPLETED, so completing here would shut down the whole
+            # manager right after startup. Park until shutdown instead.
+            await self.shutdown_event.wait()
             return
 
+        channel = self.config.notify_channel
         logger.info(
-            f"Starting PostgreSQL notification listener on channel '{self.config.notify_channel}'"
+            f"Starting PostgreSQL notification listener on channel '{channel}'"
         )
 
-        channel = self.config.notify_channel
-        conn_ctx = self.database.connection()
-        try:
-            async with conn_ctx:
-                raw_conn = await conn_ctx.get_raw_connection()
+        def on_notify(connection, pid, ch, payload):  # type: ignore[no-untyped-def]
+            try:
+                # Schedule processing immediately outside of the LISTEN connection
+                asyncio.create_task(self._process_pending_tasks())
+            except Exception as cb_err:
+                logger.error(f"Notification callback error: {cb_err}")
 
-                def _unwrap_asyncpg_connection(conn: Any) -> Any:
-                    # Try common attributes used by SQLAlchemy async adapters
-                    for attr in ("driver_connection", "dbapi_connection", "connection"):
-                        inner = getattr(conn, attr, None)
-                        if (
-                            inner is not None
-                            and hasattr(inner, "add_listener")
-                            and hasattr(inner, "remove_listener")
-                        ):
-                            return inner
-                    # Maybe the object itself is an asyncpg connection
-                    if hasattr(conn, "add_listener") and hasattr(
-                        conn, "remove_listener"
-                    ):
-                        return conn
-                    return None
+        backoff = 1.0
+        while not self.shutdown_event.is_set():
+            pg_conn = None
+            try:
+                pg_conn = await self._create_listen_connection()
+                await pg_conn.add_listener(channel, on_notify)
+                backoff = 1.0  # reset after a successful (re)registration
+                logger.info(
+                    f"Notification listener registered on channel '{channel}'"
+                )
 
-                pg_conn = _unwrap_asyncpg_connection(raw_conn)
-                if pg_conn is None:
-                    raise RuntimeError(
-                        "Underlying asyncpg connection not accessible; cannot register NOTIFY listener"
-                    )
-
-                def on_notify(connection, pid, ch, payload):  # type: ignore[no-untyped-def]
-                    try:
-                        # Schedule processing immediately outside of the LISTEN connection
-                        asyncio.create_task(self._process_pending_tasks())
-                    except Exception as cb_err:
-                        logger.error(f"Notification callback error: {cb_err}")
-
-                # Register listener (supports sync or async implementations)
-                add_listener = getattr(pg_conn, "add_listener", None)
-                if add_listener is None:
-                    raise RuntimeError("Underlying connection missing add_listener")
-                if asyncio.iscoroutinefunction(add_listener):
-                    await add_listener(channel, on_notify)  # type: ignore[misc]
-                else:
-                    add_listener(channel, on_notify)  # type: ignore[misc]
-                logger.debug(f"Notification listener registered on channel '{channel}'")
-
-                # Wait until shutdown, but wake up periodically to remain responsive
+                # Wait for shutdown, waking up periodically to verify the
+                # LISTEN connection is still alive (no busy-wait).
                 while not self.shutdown_event.is_set():
-                    await asyncio.sleep(0.1)
-
+                    try:
+                        await asyncio.wait_for(
+                            self.shutdown_event.wait(), timeout=5.0
+                        )
+                    except asyncio.TimeoutError:
+                        pass
+                    if self.shutdown_event.is_set():
+                        break
+                    if pg_conn.is_closed():
+                        raise ConnectionError(
+                            "LISTEN connection closed by the server"
+                        )
+                    # Active probe: is_closed() only learns about a death via
+                    # a TCP event — a half-open connection (idle NAT/firewall
+                    # cut, partition without RST) stays "open" for hours and
+                    # silently loses every NOTIFY. The round-trip also acts
+                    # as a keepalive against idle cuts.
+                    try:
+                        await asyncio.wait_for(pg_conn.execute("SELECT 1"), timeout=5.0)
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception as probe_err:
+                        raise ConnectionError(
+                            f"LISTEN connection unresponsive: {probe_err!r}"
+                        )
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                if self.shutdown_event.is_set():
+                    break
+                logger.error(f"Notification listener error: {e}")
+                logger.info(
+                    f"Re-establishing LISTEN connection in {backoff:.0f}s "
+                    f"(fallback polling keeps the queue running meanwhile)"
+                )
                 try:
-                    remove_listener = getattr(pg_conn, "remove_listener", None)
-                    if remove_listener is not None:
-                        if asyncio.iscoroutinefunction(remove_listener):
-                            await remove_listener(channel, on_notify)  # type: ignore[misc]
-                        else:
-                            remove_listener(channel, on_notify)  # type: ignore[misc]
-                except Exception:
+                    await asyncio.wait_for(self.shutdown_event.wait(), timeout=backoff)
+                    break  # shutdown requested during backoff
+                except asyncio.TimeoutError:
                     pass
-        except Exception as e:
-            logger.error(f"Notification listener error: {e}")
-            logger.info("Falling back to polling only - keeping listener task alive")
-            # Keep task alive but responsive
-            while not self.shutdown_event.is_set():
-                await asyncio.sleep(0.1)
+                backoff = min(backoff * 2, 60.0)
+            finally:
+                if pg_conn is not None:
+                    try:
+                        # Immediate, non-awaiting close: safe under
+                        # cancellation, nothing in-flight to flush on a
+                        # LISTEN-only connection.
+                        pg_conn.terminate()
+                    except Exception:
+                        pass
+
+    async def _create_listen_connection(self) -> Any:
+        """Open a dedicated raw asyncpg connection for LISTEN/NOTIFY.
+
+        Deliberately NOT taken from the pool: LISTEN needs a persistent
+        connection held for the whole process lifetime (holding a pooled
+        one forever just shrinks the pool), and a dead pooled connection
+        cannot be replaced from the same asyncio task — databasez caches
+        the Connection per task, so re-acquiring returns the same closed
+        object. A direct connection gives the reconnection loop full
+        lifecycle control.
+        """
+        import asyncpg
+
+        url = str(self.database.url)
+        scheme, rest = url.split("://", 1)
+        dsn = f"{scheme.split('+')[0]}://{rest}"
+        return await asyncpg.connect(dsn)
 
     async def _handle_notification(self, task_info: Dict[str, Any]) -> None:
         """
@@ -419,18 +507,35 @@ class QueueWorkerManager:
                     logger.debug("No workers available, stop claiming for now")
                     break
 
-                # Atomically claim the next ready task
-                task = await self._claim_next_ready_task()
-                if task is None:
-                    # Nothing to process - return worker to idle and stop
-                    await self.worker_pool.return_worker(worker)
-                    break
+                # Make sure the worker goes back to the pool on every path
+                # where the execution task is not started (no ready task,
+                # claim failure, cancellation): an escaping exception here
+                # would otherwise leak the busy slot forever.
+                started = False
+                try:
+                    # Atomically claim the next ready task
+                    task = await self._claim_next_ready_task()
+                    if task is None:
+                        # Nothing to process - return worker to idle and stop
+                        break
 
-                # Start task execution in background
-                logger.debug(
-                    f"Assigning claimed task {task.id} to worker {worker.worker_id} (parent: {task.parent_task.id if task.parent_task else 'None'})"
-                )
-                asyncio.create_task(self._execute_task_with_worker(worker, task))
+                    # Shutdown began while the claim was in flight: launching
+                    # now would start an execution missed by the stop_workers
+                    # 'stopped' snapshot and joined by nothing. Put the row
+                    # back as if it had never been claimed.
+                    if not self.is_running:
+                        await self._release_claimed_task(task.id)
+                        break
+
+                    # Start task execution in background
+                    logger.debug(
+                        f"Assigning claimed task {task.id} to worker {worker.worker_id} (parent: {task.parent_task.id if task.parent_task else 'None'})"
+                    )
+                    asyncio.create_task(self._execute_task_with_worker(worker, task))
+                    started = True
+                finally:
+                    if not started:
+                        await self.worker_pool.return_worker(worker)
 
         except Exception as e:
             logger.error(f"Error processing pending tasks: {e}")
@@ -496,6 +601,13 @@ class QueueWorkerManager:
                 task = await QueuedTask.query.filter(
                     QueuedTask.columns.id == claimed_id
                 ).get_or_none()
+            except asyncio.CancelledError:
+                # Cancellation between claim commit and model load (shutdown
+                # teardown of a fire-and-forget _process_pending_tasks):
+                # revert the row, shielded so a re-cancellation cannot
+                # interrupt the UPDATE mid-flight.
+                await asyncio.shield(self._release_claimed_task(claimed_id))
+                raise
             except Exception:
                 await self._release_claimed_task(claimed_id)
                 raise
@@ -664,6 +776,27 @@ class QueueWorkerManager:
                     f"Error cascading {parent_state} from parent {parent_id} "
                     f"to descendants (root {child_id}): {e}"
                 )
+
+        # (3) Dead queued_task_workers rows: the heartbeat beats every 30s,
+        # so a row without a beat for 10 minutes belongs to a dead process —
+        # typically a hard-killed container whose hostname is never reused,
+        # left wrongly frozen at is_running=True. Deleting them keeps the
+        # table clean (graceful stops already delete their own row) and the
+        # boot-recovery alive-server guard accurate.
+        workers_sql = text(
+            "DELETE FROM queued_task_workers "
+            "WHERE last_heartbeat < NOW() - interval '10 minutes' "
+            "  AND server_name != :self_name "
+            "RETURNING server_name"
+        )
+        dead = await self.database.fetch_all(
+            workers_sql, {"self_name": self.server_name}
+        )
+        if dead:
+            names = [row[0] for row in dead]
+            logger.warning(
+                f"Removed {len(names)} dead queue worker row(s) (stale heartbeat): {names}"
+            )
 
     async def _cascade_to_descendants(
         self,
@@ -878,7 +1011,7 @@ class QueueWorkerManager:
             if self.worker_status_record:
                 # Update existing record
                 self.worker_status_record.mark_as_started(self.max_workers)
-                await self.worker_status_record.save()
+                await with_transaction(self.worker_status_record.save)
             else:
                 # Create new record
                 queued_task_worker = QueuedTaskWorker(  # type: ignore
@@ -888,7 +1021,7 @@ class QueueWorkerManager:
                     started_at=datetime.now(context.get_timezone()),
                     last_heartbeat=datetime.now(context.get_timezone()),
                 )
-                await queued_task_worker.save()
+                await with_transaction(queued_task_worker.save)
                 self.worker_status_record = queued_task_worker
 
             logger.info(f"Server '{self.server_name}' registered in database")
@@ -910,15 +1043,73 @@ class QueueWorkerManager:
         signal.signal(signal.SIGTERM, signal_handler)
         logger.debug("Signal handlers setup for graceful shutdown")
 
+    async def _bounded_stop_write(
+        self, coro: Any, label: str, timeout: float = 5.0
+    ) -> Any:
+        """Run a shutdown-path DB operation with a hard deadline.
+
+        A TCP-black-holed database at SIGTERM time would otherwise hang the
+        stop sequence past stop_grace_period and degrade the graceful path
+        into a SIGKILL. The task is abandoned rather than awaited-on-cancel
+        (the cancellation unwind itself can hang on a dead socket); every
+        stop-path write has a recovery net (reaper, boot recovery, exit).
+        """
+        task = asyncio.create_task(coro)
+        done, _ = await asyncio.wait({task}, timeout=timeout)
+        if not done:
+            task.cancel()  # deliberate abandon — do NOT await, see docstring
+            task.add_done_callback(lambda t: t.cancelled() or t.exception())
+            logger.error(
+                f"Shutdown DB write timed out after {timeout}s ({label}), abandoned"
+            )
+            return None
+        return task.result()
+
     async def _unregister_server(self) -> None:
-        """Mark server as stopped in database"""
+        """Delete this server's row on graceful shutdown.
+
+        Container hostnames are unique per instance (Docker uses the container
+        id), so a stopped server's row is pure garbage: keeping it accumulates
+        one dead row per deploy, many wrongly frozen at is_running=True after
+        hard kills. Rows from non-graceful deaths are deleted by the periodic
+        reaper (stale heartbeat).
+
+        Raw single-statement DELETE on purpose: it is idempotent and needs no
+        transaction — and Edgy's instance.delete() is NOT replayable under
+        with_transaction (the _db_deleted flag is set before commit, so a
+        40001 retry silently no-ops and the row survives).
+        """
         if self.worker_status_record:
             try:
-                self.worker_status_record.mark_as_stopped()
-                await self.worker_status_record.save()
-                logger.info(f"Server '{self.server_name}' marked as stopped")
+                from sqlalchemy import text
+
+                sql = text(
+                    "DELETE FROM queued_task_workers WHERE server_name = :name"
+                )
+                await self._bounded_stop_write(
+                    self.database.execute(sql, {"name": self.server_name}),
+                    "unregister server",
+                )
+                self.worker_status_record = None
+                logger.info(f"Server '{self.server_name}' unregistered (row deleted)")
             except Exception as e:
                 logger.error(f"Failed to unregister server: {e}")
+
+    def _touch_health_file(self) -> None:
+        """Touch the liveness file consumed by container healthchecks.
+
+        Touched on every heartbeat even when the DB write fails: it signals
+        that the event loop and the heartbeat task are alive, not DB health —
+        a DB outage must not flap the container (polling/listener already
+        log and survive it). Disabled when QUEUED_TASK_HEALTH_FILE is empty.
+        """
+        health_file = self.config.health_file
+        if not health_file:
+            return
+        try:
+            Path(health_file).touch()
+        except Exception as e:
+            logger.debug(f"Cannot touch health file '{health_file}': {e}")
 
     async def _heartbeat_task(self) -> None:
         """Periodic heartbeat to update server status in database"""
@@ -928,6 +1119,8 @@ class QueueWorkerManager:
             try:
                 await asyncio.sleep(30)  # Heartbeat every 30 seconds
 
+                self._touch_health_file()
+
                 if self.is_running and self.worker_status_record:
                     # Update worker statistics
                     busy_workers = len(self.worker_pool.busy_workers)
@@ -936,7 +1129,22 @@ class QueueWorkerManager:
                     self.worker_status_record.update_stats(
                         active=busy_workers, idle=idle_workers, is_running=True
                     )
-                    await self.worker_status_record.save()
+                    # Retry on serialization conflicts (databasez defaults to
+                    # SERIALIZABLE): a missed beat shrinks the liveness window
+                    # used by stats and the boot-recovery guard. Hard deadline
+                    # under the 30s interval: a HANGING write (TCP black hole)
+                    # would otherwise also block the health-file touch and
+                    # flap the container — the opposite of its purpose.
+                    try:
+                        await asyncio.wait_for(
+                            with_transaction(self.worker_status_record.save),
+                            timeout=20,
+                        )
+                    except asyncio.TimeoutError:
+                        logger.warning(
+                            "Heartbeat DB write timed out (20s); skipping this "
+                            "beat — health file stays liveness-only"
+                        )
 
                     logger.debug(
                         f"Heartbeat: {busy_workers} active, {idle_workers} idle workers"

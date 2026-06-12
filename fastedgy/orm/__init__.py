@@ -10,7 +10,7 @@ from edgy import (
 )
 from edgy.core.db.models.types import BaseModelType
 from fastedgy.orm import migration, field_selector, filter, order_by
-from fastedgy.orm.transaction import transaction
+from fastedgy.orm.transaction import transaction, with_transaction
 
 
 __all__ = [
@@ -25,4 +25,5 @@ __all__ = [
     "filter",
     "order_by",
     "transaction",
+    "with_transaction",
 ]

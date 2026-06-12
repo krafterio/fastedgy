@@ -8,6 +8,7 @@ from sqlalchemy.exc import DBAPIError, IntegrityError
 
 from fastedgy.i18n import _t
 from fastedgy.orm.exceptions import ObjectNotFound
+from fastedgy.orm.transaction import is_serialization_error
 
 
 def handle_action_exception(
@@ -93,11 +94,11 @@ def handle_action_exception(
             ),
         )
 
-    # Handle database API errors (serialization, etc.)
+    # Handle database API errors (serialization, etc.). A serialization
+    # conflict only reaches here after @transaction has exhausted its retries,
+    # so the 429 is now a genuine last-resort "still contended, retry later".
     if isinstance(e, DBAPIError):
-        if "SerializationError" in str(
-            e.orig.__class__.__name__
-        ) or "could not serialize access" in str(e):
+        if is_serialization_error(e):
             raise HTTPException(
                 status_code=429,
                 detail=str(

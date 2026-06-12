@@ -108,16 +108,37 @@ class CronScheduler:
         try:
             from sqlalchemy import text
 
+            from fastedgy.queued_task.config import QueuedTaskConfig
+
             database: Database = get_service(Database)
+            config = get_service(QueuedTaskConfig)
+            # Same staleness criterion as the manager's reaper: with
+            # task_timeout enforced on every execution, a 'doing' row older
+            # than 2x the timeout is a zombie (hard kill / lost finalize).
+            stale_after = max(int(config.task_timeout or 0), 1) * 2
             check_sql = text(
-                "SELECT 1 FROM queued_tasks "
+                "SELECT id, "
+                "       (state = 'doing'::queuedtaskstate "
+                "        AND date_started < NOW() - make_interval(secs => :stale_after)) AS is_stale "
+                "FROM queued_tasks "
                 "WHERE name = :name AND state IN ('enqueued', 'waiting', 'doing') "
                 "LIMIT 1"
-            ).bindparams(name=task_def.name)
+            ).bindparams(name=task_def.name, stale_after=stale_after)
             existing = await database.fetch_one(check_sql)
 
             if existing:
-                logger.debug(f"Skipping '{task_def.name}': already has an active task")
+                if existing[1]:
+                    # A zombie 'doing' row silently kills this cron until it is
+                    # reaped — make the skip loud instead of a debug whisper.
+                    logger.warning(
+                        f"Skipping '{task_def.name}': blocked by a stale 'doing' task "
+                        f"(id={existing[0]}, running for more than {stale_after}s — "
+                        f"will be reaped by the manager)"
+                    )
+                else:
+                    logger.debug(
+                        f"Skipping '{task_def.name}': already has an active task"
+                    )
                 return
 
             queued_tasks = get_service(QueuedTasks)

@@ -119,6 +119,12 @@ class QueueWorkerManager:
         # Register this server in the database
         await self._register_server()
 
+        # Recover tasks orphaned in 'doing' by a previous non-graceful shutdown
+        try:
+            await self._recover_orphaned_doing_tasks()
+        except Exception as e:
+            logger.error(f"Orphaned 'doing' tasks recovery failed: {e}")
+
         # Setup signal handlers for graceful shutdown
         self._setup_signal_handlers()
 
@@ -390,7 +396,7 @@ class QueueWorkerManager:
                 logger.error(f"Fallback polling error: {e}")
 
     async def _cleanup_idle_workers(self) -> None:
-        """Periodic cleanup of idle workers and stats logging"""
+        """Periodic cleanup of idle workers, stale task reaping and stats logging"""
         while self.is_running:
             try:
                 await asyncio.sleep(60)  # Check every minute
@@ -398,6 +404,7 @@ class QueueWorkerManager:
                 if self.is_running:
                     stats = await self.get_stats()
                     logger.debug(f"Worker stats: {stats['worker_pool']}")
+                    await self._reap_stale_tasks()
 
             except Exception as e:
                 logger.error(f"Cleanup task error: {e}")
@@ -480,206 +487,183 @@ class QueueWorkerManager:
                 # but to avoid complexity, simply indicate none
                 return None
 
-            # Load the task model instance
+            # Load the task model instance. The claim transaction is already
+            # committed: if this load fails, the row would stay 'doing' forever
+            # while the caller treats None as "nothing to process" — release it
+            # back to 'enqueued' before propagating to the outer handler.
             QueuedTask = cast(type["QueuedTask"], self.registry.get_model("QueuedTask"))
-            task = await QueuedTask.query.filter(
-                QueuedTask.columns.id == claimed_id
-            ).get_or_none()
+            try:
+                task = await QueuedTask.query.filter(
+                    QueuedTask.columns.id == claimed_id
+                ).get_or_none()
+            except Exception:
+                await self._release_claimed_task(claimed_id)
+                raise
+            if task is None:
+                # Row deleted between claim and load (concurrent cancel/remove)
+                return None
             return task
         except Exception as e:
             logger.error(f"Error claiming next ready task: {e}")
             return None
 
-    async def _get_next_ready_task(self) -> Optional["QueuedTask"]:
+    async def _release_claimed_task(self, task_id: int) -> None:
+        """Best-effort revert of a freshly claimed task back to 'enqueued'.
+
+        Used when the model load right after the claim commit fails: without
+        this, the row would stay 'doing' forever (the claim SQL only targets
+        'enqueued' and nothing else ever resets it). The state guard keeps the
+        UPDATE a no-op if another path already finalized the task.
         """
-        Get the NEXT task that is ready to be processed:
-        - State = enqueued
-        - No parent_task OR parent_task.state = done
-        - Returns only ONE task to avoid race conditions
-        """
-        QueuedTask = cast(type["QueuedTask"], self.registry.get_model("QueuedTask"))
         try:
-            # Get enqueued tasks one by one, ordered by priority
-            enqueued_tasks = (
-                await QueuedTask.query.filter(
-                    QueuedTask.columns.state == QueuedTaskState.enqueued
-                )
-                .order_by("date_enqueued")
-                .all()
+            from sqlalchemy import text
+
+            sql = text(
+                "UPDATE queued_tasks SET state = 'enqueued'::queuedtaskstate, "
+                "date_started = NULL, updated_at = NOW() "
+                "WHERE id = :id AND state = 'doing'::queuedtaskstate"
             )
-
-            for task in enqueued_tasks:
-                if task.parent_task is None:
-                    # No parent, task is ready
-                    logger.debug(f"Task {task.id} ready (no parent)")
-                    return task
-                else:
-                    # Check parent state
-                    parent = await QueuedTask.query.filter(
-                        QueuedTask.columns.id == task.parent_task.id
-                    ).get_or_none()
-
-                    if parent and parent.state == QueuedTaskState.done:
-                        # Parent is done, task is ready
-                        logger.debug(
-                            f"Task {task.id} ready (parent {parent.id} is done)"
-                        )
-                        return task
-                    elif parent and parent.state in [
-                        QueuedTaskState.failed,
-                        QueuedTaskState.cancelled,
-                    ]:
-                        # Parent failed/cancelled, cascade to child
-                        logger.info(
-                            f"Task {task.id} cascading failure from parent {parent.id} ({parent.state})"
-                        )
-                        await self._cascade_parent_failure(task, parent)
-                        # Continue to next task (this one is now failed)
-                        continue
-                    else:
-                        # Parent not ready, task must wait
-                        parent_state = parent.state if parent else "not_found"
-                        logger.debug(
-                            f"Task {task.id} waiting (parent {task.parent_task.id} is {parent_state})"
-                        )
-                        # Continue to next task
-                        continue
-
-            # No ready tasks found
-            return None
-
-        except Exception as e:
-            logger.error(f"Error getting next ready task: {e}")
-            return None
-
-    async def _get_ready_tasks(self) -> List["QueuedTask"]:
-        """
-        Get tasks that are ready to be processed in parallel:
-        - State = enqueued
-        - No parent_task OR parent_task.state = done
-        - Uses atomic checks to avoid race conditions
-        """
-        QueuedTask = cast(type["QueuedTask"], self.registry.get_model("QueuedTask"))
-        try:
-            # Get all enqueued tasks ordered by priority (date_enqueued)
-            enqueued_tasks = (
-                await QueuedTask.query.filter(
-                    QueuedTask.columns.state == QueuedTaskState.enqueued
-                )
-                .order_by("date_enqueued")
-                .all()
-            )
-
-            ready_tasks = []
-            processed_parent_ids = set()  # Track parents we've already checked
-
-            for task in enqueued_tasks:
-                # Skip if we're already processing tasks with this parent
-                # This prevents race conditions where multiple children of the same parent
-                # are assigned before the parent state can be updated
-                if task.parent_task and task.parent_task.id in processed_parent_ids:
-                    logger.debug(
-                        f"Task {task.id} skipped (parent {task.parent_task.id} already being processed)"
-                    )
-                    continue
-
-                if task.parent_task is None:
-                    # No parent, task is ready
-                    logger.debug(f"Task {task.id} ready (no parent)")
-                    ready_tasks.append(task)
-                else:
-                    # Check parent state atomically
-                    parent = await QueuedTask.query.filter(
-                        QueuedTask.columns.id == task.parent_task.id
-                    ).get_or_none()
-
-                    if parent and parent.state == QueuedTaskState.done:
-                        # Parent is done, task is ready
-                        logger.debug(
-                            f"Task {task.id} ready (parent {parent.id} is done)"
-                        )
-                        ready_tasks.append(task)
-                        # Mark this parent as processed so siblings can also be included
-                        processed_parent_ids.add(parent.id)
-                    elif parent and parent.state in [
-                        QueuedTaskState.failed,
-                        QueuedTaskState.cancelled,
-                    ]:
-                        # Parent failed/cancelled, cascade to child
-                        logger.info(
-                            f"Task {task.id} cascading failure from parent {parent.id} ({parent.state})"
-                        )
-                        await self._cascade_parent_failure(task, parent)
-                        # Don't add to ready_tasks, this task is now failed
-                    else:
-                        # Parent not ready (enqueued, doing, etc.), task must wait
-                        parent_state = parent.state if parent else "not_found"
-                        logger.debug(
-                            f"Task {task.id} waiting (parent {task.parent_task.id} is {parent_state})"
-                        )
-
-            logger.debug(
-                f"Found {len(ready_tasks)} ready tasks out of {len(enqueued_tasks)} enqueued"
-            )
-            return ready_tasks
-
-        except Exception as e:
-            logger.error(f"Error getting ready tasks: {e}")
-            return []
-
-    async def _cascade_parent_failure(
-        self, child_task: "QueuedTask", parent_task: "QueuedTask"
-    ) -> None:
-        """
-        Cascade a parent's terminal state (failed/cancelled) to the given
-        task AND all of its descendants in a single recursive CTE UPDATE.
-
-        Idempotent and race-safe: only rows still in (enqueued, doing)
-        are touched; terminal states set by another path (worker
-        finalization, graceful shutdown) are preserved. Combined with
-        the state guard on QueueWorker._op_mark_done / _op_mark_failed,
-        any worker actively executing a descendant marked here will
-        complete naturally and its own finalize UPDATE becomes a no-op,
-        so the cascade-set state always wins.
-        """
-        if parent_task.state == QueuedTaskState.failed:
-            new_state = QueuedTaskState.failed
-            exception_name: Optional[str] = "ParentTaskFailed"
-            exception_message: Optional[str] = (
-                f"Parent task {parent_task.id} failed"
-            )
-            exception_info: Optional[str] = (
-                f"Parent task '{parent_task.name}' failed, cascading to descendants"
-            )
-        elif parent_task.state == QueuedTaskState.cancelled:
-            new_state = QueuedTaskState.cancelled
-            exception_name = None
-            exception_message = None
-            exception_info = None
-        else:
+            await self.database.execute(sql, {"id": task_id})
             logger.warning(
-                f"_cascade_parent_failure called with non-terminal parent state "
-                f"{parent_task.state} (root {child_task.id}, parent {parent_task.id})"
+                f"Released claimed task {task_id} back to 'enqueued' after load failure"
+            )
+        except Exception as release_err:
+            logger.error(f"Failed to release claimed task {task_id}: {release_err}")
+
+    async def _recover_orphaned_doing_tasks(self) -> None:
+        """Boot-time recovery of tasks left in 'doing' by a non-graceful shutdown.
+
+        A graceful shutdown (SIGTERM) marks in-flight tasks as 'stopped' — a
+        deliberate terminal state that is only ever restarted manually. Rows
+        still in 'doing' at boot therefore come from a hard kill (OOM, SIGKILL,
+        crash): without recovery they stay 'doing' forever and silently block
+        the cron scheduler dedup for tasks of the same name. Re-enqueue them.
+
+        Multi-server guard: skipped when another alive server exists (its
+        'doing' rows are legitimate in-flight work). In that case — and for the
+        ~2 min window where a hard-killed sibling still looks alive via its
+        last heartbeat — the timeout-based periodic reaper picks them up.
+        """
+        QueuedTaskWorker = cast(
+            type["QueuedTaskWorker"],
+            self.registry.get_model("QueuedTaskWorker"),
+        )
+        alive_threshold = datetime.now(context.get_timezone()) - timedelta(minutes=2)
+        other_alive = await QueuedTaskWorker.query.filter(
+            QueuedTaskWorker.columns.last_heartbeat >= alive_threshold,
+            QueuedTaskWorker.columns.is_running.is_(True),
+            QueuedTaskWorker.columns.server_name != self.server_name,
+        ).first()
+        if other_alive:
+            logger.info(
+                "Skipping orphaned 'doing' recovery: another alive server detected "
+                f"('{other_alive.server_name}') — periodic reaper will handle stale rows"
             )
             return
 
-        try:
-            cascaded = await self._cascade_to_descendants(
-                root_task_id=child_task.id,
-                new_state=new_state,
-                exception_name=exception_name,
-                exception_message=exception_message,
-                exception_info=exception_info,
+        from sqlalchemy import text
+
+        sql = text(
+            "UPDATE queued_tasks "
+            "SET state = 'enqueued'::queuedtaskstate, date_started = NULL, updated_at = NOW() "
+            "WHERE state = 'doing'::queuedtaskstate "
+            "RETURNING id"
+        )
+        rows = await self.database.fetch_all(sql)
+        if rows:
+            ids = [row[0] for row in rows]
+            logger.warning(
+                f"Recovered {len(ids)} task(s) orphaned in 'doing' by a previous "
+                f"non-graceful shutdown, re-enqueued: {ids}"
             )
-            logger.info(
-                f"Cascaded {parent_task.state} from parent {parent_task.id} "
-                f"to {cascaded} descendant(s) including root {child_task.id}"
+
+    async def _reap_stale_tasks(self) -> None:
+        """Periodic recovery of stuck rows (runs from the cleanup loop).
+
+        (1) 'doing' rows older than 2x task_timeout are zombies: the worker
+        enforces task_timeout on every execution, so no legitimate run can
+        last that long — either the finalize write failed or the owning
+        process died mid-run. They are marked 'failed' (TaskReaped) rather
+        than re-enqueued: a failed cron task unblocks the scheduler dedup
+        (next matching tick re-creates it) and a re-run loop on a task that
+        crashes its process is avoided.
+
+        (2) 'enqueued' children whose parent ended failed/cancelled can never
+        be claimed (the claim SQL requires the parent to be 'done'): cascade
+        the parent's terminal state to the whole subtree.
+        """
+        from sqlalchemy import text
+
+        # (1) Timeout-stale 'doing' rows → failed (TaskReaped)
+        stale_after = max(int(self.config.task_timeout or 0), 1) * 2
+        # stale_after is a Python-computed int: safe to interpolate in the
+        # message (binding it there would be typed as text by Postgres and
+        # rejected by asyncpg for an int value).
+        sql = text(
+            "UPDATE queued_tasks "
+            "SET state = 'failed'::queuedtaskstate, "
+            "    exception_name = 'TaskReaped', "
+            f"    exception_message = 'Task stuck in doing state for more than {stale_after}s, reaped', "
+            "    date_failed = NOW(), date_ended = NOW(), "
+            "    execution_time = EXTRACT(EPOCH FROM (NOW() - COALESCE(date_started, NOW()))), "
+            "    updated_at = NOW() "
+            "WHERE state = 'doing'::queuedtaskstate "
+            "  AND date_started < NOW() - make_interval(secs => :stale_after) "
+            "RETURNING id"
+        )
+        rows = await self.database.fetch_all(sql, {"stale_after": stale_after})
+        if rows:
+            ids = [row[0] for row in rows]
+            logger.warning(
+                f"Reaped {len(ids)} stale 'doing' task(s) (older than {stale_after}s): {ids}"
             )
-        except Exception as e:
-            logger.error(
-                f"Error cascading {parent_task.state} from parent {parent_task.id} "
-                f"to descendants (root {child_task.id}): {e}"
+
+        # (2) 'enqueued' children of terminally-failed parents → cascade
+        orphan_sql = text(
+            "SELECT c.id, p.id, p.state, p.name "
+            "FROM queued_tasks c "
+            "JOIN queued_tasks p ON p.id = c.parent_task "
+            "WHERE c.state = 'enqueued'::queuedtaskstate "
+            "  AND p.state IN ('failed'::queuedtaskstate, 'cancelled'::queuedtaskstate)"
+        )
+        orphans = await self.database.fetch_all(orphan_sql)
+        for row in orphans:
+            child_id, parent_id, parent_state, parent_name = (
+                row[0],
+                row[1],
+                str(row[2]),
+                row[3],
             )
+            if parent_state == QueuedTaskState.failed.name:
+                new_state = QueuedTaskState.failed
+                exception_name: Optional[str] = "ParentTaskFailed"
+                exception_message: Optional[str] = f"Parent task {parent_id} failed"
+                exception_info: Optional[str] = (
+                    f"Parent task '{parent_name}' failed, cascading to descendants"
+                )
+            else:
+                new_state = QueuedTaskState.cancelled
+                exception_name = None
+                exception_message = None
+                exception_info = None
+
+            try:
+                cascaded = await self._cascade_to_descendants(
+                    root_task_id=child_id,
+                    new_state=new_state,
+                    exception_name=exception_name,
+                    exception_message=exception_message,
+                    exception_info=exception_info,
+                )
+                logger.warning(
+                    f"Cascaded {parent_state} from parent {parent_id} to "
+                    f"{cascaded} stuck descendant(s) (root {child_id})"
+                )
+            except Exception as e:
+                logger.error(
+                    f"Error cascading {parent_state} from parent {parent_id} "
+                    f"to descendants (root {child_id}): {e}"
+                )
 
     async def _cascade_to_descendants(
         self,

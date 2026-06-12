@@ -31,6 +31,17 @@ if TYPE_CHECKING:
 logger = logging.getLogger("queued_task.worker")
 
 
+class TaskTimeoutError(Exception):
+    """Raised when a task execution exceeds QueuedTaskConfig.task_timeout.
+
+    Frees the worker and finalizes the task as 'failed' instead of letting a
+    hung execution occupy its worker forever (with 2 workers, two hung tasks
+    would freeze the whole queue). The timeout also bounds every legitimate
+    execution, which makes the manager's timeout-based stale-'doing' reaper a
+    safe criterion.
+    """
+
+
 class QueueWorker:
     """Individual worker that executes a single task"""
 
@@ -241,11 +252,20 @@ class QueueWorker:
                     f"Worker {self.worker_id} marked task {task.id} as stopped (cancelled)"
                 )
             except Exception as save_err:
-                logger.error(f"Failed to mark task {task.id} as stopped: {save_err}")
+                logger.error(
+                    f"Failed to mark task {task.id} as stopped: {save_err} — "
+                    f"task left in 'doing' until reaped by the manager"
+                )
 
             raise  # Re-raise CancelledError
 
         except Exception as e:
+            # Capture before the closure: Python unbinds the except variable at
+            # the end of the block, a closure must not capture `e` directly.
+            exception_name = type(e).__name__
+            exception_message = str(e)
+            exception_info = traceback.format_exc()
+
             # 4) Best-effort set task as failed with retry
             async def _op_mark_failed():
                 from sqlalchemy import text
@@ -270,9 +290,9 @@ class QueueWorker:
                     sql,
                     {
                         "id": task.id,
-                        "name": type(e).__name__,
-                        "message": str(e),
-                        "info": traceback.format_exc(),
+                        "name": exception_name,
+                        "message": exception_message,
+                        "info": exception_info,
                     },
                 )
 
@@ -280,7 +300,8 @@ class QueueWorker:
                 await self._run_write_with_retry(_op_mark_failed)
             except Exception as save_err:
                 logger.error(
-                    f"Failed to persist failure state for task {getattr(task, 'id', '?')}: {save_err}"
+                    f"Failed to persist failure state for task {getattr(task, 'id', '?')}: {save_err} — "
+                    f"task left in 'doing' until reaped by the manager"
                 )
 
             # Try to run error hook but don't fail the whole worker if it errors
@@ -354,18 +375,33 @@ class QueueWorker:
                 kwargs = task.kwargs or {}
                 logger.debug(f"Args: {args}, Kwargs: {kwargs}")
 
-                # Execute function (sync or async)
+                # Execute function (sync or async), bounded by task_timeout so
+                # a hung execution can never occupy its worker forever.
                 if asyncio.iscoroutinefunction(func):
                     logger.debug("Executing async function")
-                    result = await func(*args, **kwargs)
-                    logger.debug(f"Async function result: {result}")
+                    awaitable = func(*args, **kwargs)
                 else:
                     logger.debug("Executing sync function in executor")
-                    # Run sync function in thread pool to avoid blocking
-                    result = await asyncio.get_event_loop().run_in_executor(
+                    # Run sync function in thread pool to avoid blocking.
+                    # Note: on timeout the worker is freed and the task marked
+                    # failed, but the underlying thread keeps running until the
+                    # sync function returns (asyncio cannot kill a thread).
+                    awaitable = asyncio.get_event_loop().run_in_executor(
                         None, lambda: func(*args, **kwargs)
                     )
-                    logger.debug(f"Sync function result: {result}")
+
+                timeout = int(self.config.task_timeout or 0)
+                if timeout > 0:
+                    try:
+                        result = await asyncio.wait_for(awaitable, timeout=timeout)
+                    except asyncio.TimeoutError:
+                        raise TaskTimeoutError(
+                            f"Task execution exceeded task_timeout ({timeout}s)"
+                        ) from None
+                else:
+                    result = await awaitable
+
+                logger.debug(f"Task function result: {result}")
 
                 return result
 

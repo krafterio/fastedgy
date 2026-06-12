@@ -61,6 +61,7 @@ class TaskCreationRequest:
     args: List[Any]
     kwargs: Dict[str, Any]
     parent_ref: Optional["QueuedTaskRef"] = None
+    max_retries: Optional[int] = None
 
     def __post_init__(self):
         if self.args is None:
@@ -87,11 +88,15 @@ class QueuedTasks:
         func: Callable[P, Any],
         *args: P.args,
         parent: QueuedTaskRef | None = None,  # type: ignore
+        max_retries: int | None = None,  # type: ignore
         **kwargs: P.kwargs,
     ) -> QueuedTaskRef:
         """
         Add task to queue - supports both regular functions and local functions.
         Returns a QueuedTaskRef for task control and dependency management.
+
+        max_retries overrides the QUEUED_TASK_MAX_RETRIES auto-retry budget
+        for this task (None = config default, 0 = no auto-retry).
         """
         if "QueuedTask" not in self.registry.models:
             raise RuntimeError(
@@ -119,6 +124,7 @@ class QueuedTasks:
             args=list(args),
             kwargs=dict(kwargs),
             parent_ref=parent,
+            max_retries=max_retries,
         )
 
         # Add to creation queue
@@ -231,12 +237,17 @@ class QueuedTasks:
             args=args,
             kwargs=kwargs,
             parent_task=parent_task,
+            max_retries=request.max_retries,
         )
 
         return task.id or 0
 
     async def add_task_async(
-        self, func: Callable[P, Any], *args: P.args, **kwargs: P.kwargs
+        self,
+        func: Callable[P, Any],
+        *args: P.args,
+        max_retries: int | None = None,  # type: ignore
+        **kwargs: P.kwargs,
     ) -> "QueuedTask":
         """
         Async version of add_task - creates task immediately and returns it
@@ -258,10 +269,16 @@ class QueuedTasks:
             raise ValueError(f"Non-serializable arguments for {func.__name__}: {e}")
 
         serializable_func = cast(SerializableCallable, func)
-        return await self._create_queued_task(serializable_func, args, kwargs)
+        return await self._create_queued_task(
+            serializable_func, args, kwargs, max_retries=max_retries
+        )
 
     async def _create_queued_task(
-        self, func: SerializableCallable, args: tuple, kwargs: dict
+        self,
+        func: SerializableCallable,
+        args: tuple,
+        kwargs: dict,
+        max_retries: Optional[int] = None,
     ):
         """Create queued task - supports both regular and local functions"""
         try:
@@ -301,6 +318,7 @@ class QueuedTasks:
                 serialized_function=serialized_function,
                 args=list(args),
                 kwargs=dict(kwargs),
+                max_retries=max_retries,
             )
 
             return task
@@ -321,6 +339,7 @@ class QueuedTasks:
         parent_task: Optional["QueuedTask"] = None,
         auto_remove: bool = False,
         date_enqueued: Optional[datetime] = None,
+        max_retries: Optional[int] = None,
     ) -> "QueuedTask":
         """Create a new task in the queue"""
         # Validation: must have either module/function or serialized function
@@ -343,6 +362,7 @@ class QueuedTasks:
             date_enqueued=date_enqueued
             or datetime.now(fastedgy_context.get_timezone()),
             auto_remove=auto_remove,
+            max_retries=max_retries,
         )
 
         await self.hook_registry.trigger_pre_create(task)
@@ -474,6 +494,8 @@ class QueuedTasks:
             task.exception_name = None
             task.exception_message = None
             task.exception_info = None
+            # Manual retry grants a fresh auto-retry budget
+            task.retry_count = 0
 
             # Isolated transaction with serialization-conflict retry
             from fastedgy.orm import with_transaction
@@ -497,6 +519,8 @@ class QueuedTasks:
                 state=QueuedTaskState.enqueued,
                 date_enqueued=datetime.now(context.get_timezone()),
                 auto_remove=task.auto_remove,
+                # Keep the per-task budget; retry_count starts fresh (default 0)
+                max_retries=task.max_retries,
             )
 
             # Isolated transaction with serialization-conflict retry

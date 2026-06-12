@@ -33,6 +33,40 @@ _in_retrying_transaction: ContextVar[bool] = ContextVar(
 )
 
 
+# Driver/dialect message fragments identifying a dead or dropped connection.
+# Used as fallback when SQLAlchemy didn't set `connection_invalidated` (e.g.
+# errors raised while *starting* a transaction on a stale pooled connection).
+_DISCONNECT_MARKERS = (
+    "connection was closed",
+    "connection is closed",
+    "connection does not exist",
+    "connection reset",
+    "server closed the connection",
+    "connection refused",
+)
+
+
+def is_disconnect_error(exc: BaseException) -> bool:
+    """Return True for errors caused by a dead/dropped database connection.
+
+    Retrying after a disconnect does acquire a fresh connection: databasez
+    discards its per-task Connection wrapper once fully released, and
+    SQLAlchemy invalidates the pool generation when a dialect-recognized
+    disconnect occurs.
+
+    CAUTION — unlike a serialization failure (whose transaction is guaranteed
+    rolled back), a disconnect during COMMIT is ambiguous: the transaction may
+    have been applied. Only replay operations that are idempotent (e.g.
+    state-guarded UPDATEs, DELETE by id); never use it to retry non-idempotent
+    inserts without a unique constraint.
+    """
+    if getattr(exc, "connection_invalidated", False):
+        return True
+    orig = getattr(exc, "orig", None)
+    text = f"{exc} {orig}".lower()
+    return any(marker in text for marker in _DISCONNECT_MARKERS)
+
+
 def is_serialization_error(exc: BaseException) -> bool:
     """Return True for transient Postgres serialization/deadlock errors.
 
@@ -245,4 +279,5 @@ __all__ = [
     "with_transaction",
     "retry_on_serialization",
     "is_serialization_error",
+    "is_disconnect_error",
 ]

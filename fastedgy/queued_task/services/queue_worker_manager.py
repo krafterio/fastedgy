@@ -738,9 +738,11 @@ class QueueWorkerManager:
         (2) Remaining 'doing' rows older than 2x task_timeout are zombies
         (the worker enforces task_timeout on every execution, so no
         legitimate run can last that long): the owner is alive but the
-        finalize write was lost. They are marked 'failed' (TaskReaped)
-        rather than re-enqueued — a failed cron task unblocks the scheduler
-        dedup (next matching tick re-creates it).
+        finalize write was lost. Within the auto-retry budget they are
+        re-enqueued with an exponential delay; past it they are marked
+        'failed' (TaskReaped) — either way the scheduler dedup is unblocked
+        (a delayed-enqueued row still blocks the next tick, which is correct:
+        no double-run).
 
         (3) 'enqueued' children whose parent ended failed/cancelled can never
         be claimed (the claim SQL requires the parent to be 'done'): cascade
@@ -777,8 +779,42 @@ class QueueWorkerManager:
                 f"re-enqueued: {ids}"
             )
 
-        # (2) Timeout-stale 'doing' rows → failed (TaskReaped)
+        # (2) Timeout-stale 'doing' rows → reaped. Being reaped means infra
+        # trouble (the worker couldn't even record the failure — e.g. its
+        # finalize write hit a dead DB connection), not necessarily bad task
+        # code: within the auto-retry budget the row is re-enqueued with the
+        # same exponential delay as worker-side failures (30s*4^n, capped
+        # 30min); past the budget it fails terminally (TaskReaped).
         stale_after = max(int(self.config.task_timeout or 0), 1) * 2
+        default_max_retries = max(int(self.config.max_retries or 0), 0)
+        retry_sql = text(
+            "UPDATE queued_tasks "
+            "SET state = 'enqueued'::queuedtaskstate, "
+            "    retry_count = retry_count + 1, "
+            "    claimed_by = NULL, "
+            "    date_started = NULL, date_ended = NULL, date_failed = NULL, "
+            "    execution_time = 0, "
+            "    exception_name = NULL, exception_message = NULL, "
+            "    exception_info = NULL, "
+            "    date_enqueued = NOW() + make_interval(secs => LEAST(30 * power(4, retry_count), 1800)), "
+            "    updated_at = NOW() "
+            "WHERE state = 'doing'::queuedtaskstate "
+            "  AND date_started < NOW() - make_interval(secs => :stale_after) "
+            "  AND retry_count < COALESCE(max_retries, :default_max) "
+            "RETURNING id"
+        )
+        rows = await self.database.fetch_all(
+            retry_sql.bindparams(
+                stale_after=stale_after, default_max=default_max_retries
+            )
+        )
+        if rows:
+            ids = [row[0] for row in rows]
+            logger.warning(
+                f"Reaped {len(ids)} stale 'doing' task(s) (older than {stale_after}s) "
+                f"within retry budget, re-enqueued with delay: {ids}"
+            )
+
         # stale_after is a Python-computed int: safe to interpolate in the
         # message (binding it there would be typed as text by Postgres and
         # rejected by asyncpg for an int value).
@@ -792,13 +828,17 @@ class QueueWorkerManager:
             "    updated_at = NOW() "
             "WHERE state = 'doing'::queuedtaskstate "
             "  AND date_started < NOW() - make_interval(secs => :stale_after) "
+            "  AND retry_count >= COALESCE(max_retries, :default_max) "
             "RETURNING id"
         )
-        rows = await self.database.fetch_all(sql.bindparams(stale_after=stale_after))
+        rows = await self.database.fetch_all(
+            sql.bindparams(stale_after=stale_after, default_max=default_max_retries)
+        )
         if rows:
             ids = [row[0] for row in rows]
             logger.warning(
-                f"Reaped {len(ids)} stale 'doing' task(s) (older than {stale_after}s): {ids}"
+                f"Reaped {len(ids)} stale 'doing' task(s) (older than {stale_after}s), "
+                f"retry budget exhausted, failed: {ids}"
             )
 
         # (3) 'enqueued' children of terminally-failed parents → cascade

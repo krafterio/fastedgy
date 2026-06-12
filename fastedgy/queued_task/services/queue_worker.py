@@ -299,6 +299,84 @@ class QueueWorker:
             exception_message = str(e)
             exception_info = traceback.format_exc()
 
+            # Bounded auto-retry: within budget, the task is re-enqueued with
+            # an exponential delay instead of failing terminally. The budget
+            # is per task (max_retries column) with the config default as
+            # fallback; a timed-out run gets a single retry regardless — each
+            # attempt burns task_timeout seconds of a worker slot.
+            budget = getattr(task, "max_retries", None)
+            if budget is None:
+                budget = max(int(self.config.max_retries or 0), 0)
+            if isinstance(e, TaskTimeoutError):
+                budget = min(budget, 1)
+            current_retry = int(getattr(task, "retry_count", 0) or 0)
+
+            if current_retry < budget:
+                delay = min(30 * 4**current_retry, 1800)
+                retried = False
+
+                async def _op_retry_enqueue():
+                    nonlocal retried
+                    retried = False  # reset on retry after rollback
+                    from sqlalchemy import text
+
+                    database = self._get_manager_database()
+                    # State guard: only a still-'doing' row is re-enqueued.
+                    # If another path already flipped it (stop_workers →
+                    # 'stopped', cascade → 'cancelled'), that terminal state
+                    # is authoritative and must not be resurrected.
+                    sql = text(
+                        "UPDATE queued_tasks "
+                        "SET state = 'enqueued'::queuedtaskstate, "
+                        "    retry_count = retry_count + 1, "
+                        "    claimed_by = NULL, "
+                        "    date_started = NULL, date_ended = NULL, "
+                        "    date_failed = NULL, execution_time = 0, "
+                        "    exception_name = NULL, exception_message = NULL, "
+                        "    exception_info = NULL, "
+                        "    date_enqueued = NOW() + make_interval(secs => :delay), "
+                        "    updated_at = NOW() "
+                        "WHERE id = :id AND state = 'doing'::queuedtaskstate "
+                        "RETURNING id"
+                    )
+                    rows = await database.fetch_all(
+                        sql.bindparams(id=task.id, delay=delay)
+                    )
+                    retried = bool(rows)
+
+                try:
+                    await self._run_write_with_retry(_op_retry_enqueue)
+                except Exception as save_err:
+                    logger.error(
+                        f"Failed to re-enqueue task {getattr(task, 'id', '?')} for retry: {save_err} — "
+                        f"task left in 'doing' until reaped by the manager"
+                    )
+
+                if retried:
+                    logger.warning(
+                        f"Worker {self.worker_id} task {task.id} failed "
+                        f"({exception_name}: {exception_message}), auto-retry "
+                        f"{current_retry + 1}/{budget} re-enqueued in {delay}s"
+                    )
+
+                    try:
+                        await self.hook_registry.trigger_post_run(task, error=e)
+                    except Exception as hook_err:
+                        logger.error(
+                            f"post_run hook failed for task {getattr(task, 'id', '?')}: {hook_err}"
+                        )
+
+                    return {
+                        "status": "retry",
+                        "error": str(e),
+                        "retry_count": current_retry + 1,
+                        "worker_id": self.worker_id,
+                        "task_id": task.id,
+                    }
+                # Not re-enqueued (state changed under us, or the write
+                # failed): fall through to the terminal-failure path, whose
+                # state guard keeps it harmless in either case.
+
             # 4) Best-effort set task as failed with retry
             async def _op_mark_failed():
                 from sqlalchemy import text
@@ -473,6 +551,8 @@ class QueueWorker:
         """Run a small DB write with retries under a short-lived connection to avoid transaction reentrancy."""
         from sqlalchemy.exc import DBAPIError, OperationalError
 
+        from fastedgy.orm.transaction import is_disconnect_error
+
         database = self._get_manager_database()
 
         attempt = 0
@@ -484,6 +564,13 @@ class QueueWorker:
             except (DBAPIError, OperationalError) as e:  # type: ignore
                 if self._is_retryable_db_error(e) and attempt < max_attempts - 1:
                     delay = base_delay * (2**attempt) + random.uniform(0, base_delay)
+                    if is_disconnect_error(e):
+                        # A dead pooled connection needs the pool to re-connect;
+                        # sub-second retries would just drain the attempts while
+                        # the network/DB recovers. Each retry checks out a fresh
+                        # connection (databasez drops its per-task wrapper on
+                        # release, SQLAlchemy invalidates the pool generation).
+                        delay = max(delay, 1.0 * (attempt + 1))
                     logger.debug(
                         f"Transient DB error, retry {attempt + 1}/{max_attempts} in {delay:.3f}s"
                     )
@@ -495,11 +582,18 @@ class QueueWorker:
                 raise
 
     def _is_retryable_db_error(self, exc: Exception) -> bool:
-        """Detect Postgres serialization/deadlock errors in a driver-agnostic way."""
+        """Detect transient DB errors (serialization/deadlock/disconnect) worth retrying."""
+        from fastedgy.orm.transaction import is_disconnect_error
+
         txt = str(exc).lower()
         if "could not serialize access" in txt:
             return True
         if "deadlock detected" in txt:
+            return True
+        # Dead/dropped connections are retryable HERE because every write going
+        # through _run_write_with_retry is an idempotent, state-guarded UPDATE
+        # or DELETE: a replay after an ambiguous commit cannot double-apply.
+        if is_disconnect_error(exc):
             return True
         # Try to inspect underlying DBAPI error
         orig = getattr(exc, "orig", None)

@@ -110,6 +110,16 @@ class QueuedTaskMixin(BaseModel):
     claimed_by: Optional[str] = fields.CharField(
         max_length=255, null=True, label="Serveur propriétaire"
     )  # type: ignore
+    # Bounded auto-retry: a failed run is re-enqueued with an exponential
+    # delay until retry_count reaches the budget, then fails terminally.
+    # max_retries NULL → the QUEUED_TASK_MAX_RETRIES config default applies
+    # at failure time. Manual restart/retry resets retry_count (fresh budget).
+    retry_count: int = fields.IntegerField(
+        default=0, label="Nombre de tentatives automatiques"
+    )  # type: ignore
+    max_retries: Optional[int] = fields.IntegerField(
+        null=True, label="Nombre maximum de tentatives automatiques"
+    )  # type: ignore
     date_done: Optional[datetime] = fields.DateTimeField(
         null=True, label="Date de succès"
     )  # type: ignore
@@ -241,6 +251,7 @@ class QueuedTaskMixin(BaseModel):
         self.exception_name = None
         self.exception_message = None
         self.exception_info = None
+        self.retry_count = 0
 
     @property
     def is_finished(self) -> bool:

@@ -34,6 +34,14 @@ class QueuedTaskConfig:
     task_timeout: int = int(
         os.environ.get("QUEUED_TASK_TIMEOUT", 300)
     )  # 5 minutes default
+
+    # Bounded auto-retry budget: a task whose run fails is re-enqueued with
+    # an exponential delay (30s, 2min, 8min, capped at 30min) until
+    # retry_count reaches the budget, then fails terminally. Applies to
+    # worker-side failures and reaped tasks (TaskReaped); TaskTimeoutError is
+    # granted a single retry regardless (each attempt burns task_timeout
+    # seconds of a worker slot). Cancelled/stopped tasks are never retried.
+    # Per-task override via add_task(..., max_retries=N); 0 disables.
     max_retries: int = int(os.environ.get("QUEUED_TASK_MAX_RETRIES", 3))
 
     # Notification configuration

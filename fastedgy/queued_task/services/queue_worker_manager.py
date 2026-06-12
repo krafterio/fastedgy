@@ -9,6 +9,8 @@ import socket
 
 import logging
 
+import time
+
 from datetime import datetime, timedelta
 
 from pathlib import Path
@@ -64,6 +66,7 @@ class QueueWorkerManager:
         self.worker_status_record: Optional["QueuedTaskWorker"] = None
         self.cron_scheduler: Optional[CronScheduler] = None
         self.shutdown_event = asyncio.Event()
+        self._last_retention_purge: Optional[float] = None
 
         # Statistics
         self.stats = {
@@ -254,7 +257,9 @@ class QueueWorkerManager:
                         "WHERE id = :id AND state = 'doing'::queuedtaskstate"
                     )
                     await self._bounded_stop_write(
-                        self.database.execute(sql, {"id": worker.current_task.id}),
+                        self.database.execute(
+                            sql.bindparams(id=worker.current_task.id)
+                        ),
                         f"mark task {worker.current_task.id} stopped",
                     )
                     logger.info(
@@ -493,6 +498,7 @@ class QueueWorkerManager:
                     stats = await self.get_stats()
                     logger.debug(f"Worker stats: {stats['worker_pool']}")
                     await self._reap_stale_tasks()
+                    await self._purge_expired_tasks()
 
             except Exception as e:
                 logger.error(f"Cleanup task error: {e}")
@@ -635,7 +641,7 @@ class QueueWorkerManager:
                 "date_started = NULL, updated_at = NOW() "
                 "WHERE id = :id AND state = 'doing'::queuedtaskstate"
             )
-            await self.database.execute(sql, {"id": task_id})
+            await self.database.execute(sql.bindparams(id=task_id))
             logger.warning(
                 f"Released claimed task {task_id} back to 'enqueued' after load failure"
             )
@@ -723,7 +729,7 @@ class QueueWorkerManager:
             "  AND date_started < NOW() - make_interval(secs => :stale_after) "
             "RETURNING id"
         )
-        rows = await self.database.fetch_all(sql, {"stale_after": stale_after})
+        rows = await self.database.fetch_all(sql.bindparams(stale_after=stale_after))
         if rows:
             ids = [row[0] for row in rows]
             logger.warning(
@@ -790,12 +796,58 @@ class QueueWorkerManager:
             "RETURNING server_name"
         )
         dead = await self.database.fetch_all(
-            workers_sql, {"self_name": self.server_name}
+            workers_sql.bindparams(self_name=self.server_name)
         )
         if dead:
             names = [row[0] for row in dead]
             logger.warning(
                 f"Removed {len(names)} dead queue worker row(s) (stale heartbeat): {names}"
+            )
+
+    async def _purge_expired_tasks(self) -> None:
+        """Hourly purge of terminal tasks past the retention window.
+
+        Nothing else ever deletes failed/cancelled/stopped rows (and done
+        rows with auto_remove=False): without retention they accumulate
+        forever, along with their queued_task_logs (CASCADE on task delete
+        is their only deletion path). Failed tasks remain inspectable and
+        retryable inside the window.
+
+        Rows with remaining children are skipped (whatever the children
+        state): the FK is ON DELETE CASCADE, so deleting a parent would
+        silently take its subtree with it. Chains are therefore collected
+        leaf-first across successive runs.
+        """
+        retention_days = int(self.config.retention_days or 0)
+        if retention_days <= 0:
+            return
+
+        now = time.monotonic()
+        if (
+            self._last_retention_purge is not None
+            and now - self._last_retention_purge < 3600
+        ):
+            return
+        self._last_retention_purge = now
+
+        from sqlalchemy import text
+
+        sql = text(
+            "DELETE FROM queued_tasks t "
+            "WHERE t.state IN ('done'::queuedtaskstate, 'failed'::queuedtaskstate, "
+            "                  'cancelled'::queuedtaskstate, 'stopped'::queuedtaskstate) "
+            "  AND COALESCE(t.date_ended, t.updated_at, t.created_at) "
+            "      < NOW() - make_interval(days => :days) "
+            "  AND NOT EXISTS ("
+            "    SELECT 1 FROM queued_tasks c WHERE c.parent_task = t.id"
+            "  ) "
+            "RETURNING t.id"
+        )
+        rows = await self.database.fetch_all(sql.bindparams(days=retention_days))
+        if rows:
+            logger.info(
+                f"Retention purge: removed {len(rows)} terminal task(s) "
+                f"older than {retention_days} day(s)"
             )
 
     async def _cascade_to_descendants(
@@ -856,7 +908,10 @@ class QueueWorkerManager:
             "  WHERE d.depth < :max_depth\n"
             ")\n"
             "UPDATE queued_tasks t\n"
-            "SET state = :new_state::queuedtaskstate,\n"
+            # CAST(...) form on purpose: SQLAlchemy text() does NOT parse a
+            # bind param immediately followed by '::' (':new_state::enum'
+            # stays literal and breaks at runtime).
+            "SET state = CAST(:new_state AS queuedtaskstate),\n"
             "    date_failed    = CASE WHEN :new_state = 'failed'    THEN NOW() ELSE date_failed    END,\n"
             "    date_cancelled = CASE WHEN :new_state = 'cancelled' THEN NOW() ELSE date_cancelled END,\n"
             "    date_ended     = NOW(),\n"
@@ -871,15 +926,14 @@ class QueueWorkerManager:
         )
 
         rows = await self.database.fetch_all(
-            sql,
-            {
-                "root_id": root_task_id,
-                "new_state": new_state.name,
-                "exception_name": exception_name,
-                "exception_message": exception_message,
-                "exception_info": exception_info,
-                "max_depth": max_depth,
-            },
+            sql.bindparams(
+                root_id=root_task_id,
+                new_state=new_state.name,
+                exception_name=exception_name,
+                exception_message=exception_message,
+                exception_info=exception_info,
+                max_depth=max_depth,
+            )
         )
         return len(rows)
 
@@ -1087,7 +1141,7 @@ class QueueWorkerManager:
                     "DELETE FROM queued_task_workers WHERE server_name = :name"
                 )
                 await self._bounded_stop_write(
-                    self.database.execute(sql, {"name": self.server_name}),
+                    self.database.execute(sql.bindparams(name=self.server_name)),
                     "unregister server",
                 )
                 self.worker_status_record = None

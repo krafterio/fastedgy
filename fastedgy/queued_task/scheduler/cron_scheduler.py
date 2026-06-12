@@ -124,33 +124,49 @@ class CronScheduler:
                 "WHERE name = :name AND state IN ('enqueued', 'waiting', 'doing') "
                 "LIMIT 1"
             ).bindparams(name=task_def.name, stale_after=stale_after)
-            existing = await database.fetch_one(check_sql)
-
-            if existing:
-                if existing[1]:
-                    # A zombie 'doing' row silently kills this cron until it is
-                    # reaped — make the skip loud instead of a debug whisper.
-                    logger.warning(
-                        f"Skipping '{task_def.name}': blocked by a stale 'doing' task "
-                        f"(id={existing[0]}, running for more than {stale_after}s — "
-                        f"will be reaped by the manager)"
-                    )
-                else:
-                    logger.debug(
-                        f"Skipping '{task_def.name}': already has an active task"
-                    )
-                return
 
             queued_tasks = get_service(QueuedTasks)
-            task = await queued_tasks.create_task(
-                module_name=task_def.module_name,
-                function_name=task_def.function_name,
-                args=[],
-                kwargs={},
-                context=task_def.context or {},
-                name=task_def.name,
-                auto_remove=task_def.auto_remove,
-            )
+
+            # Serialize concurrent schedulers on this task name: the
+            # check-then-insert below is otherwise racy (two transactions,
+            # no unique constraint on name) and two overlapping schedulers
+            # — manual run, scaled replicas, deploy overlap — would
+            # double-enqueue. The xact-scoped advisory lock releases
+            # automatically at commit/rollback.
+            async with database.transaction(isolation_level="READ COMMITTED"):
+                await database.execute(
+                    text("SELECT pg_advisory_xact_lock(hashtext(:name))").bindparams(
+                        name=task_def.name
+                    )
+                )
+
+                existing = await database.fetch_one(check_sql)
+
+                if existing:
+                    if existing[1]:
+                        # A zombie 'doing' row silently kills this cron until
+                        # it is reaped — make the skip loud instead of a
+                        # debug whisper.
+                        logger.warning(
+                            f"Skipping '{task_def.name}': blocked by a stale 'doing' task "
+                            f"(id={existing[0]}, running for more than {stale_after}s — "
+                            f"will be reaped by the manager)"
+                        )
+                    else:
+                        logger.debug(
+                            f"Skipping '{task_def.name}': already has an active task"
+                        )
+                    return
+
+                task = await queued_tasks.create_task(
+                    module_name=task_def.module_name,
+                    function_name=task_def.function_name,
+                    args=[],
+                    kwargs={},
+                    context=task_def.context or {},
+                    name=task_def.name,
+                    auto_remove=task_def.auto_remove,
+                )
 
             logger.info(f"Created cron task '{task_def.name}' (id={task.id})")
 

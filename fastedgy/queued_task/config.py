@@ -59,6 +59,13 @@ class QueuedTaskConfig:
     # deliberately not DB health.
     health_file: str = os.environ.get("QUEUED_TASK_HEALTH_FILE", "")
 
+    # Retention window (days) for terminal tasks (done/failed/cancelled/
+    # stopped) kept in queued_tasks: past it the manager purges them hourly
+    # (their queued_task_logs rows follow via ON DELETE CASCADE). Failed
+    # tasks therefore stay inspectable/retryable within the window. 0
+    # disables purging entirely.
+    retention_days: int = int(os.environ.get("QUEUED_TASK_RETENTION_DAYS", 30))
+
     # Manager registry (dedicated database connection for queue management operations)
     _manager_registry: Optional["Registry"] = None
     _manager_database: Optional["Database"] = None

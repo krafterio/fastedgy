@@ -168,14 +168,17 @@ class QueueWorker:
                     "    updated_at = NOW()\n"
                     "WHERE id = :id AND state = 'doing'::queuedtaskstate"
                 )
-                await database.execute(sql, {"id": task.id})
+                await database.execute(sql.bindparams(id=task.id))
 
             await self._run_write_with_retry(_op_mark_done)
 
             # Auto-remove task if enabled
             if task.auto_remove:
+                removed = False
 
                 async def _op_auto_remove():
+                    nonlocal removed
+                    removed = False  # reset on retry after rollback
                     from sqlalchemy import text
 
                     database = self._get_manager_database()
@@ -207,14 +210,44 @@ class QueueWorker:
                         )
                         return
 
-                    # All checks passed, proceed with deletion
-                    sql = text("DELETE FROM queued_tasks WHERE id = :id")
-                    await database.execute(sql, {"id": task.id})
+                    # All checks passed, proceed with deletion — but never
+                    # while children are still active: the parent_task FK is
+                    # ON DELETE CASCADE, so deleting the parent would silently
+                    # take enqueued/doing children with it (never executed, or
+                    # deleted under a running worker's feet). The kept parent
+                    # row is collected later by the manager's retention purge.
+                    sql = text(
+                        "DELETE FROM queued_tasks t "
+                        "WHERE t.id = :id "
+                        "  AND NOT EXISTS ("
+                        "    SELECT 1 FROM queued_tasks c "
+                        "    WHERE c.parent_task = t.id "
+                        "      AND c.state IN ('enqueued'::queuedtaskstate, "
+                        "                      'waiting'::queuedtaskstate, "
+                        "                      'doing'::queuedtaskstate)"
+                        "  ) "
+                        "RETURNING t.id"
+                    )
+                    rows = await database.fetch_all(sql.bindparams(id=task.id))
+                    if rows:
+                        removed = True
+                    else:
+                        logger.info(
+                            f"Worker {self.worker_id} kept task {task.id} despite "
+                            f"auto_remove: children still active (retention purge "
+                            f"will collect it)"
+                        )
 
                 await self._run_write_with_retry(_op_auto_remove)
-                logger.info(
-                    f"Worker {self.worker_id} completed and auto-removed task {task.id}"
-                )
+                if removed:
+                    logger.info(
+                        f"Worker {self.worker_id} completed and auto-removed task {task.id}"
+                    )
+                else:
+                    logger.info(
+                        f"Worker {self.worker_id} completed task {task.id} "
+                        f"(auto-remove skipped)"
+                    )
             elif task.state == QueuedTaskState.failed:
                 logger.info(
                     f"Worker {self.worker_id} failed task {task.id}, keeping it"
@@ -244,7 +277,7 @@ class QueueWorker:
                     "updated_at = NOW() "
                     "WHERE id = :id AND state = 'doing'::queuedtaskstate"
                 )
-                await database.execute(sql, {"id": task.id})
+                await database.execute(sql.bindparams(id=task.id))
 
             try:
                 await self._run_write_with_retry(_op_mark_stopped)
@@ -287,13 +320,12 @@ class QueueWorker:
                     "WHERE id = :id AND state = 'doing'::queuedtaskstate"
                 )
                 await database.execute(
-                    sql,
-                    {
-                        "id": task.id,
-                        "name": exception_name,
-                        "message": exception_message,
-                        "info": exception_info,
-                    },
+                    sql.bindparams(
+                        id=task.id,
+                        name=exception_name,
+                        message=exception_message,
+                        info=exception_info,
+                    )
                 )
 
             try:

@@ -179,10 +179,12 @@ class QueueWorker:
             # Auto-remove task if enabled
             if task.auto_remove:
                 removed = False
+                removed_ancestors: list = []
 
                 async def _op_auto_remove():
                     nonlocal removed
                     removed = False  # reset on retry after rollback
+                    removed_ancestors.clear()
                     from sqlalchemy import text
 
                     database = self._get_manager_database()
@@ -215,38 +217,76 @@ class QueueWorker:
                         return
 
                     # All checks passed, proceed with deletion — but never
-                    # while children are still active: the parent_task FK is
-                    # ON DELETE CASCADE, so deleting the parent would silently
-                    # take enqueued/doing children with it (never executed, or
-                    # deleted under a running worker's feet). The kept parent
-                    # row is collected later by the manager's retention purge.
+                    # while child rows remain: the parent_task FK is ON DELETE
+                    # CASCADE, so deleting the parent would silently take its
+                    # children with it (an enqueued child never executed, a
+                    # doing one deleted under a running worker's feet, a
+                    # failed one lost before inspection). A kept row is
+                    # collected by the cascade-up below when its last child
+                    # removes itself, or by the retention purge.
                     sql = text(
                         "DELETE FROM queued_tasks t "
                         "WHERE t.id = :id "
                         "  AND NOT EXISTS ("
                         "    SELECT 1 FROM queued_tasks c "
-                        "    WHERE c.parent_task = t.id "
-                        "      AND c.state IN ('enqueued'::queuedtaskstate, "
-                        "                      'waiting'::queuedtaskstate, "
-                        "                      'doing'::queuedtaskstate)"
+                        "    WHERE c.parent_task = t.id"
                         "  ) "
-                        "RETURNING t.id"
+                        "RETURNING t.parent_task"
                     )
                     rows = await database.fetch_all(sql.bindparams(id=task.id))
-                    if rows:
-                        removed = True
-                    else:
+                    if not rows:
                         logger.info(
                             f"Worker {self.worker_id} kept task {task.id} despite "
-                            f"auto_remove: children still active (retention purge "
-                            f"will collect it)"
+                            f"auto_remove: child task(s) still present (removed "
+                            f"when the last child completes, or by the retention "
+                            f"purge)"
                         )
+                        return
+                    removed = True
+
+                    # Cascade up the chain: an ancestor kept earlier because
+                    # this row was still pending can be collectable now that
+                    # its last child is gone (chained tasks would otherwise
+                    # leave their head row in 'done' forever). Same keep
+                    # rules as above, all guards inside one idempotent DELETE.
+                    parent_id = rows[0][0]
+                    ancestor_sql = text(
+                        "DELETE FROM queued_tasks t "
+                        "WHERE t.id = :id "
+                        "  AND t.state = 'done'::queuedtaskstate "
+                        "  AND t.auto_remove IS TRUE "
+                        "  AND NOT EXISTS ("
+                        "    SELECT 1 FROM queued_tasks c "
+                        "    WHERE c.parent_task = t.id"
+                        "  ) "
+                        "  AND NOT EXISTS ("
+                        "    SELECT 1 FROM queued_task_logs l "
+                        "    WHERE l.task = t.id "
+                        "      AND l.log_type IN ('error', 'critical')"
+                        "  ) "
+                        "RETURNING t.parent_task"
+                    )
+                    hops = 0
+                    while parent_id is not None and hops < 32:
+                        up_rows = await database.fetch_all(
+                            ancestor_sql.bindparams(id=parent_id)
+                        )
+                        if not up_rows:
+                            break
+                        removed_ancestors.append(parent_id)
+                        parent_id = up_rows[0][0]
+                        hops += 1
 
                 await self._run_write_with_retry(_op_auto_remove)
                 if removed:
                     logger.info(
                         f"Worker {self.worker_id} completed and auto-removed task {task.id}"
                     )
+                    if removed_ancestors:
+                        logger.info(
+                            f"Worker {self.worker_id} auto-removed completed "
+                            f"ancestor task(s) {removed_ancestors} (chain cleanup)"
+                        )
                 else:
                     logger.info(
                         f"Worker {self.worker_id} completed task {task.id} "

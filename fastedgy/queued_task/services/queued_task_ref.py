@@ -40,28 +40,55 @@ class QueuedTaskRef:
 
         raise RuntimeError("Task creation failed or was cancelled")
 
-    def cancel(self) -> None:
-        """Cancel this task (async in background)"""
-        asyncio.create_task(self._cancel_async())
+    async def cancel(self) -> None:
+        """Cancel this task.
 
-    def stop(self) -> None:
-        """Stop this task if running (async in background)"""
-        asyncio.create_task(self._stop_async())
+        Awaited directly (no fire-and-forget): errors propagate to the
+        caller instead of being silently lost in a background task.
+        """
+        await self._cancel_async()
 
-    async def wait(self) -> Any:
-        """Wait for task completion and return result"""
+    async def stop(self) -> None:
+        """Stop this task if running.
+
+        Awaited directly (no fire-and-forget): errors propagate to the
+        caller instead of being silently lost in a background task.
+        """
+        await self._stop_async()
+
+    async def wait(self, timeout: Optional[float] = None) -> Any:
+        """Wait for task completion and return result.
+
+        Args:
+            timeout: Optional max seconds to wait — without it, a task row
+                stuck in a non-terminal state would make this poll forever.
+
+        Raises:
+            asyncio.TimeoutError: When timeout elapses first.
+        """
         task_id = await self.get_task_id()
         task = await self._service.get_task_by_id(task_id)
 
         if not task:
             raise RuntimeError(f"Task {task_id} not found")
 
-        # Poll until task is done
+        deadline = (
+            asyncio.get_event_loop().time() + timeout if timeout is not None else None
+        )
+
+        # Poll until task reaches a terminal state ('stopped' included: it is
+        # a deliberate terminal state, only ever restarted manually — waiting
+        # past it would poll forever)
         while task.state not in [
             QueuedTaskState.done,
             QueuedTaskState.failed,
             QueuedTaskState.cancelled,
+            QueuedTaskState.stopped,
         ]:
+            if deadline is not None and asyncio.get_event_loop().time() >= deadline:
+                raise asyncio.TimeoutError(
+                    f"Task {task_id} did not reach a terminal state within {timeout}s"
+                )
             await asyncio.sleep(0.5)
             task = await self._service.get_task_by_id(task_id)
             if not task:
@@ -71,6 +98,8 @@ class QueuedTaskRef:
             return task.result if hasattr(task, "result") else None
         elif task.state == QueuedTaskState.failed:
             raise RuntimeError(f"Task failed: {task.exception_message}")
+        elif task.state == QueuedTaskState.stopped:
+            raise RuntimeError("Task was stopped")
         else:  # cancelled
             raise asyncio.CancelledError("Task was cancelled")
 

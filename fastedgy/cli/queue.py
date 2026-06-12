@@ -30,7 +30,8 @@ async def clear(ctx: cli.CliContext):
 @cli.pass_cli_context
 async def retry(ctx: cli.CliContext, task_id: int):
     """Retry a task by ID (clone if done, re-enqueue if stopped)."""
-    await cli_queue.retry(ctx, task_id)
+    # cli_queue.retry iterates a collection of ids
+    await cli_queue.retry(ctx, [task_id])
 
 
 @queue.command()

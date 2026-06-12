@@ -26,6 +26,19 @@ current_execution_context: ContextVar[Dict[str, Any]] = ContextVar(
 )
 
 
+# Strong references to in-flight fire-and-forget context updates: the event
+# loop only keeps weak references to tasks (documented asyncio pitfall), so
+# an unreferenced update task could be garbage-collected before running.
+_pending_context_updates: "set[asyncio.Task]" = set()
+
+
+def _spawn_context_update(task: "QueuedTask", context: Dict[str, Any]) -> None:
+    """Schedule the DB context update, holding a strong reference (RUF006)."""
+    t = asyncio.create_task(_update_task_context_async(task, context))
+    _pending_context_updates.add(t)
+    t.add_done_callback(_pending_context_updates.discard)
+
+
 def get_current_task() -> Optional["QueuedTask"]:
     """Get the current queues task from context"""
     return current_queued_task.get()
@@ -109,7 +122,7 @@ def set_context(path: str, value: Any, auto_commit: bool = True) -> None:
         if task is not None:
             try:
                 # Create async task for database update
-                asyncio.create_task(_update_task_context_async(task, context))
+                _spawn_context_update(task, context)
             except RuntimeError:
                 # No event loop available - skip database update silently
                 pass
@@ -183,7 +196,7 @@ def set_full_context(context: Dict[str, Any], auto_commit: bool = True) -> None:
         if task is not None:
             try:
                 # Create async task for database update
-                asyncio.create_task(_update_task_context_async(task, context))
+                _spawn_context_update(task, context)
             except RuntimeError:
                 # No event loop available - skip database update silently
                 pass

@@ -120,8 +120,29 @@ class Scheduler:
             return False
 
         if task.state == QueuedTaskState.enqueued:
-            await task.delete()
-            return True
+            # Atomic delete: the manager can claim the task between the read
+            # above and this point — a state guard keeps the "cancelled" task
+            # from running anyway after an unconditional delete.
+            from sqlalchemy import text
+
+            rows = await self.registry.database.fetch_all(
+                text(
+                    "DELETE FROM queued_tasks "
+                    "WHERE id = :id AND state = 'enqueued'::queuedtaskstate "
+                    "RETURNING id"
+                ).bindparams(id=task_id)
+            )
+            if rows:
+                return True
+
+            # Claimed meanwhile: re-read and fall through to the cancel path
+            task = await QueuedTask.query.get_or_none(id=task_id)
+            if not task or task.state in [
+                QueuedTaskState.done,
+                QueuedTaskState.failed,
+                QueuedTaskState.cancelled,
+            ]:
+                return False
 
         task.mark_as_cancelled()
         await task.save()

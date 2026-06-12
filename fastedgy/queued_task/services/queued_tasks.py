@@ -486,12 +486,16 @@ class QueuedTasks:
                 name=f"{task.name}_retry",
                 module_name=task.module_name,
                 function_name=task.function_name,
+                # Without it, the clone of a dill-serialized task has neither
+                # module/function nor blob and systematically fails at run.
+                serialized_function=task.serialized_function,
                 args=task.args,
                 kwargs=task.kwargs,
                 context=task.context.copy() if task.context else {},
                 parent_task=task.parent_task,
                 state=QueuedTaskState.enqueued,
                 date_enqueued=datetime.now(context.get_timezone()),
+                auto_remove=task.auto_remove,
             )
 
             # Isolated transaction with serialization-conflict retry

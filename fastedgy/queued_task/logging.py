@@ -32,18 +32,41 @@ class QueuedTaskLogger(logging.Logger):
 
         return self._config
 
+    # Strong references to in-flight DB log writes (the loop only keeps weak
+    # refs to tasks), bounded: a task function logging in a tight loop would
+    # otherwise pile up an unbounded number of pending insert tasks, each
+    # costing a SELECT + INSERT. Past the cap, DB logging is dropped (console
+    # logging is unaffected) and counted.
+    _pending_db_logs: "set[asyncio.Task]" = set()
+    _dropped_db_logs: int = 0
+    _MAX_PENDING_DB_LOGS = 500
+
     def _log_to_db_sync(self, level: str, message: str, *args, **kwargs) -> None:
         """Synchronous wrapper for database logging"""
         try:
             loop = asyncio.get_running_loop()
-
-            if loop and not loop.is_closed():
-                asyncio.create_task(
-                    self._log_to_db_async(level, message, *args, **kwargs)
-                )
         except RuntimeError:
             # No event loop available - skip database logging silently
-            pass
+            return
+
+        if loop.is_closed():
+            return
+
+        cls = QueuedTaskLogger
+        if len(cls._pending_db_logs) >= cls._MAX_PENDING_DB_LOGS:
+            cls._dropped_db_logs += 1
+            if cls._dropped_db_logs % 1000 == 1:
+                # Bypass the DB-logging override to avoid recursing here
+                logging.Logger.warning(
+                    self,
+                    f"DB logging backpressure: {cls._dropped_db_logs} record(s) "
+                    f"dropped so far ({cls._MAX_PENDING_DB_LOGS} writes pending)",
+                )
+            return
+
+        t = loop.create_task(self._log_to_db_async(level, message, *args, **kwargs))
+        cls._pending_db_logs.add(t)
+        t.add_done_callback(cls._pending_db_logs.discard)
 
     async def _log_to_db_async(self, level: str, message: str, *args, **kwargs) -> None:
         """Asynchronous database logging"""

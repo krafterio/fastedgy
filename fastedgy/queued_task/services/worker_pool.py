@@ -165,5 +165,4 @@ class WorkerPool:
         return list(self.busy_workers.values())
 
     def __str__(self):
-        stats = asyncio.create_task(self.get_pool_stats())
         return f"WorkerPool(max={self.max_workers}, busy={len(self.busy_workers)}, idle={self.idle_workers.qsize()})"

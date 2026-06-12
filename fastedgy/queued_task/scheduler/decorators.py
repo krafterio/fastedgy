@@ -80,6 +80,21 @@ def scheduled_task(
 
         resolved_name = name or func.__name__.replace("_", "-").lower()
 
+        # Fail fast at import time: an invalid expression would otherwise
+        # only surface at runtime, failing on EVERY scheduler tick forever.
+        if cron:
+            from datetime import datetime
+
+            from cronsim import CronSim, CronSimError
+
+            try:
+                CronSim(cron, datetime(2000, 1, 1))
+            except CronSimError as e:
+                raise ValueError(
+                    f"Invalid cron expression '{cron}' for scheduled task "
+                    f"'{resolved_name}': {e}"
+                ) from e
+
         task_def = ScheduledTaskDef(
             name=resolved_name,
             cron=cron,

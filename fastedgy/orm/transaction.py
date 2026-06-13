@@ -170,6 +170,7 @@ async def retry_on_serialization(
     *,
     max_attempts: int = 3,
     base_delay: float = 0.1,
+    retry_on_disconnect: bool = False,
 ) -> T:
     """Replay an idempotent operation on serialization conflicts (40001/40P01)
     WITHOUT wrapping it in a transaction.
@@ -180,6 +181,14 @@ async def retry_on_serialization(
     those in an outer transaction would leave it poisoned after the internally
     caught error. The op must be idempotent or refetch its own data — exactly
     like a :func:`with_transaction` factory.
+
+    Args:
+        retry_on_disconnect: Also replay on a dropped/dead connection
+            (see :func:`is_disconnect_error`). OFF by default because a
+            disconnect during COMMIT is ambiguous (the write may have landed);
+            only enable it when ``op`` is idempotent — e.g. a single-row
+            state-overwrite UPDATE/DELETE by id — so a replay on a fresh
+            connection is safe.
     """
     from sqlalchemy.exc import DBAPIError
 
@@ -187,11 +196,14 @@ async def retry_on_serialization(
         try:
             return await op()
         except DBAPIError as e:
-            if not is_serialization_error(e) or attempt == max_attempts - 1:
+            retryable = is_serialization_error(e) or (
+                retry_on_disconnect and is_disconnect_error(e)
+            )
+            if not retryable or attempt == max_attempts - 1:
                 raise
             delay = base_delay * (2**attempt) + random.uniform(0, base_delay)
             logger.debug(
-                "Serialization conflict in %s, retry %d/%d in %.3fs",
+                "Transient DB error in %s, retry %d/%d in %.3fs",
                 getattr(op, "__qualname__", op),
                 attempt + 1,
                 max_attempts,

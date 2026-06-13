@@ -75,6 +75,13 @@ class QueueWorkerManager:
         # or concurrent _process_pending_tasks runs would overshoot the caps.
         self._channel_running: Counter[str] = Counter()
         self._claim_lock = asyncio.Lock()
+        # NOTIFY wakeup flag. asyncpg's on_notify is a sync callback that can't
+        # await, so it only flips this event; the notification consumer turns a
+        # burst of NOTIFYs into a single processing pass. This avoids spawning
+        # an unreferenced task per NOTIFY — which the loop only weak-refs (so it
+        # could be collected mid-flight while holding a pooled DB connection)
+        # and which would fan a burst out into N concurrent claim passes.
+        self._notify_wakeup: asyncio.Event = asyncio.Event()
 
         # Statistics
         self.stats = {
@@ -164,6 +171,9 @@ class QueueWorkerManager:
         self.manager_tasks = [
             asyncio.create_task(
                 self._notification_listener(), name="notification_listener"
+            ),
+            asyncio.create_task(
+                self._notification_consumer(), name="notification_consumer"
             ),
             asyncio.create_task(self._fallback_polling(), name="fallback_polling"),
             asyncio.create_task(
@@ -343,6 +353,27 @@ class QueueWorkerManager:
         logging.getLogger("queued_tasks").setLevel(target_level)
         logging.getLogger("queued_task.scheduler").setLevel(target_level)
 
+    async def _notification_consumer(self) -> None:
+        """Turn NOTIFY wakeups into pending-task processing, coalescing bursts.
+
+        ``on_notify`` only flips ``_notify_wakeup`` (it's a sync asyncpg
+        callback). This consumer waits on that flag, clears it, then runs one
+        processing pass. A NOTIFY arriving mid-pass re-sets the flag, so the
+        next iteration picks it up — no wakeup is lost, yet a storm of NOTIFYs
+        collapses into a single claim pass instead of N concurrent ones. The
+        clear-before-process order is what guarantees the no-lost-wakeup
+        property.
+        """
+        while not self.shutdown_event.is_set():
+            await self._notify_wakeup.wait()
+            self._notify_wakeup.clear()
+            if self.shutdown_event.is_set():
+                break
+            try:
+                await self._process_pending_tasks()
+            except Exception as e:
+                logger.error(f"NOTIFY-driven task processing failed: {e}")
+
     async def _notification_listener(self) -> None:
         """Listen for PostgreSQL notifications and trigger processing outside the LISTEN connection.
 
@@ -370,11 +401,10 @@ class QueueWorkerManager:
         )
 
         def on_notify(connection, pid, ch, payload):  # type: ignore[no-untyped-def]
-            try:
-                # Schedule processing immediately outside of the LISTEN connection
-                asyncio.create_task(self._process_pending_tasks())
-            except Exception as cb_err:
-                logger.error(f"Notification callback error: {cb_err}")
+            # Sync asyncpg callback: only flip the wakeup flag — never schedule
+            # work or touch a pooled connection here. The notification consumer
+            # coalesces wakeups into a single processing pass.
+            self._notify_wakeup.set()
 
         backoff = 1.0
         while not self.shutdown_event.is_set():

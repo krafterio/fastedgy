@@ -151,7 +151,17 @@ async def _update_task_context_async(
             .values(context=context)
         )
 
-        await db.execute(query)
+        # This UPDATE is idempotent (full overwrite of `context` by id), so a
+        # transient drop (ConnectionDoesNotExistError when the pooled connection
+        # is reclaimed/restarted mid-flight) or a serialization conflict is safe
+        # to replay on a fresh connection — SQLAlchemy invalidates the pool
+        # generation on a recognized disconnect. Without this the checkpoint is
+        # lost and an ERROR is logged for what is a recoverable blip.
+        from fastedgy.orm.transaction import retry_on_serialization
+
+        await retry_on_serialization(
+            lambda: db.execute(query), retry_on_disconnect=True
+        )
         task.context = context
     except Exception as e:
         # Don't let database errors break the execution

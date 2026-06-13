@@ -7,6 +7,8 @@ import logging
 from typing import Any
 
 from edgy.core.signals import post_save
+from sqlalchemy.exc import DBAPIError
+
 from fastedgy.orm.fields.field_fulltext import (
     get_searchable_fields,
     get_pg_language,
@@ -111,6 +113,15 @@ async def _handle_fulltext_save(instance: Any, **kwargs: dict[str, Any]) -> None
 
             await model_cls.meta.registry.database.execute(sql, bind_params)
 
+    except DBAPIError:
+        # A database error here (typically a serialization conflict 40001 under
+        # concurrent writes) has already aborted the surrounding transaction.
+        # Swallowing it would leave the transaction poisoned and make the very
+        # next statement in the post_save chain (or after save()) fail with a
+        # misleading InFailedSQLTransactionError. Propagate so the caller's
+        # transaction/retry machinery rolls back and replays cleanly — the
+        # tsvector UPDATE is idempotent, so replay is safe.
+        raise
     except Exception:
         logger.exception("Error in fulltext post_save signal handler")
 

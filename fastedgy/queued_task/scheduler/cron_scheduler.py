@@ -138,9 +138,17 @@ class CronScheduler:
                     # overlapping schedulers — manual run, scaled replicas,
                     # deploy overlap — would double-enqueue. The xact-scoped
                     # advisory lock releases automatically at commit/rollback.
-                    async with database.transaction(
-                        isolation_level="READ COMMITTED"
-                    ):
+                    #
+                    # Default isolation (NOT isolation_level=...): create_task()
+                    # wraps the insert in with_transaction(), which opens a
+                    # nested SAVEPOINT. databasez's isolation-level transaction
+                    # does not establish the asyncpg transaction a savepoint
+                    # needs, so it raised "SAVEPOINT can only be used in
+                    # transaction blocks" — silently failing EVERY cron (no
+                    # birthdays, waste reminders, process-reminders, ...). The
+                    # advisory lock already serializes, so the default level is
+                    # enough.
+                    async with database.transaction():
                         await database.execute(
                             text(
                                 "SELECT pg_advisory_xact_lock(hashtext(:name))"

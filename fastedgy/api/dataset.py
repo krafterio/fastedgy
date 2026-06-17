@@ -26,7 +26,7 @@ async def resequence(
     meta_registry: MetadataModelRegistry = Inject(MetadataModelRegistry),
     registry: Registry = Inject(Registry),
 ) -> Resequence:
-    if not meta_registry.is_registered(data.model_name):
+    if not await meta_registry.is_registered(data.model_name):
         raise HTTPException(
             status_code=400, detail=f"Model '{data.model_name}' not found"
         )

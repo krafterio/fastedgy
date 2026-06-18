@@ -67,7 +67,7 @@ def generate_list_items[M = TypeModel](
 ) -> Callable[[Request, int, int, str, str], Coroutine[Any, Any, Pagination[M]]]:
     async def list_items(
         request: Request,
-        limit: int = Query(50, ge=1, le=1000),
+        limit: int = Query(50, ge=0, le=1000),
         offset: int = Query(0, ge=0),
         order_by: str | None = OrderByQuery(),
         fields: str | None = FieldSelectorHeader(),
@@ -119,7 +119,10 @@ async def list_items_action[M = TypeModel](
         query = inject_order_by(query, transformers_ctx.get("order_by"))
 
         total = await query.count()
-        items = await query.limit(limit).offset(offset).all()
+        if limit == 0:
+            items = []
+        else:
+            items = await query.limit(limit).offset(offset).all()
     except InvalidFilterError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:

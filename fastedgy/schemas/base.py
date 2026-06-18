@@ -82,6 +82,8 @@ class Pagination[M = Any](BaseModel):
     @computed_field
     @property
     def total_pages(self) -> int:
+        if self.limit <= 0:
+            return 0
         return (self.total + self.limit - 1) // self.limit
 
 

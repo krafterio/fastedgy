@@ -66,12 +66,15 @@ class WorkspaceableMixin(Model):
         values: dict[str, Any] | set[str] | None = None,
         force_save: bool | None = None,
     ) -> Model:
-        workspace = context.get_workspace()
+        preserve_explicit = getattr(type(self).Meta, "workspace_preserve_explicit", False)
 
-        if workspace and (
-            not hasattr(self, "workspace") or self.workspace != workspace
-        ):
-            self.workspace = workspace
+        if not (preserve_explicit and getattr(self, "workspace", None) is not None):
+            workspace = context.get_workspace()
+
+            if workspace and (
+                not hasattr(self, "workspace") or self.workspace != workspace
+            ):
+                self.workspace = workspace
 
         return await super().save(force_insert, values, force_save)
 

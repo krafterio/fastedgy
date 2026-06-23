@@ -47,16 +47,11 @@ class TimezoneMiddleware(BaseHTTPMiddleware):
 
         if timezone_header:
             try:
-                if (
-                    isinstance(timezone_header, str)
-                    and timezone_header.lower() == "system"
-                ):
+                if isinstance(timezone_header, str) and timezone_header.lower() == "system":
                     timezone_header = get_timezone()
 
                 set_timezone(timezone_header)
-                logger.debug(
-                    f"Set timezone to '{timezone_header}' from {self.header_name} header"
-                )
+                logger.debug(f"Set timezone to '{timezone_header}' from {self.header_name} header")
             except Exception as e:
                 logger.debug(
                     f"Invalid timezone '{timezone_header}' in {self.header_name} header: {e}. "

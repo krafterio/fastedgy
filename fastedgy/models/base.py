@@ -100,8 +100,8 @@ class BaseModel(Model):
         return data
 
     query: ClassVar[Union[WorkspaceableManager, QuerySet]] = WorkspaceableManager()
-    query_related: ClassVar[Union[WorkspaceableRedirectManager, QuerySet]] = (
-        WorkspaceableRedirectManager(redirect_name="query")
+    query_related: ClassVar[Union[WorkspaceableRedirectManager, QuerySet]] = WorkspaceableRedirectManager(
+        redirect_name="query"
     )
     global_query: ClassVar[Union[Manager, QuerySet]] = Manager()
 
@@ -199,8 +199,8 @@ class BaseView(Model):
         return data
 
     query: ClassVar[Union[WorkspaceableManager, "QuerySet"]] = WorkspaceableManager()
-    query_related: ClassVar[Union[WorkspaceableRedirectManager, "QuerySet"]] = (
-        WorkspaceableRedirectManager(redirect_name="query")
+    query_related: ClassVar[Union[WorkspaceableRedirectManager, "QuerySet"]] = WorkspaceableRedirectManager(
+        redirect_name="query"
     )
     global_query: ClassVar[Union[Manager, "QuerySet"]] = Manager()
 

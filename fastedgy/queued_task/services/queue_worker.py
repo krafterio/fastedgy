@@ -72,26 +72,18 @@ class QueueWorker:
         self.is_busy = True
         self.last_activity = datetime.now(context.get_timezone())
 
-        QueuedTask = cast(
-            type["QueuedTask"], get_service(Registry).get_model("QueuedTask")
-        )
+        QueuedTask = cast(type["QueuedTask"], get_service(Registry).get_model("QueuedTask"))
 
         try:
-            logger.info(
-                f"Worker {self.worker_id} starting task {task.id}: {task.module_name}.{task.function_name}"
-            )
+            logger.info(f"Worker {self.worker_id} starting task {task.id}: {task.module_name}.{task.function_name}")
 
             # FIRST CHECK: Verify parent is still valid before starting
             if task.parent_task:
-                parent = await QueuedTask.query.filter(
-                    QueuedTask.columns.id == task.parent_task.id
-                ).get_or_none()
+                parent = await QueuedTask.query.filter(QueuedTask.columns.id == task.parent_task.id).get_or_none()
 
                 if not parent or parent.state != QueuedTaskState.done:
                     parent_state = parent.state if parent else "not_found"
-                    logger.warning(
-                        f"Parent task {task.parent_task.id} is {parent_state}, aborting child {task.id}"
-                    )
+                    logger.warning(f"Parent task {task.parent_task.id} is {parent_state}, aborting child {task.id}")
                     task.mark_as_failed(
                         exception_name="ParentTaskNotReady",
                         exception_message=f"Parent task {task.parent_task.id} is {parent_state}",
@@ -124,15 +116,11 @@ class QueueWorker:
 
             # Check if parent task is still valid before marking as done
             if task.parent_task:
-                parent = await QueuedTask.query.filter(
-                    QueuedTask.columns.id == task.parent_task.id
-                ).get_or_none()
+                parent = await QueuedTask.query.filter(QueuedTask.columns.id == task.parent_task.id).get_or_none()
 
                 if parent and parent.state != QueuedTaskState.done:
                     # Parent failed/cancelled while we were executing, mark as failed
-                    logger.warning(
-                        f"Parent task {parent.id} is {parent.state}, marking child {task.id} as failed"
-                    )
+                    logger.warning(f"Parent task {parent.id} is {parent.state}, marking child {task.id} as failed")
                     task.mark_as_failed(
                         exception_name="ParentTaskFailed",
                         exception_message=f"Parent task {parent.id} is {parent.state}",
@@ -190,15 +178,9 @@ class QueueWorker:
                     database = self._get_manager_database()
 
                     # Check task state is not failed
-                    check_state_sql = text(
-                        "SELECT state FROM queued_tasks WHERE id = :id"
-                    ).bindparams(id=task.id)
+                    check_state_sql = text("SELECT state FROM queued_tasks WHERE id = :id").bindparams(id=task.id)
                     result = await database.fetch_all(check_state_sql)
-                    if (
-                        result
-                        and len(result) > 0
-                        and result[0][0] == QueuedTaskState.failed
-                    ):
+                    if result and len(result) > 0 and result[0][0] == QueuedTaskState.failed:
                         logger.warning(
                             f"Worker {self.worker_id} skipping auto-remove for task {task.id}: state is 'failed'"
                         )
@@ -206,8 +188,7 @@ class QueueWorker:
 
                     # Check for error or critical logs
                     check_logs_sql = text(
-                        "SELECT COUNT(*) FROM queued_task_logs "
-                        "WHERE task = :id AND log_type IN ('error', 'critical')"
+                        "SELECT COUNT(*) FROM queued_task_logs WHERE task = :id AND log_type IN ('error', 'critical')"
                     ).bindparams(id=task.id)
                     log_result = await database.fetch_all(check_logs_sql)
                     if log_result and len(log_result) > 0 and log_result[0][0] > 0:
@@ -268,9 +249,7 @@ class QueueWorker:
                     )
                     hops = 0
                     while parent_id is not None and hops < 32:
-                        up_rows = await database.fetch_all(
-                            ancestor_sql.bindparams(id=parent_id)
-                        )
+                        up_rows = await database.fetch_all(ancestor_sql.bindparams(id=parent_id))
                         if not up_rows:
                             break
                         removed_ancestors.append(parent_id)
@@ -279,27 +258,18 @@ class QueueWorker:
 
                 await self._run_write_with_retry(_op_auto_remove)
                 if removed:
-                    logger.info(
-                        f"Worker {self.worker_id} completed and auto-removed task {task.id}"
-                    )
+                    logger.info(f"Worker {self.worker_id} completed and auto-removed task {task.id}")
                     if removed_ancestors:
                         logger.info(
                             f"Worker {self.worker_id} auto-removed completed "
                             f"ancestor task(s) {removed_ancestors} (chain cleanup)"
                         )
                 else:
-                    logger.info(
-                        f"Worker {self.worker_id} completed task {task.id} "
-                        f"(auto-remove skipped)"
-                    )
+                    logger.info(f"Worker {self.worker_id} completed task {task.id} (auto-remove skipped)")
             elif task.state == QueuedTaskState.failed:
-                logger.info(
-                    f"Worker {self.worker_id} failed task {task.id}, keeping it"
-                )
+                logger.info(f"Worker {self.worker_id} failed task {task.id}, keeping it")
             else:
-                logger.info(
-                    f"Worker {self.worker_id} completed task {task.id} successfully"
-                )
+                logger.info(f"Worker {self.worker_id} completed task {task.id} successfully")
 
             return {
                 "status": "success",
@@ -325,9 +295,7 @@ class QueueWorker:
 
             try:
                 await self._run_write_with_retry(_op_mark_stopped)
-                logger.info(
-                    f"Worker {self.worker_id} marked task {task.id} as stopped (cancelled)"
-                )
+                logger.info(f"Worker {self.worker_id} marked task {task.id} as stopped (cancelled)")
             except Exception as save_err:
                 logger.error(
                     f"Failed to mark task {task.id} as stopped: {save_err} — "
@@ -383,9 +351,7 @@ class QueueWorker:
                         "WHERE id = :id AND state = 'doing'::queuedtaskstate "
                         "RETURNING id"
                     )
-                    rows = await database.fetch_all(
-                        sql.bindparams(id=task.id, delay=delay)
-                    )
+                    rows = await database.fetch_all(sql.bindparams(id=task.id, delay=delay))
                     retried = bool(rows)
 
                 try:
@@ -406,9 +372,7 @@ class QueueWorker:
                     try:
                         await self.hook_registry.trigger_post_run(task, error=e)
                     except Exception as hook_err:
-                        logger.error(
-                            f"post_run hook failed for task {getattr(task, 'id', '?')}: {hook_err}"
-                        )
+                        logger.error(f"post_run hook failed for task {getattr(task, 'id', '?')}: {hook_err}")
 
                     return {
                         "status": "retry",
@@ -462,9 +426,7 @@ class QueueWorker:
             try:
                 await self.hook_registry.trigger_post_run(task, error=e)
             except Exception as hook_err:
-                logger.error(
-                    f"post_run hook failed for task {getattr(task, 'id', '?')}: {hook_err}"
-                )
+                logger.error(f"post_run hook failed for task {getattr(task, 'id', '?')}: {hook_err}")
 
             logger.error(f"Worker {self.worker_id} failed task {task.id}: {e}")
 
@@ -489,29 +451,21 @@ class QueueWorker:
             logger.debug(f"Deserializing local function for task {task.id}")
             try:
                 func = dill.loads(task.serialized_function)
-                logger.debug(
-                    f"Function deserialized: {func}, is_coroutine: {asyncio.iscoroutinefunction(func)}"
-                )
+                logger.debug(f"Function deserialized: {func}, is_coroutine: {asyncio.iscoroutinefunction(func)}")
             except Exception as e:
                 raise RuntimeError(f"Failed to deserialize function: {e}")
         else:
             # Load from module
-            logger.debug(
-                f"Loading module '{task.module_name}' and function '{task.function_name}'"
-            )
+            logger.debug(f"Loading module '{task.module_name}' and function '{task.function_name}'")
             try:
                 module = importlib.import_module(str(task.module_name))
                 logger.debug(f"Module loaded: {module}")
                 func = getattr(module, str(task.function_name))
-                logger.debug(
-                    f"Function loaded: {func}, is_coroutine: {asyncio.iscoroutinefunction(func)}"
-                )
+                logger.debug(f"Function loaded: {func}, is_coroutine: {asyncio.iscoroutinefunction(func)}")
             except ImportError as e:
                 raise ImportError(f"Cannot import module '{task.module_name}': {e}")
             except AttributeError as e:
-                raise AttributeError(
-                    f"Function '{task.function_name}' not found in module '{task.module_name}': {e}"
-                )
+                raise AttributeError(f"Function '{task.function_name}' not found in module '{task.module_name}': {e}")
 
         if not callable(func):
             func_name = getattr(func, "__name__", "unnamed")
@@ -565,9 +519,7 @@ class QueueWorker:
                             # event so the manager keeps the channel slot
                             # until the body actually stops running.
                             self.pending_sync_finished = sync_finished
-                        raise TaskTimeoutError(
-                            f"Task execution exceeded task_timeout ({timeout}s)"
-                        ) from None
+                        raise TaskTimeoutError(f"Task execution exceeded task_timeout ({timeout}s)") from None
                 else:
                     result = await awaitable
 
@@ -585,9 +537,7 @@ class QueueWorker:
         if self.is_busy:
             return False
 
-        idle_duration = (
-            datetime.now(context.get_timezone()) - self.last_activity
-        ).total_seconds()
+        idle_duration = (datetime.now(context.get_timezone()) - self.last_activity).total_seconds()
         return idle_duration > self.config.worker_idle_timeout
 
     def __str__(self):
@@ -605,9 +555,7 @@ class QueueWorker:
 
         return get_service(EdgyDatabase)
 
-    async def _run_write_with_retry(
-        self, op_coro_factory, *, max_attempts: int = 5, base_delay: float = 0.1
-    ):
+    async def _run_write_with_retry(self, op_coro_factory, *, max_attempts: int = 5, base_delay: float = 0.1):
         """Run a small DB write with retries under a short-lived connection to avoid transaction reentrancy."""
         from sqlalchemy.exc import DBAPIError, OperationalError
 
@@ -631,9 +579,7 @@ class QueueWorker:
                         # connection (databasez drops its per-task wrapper on
                         # release, SQLAlchemy invalidates the pool generation).
                         delay = max(delay, 1.0 * (attempt + 1))
-                    logger.debug(
-                        f"Transient DB error, retry {attempt + 1}/{max_attempts} in {delay:.3f}s"
-                    )
+                    logger.debug(f"Transient DB error, retry {attempt + 1}/{max_attempts} in {delay:.3f}s")
                     await asyncio.sleep(delay)
                     attempt += 1
                     continue
@@ -661,9 +607,7 @@ class QueueWorker:
             txt2 = str(orig).lower()
             if "could not serialize access" in txt2 or "deadlock detected" in txt2:
                 return True
-            sqlstate = getattr(orig, "sqlstate", None) or getattr(
-                orig, "sql_state", None
-            )
+            sqlstate = getattr(orig, "sqlstate", None) or getattr(orig, "sql_state", None)
             if sqlstate in ("40001", "40P01"):
                 return True
         return False

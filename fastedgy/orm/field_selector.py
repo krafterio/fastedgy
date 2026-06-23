@@ -60,9 +60,7 @@ def parse_field_selector_input(
                 from fastedgy.metadata_model.generator import generate_metadata_name
 
                 extra_field_name = field_path[0][6:]
-                extra_fields = context.get_map_workspace_extra_fields(
-                    generate_metadata_name(model_cls)
-                )
+                extra_fields = context.get_map_workspace_extra_fields(generate_metadata_name(model_cls))
 
                 if extra_field_name in extra_fields:
                     result[field_path[0]] = True
@@ -71,9 +69,7 @@ def parse_field_selector_input(
                 # absent from meta.fields). Mirror the "+" wildcard behaviour.
                 result[field_path[0]] = True
             else:
-                _add_field_selector(
-                    current, current_model.meta.fields.get(field_path[0])
-                )
+                _add_field_selector(current, current_model.meta.fields.get(field_path[0]))
         else:
             parent_path = field_path[:-1]
             last_field = field_path[-1]
@@ -87,9 +83,7 @@ def parse_field_selector_input(
 
                     if field_name in current and isinstance(current[field_name], list):
                         current = current[field_name][0]
-                    elif field_name in current and isinstance(
-                        current[field_name], dict
-                    ):
+                    elif field_name in current and isinstance(current[field_name], dict):
                         current = current[field_name]
                     else:
                         current[field_name] = {"id": True}
@@ -104,9 +98,7 @@ def parse_field_selector_input(
 
             if current and current_model:
                 field = current_model.meta.fields.get(last_field)
-                is_computed = last_field in getattr(
-                    current_model, "model_computed_fields", {}
-                )
+                is_computed = last_field in getattr(current_model, "model_computed_fields", {})
 
                 if field or is_computed:
                     if isinstance(current, list):
@@ -117,9 +109,7 @@ def parse_field_selector_input(
     return result
 
 
-def clean_field_names_from_input(
-    model_cls: type[BaseModelType], fields: str | list[str] | None
-) -> list[str]:
+def clean_field_names_from_input(model_cls: type[BaseModelType], fields: str | list[str] | None) -> list[str]:
     """
     Clean and validate field paths, returning a flat list.
 
@@ -147,9 +137,7 @@ def clean_field_names_from_input(
     return extract_field_names(parsed)
 
 
-def optimize_query_filter_fields(
-    query: QuerySet, fields_expr: str | list[str] | None
-) -> QuerySet:
+def optimize_query_filter_fields(query: QuerySet, fields_expr: str | list[str] | None) -> QuerySet:
     """
     Optimize query by preloading requested relationships.
 
@@ -205,9 +193,7 @@ def optimize_query_filter_fields(
     return query
 
 
-async def filter_selected_fields(
-    item: Model, fields_expr: str | list[str] | None
-) -> dict:
+async def filter_selected_fields(item: Model, fields_expr: str | list[str] | None) -> dict:
     """
     Filter fields of a model instance based on field paths.
 
@@ -233,9 +219,7 @@ async def filter_selected_fields(
     return item_dump
 
 
-async def filter_fields(
-    data: dict, data_obj: Model | None, fields: dict, target: dict
-) -> None:
+async def filter_fields(data: dict, data_obj: Model | None, fields: dict, target: dict) -> None:
     """
     Recursively filter fields from data based on fields dict.
 
@@ -255,9 +239,7 @@ async def filter_fields(
                 if nested_obj is not None:
                     nested_data = nested_obj.model_dump()
                     target[field_name] = {}
-                    await filter_fields(
-                        nested_data, nested_obj, field_value, target[field_name]
-                    )
+                    await filter_fields(nested_data, nested_obj, field_value, target[field_name])
                 else:
                     target[field_name] = None
         elif isinstance(field_value, list):
@@ -269,9 +251,7 @@ async def filter_fields(
                     queryset = nested_obj.limit(1000).all()
 
                     if hasattr(nested_obj, "Meta"):
-                        order_by_input = getattr(
-                            nested_obj.Meta, "default_order_by", None
-                        )
+                        order_by_input = getattr(nested_obj.Meta, "default_order_by", None)
 
                         if order_by_input:
                             queryset = inject_order_by(queryset, order_by_input)
@@ -281,9 +261,7 @@ async def filter_fields(
                     for obj_item in items:
                         item_data = obj_item.model_dump()
                         target[field_name].append({})
-                        await filter_fields(
-                            item_data, obj_item, field_value[0], target[field_name][-1]
-                        )
+                        await filter_fields(item_data, obj_item, field_value[0], target[field_name][-1])
                 else:
                     target[field_name] = []
         else:
@@ -293,9 +271,7 @@ async def filter_fields(
                 target[field_name] = getattr(data_obj, field_name)
 
 
-def _add_field_selector(
-    fields: dict[str, Any], field: BaseFieldType, force: bool = False
-):
+def _add_field_selector(fields: dict[str, Any], field: BaseFieldType, force: bool = False):
     """
     Add a field to the selector dict with appropriate structure.
 

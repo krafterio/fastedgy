@@ -56,11 +56,7 @@ async def generate_metadata_model(model_cls: Model) -> MetadataModel:
     searchable_fields_list = list(searchable_fields_map.keys())
 
     # Find the first FulltextField for search_field (or use Meta.search_field override)
-    search_field = (
-        getattr(model_cls.Meta, "search_field", None)
-        if hasattr(model_cls, "Meta")
-        else None
-    )
+    search_field = getattr(model_cls.Meta, "search_field", None) if hasattr(model_cls, "Meta") else None
     if search_field is None:
         for field_name, field_info in model_cls.meta.fields.items():
             if getattr(field_info, "is_fulltext_field", False):
@@ -90,14 +86,8 @@ async def generate_metadata_model(model_cls: Model) -> MetadataModel:
 async def generate_metadata_fields(model_cls: Model) -> dict[str, MetadataField]:
     fields = {}
     for field_name, field_info in model_cls.meta.fields.items():
-        is_filterable = getattr(
-            field_info, "filterable", not getattr(field_info, "exclude", False)
-        )
-        if (
-            not field_info.exclude
-            or (hasattr(field_info, "is_m2m") and field_info.is_m2m)
-            or is_filterable
-        ):
+        is_filterable = getattr(field_info, "filterable", not getattr(field_info, "exclude", False))
+        if not field_info.exclude or (hasattr(field_info, "is_m2m") and field_info.is_m2m) or is_filterable:
             fields[field_name] = generate_metadata_field(model_cls, field_info)
 
     await add_extra_fields(model_cls, fields)
@@ -124,9 +114,7 @@ async def add_extra_fields(model_cls: Model, fields: dict[str, MetadataField]) -
             required=extra_field.required,
             searchable=True,
             extra=True,
-            filter_operators=get_filter_operators_for_extra_field(
-                extra_field.field_type
-            ),
+            filter_operators=get_filter_operators_for_extra_field(extra_field.field_type),
             target=None,
         )
 
@@ -178,9 +166,7 @@ def generate_metadata_field(model_cls: Model, field: BaseFieldType) -> MetadataF
     name_parts = field.name.split("_")
     label = name_parts[0].capitalize()
     if len(name_parts) > 1:
-        label = " ".join(
-            [name_parts[0].capitalize()] + [word.lower() for word in name_parts[1:]]
-        )
+        label = " ".join([name_parts[0].capitalize()] + [word.lower() for word in name_parts[1:]])
 
     field_type = generate_metadata_field_type(field)
     readonly = field.read_only
@@ -193,16 +179,10 @@ def generate_metadata_field(model_cls: Model, field: BaseFieldType) -> MetadataF
     target_model = field.target if field and hasattr(field, "target") else None
     label = field.label if field and hasattr(field, "label") else label
     filter_operators = get_filter_operators(field)
-    searchable = (
-        field.searchable
-        if field and hasattr(field, "searchable")
-        else len(filter_operators) > 0
-    )
+    searchable = field.searchable if field and hasattr(field, "searchable") else len(filter_operators) > 0
 
     if searchable and not filter_operators:
-        raise MetadataFieldError(
-            f"Metadata field {field.name} must have a filter operator if searchable is enabled"
-        )
+        raise MetadataFieldError(f"Metadata field {field.name} must have a filter operator if searchable is enabled")
 
     return MetadataField(
         name=field.name,
@@ -257,9 +237,7 @@ def add_inverse_relations(models: dict[Model, MetadataModel]) -> None:
                 if relation_data:
                     relations_to_add.append((target_metadata, relation_data))
             elif isinstance(original_field, OneToOne):
-                relation_data = _prepare_one_to_one_relation(
-                    original_field, model_cls, metadata_model, target_metadata
-                )
+                relation_data = _prepare_one_to_one_relation(original_field, model_cls, metadata_model, target_metadata)
                 if relation_data:
                     relations_to_add.append((target_metadata, relation_data))
 
@@ -268,9 +246,7 @@ def add_inverse_relations(models: dict[Model, MetadataModel]) -> None:
         target_metadata.fields[field_name] = metadata_field
 
 
-def _find_model_by_metadata_name(
-    models: dict[Model, MetadataModel], metadata_name: str
-) -> Model | None:
+def _find_model_by_metadata_name(models: dict[Model, MetadataModel], metadata_name: str) -> Model | None:
     """Find a Model class by its metadata name."""
     for model_cls, metadata_model in models.items():
         if metadata_model.name == metadata_name:
@@ -319,9 +295,7 @@ def _add_one_to_many_relation(
     target_metadata: MetadataModel,
 ) -> None:
     """Add one-to-many inverse relation to target metadata."""
-    relation_data = _prepare_one_to_many_relation(
-        foreign_key_field, source_model_cls, source_metadata, target_metadata
-    )
+    relation_data = _prepare_one_to_many_relation(foreign_key_field, source_model_cls, source_metadata, target_metadata)
     if relation_data:
         field_name, metadata_field = relation_data
         target_metadata.fields[field_name] = metadata_field
@@ -412,9 +386,7 @@ def _add_one_to_one_relation(
     target_metadata: MetadataModel,
 ) -> None:
     """Add one-to-one inverse relation to target metadata."""
-    relation_data = _prepare_one_to_one_relation(
-        one_to_one_field, source_model_cls, source_metadata, target_metadata
-    )
+    relation_data = _prepare_one_to_one_relation(one_to_one_field, source_model_cls, source_metadata, target_metadata)
     if relation_data:
         field_name, metadata_field = relation_data
         target_metadata.fields[field_name] = metadata_field

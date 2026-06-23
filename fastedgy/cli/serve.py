@@ -71,9 +71,7 @@ def _build_uvicorn_log_config(settings) -> dict | None:
 @option("--host", default="0.0.0.0", help="Server host.")
 @option("--port", default=8000, help="Server port.")
 @option("--http-workers", default=None, help="Number of HTTP workers.")
-@option(
-    "--http-limit-concurrency", default=None, help="Number of HTTP limit concurrency."
-)
+@option("--http-limit-concurrency", default=None, help="Number of HTTP limit concurrency.")
 @option("--reload/--no-reload", default=True, help="Enable/disable hot reload.")
 @pass_cli_context
 def serve(
@@ -92,12 +90,8 @@ def serve(
 
     http_workers = ctx.settings.http_workers or http_workers
     http_workers = int(http_workers) if http_workers and not reload else None
-    http_limit_concurrency = (
-        ctx.settings.http_limit_concurrency or http_limit_concurrency
-    )
-    http_limit_concurrency = (
-        int(http_limit_concurrency) if http_limit_concurrency and not reload else None
-    )
+    http_limit_concurrency = ctx.settings.http_limit_concurrency or http_limit_concurrency
+    http_limit_concurrency = int(http_limit_concurrency) if http_limit_concurrency and not reload else None
 
     if http_workers is None:
         auto_workers = int(os.environ.get("WEB_CONCURRENCY", 1))

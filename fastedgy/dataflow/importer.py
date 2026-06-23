@@ -48,14 +48,11 @@ class ImportFailedError(Exception):
     def __init__(self, result: ImportResult):
         self.result = result
         super().__init__(
-            f"Import failed: {result.errors} error(s) found, "
-            f"{result.success} row(s) processed successfully"
+            f"Import failed: {result.errors} error(s) found, {result.success} row(s) processed successfully"
         )
 
 
-def _format_error_message(
-    error: Exception, model_cls: type["Model"] | None = None
-) -> str:
+def _format_error_message(error: Exception, model_cls: type["Model"] | None = None) -> str:
     """
     Format error message to be user-friendly.
 
@@ -83,9 +80,7 @@ def _format_error_message(
 
             # Format message based on error type
             if err_type == "missing" or "required" in msg.lower():
-                errors.append(
-                    str(_t("The '{field}' field is required.", field=field_label))
-                )
+                errors.append(str(_t("The '{field}' field is required.", field=field_label)))
             elif err_type == "string_type" or "string" in msg.lower():
                 errors.append(
                     str(
@@ -132,9 +127,7 @@ def _format_error_message(
     return str(error)
 
 
-def _format_db_error_message(
-    error: Exception, model_cls: type["Model"] | None = None
-) -> str:
+def _format_db_error_message(error: Exception, model_cls: type["Model"] | None = None) -> str:
     """
     Format database error messages to be user-friendly.
 
@@ -179,29 +172,22 @@ def _format_db_error_message(
             return str(_t("This entry already exists in the database."))
 
         # Handle foreign key violations
-        if (
-            "foreign key constraint" in error_msg.lower()
-            or "ForeignKeyViolationError"
-            in str(getattr(error, "orig", error).__class__.__name__)
+        if "foreign key constraint" in error_msg.lower() or "ForeignKeyViolationError" in str(
+            getattr(error, "orig", error).__class__.__name__
         ):
-            return str(
-                _t("The reference to a related resource is invalid or does not exist.")
-            )
+            return str(_t("The reference to a related resource is invalid or does not exist."))
 
         # Handle check constraint violations
         if "check constraint" in error_msg.lower() or "CheckViolationError" in str(
             getattr(error, "orig", error).__class__.__name__
         ):
-            return str(
-                _t("The provided data does not meet the validation constraints.")
-            )
+            return str(_t("The provided data does not meet the validation constraints."))
 
         # Handle not null constraint violations
         if (
             "not-null constraint" in error_msg.lower()
             or "null value" in error_msg.lower()
-            or "NotNullViolationError"
-            in str(getattr(error, "orig", error).__class__.__name__)
+            or "NotNullViolationError" in str(getattr(error, "orig", error).__class__.__name__)
         ):
             # Try to extract field name from error message
             # PostgreSQL format: null value in column "field_name" violates not-null constraint
@@ -244,18 +230,12 @@ def _format_db_error_message(
         error_msg = str(error.orig) if hasattr(error, "orig") else str(error)
 
         if "operator does not exist" in error_msg.lower():
-            return str(
-                _t("Invalid data type for the field. Please check the value format.")
-            )
+            return str(_t("Invalid data type for the field. Please check the value format."))
 
         if "column" in error_msg.lower() and "does not exist" in error_msg.lower():
-            return str(
-                _t("A field referenced in the file does not exist in the database.")
-            )
+            return str(_t("A field referenced in the file does not exist in the database."))
 
-        return str(
-            _t("An error occurred processing the data. Please verify the file format.")
-        )
+        return str(_t("An error occurred processing the data. Please verify the file format."))
 
     # Fallback: return original message
     return str(error)
@@ -327,9 +307,7 @@ async def import_data[M](
     # Process each data row (transaction handled by @transaction decorator)
     for row_idx, row in enumerate(data_rows, start=2):  # Start at 2 (header is row 1)
         try:
-            await process_row(
-                model_cls, row, headers, field_mapping, identifier_field, query, result
-            )
+            await process_row(model_cls, row, headers, field_mapping, identifier_field, query, result)
         except Exception as e:
             result.errors += 1
             # Clean error message (extract essential info from Pydantic ValidationError)
@@ -385,9 +363,7 @@ async def parse_ods_file(file: "UploadFile") -> list[list[str]]:
     try:
         from pyexcel_ods3 import get_data
     except ImportError:
-        raise HTTPException(
-            status_code=500, detail="pyexcel-ods3 library is not installed"
-        )
+        raise HTTPException(status_code=500, detail="pyexcel-ods3 library is not installed")
 
     content = await file.read()
     data = get_data(io.BytesIO(content))
@@ -480,9 +456,7 @@ def find_field_by_label(model_cls: type["Model"], label: str) -> str | None:
     return None
 
 
-def detect_identifier_field(
-    model_cls: type["Model"], field_mapping: dict[str, str]
-) -> str | None:
+def detect_identifier_field(model_cls: type["Model"], field_mapping: dict[str, str]) -> str | None:
     """
     Detect the identifier field (primary key or unique field) from mapped columns.
 
@@ -572,9 +546,7 @@ async def process_row(
         # Try to find existing record
         try:
             q = query or model_cls.query
-            existing_record = await q.filter(
-                **{identifier_field: identifier_value}
-            ).first()
+            existing_record = await q.filter(**{identifier_field: identifier_value}).first()
         except (DataError, ProgrammingError) as e:
             # Handle type mismatch errors gracefully
             raise ValueError(_format_db_error_message(e, model_cls))
@@ -606,9 +578,7 @@ async def process_row(
 
         # Handle nested fields (relations)
         if "." in field_name:
-            await process_relational_field(
-                model_cls, field_name, value, model_data, relational_data
-            )
+            await process_relational_field(model_cls, field_name, value, model_data, relational_data)
         else:
             field = model_cls.meta.fields.get(field_name)
             if not field:
@@ -616,9 +586,7 @@ async def process_row(
 
             # Check if it's a direct relational field (Many2one, Many2many, One2many)
             if is_relation_field(field):
-                await process_relational_field(
-                    model_cls, field_name, value, model_data, relational_data
-                )
+                await process_relational_field(model_cls, field_name, value, model_data, relational_data)
             else:
                 # Regular scalar field
                 model_data[field_name] = convert_value(value, field)
@@ -631,9 +599,7 @@ async def process_row(
             await q.filter(**{identifier_field: identifier_value}).update(**model_data)
 
             # Refresh the record to get updated values
-            existing_record = await q.filter(
-                **{identifier_field: identifier_value}
-            ).first()
+            existing_record = await q.filter(**{identifier_field: identifier_value}).first()
 
             # Handle relational fields
             await process_relational_data(existing_record, relational_data)
@@ -647,8 +613,7 @@ async def process_row(
             if model_data[field_name] is None:
                 field = model_cls.meta.fields.get(field_name)
                 if field and (
-                    getattr(field, "default", None) is not None
-                    or getattr(field, "server_default", None) is not None
+                    getattr(field, "default", None) is not None or getattr(field, "server_default", None) is not None
                 ):
                     del model_data[field_name]
 
@@ -671,11 +636,7 @@ def is_relation_field(field) -> bool:
     """Check if a field is relational (Many2one, Many2many, One2many)."""
     from edgy.core.db.relationships.related_field import RelatedField
 
-    return (
-        getattr(field, "is_m2m", False) is True
-        or isinstance(field, RelatedField)
-        or hasattr(field, "target")
-    )
+    return getattr(field, "is_m2m", False) is True or isinstance(field, RelatedField) or hasattr(field, "target")
 
 
 async def process_relational_field(
@@ -711,9 +672,7 @@ async def process_relational_field(
 
     # Determine if it's Many2one, Many2many, or One2many
     is_many2one = hasattr(field, "target") and not getattr(field, "is_m2m", False)
-    is_many2many_or_one2many = getattr(field, "is_m2m", False) or hasattr(
-        field, "related_from"
-    )
+    is_many2many_or_one2many = getattr(field, "is_m2m", False) or hasattr(field, "related_from")
 
     if is_many2one:
         # Many2one: single value → store in model_data (for object creation)
@@ -737,9 +696,7 @@ async def process_relational_field(
             relational_data[base_field] = related_ids
 
 
-async def resolve_relation_value(
-    field, value: str, unique_field: str = "id"
-) -> int | None:
+async def resolve_relation_value(field, value: str, unique_field: str = "id") -> int | None:
     """
     Resolve a relation value to its ID.
 
@@ -772,9 +729,7 @@ async def resolve_relation_value(
         return record.id if record else None
 
 
-async def process_relational_data(
-    record: "Model", relational_data: dict[str, Any]
-) -> None:
+async def process_relational_data(record: "Model", relational_data: dict[str, Any]) -> None:
     """
     Apply relational data to a record after it's saved.
     Only handles Many2many and One2many relations (Many2one are in model_data).

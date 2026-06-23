@@ -62,9 +62,7 @@ class Point(UserDefinedType):
 
         return process
 
-    def _coerce(
-        self, value: tuple[float, float] | list[float] | str | None
-    ) -> str | None:
+    def _coerce(self, value: tuple[float, float] | list[float] | str | None) -> str | None:
         if value is None:
             return None
 
@@ -73,9 +71,7 @@ class Point(UserDefinedType):
 
         if isinstance(value, (tuple, list)):
             if len(value) != 2:
-                raise ValueError(
-                    "Point must have exactly 2 coordinates (longitude, latitude)"
-                )
+                raise ValueError("Point must have exactly 2 coordinates (longitude, latitude)")
 
             lon, lat = float(value[0]), float(value[1])
             return f"SRID={self.srid};POINT({lon} {lat})"
@@ -161,11 +157,7 @@ class PointField(FieldFactory, tuple):
     ) -> BaseFieldType:
         kwargs = {
             **kwargs,
-            **{
-                k: v
-                for k, v in locals().items()
-                if k not in ["cls", "__class__", "kwargs"]
-            },
+            **{k: v for k, v in locals().items() if k not in ["cls", "__class__", "kwargs"]},
         }
         return super().__new__(cls, **kwargs)
 

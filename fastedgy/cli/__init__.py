@@ -157,10 +157,7 @@ def cli_json_log(name: str, message: str, **fields) -> None:
         handler.setFormatter(JsonFormatter())
         json_logger.addHandler(handler)
 
-    safe_fields = {
-        (f"{k}_" if k in _LOG_RECORD_RESERVED_ATTRS else k): v
-        for k, v in fields.items()
-    }
+    safe_fields = {(f"{k}_" if k in _LOG_RECORD_RESERVED_ATTRS else k): v for k, v in fields.items()}
     json_logger.info(message, extra=safe_fields)
 
 
@@ -183,9 +180,7 @@ def register_commands_in_group(
     package = importlib.import_module(package_name)
     exclude_decorators_for = exclude_decorators_for or {}
 
-    for _, module_name, is_pkg in pkgutil.iter_modules(
-        package.__path__, package.__name__ + "."
-    ):
+    for _, module_name, is_pkg in pkgutil.iter_modules(package.__path__, package.__name__ + "."):
         if not is_pkg:
             module = importlib.import_module(module_name)
 
@@ -274,9 +269,7 @@ class Command(RichCommand):
 
 
 class Group(RichGroup):
-    def command(
-        self, *args: Any, **kwargs: Any
-    ) -> Union[Callable[[Callable[..., Any]], Command], Command]:
+    def command(self, *args: Any, **kwargs: Any) -> Union[Callable[[Callable[..., Any]], Command], Command]:
         def decorator(f: Callable[..., Any]) -> Command:
             kwargs.setdefault("cls", Command)
 
@@ -323,9 +316,7 @@ def group(
 
 # variant: with optional string name, no cls argument provided.
 @overload
-def group(
-    name: Optional[str] = ..., cls: None = None, **attrs: Any
-) -> Callable[[_AnyCallable], RichGroup]: ...
+def group(name: Optional[str] = ..., cls: None = None, **attrs: Any) -> Callable[[_AnyCallable], RichGroup]: ...
 
 
 def group(
@@ -560,10 +551,7 @@ def pass_meta_key(
     if doc_description is None:
         doc_description = f"the {key!r} key from :attr:`click.Context.meta`"
 
-    decorator.__doc__ = (
-        f"Decorator that passes {doc_description} as the first argument"
-        " to the decorated function."
-    )
+    decorator.__doc__ = f"Decorator that passes {doc_description} as the first argument to the decorated function."
     return decorator
 
 
@@ -595,9 +583,7 @@ class CliContext[S: BaseSettings = BaseSettings, A: FastEdgy = FastEdgy]:
 
 
 @group()
-@option(
-    "--env-file", default=".env", help="The environment file to use (default: .env)."
-)
+@option("--env-file", default=".env", help="The environment file to use (default: .env).")
 @pass_context
 def cli(ctx, env_file: str):
     """FastEdgy CLI"""

@@ -77,16 +77,10 @@ async def login_for_access_token(
         )
 
     access_token_expires = timedelta(minutes=settings.auth_access_token_expire_minutes)
-    access_token = create_access_token(
-        data={"sub": user.email or user.username}, expires_delta=access_token_expires
-    )
+    access_token = create_access_token(data={"sub": user.email or user.username}, expires_delta=access_token_expires)
     refresh_token = create_refresh_token(data={"sub": user.email or user.username})
 
-    await bus.dispatch(
-        OnAuthLoginEvent(
-            user=user, access_token=access_token, refresh_token=refresh_token
-        )
-    )
+    await bus.dispatch(OnAuthLoginEvent(user=user, access_token=access_token, refresh_token=refresh_token))
 
     return Token(
         access_token=access_token,
@@ -128,15 +122,11 @@ async def refresh_access_token(
         raise credentials_exception
 
     access_token_expires = timedelta(minutes=settings.auth_access_token_expire_minutes)
-    new_access_token = create_access_token(
-        data={"sub": user.email}, expires_delta=access_token_expires
-    )
+    new_access_token = create_access_token(data={"sub": user.email}, expires_delta=access_token_expires)
     new_refresh_token = create_refresh_token(data={"sub": user.email})
 
     await bus.dispatch(
-        OnAuthRefreshTokenEvent(
-            user=user, access_token=new_access_token, refresh_token=new_refresh_token
-        )
+        OnAuthRefreshTokenEvent(user=user, access_token=new_access_token, refresh_token=new_refresh_token)
     )
 
     return Token(
@@ -147,9 +137,7 @@ async def refresh_access_token(
 
 
 @public_router.post("/password/reset")
-async def password_reset(
-    data: ResetPasswordRequest, registry: Registry = Inject(Registry)
-) -> SimpleMessage:
+async def password_reset(data: ResetPasswordRequest, registry: Registry = Inject(Registry)) -> SimpleMessage:
     from fastedgy.models.user import BaseUser as User
 
     User = cast(type["User"], registry.get_model("User"))
@@ -160,9 +148,7 @@ async def password_reset(
     ).first()
 
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Token invalid or expired"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Token invalid or expired")
 
     user.password = hash_password(data.password)
     user.reset_pwd_token = None
@@ -185,19 +171,13 @@ async def password_forgot(
     user = await User.query.filter(email=data.email).first()
 
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Email not found"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email not found")
 
     user.reset_pwd_token = str(uuid4())
-    user.reset_pwd_expires_at = datetime.now(context.get_timezone()) + timedelta(
-        hours=1
-    )
+    user.reset_pwd_expires_at = datetime.now(context.get_timezone()) + timedelta(hours=1)
     await user.save()
 
-    recovery_url = (
-        f"{settings.base_url_app}/password/reset?token={user.reset_pwd_token}"
-    )
+    recovery_url = f"{settings.base_url_app}/password/reset?token={user.reset_pwd_token}"
 
     await mail.send_template(
         f"emails/{context.get_locale()}/password_recovery.html",
@@ -230,9 +210,7 @@ async def password_validate(
     ).first()
 
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Token invalid or expired"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Token invalid or expired")
 
     return ForgotPasswordValidate(email=user.email, valid=True)
 

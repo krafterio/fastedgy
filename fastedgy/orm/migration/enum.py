@@ -76,9 +76,7 @@ def _replace_column_enum_by_reference_enum(column, enums_being_created):
         if enum_name:
             column.type = ReferenceEnum(name=enum_name)
             return True
-    elif isinstance(column.type, postgresql.ENUM) and not isinstance(
-        column.type, ReferenceEnum
-    ):
+    elif isinstance(column.type, postgresql.ENUM) and not isinstance(column.type, ReferenceEnum):
         # Replace regular postgresql.ENUM with our custom type when it has a name
         if hasattr(column.type, "name") and column.type.name:
             # Use our custom type that always renders with create_type=False
@@ -88,9 +86,7 @@ def _replace_column_enum_by_reference_enum(column, enums_being_created):
 
 
 @comparators.dispatch_for("schema")
-def compare_enums(
-    autogen_context: AutogenContext, upgrade_ops: UpgradeOps, schemas
-) -> None:
+def compare_enums(autogen_context: AutogenContext, upgrade_ops: UpgradeOps, schemas) -> None:
     # Get all enums from the database
     registry = get_service(Registry)
     db_enums = {}
@@ -106,9 +102,7 @@ def compare_enums(
                 "ORDER BY t.typname, e.enumsortorder"
             ),
             {
-                "nspname": autogen_context.dialect.default_schema_name
-                if sch is None
-                else sch,  # type: ignore
+                "nspname": autogen_context.dialect.default_schema_name if sch is None else sch,  # type: ignore
             },
         )
 
@@ -131,9 +125,7 @@ def compare_enums(
                 "AND t.typtype = 'e'"
             ),
             {
-                "nspname": autogen_context.dialect.default_schema_name
-                if sch is None
-                else sch,  # type: ignore
+                "nspname": autogen_context.dialect.default_schema_name if sch is None else sch,  # type: ignore
             },
         )
 
@@ -145,11 +137,7 @@ def compare_enums(
                 continue
 
             # Clean up the default value (remove quotes and type cast)
-            clean_default = (
-                column_default.split("'")[1]
-                if "'" in column_default
-                else column_default
-            )
+            clean_default = column_default.split("'")[1] if "'" in column_default else column_default
             if enum_name not in db_enum_defaults:
                 db_enum_defaults[enum_name] = {}
             if table_name not in db_enum_defaults[enum_name]:
@@ -184,9 +172,7 @@ def compare_enums(
                     # Convert enum instance to string if needed
                     if isinstance(field_default, Enum):
                         field_default = field_default.name
-                    model_enum_defaults[enum_name][table_name][field_name] = (
-                        field_default
-                    )
+                    model_enum_defaults[enum_name][table_name][field_name] = field_default
 
     # Compare and create operations
     for enum_name, model_values in model_enums.items():
@@ -210,9 +196,7 @@ def compare_enums(
             _validate_default_values(model_defaults, model_values, enum_name)
 
             # Generate automatic mapping for removed enum values
-            automatic_mapping = _generate_automatic_enum_mapping(
-                db_values, model_values, enum_name, autogen_context
-            )
+            automatic_mapping = _generate_automatic_enum_mapping(db_values, model_values, enum_name, autogen_context)
 
             upgrade_ops.ops.append(
                 ReplaceEnumOperation(
@@ -257,9 +241,7 @@ def _is_valid_default_value(value) -> bool:
     return True
 
 
-def _validate_default_values(
-    model_defaults: dict, enum_values: list[str], enum_name: str
-) -> None:
+def _validate_default_values(model_defaults: dict, enum_values: list[str], enum_name: str) -> None:
     """Validate that all default values exist in the new enum values"""
     for table_name, columns in model_defaults.items():
         for column_name, default_value in columns.items():
@@ -319,8 +301,7 @@ def _generate_automatic_enum_mapping(
                 ),
                 {
                     "enum_name": enum_name,
-                    "schema_name": autogen_context.dialect.default_schema_name
-                    or "public",  # type: ignore
+                    "schema_name": autogen_context.dialect.default_schema_name or "public",  # type: ignore
                 },
             ).fetchone()
 
@@ -495,9 +476,7 @@ def replace_enum(operations, operation: ReplaceEnumOperation) -> None:
         default_value = f"'{new_values[0]}'" if new_values else "null"
 
         # First, drop any existing default to avoid cast errors during type change
-        operations.execute(
-            f"ALTER TABLE {table_name} ALTER COLUMN {column_name} DROP DEFAULT"
-        )
+        operations.execute(f"ALTER TABLE {table_name} ALTER COLUMN {column_name} DROP DEFAULT")
 
         # Build CASE statement for value conversion
         if operation.value_mapping:
@@ -505,13 +484,9 @@ def replace_enum(operations, operation: ReplaceEnumOperation) -> None:
             case_conditions = []
             for old_val, new_val in operation.value_mapping.items():
                 if new_val is None:
-                    case_conditions.append(
-                        f"WHEN {column_name}::text = '{old_val}' THEN null"
-                    )
+                    case_conditions.append(f"WHEN {column_name}::text = '{old_val}' THEN null")
                 else:
-                    case_conditions.append(
-                        f"WHEN {column_name}::text = '{old_val}' THEN '{new_val}'::{enum_name}"
-                    )
+                    case_conditions.append(f"WHEN {column_name}::text = '{old_val}' THEN '{new_val}'::{enum_name}")
 
             # Add case-insensitive fallback for unmapped values
             case_insensitive_conditions = []
@@ -615,9 +590,7 @@ def drop_enum(operations, operation: DropEnumOperation) -> None:
 
 @Operations.implementation_for(RenameEnumOperation)
 def rename_enum(operations, operation: RenameEnumOperation) -> None:
-    operations.execute(
-        f"ALTER TYPE {operation.old_name} RENAME TO {operation.new_name}"
-    )
+    operations.execute(f"ALTER TYPE {operation.old_name} RENAME TO {operation.new_name}")
 
 
 @renderers.dispatch_for(ReplaceEnumOperation)

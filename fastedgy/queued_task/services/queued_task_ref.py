@@ -72,9 +72,7 @@ class QueuedTaskRef:
         if not task:
             raise RuntimeError(f"Task {task_id} not found")
 
-        deadline = (
-            asyncio.get_event_loop().time() + timeout if timeout is not None else None
-        )
+        deadline = asyncio.get_event_loop().time() + timeout if timeout is not None else None
 
         # Poll until task reaches a terminal state ('stopped' included: it is
         # a deliberate terminal state, only ever restarted manually — waiting
@@ -86,9 +84,7 @@ class QueuedTaskRef:
             QueuedTaskState.stopped,
         ]:
             if deadline is not None and asyncio.get_event_loop().time() >= deadline:
-                raise asyncio.TimeoutError(
-                    f"Task {task_id} did not reach a terminal state within {timeout}s"
-                )
+                raise asyncio.TimeoutError(f"Task {task_id} did not reach a terminal state within {timeout}s")
             await asyncio.sleep(0.5)
             task = await self._service.get_task_by_id(task_id)
             if not task:

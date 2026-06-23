@@ -95,9 +95,7 @@ Returns:
     The decorated model class
 """
 
-admin_api_route_model = build_api_route_model_decorator(
-    ADMIN_ROUTE_MODEL_REGISTRY_TOKEN
-)
+admin_api_route_model = build_api_route_model_decorator(ADMIN_ROUTE_MODEL_REGISTRY_TOKEN)
 admin_api_route_model.__doc__ = """
 Decorator to mark a model for auto-generating API routes for admin-users.
 

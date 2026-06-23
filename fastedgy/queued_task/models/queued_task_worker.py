@@ -27,21 +27,15 @@ class QueuedTaskWorkerMixin(Model):
                 name="idx_queued_task_workers_running_heartbeat",
             ),
             fields.Index(fields=["server_name"], name="idx_queued_task_workers_server"),
-            fields.Index(
-                fields=["last_heartbeat"], name="idx_queued_task_workers_heartbeat"
-            ),
+            fields.Index(fields=["last_heartbeat"], name="idx_queued_task_workers_heartbeat"),
         ]
 
-    server_name: str = fields.CharField(
-        max_length=255, default=lambda: socket.gethostname(), label="Server Name"
-    )
+    server_name: str = fields.CharField(max_length=255, default=lambda: socket.gethostname(), label="Server Name")
     max_workers: int = fields.IntegerField(default=1, label="Max Workers")
     active_workers: int = fields.IntegerField(default=0, label="Active Workers")
     idle_workers: int = fields.IntegerField(default=0, label="Idle Workers")
     is_running: bool = fields.BooleanField(default=False, label="Is Running")
-    last_heartbeat: datetime = fields.DateTimeField(
-        auto_now=True, label="Last Heartbeat"
-    )
+    last_heartbeat: datetime = fields.DateTimeField(auto_now=True, label="Last Heartbeat")
     started_at: Optional[datetime] = fields.DateTimeField(null=True, label="Started At")
     version: Optional[str] = fields.CharField(max_length=50, null=True, label="Version")
 
@@ -55,9 +49,7 @@ class QueuedTaskWorkerMixin(Model):
         """Check if server is alive (heartbeat within last 2 minutes)"""
         if not self.last_heartbeat:
             return False
-        return (
-            datetime.now(context.get_timezone()) - self.last_heartbeat
-        ).total_seconds() < 120
+        return (datetime.now(context.get_timezone()) - self.last_heartbeat).total_seconds() < 120
 
     def update_stats(self, active: int, idle: int, is_running: bool = True):
         """Update worker statistics"""

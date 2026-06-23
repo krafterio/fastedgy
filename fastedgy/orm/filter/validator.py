@@ -24,15 +24,11 @@ def validate_filters(
 
     # Filter Rule
     if is_rule(filters):
-        if not validate_filter_field(
-            model_cls, filters.field, allow_excluded=allow_excluded
-        ):
+        if not validate_filter_field(model_cls, filters.field, allow_excluded=allow_excluded):
             raise InvalidFilterError(f"Invalid filter field: {filters.field}")
 
         if not validate_filter_operator(model_cls, filters.field, filters.operator):
-            raise InvalidFilterError(
-                f"Invalid operator {filters.operator} for field {filters.field}"
-            )
+            raise InvalidFilterError(f"Invalid operator {filters.operator} for field {filters.field}")
 
         return filters
 
@@ -41,9 +37,7 @@ def validate_filters(
         validated_rules = []
 
         for rule in filters.rules:
-            validated_rule = validate_filters(
-                model_cls, rule, allow_excluded=allow_excluded
-            )
+            validated_rule = validate_filters(model_cls, rule, allow_excluded=allow_excluded)
 
             if validated_rule:
                 validated_rules.append(validated_rule)
@@ -57,9 +51,7 @@ def validate_filters(
     raise InvalidFilterError("Invalid filter expression")
 
 
-def validate_filter_field(
-    model_cls: type[Model], field_path: str, allow_excluded: bool = False
-) -> bool:
+def validate_filter_field(model_cls: type[Model], field_path: str, allow_excluded: bool = False) -> bool:
     if not field_path:
         return False
 
@@ -71,9 +63,7 @@ def validate_filter_field(
             return False
 
         extra_field_name = field_path[6:]
-        extra_fields = context.get_map_workspace_extra_fields(
-            generate_metadata_name(model_cls)
-        )
+        extra_fields = context.get_map_workspace_extra_fields(generate_metadata_name(model_cls))
 
         return extra_field_name in extra_fields
 
@@ -110,9 +100,7 @@ def validate_filter_field(
     return True
 
 
-def validate_filter_operator(
-    model_cls: type[Model], field_path: str, operator: str
-) -> bool:
+def validate_filter_operator(model_cls: type[Model], field_path: str, operator: str) -> bool:
     if not field_path or not operator:
         return False
 
@@ -128,9 +116,7 @@ def validate_filter_operator(
             return False
 
         extra_field_name = field_path[6:]
-        extra_fields = context.get_map_workspace_extra_fields(
-            generate_metadata_name(model_cls)
-        )
+        extra_fields = context.get_map_workspace_extra_fields(generate_metadata_name(model_cls))
 
         if extra_field_name not in extra_fields:
             return False

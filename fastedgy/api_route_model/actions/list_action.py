@@ -46,9 +46,7 @@ class ListApiRouteAction(BaseApiRouteAction):
     name = "list"
 
     @classmethod
-    def register_route(
-        cls, router: APIRouter, model_cls: TypeModel, options: RouteModelActionOptions
-    ) -> None:
+    def register_route(cls, router: APIRouter, model_cls: TypeModel, options: RouteModelActionOptions) -> None:
         """Register the list route."""
         router.add_api_route(
             **{
@@ -110,9 +108,7 @@ async def list_items_action[M = TypeModel](
         transformers_ctx["order_by"] = order_by
         query = optimize_query_filter_fields(query, fields)
 
-        for transformer in vtr.get_transformers(
-            PrePaginateViewTransformer, model_cls, transformers
-        ):
+        for transformer in vtr.get_transformers(PrePaginateViewTransformer, model_cls, transformers):
             query = await transformer.pre_paginate(request, query, transformers_ctx)
 
         query = filter_query(query, transformers_ctx.get("filters"))
@@ -131,9 +127,7 @@ async def list_items_action[M = TypeModel](
         else:
             raise e
 
-    for transformer in vtr.get_transformers(
-        GetViewsTransformer, model_cls, transformers
-    ):
+    for transformer in vtr.get_transformers(GetViewsTransformer, model_cls, transformers):
         await transformer.get_views(request, items, transformers_ctx)
 
     result_items = []
@@ -141,12 +135,8 @@ async def list_items_action[M = TypeModel](
     for item in items:
         item_dump = await filter_selected_fields(item, fields)
 
-        for transformer in vtr.get_transformers(
-            GetViewTransformer, model_cls, transformers
-        ):
-            item_dump = await transformer.get_view(
-                request, item, item_dump, transformers_ctx
-            )
+        for transformer in vtr.get_transformers(GetViewTransformer, model_cls, transformers):
+            item_dump = await transformer.get_view(request, item, item_dump, transformers_ctx)
 
         result_items.append(item_dump)
 
@@ -157,9 +147,7 @@ async def list_items_action[M = TypeModel](
         offset=offset,
     )
 
-    for transformer in vtr.get_transformers(
-        PostPaginateViewTransformer, model_cls, transformers
-    ):
+    for transformer in vtr.get_transformers(PostPaginateViewTransformer, model_cls, transformers):
         await transformer.post_paginate(request, result, transformers_ctx)
 
     return cast(Pagination[M], result)

@@ -22,30 +22,22 @@ class BaseViewTransformer(ABC):
 
 class PrePaginateViewTransformer(BaseViewTransformer):
     @abstractmethod
-    async def pre_paginate(
-        self, request: Request, query: QuerySet, ctx: dict[str, Any]
-    ) -> QuerySet: ...
+    async def pre_paginate(self, request: Request, query: QuerySet, ctx: dict[str, Any]) -> QuerySet: ...
 
 
 class PostPaginateViewTransformer[M = BaseModel](BaseViewTransformer):
     @abstractmethod
-    async def post_paginate(
-        self, request: Request, pagination: Pagination[M], ctx: dict[str, Any]
-    ) -> None: ...
+    async def post_paginate(self, request: Request, pagination: Pagination[M], ctx: dict[str, Any]) -> None: ...
 
 
 class PreLoadRecordViewTransformer[M = BaseModel](BaseViewTransformer):
     @abstractmethod
-    async def pre_load_record(
-        self, request: Request, query: QuerySet, ctx: dict[str, Any]
-    ) -> QuerySet: ...
+    async def pre_load_record(self, request: Request, query: QuerySet, ctx: dict[str, Any]) -> QuerySet: ...
 
 
 class GetViewsTransformer[M = BaseModel](BaseViewTransformer):
     @abstractmethod
-    async def get_views(
-        self, request: Request, items: list[M], ctx: dict[str, Any]
-    ) -> None: ...
+    async def get_views(self, request: Request, items: list[M], ctx: dict[str, Any]) -> None: ...
 
 
 class GetViewTransformer[M = BaseModel](BaseViewTransformer):
@@ -81,16 +73,12 @@ class PostSaveTransformer[M = BaseModel](BaseViewTransformer):
 
 class PreDeleteTransformer[M = BaseModel](BaseViewTransformer):
     @abstractmethod
-    async def pre_delete(
-        self, request: Request, record: M, ctx: dict[str, Any]
-    ) -> None: ...
+    async def pre_delete(self, request: Request, record: M, ctx: dict[str, Any]) -> None: ...
 
 
 class PostDeleteTransformer[M = BaseModel](BaseViewTransformer):
     @abstractmethod
-    async def post_delete(
-        self, request: Request, record: M, ctx: dict[str, Any]
-    ) -> None: ...
+    async def post_delete(self, request: Request, record: M, ctx: dict[str, Any]) -> None: ...
 
 
 class PreUploadTransformer(BaseViewTransformer):
@@ -187,9 +175,7 @@ class PostDeleteFileTransformer(BaseViewTransformer):
 
 class PreExportTransformer(BaseViewTransformer):
     @abstractmethod
-    async def pre_export(
-        self, request: Request, query: QuerySet, ctx: dict[str, Any]
-    ) -> QuerySet:
+    async def pre_export(self, request: Request, query: QuerySet, ctx: dict[str, Any]) -> QuerySet:
         """
         Pre-export transformer.
 

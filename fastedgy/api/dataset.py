@@ -27,22 +27,16 @@ async def resequence(
     registry: Registry = Inject(Registry),
 ) -> Resequence:
     if not await meta_registry.is_registered(data.model_name):
-        raise HTTPException(
-            status_code=400, detail=f"Model '{data.model_name}' not found"
-        )
+        raise HTTPException(status_code=400, detail=f"Model '{data.model_name}' not found")
 
     model_class_name = generate_class_name(data.model_name)
     model_class = cast(type[Model], registry.get_model(model_class_name))
     records = []
 
     if data.ids:
-        group_update = _prepare_group_update(
-            model_class, data.group_field, data.group_value
-        )
+        group_update = _prepare_group_update(model_class, data.group_field, data.group_value)
 
-        sequence_update = _prepare_sequence_update(
-            model_class, data.sequence_field, data.sequence_offset
-        )
+        sequence_update = _prepare_sequence_update(model_class, data.sequence_field, data.sequence_offset)
 
         if not group_update and not sequence_update:
             raise HTTPException(
@@ -55,9 +49,7 @@ async def resequence(
         ).all()
 
         if len(existing_records) != len(data.ids):
-            raise HTTPException(
-                status_code=400, detail="Some IDs in the target list do not exist"
-            )
+            raise HTTPException(status_code=400, detail="Some IDs in the target list do not exist")
 
         async with model_class.query.database.transaction():
             records_by_id = {record.id: record for record in existing_records}
@@ -106,9 +98,7 @@ def _prepare_group_update(
         raise HTTPException(status_code=400, detail="group_field is required")
 
     if group_field not in model_class.fields:
-        raise HTTPException(
-            status_code=400, detail=f"Field '{group_field}' not found on model"
-        )
+        raise HTTPException(status_code=400, detail=f"Field '{group_field}' not found on model")
 
     return {"field": group_field, "value": group_value}
 
@@ -121,9 +111,7 @@ def _prepare_sequence_update(
         return None
 
     if sequence_field not in model_class.fields:
-        raise HTTPException(
-            status_code=400, detail=f"Field '{sequence_field}' not found on model"
-        )
+        raise HTTPException(status_code=400, detail=f"Field '{sequence_field}' not found on model")
 
     return {
         "field": sequence_field,

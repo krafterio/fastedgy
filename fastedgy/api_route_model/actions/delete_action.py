@@ -30,9 +30,7 @@ class DeleteApiRouteAction(BaseApiRouteAction):
     name = "delete"
 
     @classmethod
-    def register_route(
-        cls, router: APIRouter, model_cls: TypeModel, options: RouteModelActionOptions
-    ) -> None:
+    def register_route(cls, router: APIRouter, model_cls: TypeModel, options: RouteModelActionOptions) -> None:
         """Register the delete route."""
         router.add_api_route(
             **{
@@ -79,17 +77,13 @@ async def delete_item_action[M = TypeModel](
         query = query or model_cls.query
 
         transformers_ctx["item_id"] = item_id
-        for transformer in vtr.get_transformers(
-            PreLoadRecordViewTransformer, model_cls, transformers
-        ):
+        for transformer in vtr.get_transformers(PreLoadRecordViewTransformer, model_cls, transformers):
             query = await transformer.pre_load_record(request, query, transformers_ctx)
 
         resolved_id = transformers_ctx.get("item_id", item_id)
         item = await query.filter(id=resolved_id).get()
 
-        for transformer in vtr.get_transformers(
-            PreDeleteTransformer, model_cls, transformers
-        ):
+        for transformer in vtr.get_transformers(PreDeleteTransformer, model_cls, transformers):
             await transformer.pre_delete(request, item, transformers_ctx)
             override = transformers_ctx.pop("override_item", None)
             if override is not None:
@@ -98,9 +92,7 @@ async def delete_item_action[M = TypeModel](
         if not transformers_ctx.get("skip_delete"):
             await item.delete()
 
-        for transformer in vtr.get_transformers(
-            PostDeleteTransformer, model_cls, transformers
-        ):
+        for transformer in vtr.get_transformers(PostDeleteTransformer, model_cls, transformers):
             await transformer.post_delete(request, item, transformers_ctx)
     except Exception as e:
         handle_action_exception(e, model_cls, not_found_message)

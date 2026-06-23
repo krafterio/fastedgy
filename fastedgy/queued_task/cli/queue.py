@@ -51,14 +51,10 @@ async def clear(ctx: CliContext):
             from fastedgy.models.queued_task import BaseQueuedTask
             from fastedgy.queued_task.models.queued_task import QueuedTaskState
 
-            QueuedTask = cast(
-                type["BaseQueuedTask"], ctx.get(Registry).get_model("QueuedTask")
-            )
+            QueuedTask = cast(type["BaseQueuedTask"], ctx.get(Registry).get_model("QueuedTask"))
 
             # Delete all enqueued tasks
-            deleted_count = await QueuedTask.query.filter(
-                QueuedTask.columns.state == QueuedTaskState.enqueued
-            ).delete()
+            deleted_count = await QueuedTask.query.filter(QueuedTask.columns.state == QueuedTaskState.enqueued).delete()
 
             console.print(f"[green]Cleared {deleted_count} pending tasks[/green]")
 
@@ -94,9 +90,7 @@ async def start(ctx: CliContext, workers: int | None, no_scheduler: bool = False
                 worker_service.max_workers = resolved_workers
                 worker_service.worker_pool.max_workers = resolved_workers
 
-            await worker_service.start_workers(
-                resolved_workers, no_scheduler=no_scheduler
-            )
+            await worker_service.start_workers(resolved_workers, no_scheduler=no_scheduler)
 
         except Exception as e:
             if ctx.settings.log_format == LogFormat.JSON:
@@ -118,24 +112,14 @@ async def stats(ctx: CliContext):
             from fastedgy.models.queued_task import BaseQueuedTask
             from fastedgy.queued_task.models.queued_task import QueuedTaskState
 
-            QueuedTask = cast(
-                type["BaseQueuedTask"], ctx.get(Registry).get_model("QueuedTask")
-            )
+            QueuedTask = cast(type["BaseQueuedTask"], ctx.get(Registry).get_model("QueuedTask"))
 
             # Get task counts by state
             total_tasks = await QueuedTask.query.count()
-            enqueued_tasks = await QueuedTask.query.filter(
-                QueuedTask.columns.state == QueuedTaskState.enqueued
-            ).count()
-            doing_tasks = await QueuedTask.query.filter(
-                QueuedTask.columns.state == QueuedTaskState.doing
-            ).count()
-            done_tasks = await QueuedTask.query.filter(
-                QueuedTask.columns.state == QueuedTaskState.done
-            ).count()
-            failed_tasks = await QueuedTask.query.filter(
-                QueuedTask.columns.state == QueuedTaskState.failed
-            ).count()
+            enqueued_tasks = await QueuedTask.query.filter(QueuedTask.columns.state == QueuedTaskState.enqueued).count()
+            doing_tasks = await QueuedTask.query.filter(QueuedTask.columns.state == QueuedTaskState.doing).count()
+            done_tasks = await QueuedTask.query.filter(QueuedTask.columns.state == QueuedTaskState.done).count()
+            failed_tasks = await QueuedTask.query.filter(QueuedTask.columns.state == QueuedTaskState.failed).count()
             cancelled_tasks = await QueuedTask.query.filter(
                 QueuedTask.columns.state == QueuedTaskState.cancelled
             ).count()
@@ -186,18 +170,12 @@ async def retry(ctx: CliContext, task_ids):
             for task_id in task_ids:
                 try:
                     retried_task = await service.retry_task(task_id)
-                    console.print(
-                        f"[green]Task {task_id} retried with new ID: {retried_task.id}[/green]"
-                    )
+                    console.print(f"[green]Task {task_id} retried with new ID: {retried_task.id}[/green]")
                     retried_count += 1
                 except Exception as e:
-                    console.print(
-                        f"[red]Failed to retry task {task_id}: {str(e)}[/red]"
-                    )
+                    console.print(f"[red]Failed to retry task {task_id}: {str(e)}[/red]")
 
-            console.print(
-                f"[cyan]Successfully retried {retried_count}/{len(task_ids)} tasks[/cyan]"
-            )
+            console.print(f"[cyan]Successfully retried {retried_count}/{len(task_ids)} tasks[/cyan]")
 
         except Exception as e:
             console.print(f"[red]Error retrying tasks: {str(e)}[/red]")
@@ -231,11 +209,7 @@ async def servers(ctx: CliContext):
             table.add_column("Last Heartbeat", style="white")
 
             for server in servers:
-                status = (
-                    "🟢 Running"
-                    if server.is_running and server.is_alive
-                    else "🔴 Stopped"
-                )
+                status = "🟢 Running" if server.is_running and server.is_alive else "🔴 Stopped"
                 workers = f"{server.total_workers}/{server.max_workers}"
 
                 table.add_row(
@@ -244,9 +218,7 @@ async def servers(ctx: CliContext):
                     workers,
                     str(server.active_workers),
                     str(server.idle_workers),
-                    server.last_heartbeat.strftime("%Y-%m-%d %H:%M:%S")
-                    if server.last_heartbeat
-                    else "Never",
+                    server.last_heartbeat.strftime("%Y-%m-%d %H:%M:%S") if server.last_heartbeat else "Never",
                 )
 
             console.print(table)

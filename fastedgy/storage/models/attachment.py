@@ -125,9 +125,7 @@ class AttachmentPathMixin(AttachmentMixin):
 
 
 @pre_save.connect_via(AttachmentPathMixin)
-async def on_pre_save(
-    sender: Any, instance: Any, model_instance: Any, **kwargs: Any
-) -> None:  # noqa: ANN401
+async def on_pre_save(sender: Any, instance: Any, model_instance: Any, **kwargs: Any) -> None:  # noqa: ANN401
     is_update: bool = bool(kwargs.get("is_update"))
     values: dict[str, Any] = kwargs.get("values", {}) or {}
     column_values: dict[str, Any] = kwargs.get("column_values", {}) or {}
@@ -146,18 +144,14 @@ async def on_pre_save(
 
     if parent is not None:
         try:
-            parent_id = (
-                getattr(parent, "id", None) if not isinstance(parent, int) else parent
-            )
+            parent_id = getattr(parent, "id", None) if not isinstance(parent, int) else parent
         except Exception:
             parent_id = None
 
         if parent_id is not None:
             from fastedgy.models.attachment import BaseAttachment as AttachmentModel
 
-            p = await AttachmentModel.query.only(
-                "id", "type", "path", "parent_ids"
-            ).get(id=parent_id)
+            p = await AttachmentModel.query.only("id", "type", "path", "parent_ids").get(id=parent_id)
 
             if getattr(p, "type", None) == AttachmentType.file:
                 raise ValueError(_t("The parent cannot be a file"))
@@ -170,15 +164,11 @@ async def on_pre_save(
         path = f"{base}/{name}" if base else name
         model_instance.path = path
         model_instance.depth = path.count("/")
-        model_instance.parent_ids = (
-            None if parent_id is None else [*(parent_parent_ids or []), parent_id]
-        )
+        model_instance.parent_ids = None if parent_id is None else [*(parent_parent_ids or []), parent_id]
 
 
 @pre_update.connect_via(AttachmentPathMixin)
-async def on_pre_update(
-    sender: Any, instance: Any, model_instance: Any, **kwargs: Any
-) -> None:  # noqa: ANN401
+async def on_pre_update(sender: Any, instance: Any, model_instance: Any, **kwargs: Any) -> None:  # noqa: ANN401
     Attachment: AttachmentPathMixin = get_service(Registry).get_model("Attachment")  # type: ignore
     if sender is not Attachment:
         return
@@ -210,17 +200,13 @@ async def on_pre_update(
 
 
 @post_update.connect_via(AttachmentPathMixin)
-async def on_post_update(
-    sender: Any, instance: Any, model_instance: Any, **kwargs: Any
-) -> None:  # noqa: ANN401
+async def on_post_update(sender: Any, instance: Any, model_instance: Any, **kwargs: Any) -> None:  # noqa: ANN401
     Attachment: AttachmentPathMixin = get_service(Registry).get_model("Attachment")  # type: ignore
 
     if sender is not Attachment:
         return
 
-    snapshot: dict[int, dict[str, Any]] | None = getattr(
-        instance, "_fe_att_snapshot", None
-    )
+    snapshot: dict[int, dict[str, Any]] | None = getattr(instance, "_fe_att_snapshot", None)
 
     if not snapshot:
         return
@@ -232,9 +218,7 @@ async def on_post_update(
     parent_ai: list[int] = []
 
     if new_parent_id is not None:
-        p = await Attachment.query.only("id", "path", "parent_ids").get(
-            id=new_parent_id
-        )
+        p = await Attachment.query.only("id", "path", "parent_ids").get(id=new_parent_id)
         parent_path = p.path or ""
         parent_ai = p.parent_ids or []
 
@@ -252,11 +236,7 @@ async def on_post_update(
             new_ai = [*parent_ai, new_parent_id] if new_parent_id is not None else []
         else:
             # only rename
-            base_parent = (
-                (await node.parent.load_recursive())
-                if getattr(node, "parent", None)
-                else None
-            )  # type: ignore[attr-defined]
+            base_parent = (await node.parent.load_recursive()) if getattr(node, "parent", None) else None  # type: ignore[attr-defined]
             if base_parent:
                 base = base_parent.path.strip("/")
                 new_prefix = f"{base}/{node.name}" if base else node.name
@@ -278,9 +258,7 @@ async def on_post_update(
         if not old_prefix:
             old_prefix = node.name  # minimal safeguard
 
-        descendants = await Attachment.query.filter(
-            path__startswith=f"{old_prefix}/"
-        ).all()
+        descendants = await Attachment.query.filter(path__startswith=f"{old_prefix}/").all()
 
         for d in descendants:
             suffix = d.path[len(old_prefix) :].lstrip("/")
@@ -313,9 +291,7 @@ async def on_post_update(
 
 
 @pre_delete.connect_via(AttachmentMixin)
-async def on_pre_delete(
-    sender: Any, instance: Any, model_instance: Any, **kwargs: Any
-) -> None:  # noqa: ANN401
+async def on_pre_delete(sender: Any, instance: Any, model_instance: Any, **kwargs: Any) -> None:  # noqa: ANN401
     Attachment: AttachmentMixin = get_service(Registry).get_model("Attachment")  # type: ignore
 
     if sender is not Attachment:
@@ -325,12 +301,8 @@ async def on_pre_delete(
 
     try:
         # Case 1: QuerySet deletion (bulk delete)
-        files = await instance.filter(type=AttachmentType.file).values(
-            fields=["id", "storage_path"]
-        )
-        files_to_delete = [
-            f.get("storage_path") for f in files if f.get("storage_path")
-        ]
+        files = await instance.filter(type=AttachmentType.file).values(fields=["id", "storage_path"])
+        files_to_delete = [f.get("storage_path") for f in files if f.get("storage_path")]
     except AttributeError:
         # Case 2: Single instance deletion
         if model_instance is not None:
@@ -359,9 +331,7 @@ async def on_pre_delete(
 
 
 @post_delete.connect_via(AttachmentMixin)
-async def on_post_delete(
-    sender: Any, instance: Any, model_instance: Any, **kwargs: Any
-) -> None:  # noqa: ANN401
+async def on_post_delete(sender: Any, instance: Any, model_instance: Any, **kwargs: Any) -> None:  # noqa: ANN401
     Attachment: AttachmentMixin = get_service(Registry).get_model("Attachment")  # type: ignore
 
     if sender is not Attachment:

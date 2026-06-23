@@ -47,9 +47,7 @@ def parse_field_with_converter(field_expr: str) -> tuple[str, str | None]:
     return field_expr, None
 
 
-def apply_export_converter(
-    model_cls: type, field_path: str, value: Any, converter: str | None
-) -> Any:
+def apply_export_converter(model_cls: type, field_path: str, value: Any, converter: str | None) -> Any:
     """
     Apply export converter to a value if the field supports it.
 
@@ -138,9 +136,7 @@ async def export_data[M](
             field_expressions = fields
 
     # Extract field paths and converters
-    field_paths_with_converters = [
-        parse_field_with_converter(expr) for expr in field_expressions
-    ]
+    field_paths_with_converters = [parse_field_with_converter(expr) for expr in field_expressions]
 
     # Get clean field paths (without converters) for query optimization
     field_paths_only = [path for path, _ in field_paths_with_converters]
@@ -175,31 +171,21 @@ async def export_data[M](
 
         data_rows.append(row_data)
 
-    field_labels = [
-        get_field_label_from_path(model_cls, field_name) for field_name in field_names
-    ]
+    field_labels = [get_field_label_from_path(model_cls, field_name) for field_name in field_names]
 
     if format.lower() == "csv":
-        return generate_csv_export(
-            field_labels, data_rows, f"{model_cls.__name__}_export.csv"
-        )
+        return generate_csv_export(field_labels, data_rows, f"{model_cls.__name__}_export.csv")
 
     if format.lower() == "xlsx":
-        return generate_xlsx_export(
-            field_labels, data_rows, f"{model_cls.__name__}_export.xlsx"
-        )
+        return generate_xlsx_export(field_labels, data_rows, f"{model_cls.__name__}_export.xlsx")
 
     if format.lower() == "ods":
-        return generate_ods_export(
-            field_labels, data_rows, f"{model_cls.__name__}_export.ods"
-        )
+        return generate_ods_export(field_labels, data_rows, f"{model_cls.__name__}_export.ods")
 
     raise HTTPException(status_code=400, detail=f"Unsupported export format: {format}")
 
 
-def format_value(
-    value: Any, relation_delimiter: RelationDelimiter = RelationDelimiter.newline
-) -> str | None:
+def format_value(value: Any, relation_delimiter: RelationDelimiter = RelationDelimiter.newline) -> str | None:
     """Format a value for export based on its type."""
     if value is None:
         return None
@@ -215,9 +201,7 @@ def format_value(
         return value.value
     elif isinstance(value, list):
         separator = relation_delimiter.get_separator()
-        return separator.join(
-            [str(format_value(v, relation_delimiter)) for v in value if v is not None]
-        )
+        return separator.join([str(format_value(v, relation_delimiter)) for v in value if v is not None])
     else:
         # Clean HTML tags from text values using html2text
         text_value = str(value)
@@ -229,9 +213,7 @@ def format_value(
         return text_value
 
 
-def generate_csv_export(
-    field_names: list[str], data_rows: list[list[str]], filename: str
-) -> StreamingResponse:
+def generate_csv_export(field_names: list[str], data_rows: list[list[str]], filename: str) -> StreamingResponse:
     """Generate a CSV export file."""
     output = io.StringIO()
     writer = csv.writer(output)
@@ -245,9 +227,7 @@ def generate_csv_export(
     )
 
 
-def generate_xlsx_export(
-    field_names: list[str], data_rows: list[list[str]], filename: str
-) -> StreamingResponse:
+def generate_xlsx_export(field_names: list[str], data_rows: list[list[str]], filename: str) -> StreamingResponse:
     """Generate an XLSX export file."""
     try:
         import openpyxl
@@ -284,16 +264,12 @@ def generate_xlsx_export(
     )
 
 
-def generate_ods_export(
-    field_names: list[str], data_rows: list[list[str]], filename: str
-) -> StreamingResponse:
+def generate_ods_export(field_names: list[str], data_rows: list[list[str]], filename: str) -> StreamingResponse:
     """Generate an ODS export file."""
     try:
         from pyexcel_ods3 import save_data
     except ImportError:
-        raise HTTPException(
-            status_code=500, detail="pyexcel-ods3 library is not installed"
-        )
+        raise HTTPException(status_code=500, detail="pyexcel-ods3 library is not installed")
 
     # Prepare data for pyexcel-ods3
     sheet_data = [field_names]  # Header row

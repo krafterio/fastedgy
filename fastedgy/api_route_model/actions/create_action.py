@@ -39,9 +39,7 @@ class CreateApiRouteAction(BaseApiRouteAction):
     name = "create"
 
     @classmethod
-    def register_route(
-        cls, router: APIRouter, model_cls: TypeModel, options: RouteModelActionOptions
-    ) -> None:
+    def register_route(cls, router: APIRouter, model_cls: TypeModel, options: RouteModelActionOptions) -> None:
         """Register the create route."""
         router.add_api_route(
             **{
@@ -111,9 +109,7 @@ async def create_item_action[M = TypeModel](
         item = model_cls(**scalar_data)
         vtr = get_service(ViewTransformerRegistry)
 
-        for transformer in vtr.get_transformers(
-            PreSaveTransformer, model_cls, transformers
-        ):
+        for transformer in vtr.get_transformers(PreSaveTransformer, model_cls, transformers):
             await transformer.pre_save(request, item, item_data, transformers_ctx, True)
             override = transformers_ctx.pop("override_item", None)
             if override is not None:
@@ -126,21 +122,13 @@ async def create_item_action[M = TypeModel](
         # Process relational fields after save
         await process_relational_fields(item, model_cls, relational_data)
 
-        for transformer in vtr.get_transformers(
-            PostSaveTransformer, model_cls, transformers
-        ):
-            await transformer.post_save(
-                request, item, item_data, transformers_ctx, True
-            )
+        for transformer in vtr.get_transformers(PostSaveTransformer, model_cls, transformers):
+            await transformer.post_save(request, item, item_data, transformers_ctx, True)
 
         item_dump = await filter_selected_fields(item, fields)
 
-        for transformer in vtr.get_transformers(
-            GetViewTransformer, model_cls, transformers
-        ):
-            item_dump = await transformer.get_view(
-                request, item, item_dump, transformers_ctx
-            )
+        for transformer in vtr.get_transformers(GetViewTransformer, model_cls, transformers):
+            item_dump = await transformer.get_view(request, item, item_dump, transformers_ctx)
 
         return item_dump
     except Exception as e:

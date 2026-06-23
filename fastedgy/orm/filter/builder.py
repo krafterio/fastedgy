@@ -49,15 +49,11 @@ def _get_cond_query(model_cls: type[Model]) -> QuerySet:
     """Helper to get the query object for building conditions."""
     return cast(
         QuerySet,
-        model_cls.global_query
-        if hasattr(model_cls, "global_query")
-        else model_cls.query,
+        model_cls.global_query if hasattr(model_cls, "global_query") else model_cls.query,
     )
 
 
-def build_filter_expression(
-    model_cls: type[Model], filters: FilterRule | FilterCondition
-) -> Any | None:
+def build_filter_expression(model_cls: type[Model], filters: FilterRule | FilterCondition) -> Any | None:
     if isinstance(filters, FilterRule):
         field = filters.field
         operator_method = FILTER_OPERATORS_SQL.get(filters.operator, None)
@@ -92,9 +88,7 @@ def build_filter_expression(
             unpack_count = FILTER_OPERATORS_SQL_UNPACK[filters.operator]
 
             if not isinstance(value, (list, tuple)) or len(value) < unpack_count:
-                raise InvalidFilterError(
-                    f"Operator '{filters.operator}' requires {unpack_count} values in list"
-                )
+                raise InvalidFilterError(f"Operator '{filters.operator}' requires {unpack_count} values in list")
 
             if use_col:
                 return column.between(*value)
@@ -195,16 +189,12 @@ def _build_exists_expression(model_cls: type[Model], filters: FilterRule) -> Any
 
             if from_table is None:
                 from_table = related_model.table
-                root_link_condition = (
-                    related_model.table.columns[fk_field_name]
-                    == model_cls.table.columns[current_pk]
-                )
+                root_link_condition = related_model.table.columns[fk_field_name] == model_cls.table.columns[current_pk]
             else:
                 join_entries.append(
                     (
                         related_model.table,
-                        related_model.table.columns[fk_field_name]
-                        == current_model.table.columns[current_pk],
+                        related_model.table.columns[fk_field_name] == current_model.table.columns[current_pk],
                     )
                 )
 
@@ -217,15 +207,12 @@ def _build_exists_expression(model_cls: type[Model], filters: FilterRule) -> Any
 
             if from_table is None:
                 from_table = related_model.table
-                root_link_condition = (
-                    related_model.table.columns[pk_col] == model_cls.table.columns[part]
-                )
+                root_link_condition = related_model.table.columns[pk_col] == model_cls.table.columns[part]
             else:
                 join_entries.append(
                     (
                         related_model.table,
-                        related_model.table.columns[pk_col]
-                        == current_model.table.columns[part],
+                        related_model.table.columns[pk_col] == current_model.table.columns[part],
                     )
                 )
 
@@ -236,15 +223,12 @@ def _build_exists_expression(model_cls: type[Model], filters: FilterRule) -> Any
 
             if from_table is None:
                 from_table = related_model.table
-                root_link_condition = (
-                    related_model.table.columns["id"] == model_cls.table.columns[part]
-                )
+                root_link_condition = related_model.table.columns["id"] == model_cls.table.columns[part]
             else:
                 join_entries.append(
                     (
                         related_model.table,
-                        related_model.table.columns["id"]
-                        == current_model.table.columns[part],
+                        related_model.table.columns["id"] == current_model.table.columns[part],
                     )
                 )
 
@@ -270,12 +254,7 @@ def _build_exists_expression(model_cls: type[Model], filters: FilterRule) -> Any
     for table, cond in join_entries:
         select_from = select_from.join(table, cond)
 
-    subq = (
-        sa_select(literal_column("1"))
-        .select_from(select_from)
-        .where(root_link_condition)
-        .where(filter_cond)
-    )
+    subq = sa_select(literal_column("1")).select_from(select_from).where(root_link_condition).where(filter_cond)
 
     return exists(subq)
 
@@ -289,9 +268,7 @@ def filter_query(
     has_filters = filters is not None
 
     try:
-        if not isinstance(filters, FilterCondition) and not isinstance(
-            filters, FilterRule
-        ):
+        if not isinstance(filters, FilterCondition) and not isinstance(filters, FilterRule):
             filters = parse_filter_input(filters)
 
         if not has_filters and not filters:
@@ -300,9 +277,7 @@ def filter_query(
         if has_filters and not filters:
             raise InvalidFilterError("Invalid format of filters")
 
-        filters = validate_filters(
-            query.model_class, filters, allow_excluded=allow_excluded
-        )
+        filters = validate_filters(query.model_class, filters, allow_excluded=allow_excluded)
     except InvalidFilterError:
         if has_filters and restrict_error:
             primary_key = find_primary_key_field(query.model_class)
@@ -317,10 +292,7 @@ def filter_query(
     if expression is not None:
         query = query.filter(expression)
 
-        if (
-            _has_duplicating_relation_filter(query.model_class, filters)
-            and query.distinct_on is None
-        ):
+        if _has_duplicating_relation_filter(query.model_class, filters) and query.distinct_on is None:
             primary_key = find_primary_key_field(query.model_class)
             if primary_key:
                 query = query.distinct(primary_key)
@@ -341,9 +313,7 @@ def _get_fulltext_locale() -> str:
         return "en"
 
 
-def _resolve_fulltext_field(
-    model_cls: type[Model], field_path: str
-) -> tuple[type[Model], str, str]:
+def _resolve_fulltext_field(model_cls: type[Model], field_path: str) -> tuple[type[Model], str, str]:
     """
     Resolve a fulltext field path (e.g. "search_value" or "task_category.search_value")
     to the target model class, tablename, and leaf field name.
@@ -368,9 +338,7 @@ def _resolve_fulltext_field(
     return current_cls, str(current_cls.meta.tablename), parts[-1]
 
 
-def _build_fulltext_search_expression(
-    model_cls: type[Model], field_path: str, value: str
-) -> Any:
+def _build_fulltext_search_expression(model_cls: type[Model], field_path: str, value: str) -> Any:
     """
     Build a fulltext search WHERE expression:
     tablename.column_locale @@ to_tsquery('language', unaccent('parsed_tsquery'))
@@ -385,18 +353,16 @@ def _build_fulltext_search_expression(
         return None
 
     try:
-        return text(
-            f"{tablename}.{column_name} @@ to_tsquery('{pg_language}', unaccent(:search_value))"
-        ).bindparams(search_value=parsed)
+        return text(f"{tablename}.{column_name} @@ to_tsquery('{pg_language}', unaccent(:search_value))").bindparams(
+            search_value=parsed
+        )
     except Exception:
-        return text(
-            f"{tablename}.{column_name} @@ to_tsquery('{pg_language}', :search_value)"
-        ).bindparams(search_value=parsed)
+        return text(f"{tablename}.{column_name} @@ to_tsquery('{pg_language}', :search_value)").bindparams(
+            search_value=parsed
+        )
 
 
-def _fuzzy_correct_sql(
-    column_name: str, tablename: str, term: str, param_name: str
-) -> str:
+def _fuzzy_correct_sql(column_name: str, tablename: str, term: str, param_name: str) -> str:
     """
     Build a SQL subquery that corrects a single term via ts_stat + pg_trgm similarity.
     Returns the corrected word or the original term if no match.
@@ -411,9 +377,7 @@ def _fuzzy_correct_sql(
     )
 
 
-def _build_fulltext_fuzzy_expression(
-    model_cls: type[Model], field_path: str, value: str
-) -> Any:
+def _build_fulltext_fuzzy_expression(model_cls: type[Model], field_path: str, value: str) -> Any:
     """
     Build a fulltext search expression with inline fuzzy term correction.
     Each term is corrected via a ts_stat subquery using pg_trgm similarity,
@@ -446,9 +410,7 @@ def _build_fulltext_fuzzy_expression(
             for word in phrase_words:
                 param_name = f"ft_{param_idx}"
                 bind_params[param_name] = word
-                corrected_words.append(
-                    _fuzzy_correct_sql(column_name, tablename, word, param_name)
-                )
+                corrected_words.append(_fuzzy_correct_sql(column_name, tablename, word, param_name))
                 param_idx += 1
             # phrase: word1 <-> word2 (no :*)
             phrase_expr = " || ' <-> ' || ".join(corrected_words)
@@ -544,9 +506,7 @@ def _collect_fulltext_search_rules(
     return result
 
 
-def _add_fulltext_rank_extra_select(
-    query: QuerySet, filters: Filter | None
-) -> QuerySet:
+def _add_fulltext_rank_extra_select(query: QuerySet, filters: Filter | None) -> QuerySet:
     """
     Scan filters for fulltext search operators and add ts_rank() as extra_select.
     This makes the rank available for ordering via inject_order_by().
@@ -560,9 +520,7 @@ def _add_fulltext_rank_extra_select(
     pg_language = get_pg_language(locale)
 
     for field_path, tsqueries in search_rules.items():
-        target_cls, tablename, field_name = _resolve_fulltext_field(
-            query.model_class, field_path
-        )
+        target_cls, tablename, field_name = _resolve_fulltext_field(query.model_class, field_path)
         column_name = f"{field_name}_{locale}"
         qualified_column = f"{tablename}.{column_name}"
         label_name = f"_{field_path}_rank"
@@ -571,9 +529,7 @@ def _add_fulltext_rank_extra_select(
         if len(tsqueries) == 1:
             combined_tsquery = tsqueries[0]
         else:
-            combined_tsquery = " || ".join(
-                f"to_tsquery('{pg_language}', unaccent('{tq}'))" for tq in tsqueries
-            )
+            combined_tsquery = " || ".join(f"to_tsquery('{pg_language}', unaccent('{tq}'))" for tq in tsqueries)
 
         try:
             if len(tsqueries) == 1:
@@ -581,9 +537,7 @@ def _add_fulltext_rank_extra_select(
                     f"ts_rank({qualified_column}, to_tsquery('{pg_language}', unaccent('{combined_tsquery}')))"
                 ).label(label_name)
             else:
-                rank_expr = literal_column(
-                    f"ts_rank({qualified_column}, {combined_tsquery})"
-                ).label(label_name)
+                rank_expr = literal_column(f"ts_rank({qualified_column}, {combined_tsquery})").label(label_name)
         except Exception:
             # Fallback without unaccent
             if len(tsqueries) == 1:
@@ -591,21 +545,15 @@ def _add_fulltext_rank_extra_select(
                     f"ts_rank({qualified_column}, to_tsquery('{pg_language}', '{combined_tsquery}'))"
                 ).label(label_name)
             else:
-                combined_no_unaccent = " || ".join(
-                    f"to_tsquery('{pg_language}', '{tq}')" for tq in tsqueries
-                )
-                rank_expr = literal_column(
-                    f"ts_rank({qualified_column}, {combined_no_unaccent})"
-                ).label(label_name)
+                combined_no_unaccent = " || ".join(f"to_tsquery('{pg_language}', '{tq}')" for tq in tsqueries)
+                rank_expr = literal_column(f"ts_rank({qualified_column}, {combined_no_unaccent})").label(label_name)
 
         query = query.extra_select(rank_expr)
 
     return query
 
 
-def _find_field_type_in_model(
-    model_cls: type[Model], field_path: str
-) -> type[BaseFieldType]:
+def _find_field_type_in_model(model_cls: type[Model], field_path: str) -> type[BaseFieldType]:
     """
     Recursively find a field type in a model by its field path.
 
@@ -630,9 +578,7 @@ def _find_field_type_in_model(
 
             if "extra" in model_cls.meta.fields:
                 extra_field_name = part[6:]
-                extra_fields = context.get_map_workspace_extra_fields(
-                    generate_metadata_name(current_model)
-                )
+                extra_fields = context.get_map_workspace_extra_fields(generate_metadata_name(current_model))
 
                 if extra_field_name in extra_fields:
                     extra_field = extra_fields[extra_field_name]
@@ -641,23 +587,17 @@ def _find_field_type_in_model(
                     if field_type:
                         return field_type
 
-            raise InvalidFilterError(
-                f"Field '{part}' not found in model {current_model.__name__}"
-            )
+            raise InvalidFilterError(f"Field '{part}' not found in model {current_model.__name__}")
         elif i == len(field_parts) - 1:
             fields = current_model.meta.fields
 
             if part in fields:
                 return fields.get(part)
             else:
-                raise InvalidFilterError(
-                    f"Field '{part}' not found in model {current_model.__name__}"
-                )
+                raise InvalidFilterError(f"Field '{part}' not found in model {current_model.__name__}")
         else:
             if part not in current_model.meta.fields:
-                raise InvalidFilterError(
-                    f"Field '{part}' not found in model {current_model.__name__}"
-                )
+                raise InvalidFilterError(f"Field '{part}' not found in model {current_model.__name__}")
 
             field_info = current_model.meta.fields[part]
 
@@ -698,9 +638,7 @@ def _find_column_in_model(model_cls: type[Model], field_path: str) -> Any:
 
             if "extra" in model_cls.meta.fields:
                 extra_field_name = part[6:]
-                extra_fields = context.get_map_workspace_extra_fields(
-                    generate_metadata_name(current_model)
-                )
+                extra_fields = context.get_map_workspace_extra_fields(generate_metadata_name(current_model))
 
                 if extra_field_name in extra_fields:
                     extra_field = extra_fields[extra_field_name]
@@ -709,23 +647,17 @@ def _find_column_in_model(model_cls: type[Model], field_path: str) -> Any:
                     if field_type:
                         return model_cls.columns.extra.op("->>")(extra_field_name)
 
-            raise InvalidFilterError(
-                f"Field '{part}' not found in model {current_model.__name__}"
-            )
+            raise InvalidFilterError(f"Field '{part}' not found in model {current_model.__name__}")
         elif i == len(field_parts) - 1:
             columns = current_model.table.columns  # type: ignore
 
             if hasattr(columns, part):
                 return columns[part]
             else:
-                raise InvalidFilterError(
-                    f"Field '{part}' not found in model {current_model.__name__}"
-                )
+                raise InvalidFilterError(f"Field '{part}' not found in model {current_model.__name__}")
         else:
             if part not in current_model.meta.fields:
-                raise InvalidFilterError(
-                    f"Field '{part}' not found in model {current_model.__name__}"
-                )
+                raise InvalidFilterError(f"Field '{part}' not found in model {current_model.__name__}")
 
             field_info = current_model.meta.fields[part]
 
@@ -741,9 +673,7 @@ def _find_column_in_model(model_cls: type[Model], field_path: str) -> Any:
     raise InvalidFilterError(f"Field '{field_path}' not found")
 
 
-def _convert_value_by_field_type(
-    model_cls: type[Model], field_path: str, value: Any
-) -> Any:
+def _convert_value_by_field_type(model_cls: type[Model], field_path: str, value: Any) -> Any:
     """
     Converts a value based on the field type.
 
@@ -769,18 +699,14 @@ def _convert_value_by_field_type(
             )
 
             extra_field_name = field_path[6:]
-            extra_fields = context.get_map_workspace_extra_fields(
-                generate_metadata_name(model_cls)
-            )
+            extra_fields = context.get_map_workspace_extra_fields(generate_metadata_name(model_cls))
 
             if extra_field_name in extra_fields:
                 extra_field = extra_fields[extra_field_name]
                 field_type = EXTRA_FIELDS_MAP.get(extra_field.field_type, None)
 
                 if field_type:
-                    field = field_type(
-                        **EXTRA_FIELD_TYPE_OPTIONS[extra_field.field_type]
-                    )
+                    field = field_type(**EXTRA_FIELD_TYPE_OPTIONS[extra_field.field_type])
         else:
             field = current_cls.meta.fields.get(part)
             if not field:
@@ -794,9 +720,7 @@ def _convert_value_by_field_type(
     if isinstance(field, (DateField, DateTimeField)):
         from datetime import datetime
 
-        return _convert_value(
-            value, lambda val: datetime.fromisoformat(val.replace("Z", "+00:00"))
-        )
+        return _convert_value(value, lambda val: datetime.fromisoformat(val.replace("Z", "+00:00")))
     elif isinstance(field, IntegerField):
         return _convert_value(value, lambda val: int(val))
     elif isinstance(field, (FloatField, DecimalField)):

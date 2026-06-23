@@ -148,9 +148,7 @@ def _has_service(key: ProviderKey) -> bool:
     return key in _services_registry
 
 
-def _register_service(
-    key: ProviderKey, instance: Union[Any, Type[Any]], force: bool = False
-) -> None:
+def _register_service(key: ProviderKey, instance: Union[Any, Type[Any]], force: bool = False) -> None:
     """Internal function to register a service in the registry."""
     if force or key not in _services_registry:
         _services_registry[key] = instance
@@ -178,9 +176,7 @@ def _resolve_dependencies(service_class: Type[T]) -> Dict[str, Any]:
     try:
         module = sys.modules.get(service_class.__module__)
         globalns = getattr(module, "__dict__", {}) if module else {}
-        type_hints = get_type_hints(
-            service_class.__init__, globalns=globalns, localns=None
-        )
+        type_hints = get_type_hints(service_class.__init__, globalns=globalns, localns=None)
     except (NameError, Exception):
         pass
 

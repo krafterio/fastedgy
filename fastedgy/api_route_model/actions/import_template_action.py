@@ -24,9 +24,7 @@ class ImportTemplateApiRouteAction(BaseApiRouteAction):
     name = "import_template"
 
     @classmethod
-    def register_route(
-        cls, router: APIRouter, model_cls: TypeModel, options: RouteModelActionOptions
-    ) -> None:
+    def register_route(cls, router: APIRouter, model_cls: TypeModel, options: RouteModelActionOptions) -> None:
         """Register the import template route."""
         router.add_api_route(
             **{
@@ -121,9 +119,7 @@ async def import_template_action[M = TypeModel](
             field_names = [f for f in field_names if f != "id"]
 
     # Get field labels for headers
-    field_labels = [
-        get_field_label_from_path(model_cls, field_name) for field_name in field_names
-    ]
+    field_labels = [get_field_label_from_path(model_cls, field_name) for field_name in field_names]
 
     # Generate template with only headers (no data rows)
     data_rows = []  # Empty data rows for template

@@ -61,9 +61,7 @@ class TextLightFormatter(logging.Formatter):
         logging.INFO: lambda text: click.style(text, fg="green") if click else text,
         logging.WARNING: lambda text: click.style(text, fg="yellow") if click else text,
         logging.ERROR: lambda text: click.style(text, fg="red") if click else text,
-        logging.CRITICAL: lambda text: (
-            click.style(text, fg="bright_red") if click else text
-        ),
+        logging.CRITICAL: lambda text: click.style(text, fg="bright_red") if click else text,
     }
 
     def __init__(self):
@@ -154,9 +152,7 @@ class JsonFormatter(logging.Formatter):
             log_record[key] = cleaned
 
         if record.exc_info:
-            log_record["exception"] = _strip_ansi(
-                self.formatException(record.exc_info)
-            )
+            log_record["exception"] = _strip_ansi(self.formatException(record.exc_info))
 
         return json.dumps(log_record, default=str)
 
@@ -167,9 +163,7 @@ class DatabaseConnectionFilter(logging.Filter):
             return True
 
         if isinstance(record.msg, str):
-            if record.msg.startswith("Connected to database") or record.msg.startswith(
-                "Disconnected from database"
-            ):
+            if record.msg.startswith("Connected to database") or record.msg.startswith("Disconnected from database"):
                 return False
 
             if "postgresql+asyncpg://" in record.msg:

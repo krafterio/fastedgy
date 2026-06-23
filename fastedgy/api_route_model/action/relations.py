@@ -71,9 +71,7 @@ async def process_relational_fields(
         related_model = get_related_model(field)
 
         # Handle null or empty array as "clear" action
-        if operations is None or (
-            isinstance(operations, list) and len(operations) == 0
-        ):
+        if operations is None or (isinstance(operations, list) and len(operations) == 0):
             operations = [["clear"]]
         elif operations and isinstance(operations[0], int):
             # Convert simple list[int] to [["set", [ids]]]
@@ -82,9 +80,7 @@ async def process_relational_fields(
         # Process all relational fields (M2M and O2M) with the same operations
         if is_relation_field(field):
             try:
-                await process_relation_operations(
-                    instance, field_name, operations, related_model
-                )
+                await process_relation_operations(instance, field_name, operations, related_model)
             except RelationOperationError as e:
                 raise HTTPException(status_code=400, detail=str(e))
 

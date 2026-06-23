@@ -65,15 +65,11 @@ class Scheduler:
 
         if isinstance(func, str):
             if "." not in func:
-                raise ValueError(
-                    f"Function string must be in format 'module.function', got '{func}'"
-                )
+                raise ValueError(f"Function string must be in format 'module.function', got '{func}'")
             module_name, function_name = func.rsplit(".", 1)
         else:
             if not hasattr(func, "__module__") or not hasattr(func, "__name__"):
-                raise ValueError(
-                    "Callable must have __module__ and __name__ attributes"
-                )
+                raise ValueError("Callable must have __module__ and __name__ attributes")
             module_name = func.__module__
             function_name = func.__name__
 
@@ -94,9 +90,7 @@ class Scheduler:
             priority=priority,
         )
 
-        logger.info(
-            f"Scheduled task {task.id} ({module_name}.{function_name}) for {date_enqueued}"
-        )
+        logger.info(f"Scheduled task {task.id} ({module_name}.{function_name}) for {date_enqueued}")
 
         return task
 
@@ -133,9 +127,7 @@ class Scheduler:
 
             rows = await self.registry.database.fetch_all(
                 text(
-                    "DELETE FROM queued_tasks "
-                    "WHERE id = :id AND state = 'enqueued'::queuedtaskstate "
-                    "RETURNING id"
+                    "DELETE FROM queued_tasks WHERE id = :id AND state = 'enqueued'::queuedtaskstate RETURNING id"
                 ).bindparams(id=task_id)
             )
             if rows:

@@ -106,10 +106,7 @@ async def _handle_fulltext_save(instance: Any, **kwargs: dict[str, Any]) -> None
                 continue
 
             tsvector_expr = " || ".join(tsvector_parts)
-            sql = text(
-                f"UPDATE {tablename} SET {column_name} = {tsvector_expr} "
-                f"WHERE {pk_field} = :pk_value"
-            )
+            sql = text(f"UPDATE {tablename} SET {column_name} = {tsvector_expr} WHERE {pk_field} = :pk_value")
 
             await model_cls.meta.registry.database.execute(sql, bind_params)
 

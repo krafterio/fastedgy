@@ -32,21 +32,13 @@ class QueuedTaskLogMixin(BaseModel):
         label = "Log des tâches en file d'attente"
         label_plural = "Logs des tâches en file d'attente"
         indexes = [
-            fields.Index(
-                fields=["task", "logged_at"], name="idx_queued_task_logs_task_date"
-            ),
-            fields.Index(
-                fields=["log_type", "logged_at"], name="idx_queued_task_logs_type_date"
-            ),
+            fields.Index(fields=["task", "logged_at"], name="idx_queued_task_logs_task_date"),
+            fields.Index(fields=["log_type", "logged_at"], name="idx_queued_task_logs_type_date"),
             fields.Index(fields=["logged_at"], name="idx_queued_task_logs_date"),
         ]
 
-    task: "QueuedTask" = fields.ForeignKey(
-        "QueuedTask", on_delete="CASCADE", label="Tâche", related_name="logs"
-    )  # type: ignore
-    log_type: QueuedTaskLogType = fields.ChoiceField(
-        choices=QueuedTaskLogType, label="Type de log"
-    )  # type: ignore
+    task: "QueuedTask" = fields.ForeignKey("QueuedTask", on_delete="CASCADE", label="Tâche", related_name="logs")  # type: ignore
+    log_type: QueuedTaskLogType = fields.ChoiceField(choices=QueuedTaskLogType, label="Type de log")  # type: ignore
     logged_at: datetime | None = fields.DateTimeField(
         default_factory=datetime.now,
         read_only=True,

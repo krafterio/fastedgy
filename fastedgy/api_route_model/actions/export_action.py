@@ -42,9 +42,7 @@ class ExportApiRouteAction(BaseApiRouteAction):
     name = "export"
 
     @classmethod
-    def register_route(
-        cls, router: APIRouter, model_cls: TypeModel, options: RouteModelActionOptions
-    ) -> None:
+    def register_route(cls, router: APIRouter, model_cls: TypeModel, options: RouteModelActionOptions) -> None:
         """Register the export route."""
         router.add_api_route(
             **{
@@ -140,17 +138,13 @@ async def export_items_action[M = TypeModel](
         query = optimize_query_filter_fields(query, fields)
 
         # Pre-paginate transformers (for filtering, ordering, etc.)
-        for transformer in vtr.get_transformers(
-            PrePaginateViewTransformer, model_cls, transformers
-        ):
+        for transformer in vtr.get_transformers(PrePaginateViewTransformer, model_cls, transformers):
             query = await transformer.pre_paginate(request, query, transformers_ctx)
 
         query = inject_order_by(query, order_by)
 
         # Pre-export transformers
-        for transformer in vtr.get_transformers(
-            PreExportTransformer, model_cls, transformers
-        ):
+        for transformer in vtr.get_transformers(PreExportTransformer, model_cls, transformers):
             query = await transformer.pre_export(request, query, transformers_ctx)
 
     except InvalidFilterError as e:
@@ -175,17 +169,13 @@ async def export_items_action[M = TypeModel](
     )
 
     # Post-export transformers (can modify file content/filename)
-    post_export_transformers = list(
-        vtr.get_transformers(PostExportTransformer, model_cls, transformers)
-    )
+    post_export_transformers = list(vtr.get_transformers(PostExportTransformer, model_cls, transformers))
 
     if post_export_transformers:
         # Extract filename from Content-Disposition header
         content_disposition = response.headers.get("Content-Disposition", "")
         filename = (
-            content_disposition.split("filename=")[-1].strip('"')
-            if "filename=" in content_disposition
-            else "export"
+            content_disposition.split("filename=")[-1].strip('"') if "filename=" in content_disposition else "export"
         )
 
         # Read the response body
@@ -193,9 +183,7 @@ async def export_items_action[M = TypeModel](
         file_content = b"".join([chunk async for chunk in body_iterator])
 
         for transformer in post_export_transformers:
-            file_content, filename = await transformer.post_export(
-                request, file_content, filename, transformers_ctx
-            )
+            file_content, filename = await transformer.post_export(request, file_content, filename, transformers_ctx)
 
         # Create new response with potentially modified content
         return StreamingResponse(

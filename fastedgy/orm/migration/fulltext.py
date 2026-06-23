@@ -42,11 +42,7 @@ def _check_for_tsvector_operations(ops):
                 if _is_tsvector_column(column):
                     return True
         elif isinstance(op, AlterColumnOp):
-            if (
-                hasattr(op, "modify_type")
-                and op.modify_type
-                and _is_tsvector_type(op.modify_type)
-            ):
+            if hasattr(op, "modify_type") and op.modify_type and _is_tsvector_type(op.modify_type):
                 return True
         elif hasattr(op, "ops"):
             if _check_for_tsvector_operations(op.ops):

@@ -109,9 +109,7 @@ class QueuedTaskLogger(logging.Logger):
 
             task_id = task.id if hasattr(task, "id") else None
             if task_id:
-                existing_task = await QT.query.filter(
-                    QT.columns.id == task_id
-                ).get_or_none()
+                existing_task = await QT.query.filter(QT.columns.id == task_id).get_or_none()
                 if not existing_task:
                     return
 
@@ -133,25 +131,16 @@ class QueuedTaskLogger(logging.Logger):
                     error_type_name = type(retry_error).__name__
                     error_message = str(retry_error).lower()
 
-                    if (
-                        "foreign key constraint" in error_message
-                        or "ForeignKeyViolationError" in error_type_name
-                    ):
+                    if "foreign key constraint" in error_message or "ForeignKeyViolationError" in error_type_name:
                         return
 
-                    if (
-                        "SerializationError" in error_type_name
-                        or "serialization" in error_message
-                    ):
+                    if "SerializationError" in error_type_name or "serialization" in error_message:
                         if attempt < max_retries - 1:
                             await asyncio.sleep(0.1 * (attempt + 1))
                             continue
                         return
 
-                    if (
-                        "NoActiveSQLTransactionError" in error_type_name
-                        or "savepoint" in error_message.lower()
-                    ):
+                    if "NoActiveSQLTransactionError" in error_type_name or "savepoint" in error_message.lower():
                         if attempt < max_retries - 1:
                             await asyncio.sleep(0.1 * (attempt + 1))
                             continue
@@ -209,9 +198,7 @@ class QueuedTaskLogger(logging.Logger):
     def exception(self, message: str, *args, exc_info=True, **kwargs) -> None:
         """Log exception with traceback"""
         if self.isEnabledFor(logging.ERROR):
-            self._log_with_db(
-                logging.ERROR, message, *args, exc_info=exc_info, **kwargs
-            )
+            self._log_with_db(logging.ERROR, message, *args, exc_info=exc_info, **kwargs)
 
 
 logging.setLoggerClass(QueuedTaskLogger)

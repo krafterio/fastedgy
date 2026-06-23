@@ -23,10 +23,7 @@ def _parse_channel_capacities(raw: str) -> dict[str, int]:
         name, sep, capacity = entry.partition(":")
         name = name.strip()
         if not sep or not name:
-            raise ValueError(
-                f"Invalid QUEUED_TASK_CHANNELS entry '{entry}' "
-                f"(expected 'name:capacity')"
-            )
+            raise ValueError(f"Invalid QUEUED_TASK_CHANNELS entry '{entry}' (expected 'name:capacity')")
         try:
             value = int(capacity.strip())
         except ValueError:
@@ -36,8 +33,7 @@ def _parse_channel_capacities(raw: str) -> dict[str, int]:
             ) from None
         if value < 0:
             raise ValueError(
-                f"Invalid QUEUED_TASK_CHANNELS capacity for channel "
-                f"'{name}': must be >= 0 (0 pauses the channel)"
+                f"Invalid QUEUED_TASK_CHANNELS capacity for channel '{name}': must be >= 0 (0 pauses the channel)"
             )
         capacities[name] = value
     return capacities
@@ -49,25 +45,15 @@ class QueuedTaskConfig:
     enable_dual_logging: bool = True
 
     # Worker configuration
-    max_workers: int = int(
-        os.environ.get("QUEUED_TASK_MAX_WORKERS", os.cpu_count() or 1)
-    )
-    worker_idle_timeout: int = int(
-        os.environ.get("QUEUED_TASK_WORKER_IDLE_TIMEOUT", 60)
-    )  # seconds
+    max_workers: int = int(os.environ.get("QUEUED_TASK_MAX_WORKERS", os.cpu_count() or 1))
+    worker_idle_timeout: int = int(os.environ.get("QUEUED_TASK_WORKER_IDLE_TIMEOUT", 60))  # seconds
 
     # Manager configuration
-    polling_interval: int = int(
-        os.environ.get("QUEUED_TASK_POLLING_INTERVAL", 2)
-    )  # seconds
-    fallback_polling_interval: int = int(
-        os.environ.get("QUEUED_TASK_FALLBACK_POLLING_INTERVAL", 30)
-    )  # seconds
+    polling_interval: int = int(os.environ.get("QUEUED_TASK_POLLING_INTERVAL", 2))  # seconds
+    fallback_polling_interval: int = int(os.environ.get("QUEUED_TASK_FALLBACK_POLLING_INTERVAL", 30))  # seconds
 
     # Task execution configuration
-    task_timeout: int = int(
-        os.environ.get("QUEUED_TASK_TIMEOUT", 300)
-    )  # 5 minutes default
+    task_timeout: int = int(os.environ.get("QUEUED_TASK_TIMEOUT", 300))  # 5 minutes default
 
     # Bounded auto-retry budget: a task whose run fails is re-enqueued with
     # an exponential delay (30s, 2min, 8min, capped at 30min) until
@@ -85,27 +71,17 @@ class QueuedTaskConfig:
     # effective cap is N x capacity). Channels absent from the mapping are
     # unbounded (limited by the worker count); capacity 0 pauses a channel
     # (its tasks stay enqueued). Priority orders globally across channels.
-    channels: dict[str, int] = _parse_channel_capacities(
-        os.environ.get("QUEUED_TASK_CHANNELS", "")
-    )
+    channels: dict[str, int] = _parse_channel_capacities(os.environ.get("QUEUED_TASK_CHANNELS", ""))
 
     # Notification configuration
-    use_postgresql_notify: bool = bool(
-        os.environ.get("QUEUED_TASK_USE_POSTGRESQL_NOTIFY", "true").lower() == "true"
-    )
-    notify_channel: str = os.environ.get(
-        "QUEUED_TASK_NOTIFY_CHANNEL", "queued_new_task"
-    )
+    use_postgresql_notify: bool = bool(os.environ.get("QUEUED_TASK_USE_POSTGRESQL_NOTIFY", "true").lower() == "true")
+    notify_channel: str = os.environ.get("QUEUED_TASK_NOTIFY_CHANNEL", "queued_new_task")
 
     # Dedicated manager DB pool sizing (bookkeeping writes: task states, logs,
     # heartbeat). Kept small and explicit — without it the pool would silently
     # fall back to SQLAlchemy defaults, ungoverned by any app configuration.
-    manager_db_pool_size: int = int(
-        os.environ.get("QUEUED_TASK_MANAGER_DB_POOL_SIZE", 5)
-    )
-    manager_db_max_overflow: int = int(
-        os.environ.get("QUEUED_TASK_MANAGER_DB_MAX_OVERFLOW", 5)
-    )
+    manager_db_pool_size: int = int(os.environ.get("QUEUED_TASK_MANAGER_DB_POOL_SIZE", 5))
+    manager_db_max_overflow: int = int(os.environ.get("QUEUED_TASK_MANAGER_DB_MAX_OVERFLOW", 5))
 
     # Liveness file for container healthchecks, touched by the manager
     # heartbeat every 30s (empty disables). Signals event-loop liveness only,
@@ -158,9 +134,7 @@ class QueuedTaskConfig:
         for model_name in ("QueuedTask", "QueuedTaskLog", "QueuedTaskWorker"):
             try:
                 model = main_registry.get_model(model_name)
-                model.copy_edgy_model(
-                    registry=self._manager_registry, on_conflict="replace"
-                )
+                model.copy_edgy_model(registry=self._manager_registry, on_conflict="replace")
             except LookupError:
                 # Model not found in main registry, skip
                 pass

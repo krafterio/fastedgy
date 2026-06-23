@@ -33,32 +33,21 @@ def inject_order_by(query: QuerySet, order_by: OrderByInput) -> QuerySet:
             if label_name in rank_fields:
                 # Order by the extra_select label instead of the column
                 expr = rank_fields[label_name]
-                raw_order_expressions.append(
-                    sa_desc(expr) if direction == "desc" else sa_asc(expr)
-                )
+                raw_order_expressions.append(sa_desc(expr) if direction == "desc" else sa_asc(expr))
             else:
-                formatted_fields.append(
-                    ("-" if direction == "desc" else "") + field.replace(".", "__")
-                )
+                formatted_fields.append(("-" if direction == "desc" else "") + field.replace(".", "__"))
                 distinct_fields.append(field.replace(".", "__"))
 
         if query.distinct_on is not None and len(query.distinct_on) > 0:
-            distinct_on_fields = [
-                field.replace(".", "__") for field in query.distinct_on
-            ]
+            distinct_on_fields = [field.replace(".", "__") for field in query.distinct_on]
 
             first_order_direction = ""
             if formatted_fields and formatted_fields[0].startswith("-"):
                 first_order_direction = "-"
 
             for distinct_field in distinct_on_fields:
-                if (
-                    distinct_field not in formatted_fields
-                    and f"-{distinct_field}" not in formatted_fields
-                ):
-                    formatted_fields.insert(
-                        len(formatted_fields), first_order_direction + distinct_field
-                    )
+                if distinct_field not in formatted_fields and f"-{distinct_field}" not in formatted_fields:
+                    formatted_fields.insert(len(formatted_fields), first_order_direction + distinct_field)
                     distinct_fields.insert(len(formatted_fields), distinct_field)
 
             query = query.distinct(*distinct_fields)

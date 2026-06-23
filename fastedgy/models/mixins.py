@@ -71,9 +71,7 @@ class WorkspaceableMixin(Model):
         if not (preserve_explicit and getattr(self, "workspace", None) is not None):
             workspace = context.get_workspace()
 
-            if workspace and (
-                not hasattr(self, "workspace") or self.workspace != workspace
-            ):
+            if workspace and (not hasattr(self, "workspace") or self.workspace != workspace):
                 self.workspace = workspace
 
         return await super().save(force_insert, values, force_save)
@@ -99,9 +97,7 @@ class BlameableMixin(Model):
         extra="ignore",
     )
 
-    created_by = fields.ForeignKey(
-        "User", on_delete="SET NULL", null=True, related_name=False, label="Créé par"
-    )
+    created_by = fields.ForeignKey("User", on_delete="SET NULL", null=True, related_name=False, label="Créé par")
 
     updated_by = fields.ForeignKey(
         "User",

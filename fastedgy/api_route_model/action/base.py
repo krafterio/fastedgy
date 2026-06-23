@@ -22,9 +22,7 @@ class BaseApiRouteAction(ABC):
 
     @classmethod
     @abstractmethod
-    def register_route(
-        cls, router: APIRouter, model_cls: TypeModel, options: RouteModelActionOptions
-    ) -> None:
+    def register_route(cls, router: APIRouter, model_cls: TypeModel, options: RouteModelActionOptions) -> None:
         """
         Register this action's route to the FastAPI router.
 

@@ -56,9 +56,7 @@ class TableView(Table):
         return self._selectable
 
 
-def create_table_from_selectable(
-    name, selectable, indexes=None, metadata=None, aliases=None, **kwargs
-):
+def create_table_from_selectable(name, selectable, indexes=None, metadata=None, aliases=None, **kwargs):
     if indexes is None:
         indexes = []
 
@@ -69,17 +67,13 @@ def create_table_from_selectable(
         aliases = {}
 
     args = [
-        Column(
-            c.name, c.type, key=aliases.get(c.name, c.name), primary_key=c.primary_key
-        )
+        Column(c.name, c.type, key=aliases.get(c.name, c.name), primary_key=c.primary_key)
         for c in get_columns(selectable)
     ] + indexes
     table = TableView(name, metadata, selectable, *args, **kwargs)
 
     if not any([c.primary_key for c in get_columns(selectable)]):
-        table.append_constraint(
-            PrimaryKeyConstraint(*[c.name for c in get_columns(selectable)])
-        )
+        table.append_constraint(PrimaryKeyConstraint(*[c.name for c in get_columns(selectable)]))
 
     return table
 
@@ -109,9 +103,7 @@ def create_materialized_view(name, selectable, metadata, indexes=None, aliases=N
         aliases=aliases,
     )
 
-    event.listen(
-        metadata, "after_create", CreateView(name, selectable, materialized=True)
-    )
+    event.listen(metadata, "after_create", CreateView(name, selectable, materialized=True))
 
     @event.listens_for(metadata, "after_create")
     def create_indexes(target, connection, **kw):
@@ -163,9 +155,7 @@ def create_view(
         metadata.create_all(engine) # View is created at this point
 
     """
-    table = create_table_from_selectable(
-        name=name, selectable=selectable, metadata=None
-    )
+    table = create_table_from_selectable(name=name, selectable=selectable, metadata=None)
 
     if not metadata:
         return table

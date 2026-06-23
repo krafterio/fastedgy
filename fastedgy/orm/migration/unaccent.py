@@ -57,9 +57,7 @@ def enable_unaccent_extension() -> None:
     from alembic import context
 
     connection = context.get_bind()
-    result = connection.execute(
-        text("SELECT 1 FROM pg_extension WHERE extname = 'unaccent'")
-    ).fetchone()
+    result = connection.execute(text("SELECT 1 FROM pg_extension WHERE extname = 'unaccent'")).fetchone()
     if not result:
         connection.execute(text("CREATE EXTENSION IF NOT EXISTS unaccent"))
 

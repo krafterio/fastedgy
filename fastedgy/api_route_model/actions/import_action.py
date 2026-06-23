@@ -33,9 +33,7 @@ class ImportApiRouteAction(BaseApiRouteAction):
     name = "import"
 
     @classmethod
-    def register_route(
-        cls, router: APIRouter, model_cls: TypeModel, options: RouteModelActionOptions
-    ) -> None:
+    def register_route(cls, router: APIRouter, model_cls: TypeModel, options: RouteModelActionOptions) -> None:
         """Register the import route."""
         router.add_api_route(
             **{
@@ -100,9 +98,7 @@ async def import_items_action[M = TypeModel](
     vtr = get_service(ViewTransformerRegistry)
 
     # Pre-import transformers (can validate or pre-process file)
-    for transformer in vtr.get_transformers(
-        PreImportTransformer, model_cls, transformers
-    ):
+    for transformer in vtr.get_transformers(PreImportTransformer, model_cls, transformers):
         file = await transformer.pre_import(request, file, transformers_ctx)
 
     query = query or model_cls.query  # type: ignore
@@ -115,9 +111,7 @@ async def import_items_action[M = TypeModel](
         )
 
         # Post-import transformers (called on success only)
-        for transformer in vtr.get_transformers(
-            PostImportTransformer, model_cls, transformers
-        ):
+        for transformer in vtr.get_transformers(PostImportTransformer, model_cls, transformers):
             await transformer.post_import(request, result, transformers_ctx)
 
         return result

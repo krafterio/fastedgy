@@ -26,17 +26,11 @@ def extract_field_names(record: dict, parent_field: str = "") -> list[str]:
     fields = []
 
     for record_field, record_val in record.items():
-        record_field_name = (
-            f"{parent_field}.{record_field}" if parent_field else record_field
-        )
+        record_field_name = f"{parent_field}.{record_field}" if parent_field else record_field
 
         if isinstance(record_val, dict):
             fields.extend(extract_field_names(record_val, record_field_name))
-        elif (
-            isinstance(record_val, list)
-            and len(record_val) > 0
-            and isinstance(record_val[0], dict)
-        ):
+        elif isinstance(record_val, list) and len(record_val) > 0 and isinstance(record_val[0], dict):
             fields.extend(extract_field_names(record_val[0], record_field_name))
         else:
             fields.append(record_field_name)
@@ -127,9 +121,7 @@ def get_field_from_path(model_cls: type[Model], path: str) -> Any | None:
 
 
 async def get_value_from_path(instance: Model, path: str) -> Any | None:
-    async def _resolve(
-        obj_or_list: Model | list[Model], path_parts: list[str] | None
-    ) -> Any | None:
+    async def _resolve(obj_or_list: Model | list[Model], path_parts: list[str] | None) -> Any | None:
         if not path_parts:
             return obj_or_list
 

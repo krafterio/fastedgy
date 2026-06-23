@@ -30,12 +30,8 @@ async def save_workspace_context(task) -> None:
 
     task.context.update(
         {
-            "_workspace_id": task.context.get(
-                "_workspace_id", current_workspace.id if current_workspace else None
-            ),
-            "_user_id": task.context.get(
-                "_user_id", current_user.id if current_user else None
-            ),
+            "_workspace_id": task.context.get("_workspace_id", current_workspace.id if current_workspace else None),
+            "_user_id": task.context.get("_user_id", current_user.id if current_user else None),
         }
     )
 
@@ -81,27 +77,18 @@ async def restore_workspace_context(task) -> None:
         Workspace = cast(type["Workspace"], registry.get_model(workspace_model_name))
 
     if BaseWorkspaceUser.Meta.model_name in registry.models:
-        WorkspaceUser = cast(
-            type["WorkspaceUser"], registry.get_model(workspace_user_model_name)
-        )
+        WorkspaceUser = cast(type["WorkspaceUser"], registry.get_model(workspace_user_model_name))
 
     if workspace_id and Workspace:
-        context.set_workspace(
-            await Workspace.query.filter(
-                Workspace.columns.id == workspace_id
-            ).get_or_none()
-        )
+        context.set_workspace(await Workspace.query.filter(Workspace.columns.id == workspace_id).get_or_none())
 
     if user_id and User:
-        context.set_user(
-            await User.query.filter(User.columns.id == user_id).get_or_none()
-        )
+        context.set_user(await User.query.filter(User.columns.id == user_id).get_or_none())
 
     if workspace_id and user_id and Workspace and User and WorkspaceUser:
         context.set_workspace_user(
             await WorkspaceUser.query.filter(
-                (WorkspaceUser.columns.user == user_id)
-                & (WorkspaceUser.columns.workspace == workspace_id)
+                (WorkspaceUser.columns.user == user_id) & (WorkspaceUser.columns.workspace == workspace_id)
             ).get_or_none()
         )
 

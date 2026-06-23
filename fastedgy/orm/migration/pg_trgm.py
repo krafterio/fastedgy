@@ -57,9 +57,7 @@ def enable_pg_trgm_extension() -> None:
     from alembic import context
 
     connection = context.get_bind()
-    result = connection.execute(
-        text("SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm'")
-    ).fetchone()
+    result = connection.execute(text("SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm'")).fetchone()
     if not result:
         connection.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
 

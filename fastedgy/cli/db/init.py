@@ -33,9 +33,7 @@ FASTEDGY_TEMPLATE_DIR = Path(__file__).parent / "templates"
 async def init(ctx: CliContext, template: str | None, package: bool):
     """Creates a new migration repository."""
     config = ctx.get(BaseSettings)
-    directory = os.path.join(
-        config.server_path, str(edgy.monkay.settings.migration_directory)
-    )
+    directory = os.path.join(config.server_path, str(edgy.monkay.settings.migration_directory))
 
     template_directory = None
 

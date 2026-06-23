@@ -27,9 +27,7 @@ def generate_output_model[M = TypeModel](model_cls: M) -> type[M]:
                 if get_origin(field_type) is Union:
                     args = get_args(field_type)
                     # Add dict[str, Any] to the union if not already present
-                    if dict not in args and not any(
-                        get_origin(arg) is dict for arg in args
-                    ):
+                    if dict not in args and not any(get_origin(arg) is dict for arg in args):
                         field_type = Union[*args, dict[str, Any]]
                 else:
                     field_type = Union[field_type, dict[str, Any]]
@@ -74,9 +72,7 @@ def generate_input_create_model[M = TypeModel](model_cls: M) -> type[M]:
             # - list[list] (advanced: [["create", {...}], ["link", 42]])
             # Using Any for advanced mode to keep OpenAPI schema simple
             field_type = (
-                optional_field_type(Union[list[int], list[list]])
-                if field.null
-                else Union[list[int], list[list]]
+                optional_field_type(Union[list[int], list[list]]) if field.null else Union[list[int], list[list]]
             )
 
             fields[field_name] = (

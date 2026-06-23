@@ -149,11 +149,7 @@ class FulltextField(BaseField):
     ) -> Sequence[sqlalchemy.Index]:
         """Generate one GIN index per tsvector column."""
         locales = _get_available_locales()
-        tablename = (
-            str(self.owner.meta.tablename)
-            if hasattr(self, "owner") and self.owner
-            else "unknown"
-        )
+        tablename = str(self.owner.meta.tablename) if hasattr(self, "owner") and self.owner else "unknown"
         indexes = []
         for locale in locales:
             col_name = f"{name}_{locale}"
@@ -274,10 +270,7 @@ async def recompute_fulltext(
         # Execute raw SQL update
         from sqlalchemy import text
 
-        sql = text(
-            f"UPDATE {tablename} SET {column_name} = {tsvector_expr} "
-            f"WHERE {pk_field} = :pk_value"
-        )
+        sql = text(f"UPDATE {tablename} SET {column_name} = {tsvector_expr} WHERE {pk_field} = :pk_value")
 
         await model_cls.meta.registry.database.execute(sql, bind_params)
 

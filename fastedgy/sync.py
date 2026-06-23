@@ -39,9 +39,7 @@ class SyncAsyncContextManager(Generic[T]):
         """Exit the async context manager synchronously"""
         if self.entered and self.loop is not None:
             try:
-                self.loop.run_until_complete(
-                    self.async_cm.__aexit__(exc_type, exc_val, exc_tb)
-                )
+                self.loop.run_until_complete(self.async_cm.__aexit__(exc_type, exc_val, exc_tb))
             finally:
                 self.loop.close()
                 asyncio.set_event_loop(None)

@@ -39,9 +39,7 @@ def generate_router_for_model(
         A FastAPI router with CRUD endpoints
     """
     if not registry.is_model_registered(model_cls):
-        logger.warning(
-            f"Model {model_cls.__name__} is not registered, skipping router generation"
-        )
+        logger.warning(f"Model {model_cls.__name__} is not registered, skipping router generation")
         return None
 
     options = registry.get_model_options(model_cls)
@@ -69,9 +67,7 @@ def generate_router_for_model(
         if action_cls.should_register(actions_options):
             action_opts = actions_options.get(action_name, {})
             action_opts = action_opts if isinstance(action_opts, dict) else {}
-            action_cls.register_route(
-                router, model_cls, cast(RouteModelActionOptions, action_opts)
-            )
+            action_cls.register_route(router, model_cls, cast(RouteModelActionOptions, action_opts))
 
     return router
 

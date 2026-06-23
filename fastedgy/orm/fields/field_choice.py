@@ -43,9 +43,7 @@ class ChoiceEnum(TranslatableString, Enum):
         return self.name
 
     @classmethod
-    def __get_pydantic_core_schema__(
-        cls, _source_type: Any, _handler: GetCoreSchemaHandler
-    ) -> CoreSchema:
+    def __get_pydantic_core_schema__(cls, _source_type: Any, _handler: GetCoreSchemaHandler) -> CoreSchema:
         """
         Custom Pydantic schema that accepts:
         - The enum member directly
@@ -82,9 +80,7 @@ class ChoiceEnum(TranslatableString, Enum):
         )
 
     @classmethod
-    def __get_pydantic_json_schema__(
-        cls, _core_schema: CoreSchema, handler: GetJsonSchemaHandler
-    ) -> JsonSchemaValue:
+    def __get_pydantic_json_schema__(cls, _core_schema: CoreSchema, handler: GetJsonSchemaHandler) -> JsonSchemaValue:
         member_names = [m.name for m in cls.__members__.values()]
         return {"type": "string", "enum": member_names}
 
@@ -152,9 +148,7 @@ class ChoiceField(EdgyChoiceField, FieldExportConverter[Enum | None, str | None]
         )
 
         obj = super().__new__(cls, choices=mirror_enum, **kwargs)
-        cast("ChoiceField", obj)._choice_labels = {
-            member.name: member.value for member in choices
-        }
+        cast("ChoiceField", obj)._choice_labels = {member.name: member.value for member in choices}
         return obj
 
     @property

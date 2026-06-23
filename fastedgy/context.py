@@ -18,9 +18,7 @@ if TYPE_CHECKING:
     from fastedgy.models.workspace_user import BaseWorkspaceUser as WorkspaceUser
 
 
-_current_request: ContextVar[Union["Request", None]] = ContextVar(
-    "current_request", default=None
-)
+_current_request: ContextVar[Union["Request", None]] = ContextVar("current_request", default=None)
 
 
 def set_request(request: Union["Request", None]) -> Token:
@@ -38,9 +36,7 @@ def reset_request(token: Token) -> None:
 def set_timezone(timezone: str | ZoneInfo) -> None:
     req = get_request()
     if req:
-        req.state.timezone = (
-            ZoneInfo(timezone) if isinstance(timezone, str) else timezone
-        )
+        req.state.timezone = ZoneInfo(timezone) if isinstance(timezone, str) else timezone
 
 
 def has_timezone() -> bool:
@@ -108,11 +104,7 @@ def set_workspace_user(workspace_user: Union["WorkspaceUser", None]) -> None:
 def get_workspace_user() -> Union["WorkspaceUser", None]:
     req = get_request()
 
-    return (
-        req.state.workspace_user
-        if req and hasattr(req.state, "workspace_user")
-        else None
-    )
+    return req.state.workspace_user if req and hasattr(req.state, "workspace_user") else None
 
 
 def set_workspace_extra_fields(
@@ -143,9 +135,7 @@ def get_workspace_extra_fields(
     req = get_request()
     all_fields = []
     current_fields = (
-        req.state.workspace_extra_fields
-        if req and hasattr(req.state, "workspace_extra_fields")
-        else None
+        req.state.workspace_extra_fields if req and hasattr(req.state, "workspace_extra_fields") else None
     ) or {}
 
     if not model_name:

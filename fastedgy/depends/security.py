@@ -20,9 +20,7 @@ if TYPE_CHECKING:
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
-oauth2_scheme_optional = OAuth2PasswordBearer(
-    tokenUrl="/api/auth/token", auto_error=False
-)
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/api/auth/token", auto_error=False)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -44,26 +42,18 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(
-            minutes=settings.auth_access_token_expire_minutes
-        )
+        expire = datetime.now(timezone.utc) + timedelta(minutes=settings.auth_access_token_expire_minutes)
     to_encode.update({"exp": expire, "type": "access"})
-    encoded_jwt = jwt.encode(
-        to_encode, settings.auth_secret_key, algorithm=settings.auth_algorithm
-    )
+    encoded_jwt = jwt.encode(to_encode, settings.auth_secret_key, algorithm=settings.auth_algorithm)
     return encoded_jwt
 
 
 def create_refresh_token(data: dict):
     settings = get_service(BaseSettings)
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + timedelta(
-        days=settings.auth_refresh_token_expire_days
-    )
+    expire = datetime.now(timezone.utc) + timedelta(days=settings.auth_refresh_token_expire_days)
     to_encode.update({"exp": expire, "type": "refresh"})
-    encoded_jwt = jwt.encode(
-        to_encode, settings.auth_secret_key, algorithm=settings.auth_algorithm
-    )
+    encoded_jwt = jwt.encode(to_encode, settings.auth_secret_key, algorithm=settings.auth_algorithm)
     return encoded_jwt
 
 
@@ -72,9 +62,7 @@ async def authenticate_user(email: str, password: str):
     User = cast(type["User"], db_reg.get_model("User"))
 
     if hasattr(User, "username") or "username" in User.model_fields:
-        user = await User.query.filter(
-            (User.columns.email == email) | (User.columns.username == email)
-        ).first()
+        user = await User.query.filter((User.columns.email == email) | (User.columns.username == email)).first()
     else:
         user = await User.query.filter(email=email).first()
 
@@ -96,9 +84,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> "User":
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        payload = jwt.decode(
-            token, settings.auth_secret_key, algorithms=[settings.auth_algorithm]
-        )
+        payload = jwt.decode(token, settings.auth_secret_key, algorithms=[settings.auth_algorithm])
         email: str = str(payload.get("sub"))
         token_type: str = str(payload.get("type"))
 
@@ -111,9 +97,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> "User":
     User = cast(type["User"], db_reg.get_model("User"))
 
     if hasattr(User, "username") or "username" in User.model_fields:
-        user = await User.query.filter(
-            (User.columns.email == email) | (User.columns.username == email)
-        ).first()
+        user = await User.query.filter((User.columns.email == email) | (User.columns.username == email)).first()
     else:
         user = await User.query.filter(email=email).first()
 

@@ -118,9 +118,7 @@ async def upload_attachments(
         # Fetch the created attachment
         att = await Attachment.query.filter(storage_path=rel_path).get_or_none()
         if att is None:
-            raise HTTPException(
-                status_code=500, detail=_t("Attachment creation failed")
-            )
+            raise HTTPException(status_code=500, detail=_t("Attachment creation failed"))
 
         results.append(att)
 
@@ -167,9 +165,7 @@ async def upload_model_field_file(
             raise HTTPException(status_code=400, detail=_t("File not found"))
 
         if not isinstance(file, StarletteUploadFile):
-            raise HTTPException(
-                status_code=400, detail=_t("File is not a valid upload file")
-            )
+            raise HTTPException(status_code=400, detail=_t("File is not a valid upload file"))
 
         record = await _get_record(model, field, model_id)
         vtr = get_service(ViewTransformerRegistry)
@@ -197,9 +193,7 @@ async def upload_model_field_file(
         await record.save()
 
         for transformer in vtr.get_transformers(PostUploadTransformer, model_cls, None):
-            path = await transformer.post_upload(
-                request, record, field, path, transformers_ctx
-            )
+            path = await transformer.post_upload(request, record, field, path, transformers_ctx)
 
         return UploadedModelField(path=path)
     except ValueError as e:
@@ -225,9 +219,7 @@ async def delete_file(
         transformers_ctx: dict[str, Any] = {}
         global_storage = False
 
-        for transformer in vtr.get_transformers(
-            PreDeleteFileTransformer, model_cls, None
-        ):
+        for transformer in vtr.get_transformers(PreDeleteFileTransformer, model_cls, None):
             global_storage = await transformer.pre_delete_file(
                 request, model, model_id, field, record, transformers_ctx
             )
@@ -238,30 +230,22 @@ async def delete_file(
         setattr(record, field, None)
         await record.save()
 
-        for transformer in vtr.get_transformers(
-            PostDeleteFileTransformer, model_cls, None
-        ):
-            await transformer.post_delete_file(
-                request, model, model_id, field, record, transformers_ctx
-            )
+        for transformer in vtr.get_transformers(PostDeleteFileTransformer, model_cls, None):
+            await transformer.post_delete_file(request, model, model_id, field, record, transformers_ctx)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except ObjectNotFound:
         raise HTTPException(status_code=404, detail=_t("Model not found"))
 
 
-def _build_download_headers(
-    filename: str, force_download: bool = False
-) -> dict[str, str]:
+def _build_download_headers(filename: str, force_download: bool = False) -> dict[str, str]:
     ascii_filename = filename.encode("ascii", "ignore").decode("ascii") or "download"
     encoded_filename = quote(filename, safe="")
     content_disposition = "attachment" if force_download else "inline"
 
     return {
         "Content-Disposition": (
-            f"{content_disposition}; "
-            f'filename="{ascii_filename}"; '
-            f"filename*=UTF-8''{encoded_filename}"
+            f"{content_disposition}; filename=\"{ascii_filename}\"; filename*=UTF-8''{encoded_filename}"
         ),
     }
 
@@ -291,9 +275,7 @@ async def _serve_download(
     global_storage: bool,
 ) -> Response:
     """Serve a file download with Range request support."""
-    total_size = await storage.get_file_size_for_download(
-        resolved_path, global_storage=global_storage
-    )
+    total_size = await storage.get_file_size_for_download(resolved_path, global_storage=global_storage)
 
     range_header = request.headers.get("range")
     byte_range = _parse_range(range_header, total_size)
@@ -343,9 +325,7 @@ async def download_attachment(
     """Download an attachment by its ID."""
     try:
         if "Attachment" not in registry.models:
-            raise HTTPException(
-                status_code=500, detail=_t("Attachment model not configured")
-            )
+            raise HTTPException(status_code=500, detail=_t("Attachment model not configured"))
 
         AttachmentModel: Any = registry.get_model("Attachment")
         record = await AttachmentModel.query.get(id=id)
@@ -363,9 +343,7 @@ async def download_attachment(
 
         # Check file exists
         if not resolved_path.startswith("__cache__:"):
-            if not await storage.file_exists(
-                resolved_path, global_storage=global_storage
-            ):
+            if not await storage.file_exists(resolved_path, global_storage=global_storage):
                 raise HTTPException(status_code=404, detail=_t("Attachment not found"))
 
         # Build filename
@@ -415,9 +393,7 @@ async def download_file(
             raise HTTPException(status_code=404, detail="Fichier non trouvé")
 
     for transformer in vtr.get_transformers(PostDownloadTransformer, None, None):
-        resolved_path = await transformer.post_download(
-            request, path, resolved_path, transformers_ctx
-        )
+        resolved_path = await transformer.post_download(request, path, resolved_path, transformers_ctx)
 
     # Build filename
     src_name = Path(path).name
@@ -453,35 +429,27 @@ async def _get_record(
         model_cls = await meta_registry.get_model_from_metadata(meta_model)
 
         if field not in model_cls.meta.fields:
-            raise ValueError(
-                _t("Field {field} not found in model {model}", field=field, model=model)
-            )
+            raise ValueError(_t("Field {field} not found in model {model}", field=field, model=model))
 
         record = current_user
     elif model == "workspace":
         current_workspace = context.get_workspace()
 
         if not current_workspace or current_workspace.id != model_id:
-            raise ObjectNotFound(
-                _t("Workspace {model_id} not found", model_id=model_id)
-            )
+            raise ObjectNotFound(_t("Workspace {model_id} not found", model_id=model_id))
 
         meta_model = await meta_registry.get_metadata(model)
         model_cls = await meta_registry.get_model_from_metadata(meta_model)
 
         if field not in model_cls.meta.fields:
-            raise ValueError(
-                _t("Field {field} not found in model {model}", field=field, model=model)
-            )
+            raise ValueError(_t("Field {field} not found in model {model}", field=field, model=model))
 
         record = current_workspace
     else:
         meta_model = await meta_registry.get_metadata(model)
 
         if field not in meta_model.fields:
-            raise ValueError(
-                _t("Field {field} not found in model {model}", field=field, model=model)
-            )
+            raise ValueError(_t("Field {field} not found in model {model}", field=field, model=model))
 
         model_cls = await meta_registry.get_model_from_metadata(meta_model)
         record = await model_cls.query.get(id=model_id)

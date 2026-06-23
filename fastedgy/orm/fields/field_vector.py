@@ -47,9 +47,7 @@ class Vector(UserDefinedType):
 
         return process
 
-    def _coerce(
-        self, value: Iterable[float] | Sequence[float] | str | None
-    ) -> str | None:
+    def _coerce(self, value: Iterable[float] | Sequence[float] | str | None) -> str | None:
         if value is None:
             return None
 
@@ -138,11 +136,7 @@ class VectorField(FieldFactory, list):
     ) -> BaseFieldType:
         kwargs = {
             **kwargs,
-            **{
-                k: v
-                for k, v in locals().items()
-                if k not in ["cls", "__class__", "kwargs"]
-            },
+            **{k: v for k, v in locals().items() if k not in ["cls", "__class__", "kwargs"]},
         }
         return super().__new__(cls, **kwargs)
 
@@ -153,9 +147,7 @@ class VectorField(FieldFactory, list):
     @classmethod
     def validate(cls, kwargs: dict[str, Any]) -> None:
         dimensions = kwargs.get("dimensions")
-        if dimensions is not None and (
-            not isinstance(dimensions, int) or dimensions <= 0
-        ):
+        if dimensions is not None and (not isinstance(dimensions, int) or dimensions <= 0):
             raise ValueError("dimensions must be a positive integer")
 
 

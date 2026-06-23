@@ -33,9 +33,7 @@ class GetApiRouteAction(BaseApiRouteAction):
     name = "get"
 
     @classmethod
-    def register_route(
-        cls, router: APIRouter, model_cls: TypeModel, options: RouteModelActionOptions
-    ) -> None:
+    def register_route(cls, router: APIRouter, model_cls: TypeModel, options: RouteModelActionOptions) -> None:
         """Register the get route."""
         router.add_api_route(
             **{
@@ -83,17 +81,13 @@ async def get_item_action[M = TypeModel](
 
     try:
         transformers_ctx["item_id"] = item_id
-        for transformer in vtr.get_transformers(
-            PreLoadRecordViewTransformer, model_cls, transformers
-        ):
+        for transformer in vtr.get_transformers(PreLoadRecordViewTransformer, model_cls, transformers):
             query = await transformer.pre_load_record(request, query, transformers_ctx)
 
         resolved_id = transformers_ctx.get("item_id", item_id)
         item = await query.filter(id=resolved_id).get()
 
-        return await view_item_action(
-            request, model_cls, item, fields, transformers, transformers_ctx
-        )
+        return await view_item_action(request, model_cls, item, fields, transformers, transformers_ctx)
     except ObjectNotFound:
         raise HTTPException(status_code=404, detail=f"{model_cls.__name__} not found")
 
@@ -110,12 +104,8 @@ async def view_item_action[M = TypeModel](
     item_dump = await filter_selected_fields(item, fields)
     vtr = get_service(ViewTransformerRegistry)
 
-    for transformer in vtr.get_transformers(
-        GetViewTransformer, model_cls, transformers
-    ):
-        item_dump = await transformer.get_view(
-            request, item, item_dump, transformers_ctx
-        )
+    for transformer in vtr.get_transformers(GetViewTransformer, model_cls, transformers):
+        item_dump = await transformer.get_view(request, item, item_dump, transformers_ctx)
 
     return item_dump
 

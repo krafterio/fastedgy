@@ -50,16 +50,10 @@ def _create_adapter(settings: BaseSettings, adapter_name: str) -> StorageAdapter
 class Storage:
     def __init__(self, settings: BaseSettings = Inject(BaseSettings)):
         self.settings = settings
-        self.adapter: StorageAdapter = _create_adapter(
-            settings, settings.storage_adapter
-        )
-        self.cache_adapter: FilesystemAdapter = FilesystemAdapter(
-            root=settings.storage_data_path
-        )
+        self.adapter: StorageAdapter = _create_adapter(settings, settings.storage_adapter)
+        self.cache_adapter: FilesystemAdapter = FilesystemAdapter(root=settings.storage_data_path)
         if settings.storage_cache_adapter != "filesystem":
-            self.cache_adapter = _create_adapter(
-                settings, settings.storage_cache_adapter
-            )
+            self.cache_adapter = _create_adapter(settings, settings.storage_cache_adapter)
 
     @property
     def is_filesystem(self) -> bool:
@@ -89,17 +83,13 @@ class Storage:
     def get_base_path(self, global_storage: bool = False) -> Path:
         workspace = context.get_workspace()
         if workspace and not global_storage:
-            sub = os.path.join(
-                self.settings.storage_workspace_folder, str(workspace.id)
-            )
+            sub = os.path.join(self.settings.storage_workspace_folder, str(workspace.id))
         else:
             sub = "global"
 
         return Path(os.path.join(self.settings.storage_data_path, sub))
 
-    def get_directory_path(
-        self, path: str, ensure_exists: bool = True, global_storage: bool = False
-    ) -> Path:
+    def get_directory_path(self, path: str, ensure_exists: bool = True, global_storage: bool = False) -> Path:
         dir_path = self.get_base_path(global_storage)
 
         safe_custom_path = Path(path.strip("/")).parts
@@ -110,9 +100,7 @@ class Storage:
 
         return dir_path
 
-    def get_file_path(
-        self, path: str, ensure_exists: bool = True, global_storage: bool = False
-    ) -> Path:
+    def get_file_path(self, path: str, ensure_exists: bool = True, global_storage: bool = False) -> Path:
         path_parts = Path(path.strip("/")).parts
         directory_path = ""
         filename = path
@@ -124,9 +112,7 @@ class Storage:
             if directory_parts:
                 directory_path = "/".join(directory_parts)
 
-        directory_path = self.get_directory_path(
-            directory_path, ensure_exists, global_storage
-        )
+        directory_path = self.get_directory_path(directory_path, ensure_exists, global_storage)
 
         return directory_path.joinpath(filename)
 
@@ -138,9 +124,7 @@ class Storage:
     # --------------------
     # Adapter-based file operations
     # --------------------
-    async def file_exists(
-        self, relative_path: str, global_storage: bool = False
-    ) -> bool:
+    async def file_exists(self, relative_path: str, global_storage: bool = False) -> bool:
         """Check if a file exists in storage."""
         full_path = self._resolve_path(relative_path, global_storage)
         return await self.adapter.exists(full_path)
@@ -150,9 +134,7 @@ class Storage:
         full_path = self._resolve_path(relative_path, global_storage)
         return await self.adapter.file_size(full_path)
 
-    async def read_file(
-        self, relative_path: str, global_storage: bool = False
-    ) -> bytes:
+    async def read_file(self, relative_path: str, global_storage: bool = False) -> bytes:
         """Read a file from storage."""
         full_path = self._resolve_path(relative_path, global_storage)
         return await self.adapter.read(full_path)
@@ -192,16 +174,12 @@ class Storage:
         mime = mimetypes.guess_type(name)[0]
         return bool(mime and mime.startswith("image/"))
 
-    def _clamp_dimensions(
-        self, ow: int, oh: int, w: int | None, h: int | None
-    ) -> tuple[int | None, int | None]:
+    def _clamp_dimensions(self, ow: int, oh: int, w: int | None, h: int | None) -> tuple[int | None, int | None]:
         cw = None if w is None else min(w, ow)
         ch = None if h is None else min(h, oh)
         return cw, ch
 
-    def _compute_target_size(
-        self, ow: int, oh: int, w: int | None, h: int | None, mode: str
-    ) -> tuple[int, int, str]:
+    def _compute_target_size(self, ow: int, oh: int, w: int | None, h: int | None, mode: str) -> tuple[int, int, str]:
         if w and not h:
             scale = w / ow
             th = int(round(oh * scale))
@@ -252,9 +230,7 @@ class Storage:
         if pil_format == "JPEG":
             if img.mode in ("RGBA", "P"):
                 img = img.convert("RGB")
-            save_kwargs.update(
-                {"optimize": True, "quality": quality, "progressive": True}
-            )
+            save_kwargs.update({"optimize": True, "quality": quality, "progressive": True})
         elif pil_format == "PNG":
             compress_level = max(0, min(9, round((100 - quality) * 9 / 100)))
             save_kwargs.update({"optimize": True, "compress_level": compress_level})
@@ -290,9 +266,7 @@ class Storage:
             w, h = self._clamp_dimensions(ow, oh, w, h)
             tw, th, mode = self._compute_target_size(ow, oh, w, h, mode)
 
-            src_ext = (
-                source_name.rsplit(".", 1)[-1].lower() if "." in source_name else ""
-            )
+            src_ext = source_name.rsplit(".", 1)[-1].lower() if "." in source_name else ""
             out_format, mime_type = self._format_from_ext(out_ext, src_ext)
 
             if (tw, th) == (ow, oh) and out_format.lower() == src_ext.lower():
@@ -335,11 +309,7 @@ class Storage:
         The returned path is either the original or a cached optimized version.
         Use stream_download() to actually stream the content.
         """
-        source_name = (
-            source_relative_path.rsplit("/", 1)[-1]
-            if "/" in source_relative_path
-            else source_relative_path
-        )
+        source_name = source_relative_path.rsplit("/", 1)[-1] if "/" in source_relative_path else source_relative_path
         full_source = self._resolve_path(source_relative_path, global_storage)
 
         if not await self.adapter.exists(full_source):
@@ -360,9 +330,7 @@ class Storage:
 
         src_ext = source_name.rsplit(".", 1)[-1].lower() if "." in source_name else ""
         out_fmt, mime_type = self._format_from_ext(out_ext, src_ext)
-        out_ext_final = {"JPEG": "jpg", "PNG": "png", "WEBP": "webp"}.get(
-            out_fmt, "jpg"
-        )
+        out_ext_final = {"JPEG": "jpg", "PNG": "png", "WEBP": "webp"}.get(out_fmt, "jpg")
 
         cache_rel = self._get_cache_path(source_relative_path, global_storage)
         cache_path = f"{cache_rel}/{mode_name}_w{req_w}_h{req_h}.{out_ext_final}"
@@ -416,15 +384,11 @@ class Storage:
         """Stream a byte range of a file for download (inclusive start and end)."""
         if resolved_path.startswith("__cache__:"):
             cache_path = resolved_path[len("__cache__:") :]
-            async for chunk in self.cache_adapter.read_range_stream(
-                cache_path, start, end, chunk_size
-            ):
+            async for chunk in self.cache_adapter.read_range_stream(cache_path, start, end, chunk_size):
                 yield chunk
         else:
             full_path = self._resolve_path(resolved_path, global_storage)
-            async for chunk in self.adapter.read_range_stream(
-                full_path, start, end, chunk_size
-            ):
+            async for chunk in self.adapter.read_range_stream(full_path, start, end, chunk_size):
                 yield chunk
 
     async def get_file_size_for_download(
@@ -532,9 +496,7 @@ class Storage:
                     create_attachment=create_attachment,
                 )
         except Exception as e:
-            raise ValueError(
-                _t("Error while downloading the file: {error}", error=str(e))
-            )
+            raise ValueError(_t("Error while downloading the file: {error}", error=str(e)))
 
     # --------------------
     # Delete operations
@@ -601,9 +563,7 @@ class Storage:
         if max_age is None:
             return 0
 
-        return await self.cache_adapter.delete_old_files(
-            "cache_optimized_images", max_age * 86400
-        )
+        return await self.cache_adapter.delete_old_files("cache_optimized_images", max_age * 86400)
 
     # --------------------
     # Internal helpers

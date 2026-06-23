@@ -80,9 +80,7 @@ class I18nExtractor:
         except Exception as e:
             return ExtractorResult(success=False, error=f"Unexpected error: {e}")
 
-    def extract(
-        self, locale: str | None = None, package: str | None = None
-    ) -> ExtractorResult:
+    def extract(self, locale: str | None = None, package: str | None = None) -> ExtractorResult:
         """Extract translatable strings and update .po files."""
         try:
             scan_path, translations_dir = self._resolve_package_paths(package)
@@ -143,9 +141,7 @@ class I18nExtractor:
                 total_added += added_count
 
             pkg_info = f" for package '{package}'" if package else ""
-            result_message = (
-                f"Updated {len(locales)} locale(s){pkg_info}: {', '.join(locales)}"
-            )
+            result_message = f"Updated {len(locales)} locale(s){pkg_info}: {', '.join(locales)}"
 
             if total_added > 0:
                 result_message += f" (+{total_added} new strings)"
@@ -172,9 +168,7 @@ class I18nExtractor:
         """
         if not package:
             # Default: use server paths from config
-            return self.settings.server_path, os.path.join(
-                self.settings.server_path, "translations"
-            )
+            return self.settings.server_path, os.path.join(self.settings.server_path, "translations")
 
         # Try to import the package to get its path
         try:
@@ -298,9 +292,7 @@ msgstr ""
 
             clean_content += f'"Content-Type: text/plain; charset=utf-8\\n"\n'
             clean_content += f'"Language: {locale}\\n"\n'
-            clean_content += (
-                f'"{plural_forms.get(locale, "nplurals=2; plural=(n != 1);")}\\n"\n'
-            )
+            clean_content += f'"{plural_forms.get(locale, "nplurals=2; plural=(n != 1);")}\\n"\n'
             clean_content += "\n"
             clean_content += messages_part
 

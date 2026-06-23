@@ -15,15 +15,11 @@ if TYPE_CHECKING:
 
 
 # Context variable to hold the current queues task
-current_queued_task: ContextVar[Optional["QueuedTask"]] = ContextVar(
-    "current_queued_task", default=None
-)
+current_queued_task: ContextVar[Optional["QueuedTask"]] = ContextVar("current_queued_task", default=None)
 
 
 # Context variable to hold the execution context (always available)
-current_execution_context: ContextVar[Dict[str, Any]] = ContextVar(
-    "current_execution_context", default={}
-)
+current_execution_context: ContextVar[Dict[str, Any]] = ContextVar("current_execution_context", default={})
 
 
 # Strong references to in-flight fire-and-forget context updates: the event
@@ -96,11 +92,7 @@ def set_context(path: str, value: Any, auto_commit: bool = True) -> None:
         set_context('progress', 50, auto_commit=False)  # No DB save
     """
     # Get current context or create new one
-    context = (
-        current_execution_context.get().copy()
-        if current_execution_context.get()
-        else {}
-    )
+    context = current_execution_context.get().copy() if current_execution_context.get() else {}
 
     # Navigate and create nested structure
     paths = path.split(".")
@@ -128,9 +120,7 @@ def set_context(path: str, value: Any, auto_commit: bool = True) -> None:
                 pass
 
 
-async def _update_task_context_async(
-    task: "QueuedTask", context: Dict[str, Any]
-) -> None:
+async def _update_task_context_async(task: "QueuedTask", context: Dict[str, Any]) -> None:
     """Update task context in database asynchronously"""
     try:
         from fastedgy.queued_task.config import QueuedTaskConfig
@@ -159,9 +149,7 @@ async def _update_task_context_async(
         # lost and an ERROR is logged for what is a recoverable blip.
         from fastedgy.orm.transaction import retry_on_serialization
 
-        await retry_on_serialization(
-            lambda: db.execute(query), retry_on_disconnect=True
-        )
+        await retry_on_serialization(lambda: db.execute(query), retry_on_disconnect=True)
         task.context = context
     except Exception as e:
         # Don't let database errors break the execution
@@ -175,9 +163,7 @@ async def _update_task_context_async(
             # Fallback to standard logging
             import logging
 
-            logging.getLogger("queued_task.context").error(
-                f"Failed to update task context: {e}"
-            )
+            logging.getLogger("queued_task.context").error(f"Failed to update task context: {e}")
 
 
 def clear_context() -> None:
@@ -227,9 +213,7 @@ class TaskContext:
 
     def __enter__(self):
         self.task_token = current_queued_task.set(self.task)
-        self.context_token = current_execution_context.set(
-            self.execution_context.copy()
-        )
+        self.context_token = current_execution_context.set(self.execution_context.copy())
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):

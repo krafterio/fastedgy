@@ -58,9 +58,7 @@ class ScheduledTaskRegistry:
 
     def register(self, task_def: ScheduledTaskDef) -> None:
         if task_def.name in self._tasks:
-            logger.warning(
-                f"Scheduled task '{task_def.name}' is already registered, overwriting"
-            )
+            logger.warning(f"Scheduled task '{task_def.name}' is already registered, overwriting")
         self._tasks[task_def.name] = task_def
         logger.debug(
             f"Registered scheduled task '{task_def.name}' "

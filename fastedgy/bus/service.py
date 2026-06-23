@@ -55,13 +55,9 @@ class Bus:
         self._listeners[normalized_key].append((priority, handler))
         self._listeners[normalized_key].sort(key=lambda x: x[0])
 
-        logger.debug(
-            f"Registered listener for {normalized_key} with priority {priority}: {handler.__name__}"
-        )
+        logger.debug(f"Registered listener for {normalized_key} with priority {priority}: {handler.__name__}")
 
-    async def dispatch(
-        self, event: BaseEvent, event_key: Optional[EventKey] = None
-    ) -> None:
+    async def dispatch(self, event: BaseEvent, event_key: Optional[EventKey] = None) -> None:
         """
         Dispatch an event to all registered listeners.
 
@@ -110,9 +106,7 @@ class Bus:
         if normalized_key not in self._listeners:
             return
 
-        self._listeners[normalized_key] = [
-            (p, h) for p, h in self._listeners[normalized_key] if h != handler
-        ]
+        self._listeners[normalized_key] = [(p, h) for p, h in self._listeners[normalized_key] if h != handler]
 
         if not self._listeners[normalized_key]:
             del self._listeners[normalized_key]
@@ -146,10 +140,7 @@ class Bus:
             True if listeners exist, False otherwise
         """
         normalized_key = self._normalize_key(event_key)
-        return (
-            normalized_key in self._listeners
-            and len(self._listeners[normalized_key]) > 0
-        )
+        return normalized_key in self._listeners and len(self._listeners[normalized_key]) > 0
 
     def _normalize_key(self, key: EventKey) -> Token:
         """
@@ -166,9 +157,7 @@ class Bus:
         elif isinstance(key, Token):
             return key
 
-        raise TypeError(
-            f"Event key must be a BaseEvent subclass or Token[BaseEvent], got {type(key)}"
-        )
+        raise TypeError(f"Event key must be a BaseEvent subclass or Token[BaseEvent], got {type(key)}")
 
 
 __all__ = [

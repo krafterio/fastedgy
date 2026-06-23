@@ -67,9 +67,7 @@ class QueueHookRegistry:
             except Exception as e:
                 logger.error(f"Error in on_pre_run hook {hook.__name__}: {e}")
 
-    async def trigger_post_run(
-        self, task: "QueuedTask", result: Any = None, error: Exception | None = None
-    ) -> None:
+    async def trigger_post_run(self, task: "QueuedTask", result: Any = None, error: Exception | None = None) -> None:
         """Trigger all post run hooks"""
         for hook in self.on_post_run_hooks:
             try:

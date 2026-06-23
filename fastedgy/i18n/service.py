@@ -27,16 +27,12 @@ class TranslatableString(str):
 
         try:
             if not has_service(BaseSettings):
-                return (
-                    self.message.format(**self.kwargs) if self.kwargs else self.message
-                )
+                return self.message.format(**self.kwargs) if self.kwargs else self.message
 
             return get_service(I18n).translate(self.message, **self.kwargs)
         except Exception:
             try:
-                return (
-                    self.message.format(**self.kwargs) if self.kwargs else self.message
-                )
+                return self.message.format(**self.kwargs) if self.kwargs else self.message
             except KeyError:
                 return self.message
 
@@ -82,9 +78,7 @@ class I18n:
         self.load_locale(locale)
 
         if self._reversed_translation_paths is None:
-            self._reversed_translation_paths = list(
-                reversed(self.settings.computed_translations_paths)
-            )
+            self._reversed_translation_paths = list(reversed(self.settings.computed_translations_paths))
         translation_paths = self._reversed_translation_paths
 
         for path in translation_paths:
@@ -95,19 +89,11 @@ class I18n:
                     msg_obj = catalog[message]
 
                     if msg_obj.string and isinstance(msg_obj.string, (str, list)):
-                        translated = (
-                            msg_obj.string[0]
-                            if isinstance(msg_obj.string, list)
-                            else msg_obj.string
-                        )
+                        translated = msg_obj.string[0] if isinstance(msg_obj.string, list) else msg_obj.string
 
                         if translated and isinstance(translated, str):
                             try:
-                                return (
-                                    translated.format(**kwargs)
-                                    if kwargs
-                                    else translated
-                                )
+                                return translated.format(**kwargs) if kwargs else translated
                             except KeyError:
                                 # If formatting fails, fallback to original message
                                 pass

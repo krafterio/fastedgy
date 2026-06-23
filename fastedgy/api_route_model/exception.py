@@ -11,9 +11,7 @@ from fastedgy.orm.exceptions import ObjectNotFound
 from fastedgy.orm.transaction import is_serialization_error
 
 
-def handle_action_exception(
-    e: Exception, model_cls: type | None = None, not_found_message: str | None = None
-) -> None:
+def handle_action_exception(e: Exception, model_cls: type | None = None, not_found_message: str | None = None) -> None:
     """
     Centralized exception handler for API route model actions.
 
@@ -36,9 +34,7 @@ def handle_action_exception(
         error_msg = str(e.orig) if hasattr(e, "orig") else str(e)
 
         # Handle unique constraint violations
-        if "unique constraint" in error_msg.lower() or "UniqueViolationError" in str(
-            e.orig.__class__.__name__
-        ):
+        if "unique constraint" in error_msg.lower() or "UniqueViolationError" in str(e.orig.__class__.__name__):
             # Try to extract field name from error message
             field_name = None
             if "Key (" in error_msg:
@@ -59,22 +55,15 @@ def handle_action_exception(
             raise HTTPException(status_code=400, detail=detail)
 
         # Handle foreign key violations
-        if (
-            "foreign key constraint" in error_msg.lower()
-            or "ForeignKeyViolationError" in str(e.orig.__class__.__name__)
+        if "foreign key constraint" in error_msg.lower() or "ForeignKeyViolationError" in str(
+            e.orig.__class__.__name__
         ):
-            detail = str(
-                _t("The reference to a related resource is invalid or does not exist.")
-            )
+            detail = str(_t("The reference to a related resource is invalid or does not exist."))
             raise HTTPException(status_code=400, detail=detail)
 
         # Handle check constraint violations
-        if "check constraint" in error_msg.lower() or "CheckViolationError" in str(
-            e.orig.__class__.__name__
-        ):
-            detail = str(
-                _t("The provided data does not meet the validation constraints.")
-            )
+        if "check constraint" in error_msg.lower() or "CheckViolationError" in str(e.orig.__class__.__name__):
+            detail = str(_t("The provided data does not meet the validation constraints."))
             raise HTTPException(status_code=400, detail=detail)
 
         # Handle not null constraint violations
@@ -89,9 +78,7 @@ def handle_action_exception(
         # Generic integrity error
         raise HTTPException(
             status_code=400,
-            detail=str(
-                _t("The provided data violates a database integrity constraint.")
-            ),
+            detail=str(_t("The provided data violates a database integrity constraint.")),
         )
 
     # Handle database API errors (serialization, etc.). A serialization
@@ -102,9 +89,7 @@ def handle_action_exception(
             raise HTTPException(
                 status_code=429,
                 detail=str(
-                    _t(
-                        "The resource is currently being used by another operation. Please try again in a few moments."
-                    )
+                    _t("The resource is currently being used by another operation. Please try again in a few moments.")
                 ),
             )
         # Re-raise if not handled
@@ -125,9 +110,7 @@ def handle_action_exception(
 
     # Handle value errors
     if isinstance(e, ValueError):
-        raise RequestValidationError(
-            [ErrorDetails(msg=str(e), type="value_error", loc=("body",), input=None)]
-        )
+        raise RequestValidationError([ErrorDetails(msg=str(e), type="value_error", loc=("body",), input=None)])
 
     # Re-raise if not handled
     raise e

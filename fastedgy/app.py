@@ -921,9 +921,7 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
     def initialize(self) -> None:
         pass
 
-    def register(
-        self, instance: T, key: Union[Type[T], Token[T], str, None] = None
-    ) -> None:
+    def register(self, instance: T, key: Union[Type[T], Token[T], str, None] = None) -> None:
         register_service(instance, key)
 
     def has_service(self, key: Union[Type[T], Token[T], str]) -> bool:

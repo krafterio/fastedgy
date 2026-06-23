@@ -78,9 +78,7 @@ class MetadataModelRegistry:
 
         raise ValueError(f"Model {str(model_cls)} not found in metadata registry")
 
-    async def get_model_from_metadata(
-        self, metadata: MetadataModel | str
-    ) -> type[BaseModel]:
+    async def get_model_from_metadata(self, metadata: MetadataModel | str) -> type[BaseModel]:
         await self.load_models()
 
         if isinstance(metadata, str):

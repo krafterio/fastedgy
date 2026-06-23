@@ -194,138 +194,62 @@ FILTER_DICT_OPERATORS_SQL = {
     "<=": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__le": v}),
     ">": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__gt": v}),
     ">=": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__ge": v}),
-    "between": lambda qs, f, v: Q(
-        **{f"{f.replace('.', '__')}__ge": v[0], f"{f.replace('.', '__')}__le": v[1]}
-    ),
+    "between": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__ge": v[0], f"{f.replace('.', '__')}__le": v[1]}),
     "like": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__like": v}),
     "ilike": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__ilike": v}),
     "not like": lambda qs, f, v: qs.not_(Q(**{f"{f.replace('.', '__')}__like": v})),
     "not ilike": lambda qs, f, v: qs.not_(Q(**{f"{f.replace('.', '__')}__ilike": v})),
     "starts with": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__startswith": v}),
     "ends with": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__endswith": v}),
-    "not starts with": lambda qs, f, v: qs.not_(
-        Q(**{f"{f.replace('.', '__')}__startswith": v})
-    ),
-    "not ends with": lambda qs, f, v: qs.not_(
-        Q(**{f"{f.replace('.', '__')}__endswith": v})
-    ),
+    "not starts with": lambda qs, f, v: qs.not_(Q(**{f"{f.replace('.', '__')}__startswith": v})),
+    "not ends with": lambda qs, f, v: qs.not_(Q(**{f"{f.replace('.', '__')}__endswith": v})),
     "contains": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__contains": v}),
     "icontains": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__icontains": v}),
-    "not contains": lambda qs, f, v: qs.not_(
-        Q(**{f"{f.replace('.', '__')}__contains": v})
-    ),
-    "not icontains": lambda qs, f, v: qs.not_(
-        Q(**{f"{f.replace('.', '__')}__icontains": v})
-    ),
+    "not contains": lambda qs, f, v: qs.not_(Q(**{f"{f.replace('.', '__')}__contains": v})),
+    "not icontains": lambda qs, f, v: qs.not_(Q(**{f"{f.replace('.', '__')}__icontains": v})),
     "match": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__match": v}),
     "in": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__in": v}),
     "not in": lambda qs, f, v: qs.not_(Q(**{f"{f.replace('.', '__')}__in": v})),
     "is true": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__is": True}),
     "is false": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__is": False}),
     "is empty": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__is": None}),
-    "is not empty": lambda qs, f, v: qs.not_(
-        Q(**{f"{f.replace('.', '__')}__is": None})
-    ),
+    "is not empty": lambda qs, f, v: qs.not_(Q(**{f"{f.replace('.', '__')}__is": None})),
     # Distance operators
     "l1 distance": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__l1_distance": v}),
-    "l1 distance <": lambda qs, f, v: Q(
-        **{f"{f.replace('.', '__')}__l1_distance_lt": v}
-    ),
-    "l1 distance <=": lambda qs, f, v: Q(
-        **{f"{f.replace('.', '__')}__l1_distance_le": v}
-    ),
-    "l1 distance >": lambda qs, f, v: Q(
-        **{f"{f.replace('.', '__')}__l1_distance_gt": v}
-    ),
-    "l1 distance >=": lambda qs, f, v: Q(
-        **{f"{f.replace('.', '__')}__l1_distance_ge": v}
-    ),
+    "l1 distance <": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__l1_distance_lt": v}),
+    "l1 distance <=": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__l1_distance_le": v}),
+    "l1 distance >": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__l1_distance_gt": v}),
+    "l1 distance >=": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__l1_distance_ge": v}),
     "l2 distance": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__l2_distance": v}),
-    "l2 distance <": lambda qs, f, v: Q(
-        **{f"{f.replace('.', '__')}__l2_distance_lt": v}
-    ),
-    "l2 distance <=": lambda qs, f, v: Q(
-        **{f"{f.replace('.', '__')}__l2_distance_le": v}
-    ),
-    "l2 distance >": lambda qs, f, v: Q(
-        **{f"{f.replace('.', '__')}__l2_distance_gt": v}
-    ),
-    "l2 distance >=": lambda qs, f, v: Q(
-        **{f"{f.replace('.', '__')}__l2_distance_ge": v}
-    ),
-    "cosine distance": lambda qs, f, v: Q(
-        **{f"{f.replace('.', '__')}__cosine_distance": v}
-    ),
-    "cosine distance <": lambda qs, f, v: Q(
-        **{f"{f.replace('.', '__')}__cosine_distance_lt": v}
-    ),
-    "cosine distance <=": lambda qs, f, v: Q(
-        **{f"{f.replace('.', '__')}__cosine_distance_le": v}
-    ),
-    "cosine distance >": lambda qs, f, v: Q(
-        **{f"{f.replace('.', '__')}__cosine_distance_gt": v}
-    ),
-    "cosine distance >=": lambda qs, f, v: Q(
-        **{f"{f.replace('.', '__')}__cosine_distance_ge": v}
-    ),
-    "inner product": lambda qs, f, v: Q(
-        **{f"{f.replace('.', '__')}__inner_product": v}
-    ),
-    "inner product <": lambda qs, f, v: Q(
-        **{f"{f.replace('.', '__')}__inner_product_lt": v}
-    ),
-    "inner product <=": lambda qs, f, v: Q(
-        **{f"{f.replace('.', '__')}__inner_product_le": v}
-    ),
-    "inner product >": lambda qs, f, v: Q(
-        **{f"{f.replace('.', '__')}__inner_product_gt": v}
-    ),
-    "inner product >=": lambda qs, f, v: Q(
-        **{f"{f.replace('.', '__')}__inner_product_ge": v}
-    ),
+    "l2 distance <": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__l2_distance_lt": v}),
+    "l2 distance <=": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__l2_distance_le": v}),
+    "l2 distance >": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__l2_distance_gt": v}),
+    "l2 distance >=": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__l2_distance_ge": v}),
+    "cosine distance": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__cosine_distance": v}),
+    "cosine distance <": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__cosine_distance_lt": v}),
+    "cosine distance <=": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__cosine_distance_le": v}),
+    "cosine distance >": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__cosine_distance_gt": v}),
+    "cosine distance >=": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__cosine_distance_ge": v}),
+    "inner product": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__inner_product": v}),
+    "inner product <": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__inner_product_lt": v}),
+    "inner product <=": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__inner_product_le": v}),
+    "inner product >": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__inner_product_gt": v}),
+    "inner product >=": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__inner_product_ge": v}),
     # Spatial operators
-    "spatial distance": lambda qs, f, v: Q(
-        **{f"{f.replace('.', '__')}__spatial_distance_to": v}
-    ),
-    "spatial distance <": lambda qs, f, v: Q(
-        **{f"{f.replace('.', '__')}__spatial_distance_lt": v}
-    ),
-    "spatial distance <=": lambda qs, f, v: Q(
-        **{f"{f.replace('.', '__')}__spatial_distance_le": v}
-    ),
-    "spatial distance >": lambda qs, f, v: Q(
-        **{f"{f.replace('.', '__')}__spatial_distance_gt": v}
-    ),
-    "spatial distance >=": lambda qs, f, v: Q(
-        **{f"{f.replace('.', '__')}__spatial_distance_ge": v}
-    ),
-    "spatial within distance": lambda qs, f, v: Q(
-        **{f"{f.replace('.', '__')}__spatial_within_distance": v}
-    ),
-    "spatial contains": lambda qs, f, v: Q(
-        **{f"{f.replace('.', '__')}__spatial_contains": v}
-    ),
-    "spatial within": lambda qs, f, v: Q(
-        **{f"{f.replace('.', '__')}__spatial_within": v}
-    ),
-    "spatial intersects": lambda qs, f, v: Q(
-        **{f"{f.replace('.', '__')}__spatial_intersects": v}
-    ),
-    "spatial equals": lambda qs, f, v: Q(
-        **{f"{f.replace('.', '__')}__spatial_equals": v}
-    ),
-    "spatial disjoint": lambda qs, f, v: Q(
-        **{f"{f.replace('.', '__')}__spatial_disjoint_from": v}
-    ),
-    "spatial touches": lambda qs, f, v: Q(
-        **{f"{f.replace('.', '__')}__spatial_touches": v}
-    ),
-    "spatial crosses": lambda qs, f, v: Q(
-        **{f"{f.replace('.', '__')}__spatial_crosses": v}
-    ),
-    "spatial overlaps": lambda qs, f, v: Q(
-        **{f"{f.replace('.', '__')}__spatial_overlaps": v}
-    ),
+    "spatial distance": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__spatial_distance_to": v}),
+    "spatial distance <": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__spatial_distance_lt": v}),
+    "spatial distance <=": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__spatial_distance_le": v}),
+    "spatial distance >": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__spatial_distance_gt": v}),
+    "spatial distance >=": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__spatial_distance_ge": v}),
+    "spatial within distance": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__spatial_within_distance": v}),
+    "spatial contains": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__spatial_contains": v}),
+    "spatial within": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__spatial_within": v}),
+    "spatial intersects": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__spatial_intersects": v}),
+    "spatial equals": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__spatial_equals": v}),
+    "spatial disjoint": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__spatial_disjoint_from": v}),
+    "spatial touches": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__spatial_touches": v}),
+    "spatial crosses": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__spatial_crosses": v}),
+    "spatial overlaps": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__spatial_overlaps": v}),
     # Fulltext search — handled as special case in builder
     "search": None,
     "search_fuzzy": None,
@@ -695,9 +619,7 @@ def get_filter_operators(
         if isinstance(field_info, str) and field_info == map_field_type:
             return allowed_operators
 
-        if not isinstance(map_field_type, str) and isinstance(
-            field_info, map_field_type
-        ):
+        if not isinstance(map_field_type, str) and isinstance(field_info, map_field_type):
             return allowed_operators
 
     return []

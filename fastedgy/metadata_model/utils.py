@@ -6,9 +6,7 @@ from fastedgy.schemas.dataset import MetadataField
 from fastedgy.metadata_model.generator import generate_metadata_field
 
 
-def get_metadata_field_from_path(
-    model_cls: type[Model], field_path: str
-) -> MetadataField | None:
+def get_metadata_field_from_path(model_cls: type[Model], field_path: str) -> MetadataField | None:
     if not field_path:
         return None
 
@@ -17,11 +15,7 @@ def get_metadata_field_from_path(
     current_field = None
 
     for i, part in enumerate(parts):
-        if (
-            not current_model
-            or not hasattr(current_model, "meta")
-            or not hasattr(current_model.meta, "fields")
-        ):
+        if not current_model or not hasattr(current_model, "meta") or not hasattr(current_model.meta, "fields"):
             return None
 
         field = current_model.meta.fields.get(part)
@@ -69,11 +63,7 @@ def get_field_label_from_path(model_cls: type[Model], field_path: str) -> str:
     current_model = model_cls
 
     for i, part in enumerate(parts):
-        if (
-            not current_model
-            or not hasattr(current_model, "meta")
-            or not hasattr(current_model.meta, "fields")
-        ):
+        if not current_model or not hasattr(current_model, "meta") or not hasattr(current_model.meta, "fields"):
             labels.append(part)
 
             continue
@@ -91,10 +81,7 @@ def get_field_label_from_path(model_cls: type[Model], field_path: str) -> str:
             label = name_parts[0].capitalize()
 
             if len(name_parts) > 1:
-                label = " ".join(
-                    [name_parts[0].capitalize()]
-                    + [word.lower() for word in name_parts[1:]]
-                )
+                label = " ".join([name_parts[0].capitalize()] + [word.lower() for word in name_parts[1:]])
 
             labels.append(label)
 

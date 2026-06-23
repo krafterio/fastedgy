@@ -41,14 +41,10 @@ def extract_id(value: int | dict[str, Any]) -> int:
     if isinstance(value, dict) and "id" in value:
         record_id = value["id"]
         if not isinstance(record_id, int) or record_id <= 0:
-            raise RelationOperationError(
-                f"ID must be a positive integer, got: {record_id}"
-            )
+            raise RelationOperationError(f"ID must be a positive integer, got: {record_id}")
         return record_id
 
-    raise RelationOperationError(
-        f"Invalid ID value: {value}. Expected int or dict with 'id' field."
-    )
+    raise RelationOperationError(f"Invalid ID value: {value}. Expected int or dict with 'id' field.")
 
 
 def extract_id_and_values(value: dict[str, Any]) -> tuple[int, dict[str, Any]]:
@@ -71,9 +67,7 @@ def extract_id_and_values(value: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         RelationOperationError: update operation requires dict with 'id' field
     """
     if not isinstance(value, dict):
-        raise RelationOperationError(
-            f"update operation requires dict, got: {type(value).__name__}"
-        )
+        raise RelationOperationError(f"update operation requires dict, got: {type(value).__name__}")
 
     if "id" not in value:
         raise RelationOperationError("update operation requires dict with 'id' field")

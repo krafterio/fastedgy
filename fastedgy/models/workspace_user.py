@@ -37,8 +37,7 @@ class BaseWorkspaceUser(BaseModel):
             return
 
         raise RuntimeError(
-            f"Multiple workspace user models detected: "
-            f"{BaseWorkspaceUser.Meta.model_name} and {cls.__name__}"
+            f"Multiple workspace user models detected: {BaseWorkspaceUser.Meta.model_name} and {cls.__name__}"
         )
 
     workspace: Union["Workspace", None] = fields.ForeignKey(

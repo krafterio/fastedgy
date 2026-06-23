@@ -178,13 +178,9 @@ class QueuedTasks:
                         if request.parent_ref:
                             # Wait for parent to be created
                             parent_id = await request.parent_ref.get_task_id()
-                            task_id = await self._create_task_for_request(
-                                request, parent_id
-                            )
+                            task_id = await self._create_task_for_request(request, parent_id)
                             request.ref._set_task_id(task_id)
-                            logger.debug(
-                                f"Created task {task_id} (parent: {parent_id})"
-                            )
+                            logger.debug(f"Created task {task_id} (parent: {parent_id})")
                     except Exception as e:
                         logger.error(f"Failed to create task with parent: {e}")
                         request.ref._set_creation_error(e)
@@ -196,9 +192,7 @@ class QueuedTasks:
             lifecycle: AppLifecycle = get_service(AppLifecycle)
             lifecycle.unlock()
 
-    async def _create_task_for_request(
-        self, request: TaskCreationRequest, parent_id: Optional[int] = None
-    ) -> int:
+    async def _create_task_for_request(self, request: TaskCreationRequest, parent_id: Optional[int] = None) -> int:
         """Create a task in database from a creation request"""
         func = request.func
         args = request.args
@@ -328,9 +322,7 @@ class QueuedTasks:
             if is_local_function:
                 # Serialize the function with dill
                 serialized_function = dill.dumps(func)
-                logger.debug(
-                    f"Serialized local function: {getattr(func, '__name__', 'unnamed')}"
-                )
+                logger.debug(f"Serialized local function: {getattr(func, '__name__', 'unnamed')}")
 
             task = await self.create_task(
                 module_name=module_name,
@@ -368,9 +360,7 @@ class QueuedTasks:
         """Create a new task in the queue"""
         # Validation: must have either module/function or serialized function
         if not serialized_function and (not module_name or not function_name):
-            raise ValueError(
-                "Must provide either (module_name, function_name) or serialized_function"
-            )
+            raise ValueError("Must provide either (module_name, function_name) or serialized_function")
 
         QueuedTask = cast(type["QueuedTask"], self.registry.get_model("QueuedTask"))
         task = QueuedTask(
@@ -383,8 +373,7 @@ class QueuedTasks:
             context=context or {},
             parent_task=parent_task,
             state=QueuedTaskState.enqueued,
-            date_enqueued=date_enqueued
-            or datetime.now(fastedgy_context.get_timezone()),
+            date_enqueued=date_enqueued or datetime.now(fastedgy_context.get_timezone()),
             auto_remove=auto_remove,
             max_retries=max_retries,
             channel=channel or "default",
@@ -560,16 +549,12 @@ class QueuedTasks:
     async def get_pending_tasks_count(self) -> int:
         """Count pending tasks"""
         QueuedTask = cast(type["QueuedTask"], self.registry.get_model("QueuedTask"))
-        return await QueuedTask.query.filter(
-            QueuedTask.columns.state == QueuedTaskState.enqueued
-        ).count()
+        return await QueuedTask.query.filter(QueuedTask.columns.state == QueuedTaskState.enqueued).count()
 
     async def get_task_by_id(self, task_id: int) -> Optional["QueuedTask"]:
         """Get task by ID"""
         QueuedTask = cast(type["QueuedTask"], self.registry.get_model("QueuedTask"))
-        return await QueuedTask.query.filter(
-            QueuedTask.columns.id == task_id
-        ).get_or_none()
+        return await QueuedTask.query.filter(QueuedTask.columns.id == task_id).get_or_none()
 
     async def get_task_status(self, task_id: int) -> Optional[Dict[str, Any]]:
         """Get task status"""

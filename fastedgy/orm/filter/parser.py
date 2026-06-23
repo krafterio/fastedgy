@@ -138,9 +138,7 @@ def parse_filter_input_tuple(filters: FilterTuple | None) -> FilterCondition | N
                 if rule:
                     items.append(rule)
             elif is_condition(item):
-                condition = create_condition_from_tuple(
-                    cast(FilterConditionTuple, item)
-                )
+                condition = create_condition_from_tuple(cast(FilterConditionTuple, item))
 
                 if condition:
                     items.append(condition)
@@ -187,9 +185,7 @@ def create_condition_from_tuple(
             if rule:
                 rules.append(rule)
         elif is_condition(rule_data):
-            nested_condition = create_condition_from_tuple(
-                cast(FilterConditionTuple, rule_data)
-            )
+            nested_condition = create_condition_from_tuple(cast(FilterConditionTuple, rule_data))
 
             if nested_condition:
                 rules.append(nested_condition)

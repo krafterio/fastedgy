@@ -45,9 +45,7 @@ class CronScheduler:
         registry = get_service(ScheduledTaskRegistry)
 
         enabled_tasks = {
-            name: td
-            for name, td in registry.get_all().items()
-            if td.cron and registry.is_task_enabled(name)
+            name: td for name, td in registry.get_all().items() if td.cron and registry.is_task_enabled(name)
         }
 
         logger.info(f"CronScheduler started with {len(enabled_tasks)} active task(s)")
@@ -150,9 +148,7 @@ class CronScheduler:
                     # enough.
                     async with database.transaction():
                         await database.execute(
-                            text(
-                                "SELECT pg_advisory_xact_lock(hashtext(:name))"
-                            ).bindparams(name=task_def.name)
+                            text("SELECT pg_advisory_xact_lock(hashtext(:name))").bindparams(name=task_def.name)
                         )
 
                         existing = await database.fetch_one(check_sql)
@@ -168,9 +164,7 @@ class CronScheduler:
                                     f"will be reaped by the manager)"
                                 )
                             else:
-                                logger.debug(
-                                    f"Skipping '{task_def.name}': already has an active task"
-                                )
+                                logger.debug(f"Skipping '{task_def.name}': already has an active task")
                             return
 
                         task = await queued_tasks.create_task(
@@ -185,16 +179,11 @@ class CronScheduler:
                             priority=task_def.priority,
                         )
 
-                    logger.info(
-                        f"Created cron task '{task_def.name}' (id={task.id})"
-                    )
+                    logger.info(f"Created cron task '{task_def.name}' (id={task.id})")
                     return
                 except Exception as e:
                     if attempt == 0:
-                        logger.warning(
-                            f"Error creating cron task '{task_def.name}', "
-                            f"retrying once: {e}"
-                        )
+                        logger.warning(f"Error creating cron task '{task_def.name}', retrying once: {e}")
                         await asyncio.sleep(1.0)
                     else:
                         raise

@@ -22,9 +22,7 @@ def discover_scheduled_tasks(package_name: str) -> None:
     try:
         package = importlib.import_module(package_name)
     except ImportError:
-        logger.debug(
-            f"No scheduled tasks package '{package_name}' found, skipping discovery"
-        )
+        logger.debug(f"No scheduled tasks package '{package_name}' found, skipping discovery")
         return
 
     if not hasattr(package, "__path__"):

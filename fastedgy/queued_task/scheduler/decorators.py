@@ -92,10 +92,7 @@ def scheduled_task(
             try:
                 CronSim(cron, datetime(2000, 1, 1))
             except CronSimError as e:
-                raise ValueError(
-                    f"Invalid cron expression '{cron}' for scheduled task "
-                    f"'{resolved_name}': {e}"
-                ) from e
+                raise ValueError(f"Invalid cron expression '{cron}' for scheduled task '{resolved_name}': {e}") from e
 
         task_def = ScheduledTaskDef(
             name=resolved_name,

@@ -56,15 +56,11 @@ class WorkerPool:
             worker_id = f"worker_{uuid.uuid4().hex[:8]}"
             worker = QueueWorker(worker_id)
             self.busy_workers[worker_id] = worker
-            logger.info(
-                f"Created new worker {worker_id} (total: {total_workers + 1}/{self.max_workers})"
-            )
+            logger.info(f"Created new worker {worker_id} (total: {total_workers + 1}/{self.max_workers})")
             return worker
 
         # Pool is full
-        logger.debug(
-            f"Worker pool full ({self.max_workers}); task waits for next cycle"
-        )
+        logger.debug(f"Worker pool full ({self.max_workers}); task waits for next cycle")
         return None
 
     async def return_worker(self, worker: QueueWorker) -> None:
@@ -85,9 +81,7 @@ class WorkerPool:
         timeout_task = asyncio.create_task(self._worker_idle_timeout(worker))
         self.worker_timeout_tasks[worker.worker_id] = timeout_task
 
-        logger.debug(
-            f"Worker {worker.worker_id} returned to idle pool (timeout in {self.config.worker_idle_timeout}s)"
-        )
+        logger.debug(f"Worker {worker.worker_id} returned to idle pool (timeout in {self.config.worker_idle_timeout}s)")
 
     async def _worker_idle_timeout(self, worker: QueueWorker) -> None:
         """
@@ -112,9 +106,7 @@ class WorkerPool:
 
                     self.idle_workers = new_queue
 
-                    logger.info(
-                        f"Worker {worker.worker_id} removed due to idle timeout"
-                    )
+                    logger.info(f"Worker {worker.worker_id} removed due to idle timeout")
 
                 except Exception as e:
                     logger.error(f"Error removing idle worker {worker.worker_id}: {e}")

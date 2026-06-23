@@ -58,25 +58,19 @@ async def process_relation_operations(
     for op in operations:
         # Convert list to tuple if needed and validate structure
         if not isinstance(op, (list, tuple)) or len(op) < 1:
-            raise RelationOperationError(
-                f"Invalid operation format: {op}. Expected [action, ...] format."
-            )
+            raise RelationOperationError(f"Invalid operation format: {op}. Expected [action, ...] format.")
 
         op_tuple = tuple(op) if isinstance(op, list) else op
         action = op_tuple[0]
 
         if not isinstance(action, str):
-            raise RelationOperationError(
-                f"Invalid action type: {type(action).__name__}. Expected string."
-            )
+            raise RelationOperationError(f"Invalid action type: {type(action).__name__}. Expected string.")
 
         try:
             if action == "create":
                 _, values = op_tuple
                 if not isinstance(values, dict):
-                    raise RelationOperationError(
-                        f"create requires dict of values, got: {type(values).__name__}"
-                    )
+                    raise RelationOperationError(f"create requires dict of values, got: {type(values).__name__}")
 
                 # For O2M (reverse) relationships, automatically add parent FK if not provided
                 # Find the FK field in related_model that points back to instance
@@ -109,9 +103,7 @@ async def process_relation_operations(
 
                 record = await related_model.query.get(id=record_id)
                 if not record:
-                    raise RelationOperationError(
-                        f"Record with id={record_id} not found in {related_model.__name__}"
-                    )
+                    raise RelationOperationError(f"Record with id={record_id} not found in {related_model.__name__}")
 
                 for key, val in update_values.items():
                     setattr(record, key, val)
@@ -128,9 +120,7 @@ async def process_relation_operations(
 
                 record = await related_model.query.get(id=record_id)
                 if not record:
-                    raise RelationOperationError(
-                        f"Record with id={record_id} not found in {related_model.__name__}"
-                    )
+                    raise RelationOperationError(f"Record with id={record_id} not found in {related_model.__name__}")
 
                 await relation_manager.add(record)
 
@@ -140,9 +130,7 @@ async def process_relation_operations(
 
                 record = await related_model.query.get(id=record_id)
                 if not record:
-                    raise RelationOperationError(
-                        f"Record with id={record_id} not found in {related_model.__name__}"
-                    )
+                    raise RelationOperationError(f"Record with id={record_id} not found in {related_model.__name__}")
 
                 await relation_manager.remove(record)
 
@@ -152,9 +140,7 @@ async def process_relation_operations(
 
                 record = await related_model.query.get(id=record_id)
                 if not record:
-                    raise RelationOperationError(
-                        f"Record with id={record_id} not found in {related_model.__name__}"
-                    )
+                    raise RelationOperationError(f"Record with id={record_id} not found in {related_model.__name__}")
 
                 await relation_manager.remove(record)
                 await record.delete()
@@ -195,17 +181,13 @@ async def process_relation_operations(
             elif action == "set":
                 _, ids = op_tuple
                 if not isinstance(ids, list):
-                    raise RelationOperationError(
-                        f"set requires list of IDs, got: {type(ids).__name__}"
-                    )
+                    raise RelationOperationError(f"set requires list of IDs, got: {type(ids).__name__}")
 
                 # Validate all IDs exist before modifying
                 records_to_link = []
                 for record_id in ids:
                     if not isinstance(record_id, int) or record_id <= 0:
-                        raise RelationOperationError(
-                            f"Invalid ID in set operation: {record_id}"
-                        )
+                        raise RelationOperationError(f"Invalid ID in set operation: {record_id}")
 
                     record = await related_model.query.get(id=record_id)
                     if not record:
@@ -257,6 +239,4 @@ async def process_relation_operations(
         except RelationOperationError:
             raise
         except Exception as e:
-            raise RelationOperationError(
-                f"Error executing {action} operation on {field_name}: {str(e)}"
-            ) from e
+            raise RelationOperationError(f"Error executing {action} operation on {field_name}: {str(e)}") from e

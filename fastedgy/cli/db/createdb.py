@@ -44,9 +44,7 @@ async def createdb(ctx: CliContext):
 
     db_admin = Database(admin_database_url)
     await db_admin.connect()
-    result = await db_admin.execute(
-        "SELECT 1 FROM pg_database WHERE datname=:dbn", {"dbn": dbname}
-    )
+    result = await db_admin.execute("SELECT 1 FROM pg_database WHERE datname=:dbn", {"dbn": dbname})
 
     if result:
         console.print(f"[yellow]Database '{dbname}' already exists.[/yellow]")

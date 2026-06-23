@@ -112,16 +112,10 @@ class Mail:
 
         if tpl_part.value not in template.blocks:
             if strict:
-                logger.error(
-                    f"Template '{template_name}' is missing required '{tpl_part.value}' block"
-                )
-                raise ValueError(
-                    f"Template '{template_name}' is missing required '{tpl_part.value}' block"
-                )
+                logger.error(f"Template '{template_name}' is missing required '{tpl_part.value}' block")
+                raise ValueError(f"Template '{template_name}' is missing required '{tpl_part.value}' block")
 
-            logger.debug(
-                f"Template '{template_name}' doesn't have '{tpl_part.value}' block"
-            )
+            logger.debug(f"Template '{template_name}' doesn't have '{tpl_part.value}' block")
             return None
 
         tpl_context = template.new_context(context)
@@ -143,15 +137,9 @@ class Mail:
         else:
             email = email_parts
 
-        subject: str | None = self.render_template(
-            template_name, TemplatePart.SUBJECT, tpl_vals
-        )
-        html_content: str | None = self.render_template(
-            template_name, TemplatePart.BODY_HTML, tpl_vals
-        )
-        text_content: str | None = self.render_template(
-            template_name, TemplatePart.BODY_TEXT, tpl_vals
-        )
+        subject: str | None = self.render_template(template_name, TemplatePart.SUBJECT, tpl_vals)
+        html_content: str | None = self.render_template(template_name, TemplatePart.BODY_HTML, tpl_vals)
+        text_content: str | None = self.render_template(template_name, TemplatePart.BODY_TEXT, tpl_vals)
 
         if not text_content and html_content:
             logger.debug("Converting HTML content to text")
@@ -171,9 +159,7 @@ class Mail:
 
         return email
 
-    async def send_template(
-        self, template_name: str, tpl_vals: dict, email_parts: EmailMessage | dict
-    ) -> None:
+    async def send_template(self, template_name: str, tpl_vals: dict, email_parts: EmailMessage | dict) -> None:
         logger.debug(f"Sending email using template {template_name}")
         email = await self.generate_email_template(template_name, tpl_vals, email_parts)
         await self.send(email)
@@ -184,9 +170,7 @@ class Mail:
 
         for header in ("To", "Cc", "Bcc"):
             if email.get(header):
-                email.replace_header(
-                    header, self._encode_email_address(email.get(header, ""))
-                )
+                email.replace_header(header, self._encode_email_address(email.get(header, "")))
 
         recipients = email.get("To", "")
         logger.debug(f"Sending email to {recipients}")

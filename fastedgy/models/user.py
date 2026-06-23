@@ -28,10 +28,7 @@ class BaseUser(BaseModel):
         if BaseUser.Meta.model_name == cls.__name__:
             return
 
-        raise RuntimeError(
-            f"Multiple user models detected: "
-            f"{BaseUser.Meta.model_name} and {cls.__name__}"
-        )
+        raise RuntimeError(f"Multiple user models detected: {BaseUser.Meta.model_name} and {cls.__name__}")
 
     email: str | None = fields.EmailField(unique=True, label="Email")  # type: ignore
     name: str | None = fields.CharField(max_length=255, null=True, label="Nom")  # type: ignore

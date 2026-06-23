@@ -22,9 +22,7 @@ def process_vector_revision_directives(context, revision, directives):
 
     if vector_operations_found:
         # Add imports needed for vector operations
-        directives[0].imports.add(
-            "from fastedgy.orm.migration import enable_vector_extension"
-        )
+        directives[0].imports.add("from fastedgy.orm.migration import enable_vector_extension")
         directives[0].imports.add("import fastedgy")
 
         # Insert enable_vector_extension call at the beginning of upgrade operations
@@ -44,17 +42,9 @@ def _check_for_vector_operations(ops):
                 if _is_vector_column(column):
                     return True
         elif isinstance(op, AlterColumnOp):
-            if (
-                hasattr(op, "modify_type")
-                and op.modify_type
-                and _is_vector_type(op.modify_type)
-            ):
+            if hasattr(op, "modify_type") and op.modify_type and _is_vector_type(op.modify_type):
                 return True
-            if (
-                hasattr(op, "existing_type")
-                and op.existing_type
-                and _is_vector_type(op.existing_type)
-            ):
+            if hasattr(op, "existing_type") and op.existing_type and _is_vector_type(op.existing_type):
                 return True
         elif hasattr(op, "ops"):
             if _check_for_vector_operations(op.ops):
@@ -109,16 +99,12 @@ class DisableVectorExtensionOperation(MigrateOperation):
 
 
 @Operations.implementation_for(EnableVectorExtensionOperation)
-def enable_vector_extension_impl(
-    operations, operation: EnableVectorExtensionOperation
-) -> None:
+def enable_vector_extension_impl(operations, operation: EnableVectorExtensionOperation) -> None:
     enable_vector_extension()
 
 
 @Operations.implementation_for(DisableVectorExtensionOperation)
-def disable_vector_extension_impl(
-    operations, operation: DisableVectorExtensionOperation
-) -> None:
+def disable_vector_extension_impl(operations, operation: DisableVectorExtensionOperation) -> None:
     disable_vector_extension()
 
 
@@ -128,9 +114,7 @@ def render_enable_vector_extension(_, operation: EnableVectorExtensionOperation)
 
 
 @renderers.dispatch_for(DisableVectorExtensionOperation)
-def render_disable_vector_extension(
-    _, operation: DisableVectorExtensionOperation
-) -> str:
+def render_disable_vector_extension(_, operation: DisableVectorExtensionOperation) -> str:
     return "disable_vector_extension()"
 
 
@@ -143,9 +127,7 @@ def enable_vector_extension() -> None:
 
     connection = context.get_bind()
 
-    result = connection.execute(
-        text("SELECT 1 FROM pg_extension WHERE extname = 'vector'")
-    ).fetchone()
+    result = connection.execute(text("SELECT 1 FROM pg_extension WHERE extname = 'vector'")).fetchone()
 
     if not result:
         connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))

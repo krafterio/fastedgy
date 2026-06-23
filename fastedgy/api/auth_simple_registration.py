@@ -26,9 +26,7 @@ async def register_user(
 
     existing_user = await user_model.query.filter(email=user_data.email).first()
     if existing_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
 
     hashed_password = hash_password(user_data.password)
     user = user_model(

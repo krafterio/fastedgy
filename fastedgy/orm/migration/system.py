@@ -63,9 +63,7 @@ def _remove_system_objects_operations(context, ops):
                 # If ModifyTableOps becomes empty, mark for removal
                 if not op.ops:
                     should_remove = True
-        elif isinstance(
-            op, (DropViewOperation, CreateViewOperation, ReplaceViewOperation)
-        ):
+        elif isinstance(op, (DropViewOperation, CreateViewOperation, ReplaceViewOperation)):
             if hasattr(op, "name") and op.name in extension_objects:
                 should_remove = True
         elif hasattr(op, "ops"):

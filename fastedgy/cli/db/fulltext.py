@@ -7,9 +7,7 @@ from fastedgy import cli
 
 
 @cli.command(name="fulltext-reindex")
-@cli.option(
-    "--model", default=None, help="API name of the model to reindex (e.g. 'task')"
-)
+@cli.option("--model", default=None, help="API name of the model to reindex (e.g. 'task')")
 @cli.option("--locale", default=None, help="Specific locale to reindex (e.g. 'fr')")
 @cli.option(
     "--filter",
@@ -97,12 +95,8 @@ async def fulltext_reindex(model, locale, filter_json, batch_size=500):
             sql = text(f"UPDATE {tablename} SET {column_name} = {tsvector_expr}")
 
             # Count total
-            count_result = await model_cls.meta.registry.database.fetch_val(
-                text(f"SELECT count(*) FROM {tablename}")
-            )
-            cli.echo(
-                f"[{model_cls.__name__}/{loc}] Reindexing {count_result} records..."
-            )
+            count_result = await model_cls.meta.registry.database.fetch_val(text(f"SELECT count(*) FROM {tablename}"))
+            cli.echo(f"[{model_cls.__name__}/{loc}] Reindexing {count_result} records...")
 
             await model_cls.meta.registry.database.execute(sql)
 

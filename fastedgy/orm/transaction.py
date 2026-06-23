@@ -28,9 +28,7 @@ _RETRYABLE_SQLSTATES = frozenset({"40001", "40P01"})
 # savepoint. Only the outermost call can therefore retry meaningfully; nested
 # ones run once and let the root replay the entire unit. Task-local (ContextVar)
 # so concurrent requests/workers never see each other's flag.
-_in_retrying_transaction: ContextVar[bool] = ContextVar(
-    "fastedgy_in_retrying_transaction", default=False
-)
+_in_retrying_transaction: ContextVar[bool] = ContextVar("fastedgy_in_retrying_transaction", default=False)
 
 
 # Driver/dialect message fragments identifying a dead or dropped connection.
@@ -141,9 +139,7 @@ async def with_transaction(
         for attempt in range(retries + 1):
             try:
                 tx = (
-                    db.transaction(isolation_level=isolation_level)
-                    if isolation_level is not None
-                    else db.transaction()
+                    db.transaction(isolation_level=isolation_level) if isolation_level is not None else db.transaction()
                 )
                 async with tx:
                     return await factory()
@@ -196,9 +192,7 @@ async def retry_on_serialization(
         try:
             return await op()
         except DBAPIError as e:
-            retryable = is_serialization_error(e) or (
-                retry_on_disconnect and is_disconnect_error(e)
-            )
+            retryable = is_serialization_error(e) or (retry_on_disconnect and is_disconnect_error(e))
             if not retryable or attempt == max_attempts - 1:
                 raise
             delay = base_delay * (2**attempt) + random.uniform(0, base_delay)
@@ -225,9 +219,7 @@ def transaction(
     retries: int = ...,
     base_delay: float = ...,
     isolation_level: str | None = ...,
-) -> Callable[
-    [Callable[..., Coroutine[Any, Any, T]]], Callable[..., Coroutine[Any, Any, T]]
-]: ...
+) -> Callable[[Callable[..., Coroutine[Any, Any, T]]], Callable[..., Coroutine[Any, Any, T]]]: ...
 
 
 def transaction(

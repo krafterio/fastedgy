@@ -20,9 +20,7 @@ def process_postgis_revision_directives(context, revision, directives):
     postgis_operations_found = _check_for_postgis_operations(upgrade_ops.ops)
 
     if postgis_operations_found:
-        directives[0].imports.add(
-            "from fastedgy.orm.migration import enable_postgis_extension"
-        )
+        directives[0].imports.add("from fastedgy.orm.migration import enable_postgis_extension")
         directives[0].imports.add("import fastedgy")
 
         upgrade_ops.ops.insert(0, EnablePostGISExtensionOperation())
@@ -41,17 +39,9 @@ def _check_for_postgis_operations(ops):
                 if _is_postgis_column(column):
                     return True
         elif isinstance(op, AlterColumnOp):
-            if (
-                hasattr(op, "modify_type")
-                and op.modify_type
-                and _is_postgis_type(op.modify_type)
-            ):
+            if hasattr(op, "modify_type") and op.modify_type and _is_postgis_type(op.modify_type):
                 return True
-            if (
-                hasattr(op, "existing_type")
-                and op.existing_type
-                and _is_postgis_type(op.existing_type)
-            ):
+            if hasattr(op, "existing_type") and op.existing_type and _is_postgis_type(op.existing_type):
                 return True
         elif hasattr(op, "ops"):
             if _check_for_postgis_operations(op.ops):
@@ -106,30 +96,22 @@ class DisablePostGISExtensionOperation(MigrateOperation):
 
 
 @Operations.implementation_for(EnablePostGISExtensionOperation)
-def enable_postgis_extension_impl(
-    operations, operation: EnablePostGISExtensionOperation
-) -> None:
+def enable_postgis_extension_impl(operations, operation: EnablePostGISExtensionOperation) -> None:
     enable_postgis_extension()
 
 
 @Operations.implementation_for(DisablePostGISExtensionOperation)
-def disable_postgis_extension_impl(
-    operations, operation: DisablePostGISExtensionOperation
-) -> None:
+def disable_postgis_extension_impl(operations, operation: DisablePostGISExtensionOperation) -> None:
     disable_postgis_extension()
 
 
 @renderers.dispatch_for(EnablePostGISExtensionOperation)
-def render_enable_postgis_extension(
-    _, operation: EnablePostGISExtensionOperation
-) -> str:
+def render_enable_postgis_extension(_, operation: EnablePostGISExtensionOperation) -> str:
     return "enable_postgis_extension()"
 
 
 @renderers.dispatch_for(DisablePostGISExtensionOperation)
-def render_disable_postgis_extension(
-    _, operation: DisablePostGISExtensionOperation
-) -> str:
+def render_disable_postgis_extension(_, operation: DisablePostGISExtensionOperation) -> str:
     return "disable_postgis_extension()"
 
 
@@ -142,9 +124,7 @@ def enable_postgis_extension() -> None:
 
     connection = context.get_bind()
 
-    result = connection.execute(
-        text("SELECT 1 FROM pg_extension WHERE extname = 'postgis'")
-    ).fetchone()
+    result = connection.execute(text("SELECT 1 FROM pg_extension WHERE extname = 'postgis'")).fetchone()
 
     if not result:
         connection.execute(text("CREATE EXTENSION IF NOT EXISTS postgis"))

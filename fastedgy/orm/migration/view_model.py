@@ -18,9 +18,7 @@ from fastedgy.orm.view import TableView
 
 
 @comparators.dispatch_for("schema")
-def compare_view(
-    autogen_context: AutogenContext, upgrade_ops: UpgradeOps, schemas
-) -> None:
+def compare_view(autogen_context: AutogenContext, upgrade_ops: UpgradeOps, schemas) -> None:
     # Define all views from the database
     registry = get_service(Registry)
     db_views = defaultdict()
@@ -49,9 +47,7 @@ def compare_view(
                 "WHERE table_schema=:nspname"
             ),
             {
-                "nspname": autogen_context.dialect.default_schema_name
-                if sch is None
-                else sch,  # type: ignore
+                "nspname": autogen_context.dialect.default_schema_name if sch is None else sch,  # type: ignore
             },
         )
 
@@ -65,9 +61,7 @@ def compare_view(
     for model in registry.models.values():
         if isinstance(model.table, TableView):
             for sch in schemas:
-                schema = (
-                    autogen_context.dialect.default_schema_name if sch is None else sch
-                )  # type: ignore
+                schema = autogen_context.dialect.default_schema_name if sch is None else sch  # type: ignore
                 definition = normalize_sql(
                     str(
                         model.table.selectable.compile(
@@ -103,9 +97,7 @@ def compare_view(
 
         if model_def_for_db != db_def:
             schema, name = key
-            if _check_db_view_difference(
-                autogen_context.connection, name, model_def, db_def, schema
-            ):
+            if _check_db_view_difference(autogen_context.connection, name, model_def, db_def, schema):
                 replace_ops.append(ReplaceViewOperation(name, model_def, db_views[key]))
 
     # Add operations (they will be reordered later by fastedgy_process_revision_directives)
@@ -146,17 +138,13 @@ class DropViewOperation(MigrateOperation):
 
 @Operations.register_operation("replace_view")
 class ReplaceViewOperation(MigrateOperation):
-    def __init__(
-        self, name: str, definition: str, reverse_definition: str | None
-    ) -> None:
+    def __init__(self, name: str, definition: str, reverse_definition: str | None) -> None:
         self.name: str = name
         self.definition: str = definition
         self.reverse_definition: str | None = reverse_definition
 
     @classmethod
-    def replace_view(
-        cls, operations, name: str, definition: str, reverse_definition: str
-    ) -> None:
+    def replace_view(cls, operations, name: str, definition: str, reverse_definition: str) -> None:
         operations.invoke(cls(name, definition, reverse_definition))
 
     def reverse(self) -> MigrateOperation:
@@ -176,9 +164,7 @@ def drop_view(operations, operation: DropViewOperation) -> None:
 @Operations.implementation_for(ReplaceViewOperation)
 def replace_view(operations, operation: ReplaceViewOperation) -> None:
     operations.execute(f"DROP VIEW IF EXISTS {operation.name} CASCADE")
-    operations.execute(
-        f"CREATE OR REPLACE VIEW {operation.name} AS {operation.definition}"
-    )
+    operations.execute(f"CREATE OR REPLACE VIEW {operation.name} AS {operation.definition}")
 
 
 @renderers.dispatch_for(CreateViewOperation)
@@ -196,11 +182,7 @@ def render_drop_view(_, operation: DropViewOperation) -> str:
 @renderers.dispatch_for(ReplaceViewOperation)
 def render_replace_view(_, operation: ReplaceViewOperation) -> str:
     escaped_definition = operation.definition.replace("'", "\\'")
-    escaped_reverse = (
-        operation.reverse_definition.replace("'", "\\'")
-        if operation.reverse_definition
-        else ""
-    )
+    escaped_reverse = operation.reverse_definition.replace("'", "\\'") if operation.reverse_definition else ""
     return f"op.replace_view('{operation.name}', '''{escaped_definition}''', '''{escaped_reverse}''')"
 
 
@@ -230,9 +212,7 @@ def normalize_sql(sql: str, clean_null_cast: bool = False) -> str:
         formatted,
     )
     formatted = re.sub(r"varchar(\([0-9]+\))?", "", formatted, flags=re.IGNORECASE)
-    formatted = re.sub(
-        r"character varying(\([0-9]+\))?", "", formatted, flags=re.IGNORECASE
-    )
+    formatted = re.sub(r"character varying(\([0-9]+\))?", "", formatted, flags=re.IGNORECASE)
     # Normalize `!=` to `<>` (PG canonicalizes to `<>`)
     formatted = formatted.replace("!=", "<>")
     # Strip quotes around simple lowercase identifiers (PG quotes reserved keywords
@@ -268,9 +248,7 @@ def normalize_sql(sql: str, clean_null_cast: bool = False) -> str:
     formatted = _strip_single_table_qualifiers(formatted)
 
     if clean_null_cast:
-        formatted = re.sub(
-            r"cast\s*\(\s*null\s+as\s+[^)]+\)", "null", formatted, flags=re.IGNORECASE
-        )
+        formatted = re.sub(r"cast\s*\(\s*null\s+as\s+[^)]+\)", "null", formatted, flags=re.IGNORECASE)
         # Also remove ::type after NULL
         formatted = re.sub(
             r"\bnull\s*::\s*[a-zA-Z0-9_.\s]+(\s+with\s+time\s+zone)?",
@@ -303,7 +281,9 @@ def _strip_single_table_qualifiers(sql: str) -> str:
     if lowered.count(" from ") > 1:
         return sql
     # multiple comma-separated tables in FROM -> bail
-    from_match = re.search(r"\bfrom\s+(.+?)(?=\s+where\b|\s+group\b|\s+order\b|\s+limit\b|\s+offset\b|\s+having\b|$)", lowered)
+    from_match = re.search(
+        r"\bfrom\s+(.+?)(?=\s+where\b|\s+group\b|\s+order\b|\s+limit\b|\s+offset\b|\s+having\b|$)", lowered
+    )
     if from_match and "," in from_match.group(1):
         return sql
 
@@ -335,9 +315,7 @@ def process_view_model_revision_directives(context, revision, directives) -> Non
         _reorder_view_model_operations(directives[0].downgrade_ops, reverse=True)
 
 
-def _reorder_view_model_operations(
-    upgrade_ops: UpgradeOps, reverse: bool = False
-) -> None:
+def _reorder_view_model_operations(upgrade_ops: UpgradeOps, reverse: bool = False) -> None:
     """
     Reorder operations to ensure view operations are in the correct order.
 
@@ -386,9 +364,7 @@ def _remove_redundant_aliases(match):
     return match.group(0)
 
 
-def _check_db_view_difference(
-    connection, view_name: str, model_def: str, db_def: str, schema: str = "public"
-) -> bool:
+def _check_db_view_difference(connection, view_name: str, model_def: str, db_def: str, schema: str = "public") -> bool:
     """
     Check if a view definition is different from the database view.
 

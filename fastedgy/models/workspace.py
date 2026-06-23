@@ -40,10 +40,7 @@ class BaseWorkspace(BaseModel):
         if BaseWorkspace.Meta.model_name == cls.__name__:
             return
 
-        raise RuntimeError(
-            f"Multiple workspace models detected: "
-            f"{BaseWorkspace.Meta.model_name} and {cls.__name__}"
-        )
+        raise RuntimeError(f"Multiple workspace models detected: {BaseWorkspace.Meta.model_name} and {cls.__name__}")
 
     name: str | None = fields.CharField(max_length=255, null=True, label="Nom")  # type: ignore
     slug: str | None = fields.CharField(max_length=32, unique=True, label="Slug")  # type: ignore

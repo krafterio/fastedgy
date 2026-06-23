@@ -91,9 +91,7 @@ class QueueWorkerManager:
             "polling_cycles": 0,
         }
 
-    async def start_workers(
-        self, max_workers: Optional[int] = None, no_scheduler: bool = False
-    ) -> None:
+    async def start_workers(self, max_workers: Optional[int] = None, no_scheduler: bool = False) -> None:
         """
         Start the worker manager system
 
@@ -133,9 +131,7 @@ class QueueWorkerManager:
         # (separate DB connection to avoid transaction conflicts)
         try:
             await self.config.init_manager_registry()
-            logger.info(
-                "Manager registry initialized with dedicated database connection"
-            )
+            logger.info("Manager registry initialized with dedicated database connection")
         except Exception as e:
             self.is_running = False
             logger.error(f"Failed to initialize manager registry: {e}")
@@ -152,9 +148,7 @@ class QueueWorkerManager:
             try:
                 await self.config.close_manager_registry()
             except Exception as close_err:
-                logger.error(
-                    f"Error closing manager registry after failed startup: {close_err}"
-                )
+                logger.error(f"Error closing manager registry after failed startup: {close_err}")
             raise
 
         # Liveness signal available as early as possible for healthchecks
@@ -168,22 +162,16 @@ class QueueWorkerManager:
 
         # Start all manager tasks
         self.manager_tasks = [
-            asyncio.create_task(
-                self._notification_listener(), name="notification_listener"
-            ),
+            asyncio.create_task(self._notification_listener(), name="notification_listener"),
             asyncio.create_task(self._fallback_polling(), name="fallback_polling"),
-            asyncio.create_task(
-                self._cleanup_idle_workers(), name="cleanup_idle_workers"
-            ),
+            asyncio.create_task(self._cleanup_idle_workers(), name="cleanup_idle_workers"),
             asyncio.create_task(self._heartbeat_task(), name="heartbeat_task"),
         ]
 
         # Conditionally start CronScheduler
         if not no_scheduler:
             self.cron_scheduler = CronScheduler()
-            self.manager_tasks.append(
-                asyncio.create_task(self.cron_scheduler.run(), name="cron_scheduler")
-            )
+            self.manager_tasks.append(asyncio.create_task(self.cron_scheduler.run(), name="cron_scheduler"))
         else:
             logger.info("CronScheduler disabled (--no-scheduler)")
 
@@ -199,12 +187,7 @@ class QueueWorkerManager:
 
             # Wait for either all manager tasks to complete or shutdown signal
             done, pending = await asyncio.wait(
-                self.manager_tasks
-                + [
-                    asyncio.create_task(
-                        self.shutdown_event.wait(), name="shutdown_event_wait"
-                    )
-                ],
+                self.manager_tasks + [asyncio.create_task(self.shutdown_event.wait(), name="shutdown_event_wait")],
                 return_when=asyncio.FIRST_COMPLETED,
             )
 
@@ -219,15 +202,11 @@ class QueueWorkerManager:
                 exc = task.exception()
                 if exc is not None:
                     logger.error(
-                        f"Manager task '{task.get_name()}' died unexpectedly, "
-                        f"shutting down manager: {exc!r}",
+                        f"Manager task '{task.get_name()}' died unexpectedly, shutting down manager: {exc!r}",
                         exc_info=exc,
                     )
                 elif not self.shutdown_event.is_set():
-                    logger.error(
-                        f"Manager task '{task.get_name()}' completed "
-                        f"unexpectedly, shutting down manager"
-                    )
+                    logger.error(f"Manager task '{task.get_name()}' completed unexpectedly, shutting down manager")
 
             # Cancel pending tasks
             for task in pending:
@@ -271,18 +250,12 @@ class QueueWorkerManager:
                         "WHERE id = :id AND state = 'doing'::queuedtaskstate"
                     )
                     await self._bounded_stop_write(
-                        self.database.execute(
-                            sql.bindparams(id=worker.current_task.id)
-                        ),
+                        self.database.execute(sql.bindparams(id=worker.current_task.id)),
                         f"mark task {worker.current_task.id} stopped",
                     )
-                    logger.info(
-                        f"Marked task {worker.current_task.id} as stopped (graceful shutdown)"
-                    )
+                    logger.info(f"Marked task {worker.current_task.id} as stopped (graceful shutdown)")
                 except Exception as e:
-                    logger.error(
-                        f"Failed to mark task {worker.current_task.id} as stopped: {e}"
-                    )
+                    logger.error(f"Failed to mark task {worker.current_task.id} as stopped: {e}")
 
         # Cancel all manager tasks
         for task in self.manager_tasks:
@@ -304,9 +277,7 @@ class QueueWorkerManager:
         # Close manager registry database connection (bounded: the config's
         # try/finally resets its refs even when the disconnect is abandoned)
         try:
-            await self._bounded_stop_write(
-                self.config.close_manager_registry(), "close manager registry"
-            )
+            await self._bounded_stop_write(self.config.close_manager_registry(), "close manager registry")
             logger.debug("Manager registry closed")
         except Exception as e:
             logger.error(f"Error closing manager registry: {e}")
@@ -317,9 +288,7 @@ class QueueWorkerManager:
         # Reduce noisy SQLAlchemy termination logs during engine dispose
         try:
             logging.getLogger("sqlalchemy.pool.base").setLevel(logging.CRITICAL)
-            logging.getLogger("sqlalchemy.dialects.postgresql.asyncpg").setLevel(
-                logging.CRITICAL
-            )
+            logging.getLogger("sqlalchemy.dialects.postgresql.asyncpg").setLevel(logging.CRITICAL)
         except Exception:
             pass
 
@@ -330,9 +299,7 @@ class QueueWorkerManager:
         settings = get_service(BaseSettings)
 
         if settings.queued_task_log_level is not None:
-            target_level = getattr(
-                logging, settings.queued_task_log_level.value.upper()
-            )
+            target_level = getattr(logging, settings.queued_task_log_level.value.upper())
         else:
             root_level = logging.getLogger().level
 
@@ -371,9 +338,7 @@ class QueueWorkerManager:
             return
 
         channel = self.config.notify_channel
-        logger.info(
-            f"Starting PostgreSQL notification listener on channel '{channel}'"
-        )
+        logger.info(f"Starting PostgreSQL notification listener on channel '{channel}'")
 
         def on_notify(connection, pid, ch, payload):  # type: ignore[no-untyped-def]
             try:
@@ -393,25 +358,19 @@ class QueueWorkerManager:
                 pg_conn = await self._create_listen_connection()
                 await pg_conn.add_listener(channel, on_notify)
                 backoff = 1.0  # reset after a successful (re)registration
-                logger.info(
-                    f"Notification listener registered on channel '{channel}'"
-                )
+                logger.info(f"Notification listener registered on channel '{channel}'")
 
                 # Wait for shutdown, waking up periodically to verify the
                 # LISTEN connection is still alive (no busy-wait).
                 while not self.shutdown_event.is_set():
                     try:
-                        await asyncio.wait_for(
-                            self.shutdown_event.wait(), timeout=5.0
-                        )
+                        await asyncio.wait_for(self.shutdown_event.wait(), timeout=5.0)
                     except asyncio.TimeoutError:
                         pass
                     if self.shutdown_event.is_set():
                         break
                     if pg_conn.is_closed():
-                        raise ConnectionError(
-                            "LISTEN connection closed by the server"
-                        )
+                        raise ConnectionError("LISTEN connection closed by the server")
                     # Active probe: is_closed() only learns about a death via
                     # a TCP event — a half-open connection (idle NAT/firewall
                     # cut, partition without RST) stays "open" for hours and
@@ -422,9 +381,7 @@ class QueueWorkerManager:
                     except asyncio.CancelledError:
                         raise
                     except Exception as probe_err:
-                        raise ConnectionError(
-                            f"LISTEN connection unresponsive: {probe_err!r}"
-                        )
+                        raise ConnectionError(f"LISTEN connection unresponsive: {probe_err!r}")
             except asyncio.CancelledError:
                 raise
             except Exception as e:
@@ -490,9 +447,7 @@ class QueueWorkerManager:
 
     async def _fallback_polling(self) -> None:
         """Fallback polling to ensure no tasks are missed"""
-        logger.info(
-            f"Starting fallback polling every {self.config.fallback_polling_interval}s"
-        )
+        logger.info(f"Starting fallback polling every {self.config.fallback_polling_interval}s")
 
         while self.is_running:
             try:
@@ -592,9 +547,7 @@ class QueueWorkerManager:
                 # Channels that exhausted their per-container capacity (a
                 # missing Counter key reads as 0 without inserting it).
                 excluded_channels = [
-                    name
-                    for name, capacity in self.config.channels.items()
-                    if self._channel_running[name] >= capacity
+                    name for name, capacity in self.config.channels.items() if self._channel_running[name] >= capacity
                 ]
 
                 from sqlalchemy import text
@@ -627,9 +580,7 @@ class QueueWorkerManager:
 
                 async def _do_claim():
                     # Short transaction with lower isolation to reduce conflicts
-                    async with self.database.transaction(
-                        isolation_level="READ COMMITTED"
-                    ):
+                    async with self.database.transaction(isolation_level="READ COMMITTED"):
                         return await self.database.fetch_one(
                             sql.bindparams(
                                 server_name=self.server_name,
@@ -647,8 +598,7 @@ class QueueWorkerManager:
                     # auto-retry budget).
                     claim_job.cancel()
                     logger.error(
-                        "Claim query did not complete within 15s — abandoning "
-                        "this claim round (polling will retry)"
+                        "Claim query did not complete within 15s — abandoning this claim round (polling will retry)"
                     )
                     return None
                 row = claim_job.result()
@@ -677,9 +627,7 @@ class QueueWorkerManager:
         # treats None as "nothing to process" — release it back to 'enqueued'.
         QueuedTask = cast(type["QueuedTask"], self.registry.get_model("QueuedTask"))
         try:
-            task = await QueuedTask.query.filter(
-                QueuedTask.columns.id == claimed_id
-            ).get_or_none()
+            task = await QueuedTask.query.filter(QueuedTask.columns.id == claimed_id).get_or_none()
         except asyncio.CancelledError:
             # Cancellation between claim commit and model load (shutdown
             # teardown of a fire-and-forget _process_pending_tasks):
@@ -715,9 +663,7 @@ class QueueWorkerManager:
         else:
             self._channel_running[channel] -= 1
 
-    async def _release_channel_when_thread_ends(
-        self, finished: asyncio.Event, task: "QueuedTask"
-    ) -> None:
+    async def _release_channel_when_thread_ends(self, finished: asyncio.Event, task: "QueuedTask") -> None:
         """Hold a timed-out sync task's channel slot until its thread ends.
 
         asyncio cannot kill the executor thread of a sync task that hit
@@ -732,10 +678,7 @@ class QueueWorkerManager:
         """
         await finished.wait()
         self._channel_release(task)
-        logger.info(
-            f"Channel slot of timed-out sync task {task.id} released "
-            f"(executor thread finished)"
-        )
+        logger.info(f"Channel slot of timed-out sync task {task.id} released (executor thread finished)")
         if self.is_running:
             proc_task = asyncio.create_task(self._process_pending_tasks())
             self._notify_tasks.add(proc_task)
@@ -758,9 +701,7 @@ class QueueWorkerManager:
                 "WHERE id = :id AND state = 'doing'::queuedtaskstate"
             )
             await self.database.execute(sql.bindparams(id=task_id))
-            logger.warning(
-                f"Released claimed task {task_id} back to 'enqueued' after load failure"
-            )
+            logger.warning(f"Released claimed task {task_id} back to 'enqueued' after load failure")
         except Exception as release_err:
             logger.error(f"Failed to release claimed task {task_id}: {release_err}")
 
@@ -795,9 +736,7 @@ class QueueWorkerManager:
             "WHERE state = 'doing'::queuedtaskstate AND claimed_by = :self_name "
             "RETURNING id"
         )
-        rows = await self.database.fetch_all(
-            own_sql.bindparams(self_name=self.server_name)
-        )
+        rows = await self.database.fetch_all(own_sql.bindparams(self_name=self.server_name))
         if rows:
             ids = [row[0] for row in rows]
             logger.warning(
@@ -887,10 +826,7 @@ class QueueWorkerManager:
         rows = await self.database.fetch_all(dead_owner_sql)
         if rows:
             ids = [row[0] for row in rows]
-            logger.warning(
-                f"Recovered {len(ids)} 'doing' task(s) whose owner is dead, "
-                f"re-enqueued: {ids}"
-            )
+            logger.warning(f"Recovered {len(ids)} 'doing' task(s) whose owner is dead, re-enqueued: {ids}")
 
         # (2) Timeout-stale 'doing' rows → reaped. Being reaped means infra
         # trouble (the worker couldn't even record the failure — e.g. its
@@ -917,9 +853,7 @@ class QueueWorkerManager:
             "RETURNING id"
         )
         rows = await self.database.fetch_all(
-            retry_sql.bindparams(
-                stale_after=stale_after, default_max=default_max_retries
-            )
+            retry_sql.bindparams(stale_after=stale_after, default_max=default_max_retries)
         )
         if rows:
             ids = [row[0] for row in rows]
@@ -944,9 +878,7 @@ class QueueWorkerManager:
             "  AND retry_count >= COALESCE(max_retries, :default_max) "
             "RETURNING id"
         )
-        rows = await self.database.fetch_all(
-            sql.bindparams(stale_after=stale_after, default_max=default_max_retries)
-        )
+        rows = await self.database.fetch_all(sql.bindparams(stale_after=stale_after, default_max=default_max_retries))
         if rows:
             ids = [row[0] for row in rows]
             logger.warning(
@@ -974,9 +906,7 @@ class QueueWorkerManager:
                 new_state = QueuedTaskState.failed
                 exception_name: Optional[str] = "ParentTaskFailed"
                 exception_message: Optional[str] = f"Parent task {parent_id} failed"
-                exception_info: Optional[str] = (
-                    f"Parent task '{parent_name}' failed, cascading to descendants"
-                )
+                exception_info: Optional[str] = f"Parent task '{parent_name}' failed, cascading to descendants"
             else:
                 new_state = QueuedTaskState.cancelled
                 exception_name = None
@@ -997,8 +927,7 @@ class QueueWorkerManager:
                 )
             except Exception as e:
                 logger.error(
-                    f"Error cascading {parent_state} from parent {parent_id} "
-                    f"to descendants (root {child_id}): {e}"
+                    f"Error cascading {parent_state} from parent {parent_id} to descendants (root {child_id}): {e}"
                 )
 
         # (4) Dead queued_task_workers rows: the heartbeat beats every 30s,
@@ -1014,14 +943,10 @@ class QueueWorkerManager:
             "  AND server_name != :self_name "
             "RETURNING server_name"
         )
-        dead = await self.database.fetch_all(
-            workers_sql.bindparams(self_name=self.server_name)
-        )
+        dead = await self.database.fetch_all(workers_sql.bindparams(self_name=self.server_name))
         if dead:
             names = [row[0] for row in dead]
-            logger.warning(
-                f"Removed {len(names)} dead queue worker row(s) (stale heartbeat): {names}"
-            )
+            logger.warning(f"Removed {len(names)} dead queue worker row(s) (stale heartbeat): {names}")
 
     async def _purge_expired_tasks(self) -> None:
         """Hourly purge of terminal tasks past the retention window.
@@ -1042,10 +967,7 @@ class QueueWorkerManager:
             return
 
         now = time.monotonic()
-        if (
-            self._last_retention_purge is not None
-            and now - self._last_retention_purge < 3600
-        ):
+        if self._last_retention_purge is not None and now - self._last_retention_purge < 3600:
             return
         self._last_retention_purge = now
 
@@ -1064,10 +986,7 @@ class QueueWorkerManager:
         )
         rows = await self.database.fetch_all(sql.bindparams(days=retention_days))
         if rows:
-            logger.info(
-                f"Retention purge: removed {len(rows)} terminal task(s) "
-                f"older than {retention_days} day(s)"
-            )
+            logger.info(f"Retention purge: removed {len(rows)} terminal task(s) older than {retention_days} day(s)")
 
     async def _cascade_to_descendants(
         self,
@@ -1110,10 +1029,7 @@ class QueueWorkerManager:
             Number of rows actually updated (root included).
         """
         if new_state not in (QueuedTaskState.failed, QueuedTaskState.cancelled):
-            raise ValueError(
-                f"_cascade_to_descendants requires failed or cancelled, "
-                f"got {new_state}"
-            )
+            raise ValueError(f"_cascade_to_descendants requires failed or cancelled, got {new_state}")
 
         from sqlalchemy import text
 
@@ -1226,9 +1142,7 @@ class QueueWorkerManager:
                 logger.info(f"Task {task.id} completed by worker {worker.worker_id}")
             else:
                 self.stats["tasks_failed"] += 1
-                logger.error(
-                    f"Task {task.id} failed in worker {worker.worker_id}: {result.get('error')}"
-                )
+                logger.error(f"Task {task.id} failed in worker {worker.worker_id}: {result.get('error')}")
 
         except Exception as e:
             self.stats["tasks_failed"] += 1
@@ -1247,9 +1161,7 @@ class QueueWorkerManager:
                     f"is still running — holding its channel slot until the "
                     f"thread finishes"
                 )
-                asyncio.create_task(
-                    self._release_channel_when_thread_ends(pending_sync, task)
-                )
+                asyncio.create_task(self._release_channel_when_thread_ends(pending_sync, task))
             else:
                 self._channel_release(task)
             # Return worker to pool
@@ -1266,9 +1178,7 @@ class QueueWorkerManager:
 
         uptime = None
         if self.stats["started_at"]:
-            uptime = (
-                datetime.now(context.get_timezone()) - self.stats["started_at"]
-            ).total_seconds()
+            uptime = (datetime.now(context.get_timezone()) - self.stats["started_at"]).total_seconds()
 
         return {
             "is_running": self.is_running,
@@ -1335,9 +1245,7 @@ class QueueWorkerManager:
         signal.signal(signal.SIGTERM, signal_handler)
         logger.debug("Signal handlers setup for graceful shutdown")
 
-    async def _bounded_stop_write(
-        self, coro: Any, label: str, timeout: float = 5.0
-    ) -> Any:
+    async def _bounded_stop_write(self, coro: Any, label: str, timeout: float = 5.0) -> Any:
         """Run a shutdown-path DB operation with a hard deadline.
 
         A TCP-black-holed database at SIGTERM time would otherwise hang the
@@ -1351,9 +1259,7 @@ class QueueWorkerManager:
         if not done:
             task.cancel()  # deliberate abandon — do NOT await, see docstring
             task.add_done_callback(lambda t: t.cancelled() or t.exception())
-            logger.error(
-                f"Shutdown DB write timed out after {timeout}s ({label}), abandoned"
-            )
+            logger.error(f"Shutdown DB write timed out after {timeout}s ({label}), abandoned")
             return None
         return task.result()
 
@@ -1375,9 +1281,7 @@ class QueueWorkerManager:
             try:
                 from sqlalchemy import text
 
-                sql = text(
-                    "DELETE FROM queued_task_workers WHERE server_name = :name"
-                )
+                sql = text("DELETE FROM queued_task_workers WHERE server_name = :name")
                 await self._bounded_stop_write(
                     self.database.execute(sql.bindparams(name=self.server_name)),
                     "unregister server",
@@ -1418,9 +1322,7 @@ class QueueWorkerManager:
                     busy_workers = len(self.worker_pool.busy_workers)
                     idle_workers = self.worker_pool.idle_workers.qsize()
 
-                    self.worker_status_record.update_stats(
-                        active=busy_workers, idle=idle_workers, is_running=True
-                    )
+                    self.worker_status_record.update_stats(active=busy_workers, idle=idle_workers, is_running=True)
                     # Retry on serialization conflicts (databasez defaults to
                     # SERIALIZABLE): a missed beat shrinks the liveness window
                     # used by stats and the boot-recovery guard. Hard deadline
@@ -1434,13 +1336,10 @@ class QueueWorkerManager:
                         )
                     except asyncio.TimeoutError:
                         logger.warning(
-                            "Heartbeat DB write timed out (20s); skipping this "
-                            "beat — health file stays liveness-only"
+                            "Heartbeat DB write timed out (20s); skipping this beat — health file stays liveness-only"
                         )
 
-                    logger.debug(
-                        f"Heartbeat: {busy_workers} active, {idle_workers} idle workers"
-                    )
+                    logger.debug(f"Heartbeat: {busy_workers} active, {idle_workers} idle workers")
 
             except asyncio.CancelledError:
                 logger.debug("Heartbeat task cancelled")
@@ -1459,16 +1358,13 @@ class QueueWorkerManager:
                 registry.get_model("QueuedTaskWorker"),
             )
             alive_servers = await QueuedTaskWorker.query.filter(
-                QueuedTaskWorker.columns.last_heartbeat
-                >= datetime.now(context.get_timezone()) - timedelta(minutes=2),
+                QueuedTaskWorker.columns.last_heartbeat >= datetime.now(context.get_timezone()) - timedelta(minutes=2),
                 QueuedTaskWorker.columns.is_running == True,
             ).all()
 
             total_servers = len(alive_servers)
             total_max_workers = sum(server.max_workers for server in alive_servers)
-            total_active_workers = sum(
-                server.active_workers for server in alive_servers
-            )
+            total_active_workers = sum(server.active_workers for server in alive_servers)
             total_idle_workers = sum(server.idle_workers for server in alive_servers)
 
             return {

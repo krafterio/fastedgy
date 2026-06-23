@@ -73,9 +73,7 @@ def merge_filters(*filters: Filter) -> FilterCondition | None:
     return And(*parsed_filters)
 
 
-def add_prefix_on_fields(
-    field_prefix: str, filters: list | FilterTuple | None
-) -> FilterTuple | None:
+def add_prefix_on_fields(field_prefix: str, filters: list | FilterTuple | None) -> FilterTuple | None:
     from fastedgy.orm.filter.parser import parse_filter_input_array_to_tuple
 
     if not filters:
@@ -158,9 +156,7 @@ def _has_duplicating_relation_filter(model_cls: Any, filters: Filter | None) -> 
         return False
 
     if isinstance(filters, FilterCondition):
-        return any(
-            _has_duplicating_relation_filter(model_cls, rule) for rule in filters.rules
-        )
+        return any(_has_duplicating_relation_filter(model_cls, rule) for rule in filters.rules)
 
     return False
 

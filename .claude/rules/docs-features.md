@@ -1,10 +1,3 @@
----
-description: Process and conventions for writing FastEdgy feature documentation
-globs:
-  - "docs/features/**/*.md"
-alwaysApply: true
----
-
 # FastEdgy Documentation Writing Rules
 
 ## Documentation Process for Features

@@ -1,11 +1,3 @@
----
-description: General documentation writing conventions for FastEdgy project
-globs:
-  - "docs/**/*.md"
-  - "*.md"
-alwaysApply: true
----
-
 # FastEdgy Documentation Rules
 
 ## General Writing Conventions

@@ -5,7 +5,6 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Optional
 
-from fastedgy.dependencies import Inject
 import rich_click as click
 
 from fastedgy.config import BaseSettings, get_service

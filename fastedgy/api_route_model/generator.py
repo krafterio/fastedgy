@@ -15,7 +15,6 @@ from fastedgy.api_route_model.registry import (
     ADMIN_ROUTE_MODEL_REGISTRY_TOKEN,
     RouteModelActionOptions,
     RouteModelOptions,
-    RouteModelOptionsValue,
     RouteModelRegistry,
 )
 from fastedgy.api_route_model.action import ApiRouteActionRegistry

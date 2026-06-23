@@ -1,7 +1,7 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import Any, get_args, cast
+from typing import get_args, cast
 import json
 from urllib.parse import unquote
 

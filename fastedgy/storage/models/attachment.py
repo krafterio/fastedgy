@@ -7,7 +7,7 @@ import contextlib
 
 from fastedgy.models.base import BaseModel
 from fastedgy.i18n import _ts, _t
-from fastedgy.orm import Model, Registry, fields
+from fastedgy.orm import Registry, fields
 from fastedgy.orm.signals import (
     pre_save,
     pre_update,
@@ -227,7 +227,6 @@ async def on_post_update(sender: Any, instance: Any, model_instance: Any, **kwar
         # load node with updated DB values
         node = await Attachment.query.get(id=att_id)
         old_path: str = meta["old_path"]
-        old_pi: list[int] = meta["old_pi"]
 
         # compute new prefix
         if new_parent_id is not None:

@@ -1,7 +1,6 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from enum import Enum
 from typing import Any, TypeVar
 from datetime import datetime
 

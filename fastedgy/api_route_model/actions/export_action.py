@@ -21,7 +21,6 @@ from fastedgy.api_route_model.registry import (
 from fastedgy.api_route_model.view_transformer import (
     BaseViewTransformer,
     PrePaginateViewTransformer,
-    PostPaginateViewTransformer,
     PreExportTransformer,
     PostExportTransformer,
 )

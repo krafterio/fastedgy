@@ -8,8 +8,6 @@ from sqlalchemy import (
     select as sa_select,
     literal_column,
     text,
-    func,
-    column as sa_column,
 )
 
 from fastedgy.orm import Model

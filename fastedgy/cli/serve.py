@@ -100,7 +100,7 @@ def serve(
         http_workers_display = str(http_workers)
 
     if http_limit_concurrency is None:
-        http_limit_concurrency_display = f"auto"
+        http_limit_concurrency_display = "auto"
     else:
         http_limit_concurrency_display = str(http_limit_concurrency)
 

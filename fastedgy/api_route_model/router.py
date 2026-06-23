@@ -2,7 +2,7 @@
 # MIT License (see LICENSE file).
 
 import logging
-from typing import Type, Callable
+from typing import Type
 
 from fastapi import APIRouter
 from fastedgy.api_route_model.generator import get_all_generated_routers

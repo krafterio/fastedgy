@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import re
-import unicodedata
 
 
 # All Unicode quote characters → normalized to ASCII "

@@ -406,7 +406,7 @@ def _check_db_view_difference(connection, view_name: str, model_def: str, db_def
         try:
             connection.execute(text(f"DROP VIEW IF EXISTS {temp_view_name} CASCADE"))
             connection.commit()
-        except:
+        except Exception:
             pass
 
         return True

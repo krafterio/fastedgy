@@ -35,7 +35,6 @@ from pydantic import (
     AliasChoices,
     AliasGenerator,
     AliasPath,
-    BaseModel,
     create_model,
     AnyUrl,
     AnyHttpUrl,

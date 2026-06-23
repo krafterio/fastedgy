@@ -1,14 +1,22 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from .view_model import *
-from .enum import *
-from .vector import *
-from .postgis import *
-from .unaccent import *
-from .pg_trgm import *
-from .fulltext import *
-from .system import *
+from .view_model import process_view_model_revision_directives
+from .enum import process_enum_revision_directives
+from .vector import (
+    process_vector_revision_directives,
+    enable_vector_extension,
+    disable_vector_extension,
+)
+from .postgis import (
+    process_postgis_revision_directives,
+    enable_postgis_extension,
+    disable_postgis_extension,
+)
+from .unaccent import enable_unaccent_extension, disable_unaccent_extension
+from .pg_trgm import enable_pg_trgm_extension, disable_pg_trgm_extension
+from .fulltext import process_fulltext_revision_directives
+from .system import process_system_objects_revision_directives
 
 
 def fastedgy_process_revision_directives(context, revision, directives):

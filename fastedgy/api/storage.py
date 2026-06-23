@@ -1,7 +1,6 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-import mimetypes
 import re as _re
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, cast
@@ -9,7 +8,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 
-from fastapi import APIRouter, HTTPException, Query, Request, UploadFile, File
+from fastapi import APIRouter, HTTPException, Query, Request, UploadFile
 from fastapi.responses import StreamingResponse
 
 from fastedgy.dependencies import Inject, get_service
@@ -41,7 +40,6 @@ except Exception:
 
 if TYPE_CHECKING:
     from fastedgy.models.base import BaseModel
-    from fastedgy.models.attachment import BaseAttachment
 
 _RANGE_RE = _re.compile(r"bytes=(\d+)-(\d*)")
 

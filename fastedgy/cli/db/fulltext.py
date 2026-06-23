@@ -1,7 +1,6 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-import json
 
 from fastedgy import cli
 
@@ -86,10 +85,8 @@ async def fulltext_reindex(model, locale, filter_json, batch_size=500):
 
             tsvector_expr = " || ".join(tsvector_parts)
 
-            # Build WHERE clause for optional filter
-            where_clause = ""
             if filter_json:
-                cli.echo(f"  Note: --filter is not supported in batch mode, ignoring")
+                cli.echo("  Note: --filter is not supported in batch mode, ignoring")
 
             # Single batch SQL update — no ORM, no workspace filter
             sql = text(f"UPDATE {tablename} SET {column_name} = {tsvector_expr}")

@@ -27,10 +27,6 @@ def create_scheduler_cli_group() -> click.Group:
     """
     from fastedgy.cli import (
         Group,
-        Command,
-        initialize_app,
-        pass_cli_context,
-        CliContext,
     )
 
     @click.group(name="scheduler", cls=Group)

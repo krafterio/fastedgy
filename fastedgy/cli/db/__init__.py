@@ -4,6 +4,7 @@
 from fastedgy import cli
 
 import fastedgy.orm.migration  # noqa: F401
+from fastedgy.cli.db.fulltext import fulltext_reindex
 
 
 @cli.group(name="db")
@@ -20,9 +21,6 @@ cli.register_commands_in_group(
         cli.lifespan,
     ],
 )
-
-# Register fulltext-reindex command
-from fastedgy.cli.db.fulltext import fulltext_reindex
 
 db.add_command(fulltext_reindex)
 

@@ -3,7 +3,7 @@
 
 import io
 import csv
-from datetime import date, datetime
+from datetime import datetime
 from enum import Enum
 from typing import Any, TYPE_CHECKING
 
@@ -286,7 +286,7 @@ async def import_data[M](
     else:
         raise HTTPException(
             status_code=400,
-            detail=f"Unsupported file format. Supported formats: CSV, XLSX, ODS",
+            detail="Unsupported file format. Supported formats: CSV, XLSX, ODS",
         )
 
     if not rows:

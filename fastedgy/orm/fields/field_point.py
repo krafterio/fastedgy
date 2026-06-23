@@ -46,7 +46,6 @@ class Point(UserDefinedType):
 
                     try:
                         data = unhexlify(value)
-                        srid = struct.unpack("<I", data[4:8])[0]
                         lon = struct.unpack("<d", data[9:17])[0]
                         lat = struct.unpack("<d", data[17:25])[0]
                         return (lon, lat)

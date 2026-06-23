@@ -138,9 +138,9 @@ async def refresh_access_token(
 
 @public_router.post("/password/reset")
 async def password_reset(data: ResetPasswordRequest, registry: Registry = Inject(Registry)) -> SimpleMessage:
-    from fastedgy.models.user import BaseUser as User
+    from fastedgy.models.user import BaseUser
 
-    User = cast(type["User"], registry.get_model("User"))
+    User = cast(type[BaseUser], registry.get_model("User"))
 
     user = await User.query.filter(
         User.columns.reset_pwd_token == data.token,
@@ -165,9 +165,9 @@ async def password_forgot(
     registry: Registry = Inject(Registry),
     mail: Mail = Inject(Mail),
 ) -> SimpleMessage:
-    from fastedgy.models.user import BaseUser as User
+    from fastedgy.models.user import BaseUser
 
-    User = cast(type["User"], registry.get_model("User"))
+    User = cast(type[BaseUser], registry.get_model("User"))
     user = await User.query.filter(email=data.email).first()
 
     if not user:
@@ -200,9 +200,9 @@ async def password_validate(
     data: ForgotPasswordValidateRequest,
     registry: Registry = Inject(Registry),
 ) -> ForgotPasswordValidate:
-    from fastedgy.models.user import BaseUser as User
+    from fastedgy.models.user import BaseUser
 
-    User = cast(type["User"], registry.get_model("User"))
+    User = cast(type[BaseUser], registry.get_model("User"))
 
     user = await User.query.filter(
         User.columns.reset_pwd_token == data.token,

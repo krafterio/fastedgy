@@ -4,7 +4,6 @@
 from fastedgy.orm import Model
 from fastedgy.orm.filter.types import (
     InvalidFilterError,
-    FilterRule,
     FilterCondition,
     Filter,
     And,

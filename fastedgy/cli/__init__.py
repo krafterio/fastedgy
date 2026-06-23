@@ -16,11 +16,6 @@ from typing import (
 )
 from typing_extensions import Concatenate, ParamSpec
 
-P = ParamSpec("P")
-R = TypeVar("R")
-T = TypeVar("T")
-A = TypeVar("A")
-
 import asyncio
 import importlib
 import inspect
@@ -114,6 +109,10 @@ from rich_click import get_text_stream as get_text_stream
 from rich_click import open_file as open_file
 
 
+P = ParamSpec("P")
+R = TypeVar("R")
+T = TypeVar("T")
+A = TypeVar("A")
 CmdType = TypeVar("CmdType", bound=click.Command)
 G = TypeVar("G", bound=click.Group)
 

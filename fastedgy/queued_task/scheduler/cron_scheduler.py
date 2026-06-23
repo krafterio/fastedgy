@@ -4,7 +4,6 @@
 import asyncio
 import logging
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING
 
 from cronsim import CronSim
 
@@ -16,9 +15,6 @@ from fastedgy.queued_task.scheduler.registry import (
     ScheduledTaskRegistry,
     ScheduledTaskDef,
 )
-
-if TYPE_CHECKING:
-    from fastedgy.models.queued_task import BaseQueuedTask as QueuedTask
 
 logger = logging.getLogger("queued_task.scheduler")
 

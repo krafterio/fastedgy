@@ -30,7 +30,9 @@ class QueuedTaskWorkerMixin(Model):
             fields.Index(fields=["last_heartbeat"], name="idx_queued_task_workers_heartbeat"),
         ]
 
-    server_name: str = fields.CharField(max_length=255, default=lambda: socket.gethostname(), label="Server Name")
+    server_name: str = fields.CharField(
+        max_length=255, default_factory=lambda: socket.gethostname(), label="Server Name"
+    )
     max_workers: int = fields.IntegerField(default=1, label="Max Workers")
     active_workers: int = fields.IntegerField(default=0, label="Active Workers")
     idle_workers: int = fields.IntegerField(default=0, label="Idle Workers")

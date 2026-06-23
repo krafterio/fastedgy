@@ -2575,6 +2575,9 @@
             "title": "Version"
           }
         },
+        "required": [
+          "server_name"
+        ],
         "title": "QueuedTaskWorkerCreate",
         "type": "object"
       },
@@ -4381,6 +4384,8 @@
           }
         },
         "required": [
+          "server_name",
+          "last_heartbeat",
           "created_at",
           "updated_at"
         ],

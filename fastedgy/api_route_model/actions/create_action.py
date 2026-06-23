@@ -94,7 +94,7 @@ async def create_item_action[M = TypeModel](
         relational_data = {}
         scalar_data = {}
 
-        for key, value in item_data.model_dump(exclude_unset=True).items():
+        for key, value in item_data.model_dump(exclude_unset=True, warnings=False).items():
             field = model_cls.model_fields.get(key)
 
             if isinstance(value, datetime):

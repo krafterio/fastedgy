@@ -97,7 +97,7 @@ def _prepare_group_update(
     if not group_field:
         raise HTTPException(status_code=400, detail="group_field is required")
 
-    if group_field not in model_class.fields:
+    if group_field not in model_class.meta.fields:
         raise HTTPException(status_code=400, detail=f"Field '{group_field}' not found on model")
 
     return {"field": group_field, "value": group_value}
@@ -110,7 +110,7 @@ def _prepare_sequence_update(
     if not sequence_field:
         return None
 
-    if sequence_field not in model_class.fields:
+    if sequence_field not in model_class.meta.fields:
         raise HTTPException(status_code=400, detail=f"Field '{sequence_field}' not found on model")
 
     return {

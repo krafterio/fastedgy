@@ -54,7 +54,7 @@ def _fix_inherited_abstract(cls: type) -> None:
 
 
 class BaseModel(Model):
-    id: int | None = fields.IntegerField(primary_key=True, label="ID")  # type: ignore
+    id: int | None = fields.IntegerField(primary_key=True, autoincrement=True, label="ID")  # type: ignore
     created_at: datetime | None = fields.DateTimeField(
         default_factory=datetime.now, read_only=True, auto_now_add=True, label="Créé le"
     )  # type: ignore

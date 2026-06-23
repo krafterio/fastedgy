@@ -22,7 +22,7 @@ def filter_by_workspace(queryset: QuerySet) -> QuerySet:
     from fastedgy.models.workspace import BaseWorkspace
     from fastedgy.models.workspace_user import BaseWorkspaceUser
 
-    workspace_field = queryset.model_class.fields.get("workspace")
+    workspace_field = queryset.model_class.meta.fields.get("workspace")
 
     if (
         workspace_field

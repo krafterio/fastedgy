@@ -5,8 +5,29 @@ import json
 from copy import copy
 from typing import get_origin, Union, get_args, Any
 
+from pydantic_core import PydanticUndefined
+
 from fastedgy.schemas import create_model
 from fastedgy.api_route_model.registry import TypeModel
+
+
+def _is_json_serializable(value) -> bool:
+    try:
+        json.dumps(value)
+        return True
+    except (TypeError, ValueError):
+        return False
+
+
+def _has_unserializable_default(field) -> bool:
+    factory = getattr(field, "default_factory", None)
+
+    if factory is not None and not _is_json_serializable(factory):
+        return True
+
+    default = getattr(field, "default", PydanticUndefined)
+
+    return default is not PydanticUndefined and not _is_json_serializable(default)
 
 
 def generate_output_model[M = TypeModel](model_cls: M) -> type[M]:
@@ -32,16 +53,12 @@ def generate_output_model[M = TypeModel](model_cls: M) -> type[M]:
                 else:
                     field_type = Union[field_type, dict[str, Any]]
 
-            # Remove default_factory from output schema if not JSON serializable
-            # Required to avoid empty values ​​in API responses in case of a serialization warning
-            if hasattr(field, "default_factory") and field.default_factory is not None:
-                try:
-                    json.dumps(field.default_factory)
-                except (TypeError, ValueError):
-                    # default_factory is not JSON serializable, remove it from output schema
-                    field_to_use = copy(field)
-                    field_to_use.default_factory = None
-                    field_to_use.default = None
+            # Drop non-JSON-serializable defaults (auto_now/auto_now_add render as
+            # functools.partial, default_factory callables, ...) from the output schema
+            if _has_unserializable_default(field):
+                field_to_use = copy(field)
+                field_to_use.default = None
+                field_to_use.default_factory = None
 
             fields[field_name] = (field_type, field_to_use)
         elif is_relation_field(field):

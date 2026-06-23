@@ -12,7 +12,7 @@ from fastedgy.i18n import _ts
 from fastedgy.models.base import BaseModel
 
 if TYPE_CHECKING:
-    from fastedgy.models.queued_task import QueuedTask
+    from fastedgy.models.queued_task import BaseQueuedTask as QueuedTask
 
 
 class QueuedTaskState(fields.ChoiceEnum):

@@ -61,7 +61,7 @@ def _has_unserializable_default(field: BaseFieldType) -> bool:
 @cache
 def generate_output_model[M: BaseModel](model_cls: type[M]) -> type[M]:
     from fastedgy.schemas import Field as PydanticField
-    from fastedgy.api_route_model.action.relations import is_relation_field
+    from fastedgy.api_route_model.action.relations import is_exposed_relation_field
     from edgy.core.db.fields.foreign_keys import ForeignKey
 
     fields = {}
@@ -86,7 +86,7 @@ def generate_output_model[M: BaseModel](model_cls: type[M]) -> type[M]:
                 setattr(field_to_use, "default_factory", None)
 
             fields[field_name] = (field_type, field_to_use)
-        elif is_relation_field(field):
+        elif is_exposed_relation_field(field):
             fields[field_name] = (
                 list[dict[str, Any]] | None,
                 PydanticField(default=None, exclude=False),
@@ -99,7 +99,7 @@ def generate_output_model[M: BaseModel](model_cls: type[M]) -> type[M]:
 def generate_input_create_model[M: BaseModel](model_cls: type[M]) -> type[M]:
     """Generate Pydantic input model for POST with M2M/O2M support."""
     from fastedgy.schemas import Field as PydanticField
-    from fastedgy.api_route_model.action.relations import is_relation_field
+    from fastedgy.api_route_model.action.relations import is_exposed_relation_field
     from edgy.core.db.fields.foreign_keys import ForeignKey
 
     fields = {}
@@ -112,7 +112,7 @@ def generate_input_create_model[M: BaseModel](model_cls: type[M]) -> type[M]:
             continue
 
         # Detect M2M or O2M fields (include them even if excluded)
-        if is_relation_field(field):
+        if is_exposed_relation_field(field):
             # Accept either:
             # - list[int] (simple: [1,2,3] → [["set", [1,2,3]]])
             # - list[list] (advanced: [["create", {...}], ["link", 42]])
@@ -163,7 +163,7 @@ def generate_input_create_model[M: BaseModel](model_cls: type[M]) -> type[M]:
 def generate_input_patch_model[M: BaseModel](model_cls: type[M]) -> type[M]:
     """Generate Pydantic input model for PATCH with M2M/O2M support."""
     from fastedgy.schemas import Field as PydanticField
-    from fastedgy.api_route_model.action.relations import is_relation_field
+    from fastedgy.api_route_model.action.relations import is_exposed_relation_field
     from edgy.core.db.fields.foreign_keys import ForeignKey
 
     fields = {}
@@ -176,7 +176,7 @@ def generate_input_patch_model[M: BaseModel](model_cls: type[M]) -> type[M]:
             continue
 
         # Detect M2M or O2M fields (include them even if excluded)
-        if is_relation_field(field):
+        if is_exposed_relation_field(field):
             # Accept either:
             # - list[int] (simple: [1,2,3] → [["set", [1,2,3]]])
             # - list[list] (advanced: [["clear"], ["create", {...}], ["link", 42]])

@@ -1902,21 +1902,6 @@
             "title": "Priority",
             "type": "integer"
           },
-          "queuedtasks_set": {
-            "anyOf": [
-              {
-                "items": {
-                  "additionalProperties": true,
-                  "type": "object"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Queuedtasks Set"
-          },
           "retry_count": {
             "default": 0,
             "title": "Retry Count",
@@ -2219,59 +2204,6 @@
             "default": 0,
             "title": "Priority",
             "type": "integer"
-          },
-          "queuedtasks_set": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "integer"
-                },
-                "type": "array"
-              },
-              {
-                "items": {
-                  "$ref": "#/components/schemas/RelationOperation"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Relations for queuedtasks_set.\n\n**Simple mode:** Array of IDs: `[1, 2, 3]`\n\n**Advanced mode:** Array of operations `[[\"action\", value], ...]`\n\nAvailable actions:\n- `create` - Create new record and link (value=object)\n- `update` - Update record and ensure link (value={id:X,...})\n- `link` - Link existing record (value=id)\n- `unlink` - Remove link without deleting (value=id)\n- `delete` - Delete record and remove link (value=id)\n- `set` - Replace all links (value=[ids])\n- `clear` - Remove all links (no value)",
-            "examples": [
-              [
-                1,
-                2,
-                3
-              ],
-              [
-                [
-                  "link",
-                  1
-                ],
-                [
-                  "create",
-                  {
-                    "name": "New"
-                  }
-                ]
-              ],
-              [
-                [
-                  "clear"
-                ],
-                [
-                  "set",
-                  [
-                    1,
-                    2,
-                    3
-                  ]
-                ]
-              ]
-            ],
-            "title": "Queuedtasks Set"
           },
           "retry_count": {
             "default": 0,
@@ -2898,59 +2830,6 @@
               }
             ],
             "title": "Priority"
-          },
-          "queuedtasks_set": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "integer"
-                },
-                "type": "array"
-              },
-              {
-                "items": {
-                  "$ref": "#/components/schemas/RelationOperation"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Relations for queuedtasks_set.\n\n**Simple mode:** Array of IDs: `[1, 2, 3]`\n\n**Advanced mode:** Array of operations `[[\"action\", value], ...]`\n\nAvailable actions:\n- `create` - Create new record and link (value=object)\n- `update` - Update record and ensure link (value={id:X,...})\n- `link` - Link existing record (value=id)\n- `unlink` - Remove link without deleting (value=id)\n- `delete` - Delete record and remove link (value=id)\n- `set` - Replace all links (value=[ids])\n- `clear` - Remove all links (no value)",
-            "examples": [
-              [
-                1,
-                2,
-                3
-              ],
-              [
-                [
-                  "link",
-                  1
-                ],
-                [
-                  "create",
-                  {
-                    "name": "New"
-                  }
-                ]
-              ],
-              [
-                [
-                  "clear"
-                ],
-                [
-                  "set",
-                  [
-                    1,
-                    2,
-                    3
-                  ]
-                ]
-              ]
-            ],
-            "title": "Queuedtasks Set"
           },
           "retry_count": {
             "anyOf": [
@@ -4176,21 +4055,6 @@
       },
       "Workspace": {
         "properties": {
-          "+": {
-            "anyOf": [
-              {
-                "items": {
-                  "additionalProperties": true,
-                  "type": "object"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "+"
-          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -4246,59 +4110,6 @@
       },
       "WorkspaceCreate": {
         "properties": {
-          "+": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "integer"
-                },
-                "type": "array"
-              },
-              {
-                "items": {
-                  "$ref": "#/components/schemas/RelationOperation"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Relations for +.\n\n**Simple mode:** Array of IDs: `[1, 2, 3]`\n\n**Advanced mode:** Array of operations `[[\"action\", value], ...]`\n\nAvailable actions:\n- `create` - Create new record and link (value=object)\n- `update` - Update record and ensure link (value={id:X,...})\n- `link` - Link existing record (value=id)\n- `unlink` - Remove link without deleting (value=id)\n- `delete` - Delete record and remove link (value=id)\n- `set` - Replace all links (value=[ids])\n- `clear` - Remove all links (no value)",
-            "examples": [
-              [
-                1,
-                2,
-                3
-              ],
-              [
-                [
-                  "link",
-                  1
-                ],
-                [
-                  "create",
-                  {
-                    "name": "New"
-                  }
-                ]
-              ],
-              [
-                [
-                  "clear"
-                ],
-                [
-                  "set",
-                  [
-                    1,
-                    2,
-                    3
-                  ]
-                ]
-              ]
-            ],
-            "title": "+"
-          },
           "image_url": {
             "anyOf": [
               {
@@ -4618,59 +4429,6 @@
       },
       "WorkspaceUpdate": {
         "properties": {
-          "+": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "integer"
-                },
-                "type": "array"
-              },
-              {
-                "items": {
-                  "$ref": "#/components/schemas/RelationOperation"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Relations for +.\n\n**Simple mode:** Array of IDs: `[1, 2, 3]`\n\n**Advanced mode:** Array of operations `[[\"action\", value], ...]`\n\nAvailable actions:\n- `create` - Create new record and link (value=object)\n- `update` - Update record and ensure link (value={id:X,...})\n- `link` - Link existing record (value=id)\n- `unlink` - Remove link without deleting (value=id)\n- `delete` - Delete record and remove link (value=id)\n- `set` - Replace all links (value=[ids])\n- `clear` - Remove all links (no value)",
-            "examples": [
-              [
-                1,
-                2,
-                3
-              ],
-              [
-                [
-                  "link",
-                  1
-                ],
-                [
-                  "create",
-                  {
-                    "name": "New"
-                  }
-                ]
-              ],
-              [
-                [
-                  "clear"
-                ],
-                [
-                  "set",
-                  [
-                    1,
-                    2,
-                    3
-                  ]
-                ]
-              ]
-            ],
-            "title": "+"
-          },
           "image_url": {
             "anyOf": [
               {

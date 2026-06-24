@@ -24,6 +24,37 @@ def is_relation_field(field) -> bool:
     return getattr(field, "is_m2m", False) is True or isinstance(field, RelatedField)
 
 
+def is_exposed_relation_field(field) -> bool:
+    """
+    Check if a relation field is part of the public API surface.
+
+    Direct many-to-many declarations are always intentional. Reverse relations
+    (RelatedField) are exposed only when their related_name was set explicitly:
+    Edgy auto-generates a ``<model>s_set`` reverse accessor for every foreign key,
+    and a ``+`` placeholder when the reverse relation is disabled, both of which
+    are ORM internals rather than API fields. This mirrors the metadata generator,
+    which also skips reverse relations whose name ends with ``_set``.
+
+    Args:
+        field: The field to check
+
+    Returns:
+        True if the relation should appear in the input/output schemas
+    """
+    if not is_relation_field(field):
+        return False
+
+    if getattr(field, "is_m2m", False) is True:
+        return True
+
+    related_name = getattr(field, "related_name", None) or getattr(field, "name", None)
+
+    if not related_name or related_name == "+":
+        return False
+
+    return not related_name.endswith("_set")
+
+
 def get_related_model(field) -> type:
     """
     Extract the related model class from a relational field.

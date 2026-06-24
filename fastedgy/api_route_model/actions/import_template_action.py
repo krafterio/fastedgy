@@ -35,6 +35,7 @@ class ImportTemplateApiRouteAction(BaseApiRouteAction):
                 "methods": ["GET"],
                 "summary": f"Import template of {model_cls.__name__}",
                 "description": f"Retrieve a import template of {model_cls.__name__}",
+                "response_class": StreamingResponse,
                 "responses": {
                     200: {
                         "content": {

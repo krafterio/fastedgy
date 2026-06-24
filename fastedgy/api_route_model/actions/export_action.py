@@ -53,6 +53,7 @@ class ExportApiRouteAction(BaseApiRouteAction):
                 "methods": ["GET"],
                 "summary": f"Export {model_cls.__name__} items",
                 "description": f"Retrieve a export of {model_cls.__name__} items",
+                "response_class": StreamingResponse,
                 "responses": {
                     200: {
                         "content": {

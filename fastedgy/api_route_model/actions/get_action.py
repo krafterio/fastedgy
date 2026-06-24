@@ -6,6 +6,7 @@ from typing import Callable, Any
 from fastapi import APIRouter, HTTPException, Path
 
 from fastedgy.i18n import _t
+from fastedgy.schemas import ErrorMessage
 from fastedgy.models.base import BaseModel
 from fastedgy.api_route_model.action import BaseApiRouteAction, generate_output_model
 from fastedgy.api_route_model.params import FieldSelectorHeader
@@ -45,6 +46,7 @@ class GetApiRouteAction(BaseApiRouteAction):
                 "summary": f"Get {model_cls.__name__}",
                 "description": f"Retrieve a single {model_cls.__name__} by its ID",
                 "response_model": generate_output_model(model_cls) | dict[str, Any],
+                "responses": {404: {"model": ErrorMessage, "description": "Item not found"}},
                 **options,
             }
         )

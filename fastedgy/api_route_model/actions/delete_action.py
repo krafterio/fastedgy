@@ -19,6 +19,7 @@ from fastedgy.api_route_model.view_transformer import (
     PostDeleteTransformer,
 )
 from fastedgy.dependencies import get_service
+from fastedgy.schemas import ErrorMessage
 from fastedgy.models.base import BaseModel
 from fastedgy.orm import transaction
 from fastedgy.orm.query import QuerySet
@@ -41,6 +42,7 @@ class DeleteApiRouteAction(BaseApiRouteAction):
                 "summary": f"Delete {model_cls.__name__}",
                 "description": f"Delete a {model_cls.__name__} by its ID",
                 "status_code": 204,
+                "responses": {404: {"model": ErrorMessage, "description": "Item not found"}},
                 **options,
             }
         )

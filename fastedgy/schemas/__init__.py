@@ -141,7 +141,7 @@ from pydantic_core import (
     ErrorDetails,
     PydanticUndefined,
 )
-from .base import BaseModel, Pagination, List, SimpleMessage
+from .base import BaseModel, Pagination, List, SimpleMessage, ErrorMessage
 
 
 __all__ = [
@@ -303,4 +303,5 @@ __all__ = [
     "Pagination",
     "List",
     "SimpleMessage",
+    "ErrorMessage",
 ]

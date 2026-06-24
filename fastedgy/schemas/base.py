@@ -92,9 +92,14 @@ class SimpleMessage(BaseModel):
     message: str
 
 
+class ErrorMessage(BaseModel):
+    detail: str
+
+
 __all__ = [
     "BaseModel",
     "Pagination",
     "List",
     "SimpleMessage",
+    "ErrorMessage",
 ]

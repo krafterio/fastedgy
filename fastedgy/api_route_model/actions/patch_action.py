@@ -8,6 +8,7 @@ from fastapi import APIRouter, Path, Body
 
 from fastedgy.dependencies import get_service
 from fastedgy.http import Request
+from fastedgy.schemas import ErrorMessage
 from fastedgy.models.base import BaseModel
 from fastedgy.orm import transaction
 from fastedgy.timezone import ensure_aware
@@ -55,6 +56,10 @@ class PatchApiRouteAction(BaseApiRouteAction):
                 "summary": f"Update {model_cls.__name__}",
                 "description": f"Update an existing {model_cls.__name__} by its ID",
                 "response_model": generate_output_model(model_cls) | dict[str, Any],
+                "responses": {
+                    400: {"model": ErrorMessage, "description": "Invalid relation operation"},
+                    404: {"model": ErrorMessage, "description": "Item not found"},
+                },
                 **options,
             }
         )

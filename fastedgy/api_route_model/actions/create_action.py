@@ -8,6 +8,7 @@ from fastapi import APIRouter, Body
 
 from fastedgy.dependencies import get_service
 from fastedgy.http import Request
+from fastedgy.schemas import ErrorMessage
 from fastedgy.models.base import BaseModel
 from fastedgy.timezone import ensure_aware
 from fastedgy.api_route_model.action import (
@@ -50,6 +51,7 @@ class CreateApiRouteAction(BaseApiRouteAction):
                 "summary": f"Create {model_cls.__name__}",
                 "description": f"Create a new {model_cls.__name__} item",
                 "response_model": generate_output_model(model_cls) | dict[str, Any],
+                "responses": {400: {"model": ErrorMessage, "description": "Invalid relation operation"}},
                 **options,
             }
         )

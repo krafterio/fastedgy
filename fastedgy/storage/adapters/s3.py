@@ -43,7 +43,12 @@ class S3Adapter(StorageAdapter):
 
     def _get_session(self) -> "Session":
         if self._session is None:
-            import aioboto3
+            try:
+                import aioboto3
+            except ImportError as e:
+                raise ImportError(
+                    "The s3 storage adapter requires aioboto3. Install it with: pip install 'fastedgy[s3]'"
+                ) from e
 
             self._session = aioboto3.Session()
         return self._session

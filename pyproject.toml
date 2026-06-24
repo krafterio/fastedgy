@@ -11,7 +11,6 @@ dynamic = [
 ]
 dependencies = [
     "aiosmtplib ~= 4.0",
-    "aioboto3 ~= 15.5",
     "babel ~= 2.17",
     "bcrypt ~= 4.3",
     "click ~= 8.2",
@@ -37,8 +36,14 @@ dependencies = [
     "uvicorn[standard] ~= 0.34",
 ]
 
+[project.optional-dependencies]
+s3 = [
+    "aioboto3 ~= 15.5",
+]
+
 [dependency-groups]
 dev = [
+    "aioboto3 ~= 15.5",
     "mkdocs-material >= 9.5",
     "mkdocs-minify-plugin >= 0.8",
     "mike>=2.1.3",

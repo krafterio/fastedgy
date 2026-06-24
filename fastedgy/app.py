@@ -873,8 +873,10 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
         register_lazy_models(registry)
 
         from fastedgy.orm.signals.fulltext import register_all_fulltext_signals
+        from fastedgy.storage.models.attachment import register_all_attachment_signals
 
         register_all_fulltext_signals()
+        register_all_attachment_signals()
 
         # Add middlewares (order matters: Context first, then Locale and Timezone)
         self.add_middleware(TimezoneMiddleware)

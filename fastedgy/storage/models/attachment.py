@@ -122,15 +122,20 @@ class AttachmentPathMixin(AttachmentMixin):
     )
 
 
-@pre_save.connect_via(AttachmentPathMixin)
 async def on_pre_save(sender: Any, instance: Any, model_instance: Any, **kwargs: Any) -> None:
     is_update: bool = bool(kwargs.get("is_update"))
     values: dict[str, Any] = kwargs.get("values", {}) or {}
     column_values: dict[str, Any] = kwargs.get("column_values", {}) or {}
 
-    # Lock 'type' on update
-    if is_update and ("type" in values or "type" in column_values):
-        raise ValueError(_t("Le champ 'type' ne peut pas être modifié"))
+    # Lock 'type' on update: it cannot be changed once the record exists.
+    # Edgy sends the full column set on update, so only reject an actual change.
+    new_type = values.get("type", column_values.get("type"))
+    if is_update and new_type is not None:
+        record_id = getattr(model_instance, "id", None)
+        if record_id is not None:
+            current = await type(model_instance).query.only("type").get(id=record_id)
+            if getattr(current, "type", None) != new_type:
+                raise ValueError(_t("Le champ 'type' ne peut pas être modifié"))
 
     # Compute path/depth/parent_ids based on current model_instance values
     name: str | None = getattr(model_instance, "name", None)
@@ -147,7 +152,7 @@ async def on_pre_save(sender: Any, instance: Any, model_instance: Any, **kwargs:
             parent_id = None
 
         if parent_id is not None:
-            from fastedgy.models.attachment import BaseAttachment as AttachmentModel
+            AttachmentModel = type(model_instance)
 
             p = await AttachmentModel.query.only("id", "type", "path", "parent_ids").get(id=parent_id)
 
@@ -165,7 +170,6 @@ async def on_pre_save(sender: Any, instance: Any, model_instance: Any, **kwargs:
         model_instance.parent_ids = None if parent_id is None else [*(parent_parent_ids or []), parent_id]
 
 
-@pre_update.connect_via(AttachmentPathMixin)
 async def on_pre_update(sender: Any, instance: Any, model_instance: Any, **kwargs: Any) -> None:
     Attachment = cast(type[AttachmentPathMixin], get_service(Registry).get_model("Attachment"))
     if sender is not Attachment:
@@ -195,7 +199,6 @@ async def on_pre_update(sender: Any, instance: Any, model_instance: Any, **kwarg
         instance._fe_att_new_name = values.get("name", None)
 
 
-@post_update.connect_via(AttachmentPathMixin)
 async def on_post_update(sender: Any, instance: Any, model_instance: Any, **kwargs: Any) -> None:
     Attachment = cast(type[AttachmentPathMixin], get_service(Registry).get_model("Attachment"))
 
@@ -285,7 +288,6 @@ async def on_post_update(sender: Any, instance: Any, model_instance: Any, **kwar
         delattr(instance, "_fe_att_new_name")
 
 
-@pre_delete.connect_via(AttachmentMixin)
 async def on_pre_delete(sender: Any, instance: Any, model_instance: Any, **kwargs: Any) -> None:
     Attachment = cast(type[AttachmentMixin], get_service(Registry).get_model("Attachment"))
 
@@ -325,7 +327,6 @@ async def on_pre_delete(sender: Any, instance: Any, model_instance: Any, **kwarg
         model_instance._fe_att_files_to_delete = files_to_delete
 
 
-@post_delete.connect_via(AttachmentMixin)
 async def on_post_delete(sender: Any, instance: Any, model_instance: Any, **kwargs: Any) -> None:
     Attachment = cast(type[AttachmentMixin], get_service(Registry).get_model("Attachment"))
 
@@ -357,6 +358,45 @@ async def on_post_delete(sender: Any, instance: Any, model_instance: Any, **kwar
             delattr(model_instance, "_fe_att_files_to_delete")
 
 
+_registered_attachment_models: set[type] = set()
+
+
+def register_attachment_signals(model_cls: type) -> None:
+    """Wire the attachment lifecycle signals on a concrete model.
+
+    Edgy dispatches signals with the concrete model class as the sender, and
+    blinker only matches the exact sender — so connecting on the abstract mixin
+    never fires for subclasses. Each concrete attachment model must therefore be
+    connected explicitly (mirroring ``register_fulltext_signals``).
+    """
+    if model_cls in _registered_attachment_models:
+        return
+
+    _registered_attachment_models.add(model_cls)
+
+    # File cleanup applies to every attachment model.
+    pre_delete.connect(on_pre_delete, sender=model_cls)
+    post_delete.connect(on_post_delete, sender=model_cls)
+
+    # Path/depth bookkeeping only applies to hierarchical (path) attachments.
+    if issubclass(model_cls, AttachmentPathMixin):
+        pre_save.connect(on_pre_save, sender=model_cls)
+        pre_update.connect(on_pre_update, sender=model_cls)
+        post_update.connect(on_post_update, sender=model_cls)
+
+
+def register_all_attachment_signals() -> None:
+    """Scan registered models and wire attachment signals on every attachment."""
+    from fastedgy.dependencies import get_service
+    from fastedgy.orm import Registry
+
+    registry = get_service(Registry)
+
+    for model_cls in registry.models.values():
+        if issubclass(model_cls, AttachmentMixin):
+            register_attachment_signals(model_cls)
+
+
 __all__ = [
     "AttachmentMixin",
     "AttachmentPathMixin",
@@ -366,4 +406,6 @@ __all__ = [
     "on_pre_update",
     "on_pre_delete",
     "on_post_delete",
+    "register_attachment_signals",
+    "register_all_attachment_signals",
 ]

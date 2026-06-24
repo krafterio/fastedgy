@@ -1,10 +1,11 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import Callable, Coroutine, Any
+from typing import Callable, Any
 
 from fastapi import APIRouter, Query, HTTPException
 
+from fastedgy.models.base import BaseModel
 from fastedgy.api_route_model.action import BaseApiRouteAction
 from fastedgy.api_route_model.params import (
     OrderByQuery,
@@ -32,7 +33,7 @@ from fastedgy.orm.order_by import inject_order_by
 from fastedgy.orm.field_selector import optimize_query_filter_fields
 from fastedgy.orm.query import QuerySet
 
-from starlette.responses import Response, StreamingResponse
+from starlette.responses import StreamingResponse
 
 
 class ExportApiRouteAction(BaseApiRouteAction):
@@ -64,12 +65,9 @@ class ExportApiRouteAction(BaseApiRouteAction):
         )
 
 
-def generate_export_items[M = TypeModel](
+def generate_export_items[M: BaseModel](
     model_cls: type[M],
-) -> Callable[
-    [Request, str, int, int, str, str, str, RelationDelimiter],
-    Coroutine[Any, Any, Response],
-]:
+) -> Callable[..., Any]:
     async def export_items(
         request: Request,
         format: str = Query("csv", description="Export format (csv, xlsx, ods)"),
@@ -95,7 +93,7 @@ def generate_export_items[M = TypeModel](
     return export_items
 
 
-async def export_items_action[M = TypeModel](
+async def export_items_action[M: BaseModel](
     request: Request,
     model_cls: type[M],
     format: str = "csv",
@@ -132,7 +130,7 @@ async def export_items_action[M = TypeModel](
     vtr = get_service(ViewTransformerRegistry)
 
     try:
-        query = query or model_cls.query
+        query = query or model_cls.query.get_queryset()
         query = filter_query(query, filters)
         query = optimize_query_filter_fields(query, fields)
 
@@ -179,7 +177,9 @@ async def export_items_action[M = TypeModel](
 
         # Read the response body
         body_iterator = response.body_iterator
-        file_content = b"".join([chunk async for chunk in body_iterator])
+        file_content = b"".join(
+            [chunk.encode() if isinstance(chunk, str) else bytes(chunk) async for chunk in body_iterator]
+        )
 
         for transformer in post_export_transformers:
             file_content, filename = await transformer.post_export(request, file_content, filename, transformers_ctx)

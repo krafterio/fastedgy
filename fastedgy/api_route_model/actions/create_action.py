@@ -2,19 +2,20 @@
 # MIT License (see LICENSE file).
 
 from datetime import datetime
-from typing import Callable, Coroutine, Any
+from typing import Callable, Any
 
 from fastapi import APIRouter, Body
-from fastedgy.schemas import BaseModel
 
 from fastedgy.dependencies import get_service
 from fastedgy.http import Request
+from fastedgy.models.base import BaseModel
 from fastedgy.timezone import ensure_aware
 from fastedgy.api_route_model.action import (
     BaseApiRouteAction,
     generate_input_create_model,
     generate_output_model,
     clean_empty_strings,
+    route_body_model,
 )
 from fastedgy.api_route_model.exception import handle_action_exception
 from fastedgy.api_route_model.params import FieldSelectorHeader
@@ -48,19 +49,21 @@ class CreateApiRouteAction(BaseApiRouteAction):
                 "methods": ["POST"],
                 "summary": f"Create {model_cls.__name__}",
                 "description": f"Create a new {model_cls.__name__} item",
+                "response_model": generate_output_model(model_cls) | dict[str, Any],
                 **options,
             }
         )
 
 
-def generate_create_item[M = TypeModel](
-    model_cls: M,
-) -> Callable[[Request, M], Coroutine[Any, Any, M]]:
+def generate_create_item[M: BaseModel](
+    model_cls: type[M],
+) -> Callable[..., Any]:
+    @route_body_model(generate_input_create_model(model_cls))
     async def create_item(
         request: Request,
-        item_data: generate_input_create_model(model_cls) = Body(...),
+        item_data: Any = Body(...),
         fields: str | None = FieldSelectorHeader(),
-    ) -> generate_output_model(model_cls) | dict[str, Any]:
+    ) -> Any:
         return await create_item_action(
             request,
             model_cls,
@@ -72,14 +75,14 @@ def generate_create_item[M = TypeModel](
 
 
 @transaction
-async def create_item_action[M = TypeModel](
+async def create_item_action[M: BaseModel](
     request: Request,
-    model_cls: M,
+    model_cls: type[M],
     item_data: BaseModel,
     fields: str | None = None,
     transformers: list[BaseViewTransformer] | None = None,
     transformers_ctx: dict[str, Any] | None = None,
-) -> Coroutine[Any, Any, M | dict[str, Any]]:
+) -> M | dict[str, Any]:
     from fastedgy.api_route_model.action import (
         is_relation_field,
         process_relational_fields,

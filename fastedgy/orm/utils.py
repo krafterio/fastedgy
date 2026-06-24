@@ -7,8 +7,10 @@ import sqlalchemy as sa
 from inspect import isclass
 
 from fastedgy.orm import fields, Model
-from sqlalchemy.orm import ColumnProperty
+from sqlalchemy.orm import ColumnProperty, Mapper
 from sqlalchemy.orm.attributes import InstrumentedAttribute
+from sqlalchemy.orm.util import AliasedClass
+from sqlalchemy.sql.selectable import SelectBase
 
 
 def find_primary_key_field(model_cls: type[Model] | Model) -> str | None:
@@ -64,11 +66,11 @@ def get_columns(mixed):
         SA Table object, SA Mapper, SA declarative class, SA declarative class
         instance or an alias of any of these objects
     """
-    if isinstance(mixed, sa.sql.selectable.Selectable):
+    if isinstance(mixed, SelectBase):
         return mixed.selected_columns
-    if isinstance(mixed, sa.orm.util.AliasedClass):
+    if isinstance(mixed, AliasedClass):
         return sa.inspect(mixed).mapper.columns
-    if isinstance(mixed, sa.orm.Mapper):
+    if isinstance(mixed, Mapper):
         return mixed.columns
     if isinstance(mixed, InstrumentedAttribute):
         return mixed.property.columns
@@ -144,11 +146,13 @@ async def get_value_from_path(instance: Model, path: str) -> Any | None:
         if not hasattr(obj_or_list, key):
             return None
 
-        value = getattr(obj_or_list, key)
+        value: Any = getattr(obj_or_list, key)
         field = obj_or_list.meta.fields.get(key, None)
 
-        if hasattr(value, "all") and callable(value.all):
-            value = await value.all()
+        all_method: Any = getattr(value, "all", None)
+
+        if all_method is not None:
+            value = await all_method()
 
             return await _resolve(value, rest or ["id"])
 

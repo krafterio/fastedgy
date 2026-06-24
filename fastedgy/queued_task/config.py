@@ -3,10 +3,11 @@
 
 import os
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, cast
 
 if TYPE_CHECKING:
     from edgy import Database, Registry
+    from fastedgy.orm import Model
 
 
 def _parse_channel_capacities(raw: str) -> dict[str, int]:
@@ -134,7 +135,7 @@ class QueuedTaskConfig:
         for model_name in ("QueuedTask", "QueuedTaskLog", "QueuedTaskWorker"):
             try:
                 model = main_registry.get_model(model_name)
-                model.copy_edgy_model(registry=self._manager_registry, on_conflict="replace")
+                cast("type[Model]", model).copy_edgy_model(registry=self._manager_registry, on_conflict="replace")
             except LookupError:
                 # Model not found in main registry, skip
                 pass

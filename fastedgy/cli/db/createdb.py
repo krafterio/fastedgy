@@ -10,7 +10,8 @@ from fastedgy.cli.db import db
 
 
 # Monkey-patch to ignore _DeleteDummyThreadOnDel exception at process termination with Python 3.13
-_old = threading._DeleteDummyThreadOnDel.__del__
+_dummy_thread_cls = getattr(threading, "_DeleteDummyThreadOnDel")
+_old = _dummy_thread_cls.__del__
 
 
 def _safe_del(self):
@@ -22,7 +23,7 @@ def _safe_del(self):
         pass
 
 
-threading._DeleteDummyThreadOnDel.__del__ = _safe_del
+setattr(_dummy_thread_cls, "__del__", _safe_del)
 
 
 @db.command()

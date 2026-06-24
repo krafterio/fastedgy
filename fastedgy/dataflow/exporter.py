@@ -8,9 +8,10 @@ import html2text
 from datetime import date, datetime
 from enum import Enum
 
-from typing import Any, Coroutine
+from typing import Any
 
 from fastedgy.api_route_model.params import RelationDelimiter
+from fastedgy.models.base import BaseModel
 
 from fastapi import HTTPException
 
@@ -81,7 +82,7 @@ def apply_export_converter(model_cls: type, field_path: str, value: Any, convert
     return value
 
 
-async def export_data[M](
+async def export_data[M: BaseModel](
     model_cls: type[M],
     format: str,
     query: QuerySet | None = None,
@@ -91,7 +92,7 @@ async def export_data[M](
     fields: str | None = None,
     filters: str | None = None,
     relation_delimiter: RelationDelimiter = RelationDelimiter.newline,
-) -> Coroutine[Any, Any, StreamingResponse]:
+) -> StreamingResponse:
     """
     Export data from a QuerySet to a file format (CSV, XLSX, ODS).
 
@@ -113,12 +114,15 @@ async def export_data[M](
         HTTPException: If format is unsupported or filters are invalid
     """
     try:
-        query = query or model_cls.query
+        query = query or model_cls.query.get_queryset()
         query = filter_query(query, filters)
         query = optimize_query_filter_fields(query, fields)
         query = inject_order_by(query, order_by)
 
-        items = await query.limit(limit).offset(offset).all()
+        if limit is not None:
+            query = query.limit(limit)
+
+        items = await query.offset(offset).all()
     except InvalidFilterError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
@@ -237,6 +241,10 @@ def generate_xlsx_export(field_names: list[str], data_rows: list[list[str]], fil
 
     wb = openpyxl.Workbook()
     ws = wb.active
+
+    if ws is None:
+        raise HTTPException(status_code=400, detail="Failed to create worksheet")
+
     ws.title = "Export"
 
     # Write header

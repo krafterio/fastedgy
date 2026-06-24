@@ -87,13 +87,13 @@ class QueuedTasks:
 
     def add_task(
         self,
-        func: Callable[P, Any],
-        *args: P.args,
+        func: Callable[..., Any],
+        *args: Any,
         parent: QueuedTaskRef | None = None,
         max_retries: int | None = None,
         channel: str | None = None,
         priority: int | None = None,
-        **kwargs: P.kwargs,
+        **kwargs: Any,
     ) -> QueuedTaskRef:
         """
         Add task to queue - supports both regular functions and local functions.
@@ -249,12 +249,12 @@ class QueuedTasks:
 
     async def add_task_async(
         self,
-        func: Callable[P, Any],
-        *args: P.args,
+        func: Callable[..., Any],
+        *args: Any,
         max_retries: int | None = None,
         channel: str | None = None,
         priority: int | None = None,
-        **kwargs: P.kwargs,
+        **kwargs: Any,
     ) -> "QueuedTask":
         """
         Async version of add_task - creates task immediately and returns it

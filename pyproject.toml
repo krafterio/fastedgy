@@ -49,6 +49,7 @@ dev = [
     "anyio>=4.14.0",
     "python-dotenv>=1.2.2",
     "pytest-xdist>=3.8.0",
+    "types-aiobotocore-s3>=3.7.0",
 ]
 
 [tool.ruff]

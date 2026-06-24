@@ -140,8 +140,10 @@ def _tokenize(raw: str) -> list[_Token]:
                 j += 1
             if j < len(raw) and raw[j].isalnum():
                 word, i = _read_word(raw, j)
-            if word:
-                tokens.append(_Token("excluded", f"{word}:*"))
+                if word:
+                    tokens.append(_Token("excluded", f"{word}:*"))
+                continue
+            i += 1
             continue
 
         # Skip non-alphanumeric

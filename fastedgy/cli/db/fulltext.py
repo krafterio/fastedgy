@@ -18,9 +18,9 @@ from fastedgy import cli
 @cli.lifespan
 async def fulltext_reindex(model, locale, filter_json, batch_size=500):
     """Reindex fulltext search vectors for all or specific models."""
-    from edgy import monkay
     from fastedgy.config import BaseSettings
     from fastedgy.dependencies import get_service
+    from fastedgy.orm import Registry
     from fastedgy.orm.fields.field_fulltext import (
         get_searchable_fields,
         get_pg_language,
@@ -29,7 +29,7 @@ async def fulltext_reindex(model, locale, filter_json, batch_size=500):
 
     settings = get_service(BaseSettings)
     locales = [locale] if locale else settings.available_locales
-    registry = monkay.instance.registry
+    registry = get_service(Registry)
 
     if filter_json and not model:
         cli.echo("Error: --filter requires --model", err=True)

@@ -2,7 +2,7 @@
 # MIT License (see LICENSE file).
 
 from enum import Enum
-from typing import TYPE_CHECKING, Union, Any
+from typing import TYPE_CHECKING, Union, Any, cast
 import contextlib
 
 from fastedgy.models.base import BaseModel
@@ -167,7 +167,7 @@ async def on_pre_save(sender: Any, instance: Any, model_instance: Any, **kwargs:
 
 @pre_update.connect_via(AttachmentPathMixin)
 async def on_pre_update(sender: Any, instance: Any, model_instance: Any, **kwargs: Any) -> None:
-    Attachment: AttachmentPathMixin = get_service(Registry).get_model("Attachment")
+    Attachment = cast(type[AttachmentPathMixin], get_service(Registry).get_model("Attachment"))
     if sender is not Attachment:
         return
 
@@ -197,7 +197,7 @@ async def on_pre_update(sender: Any, instance: Any, model_instance: Any, **kwarg
 
 @post_update.connect_via(AttachmentPathMixin)
 async def on_post_update(sender: Any, instance: Any, model_instance: Any, **kwargs: Any) -> None:
-    Attachment: AttachmentPathMixin = get_service(Registry).get_model("Attachment")
+    Attachment = cast(type[AttachmentPathMixin], get_service(Registry).get_model("Attachment"))
 
     if sender is not Attachment:
         return
@@ -287,7 +287,7 @@ async def on_post_update(sender: Any, instance: Any, model_instance: Any, **kwar
 
 @pre_delete.connect_via(AttachmentMixin)
 async def on_pre_delete(sender: Any, instance: Any, model_instance: Any, **kwargs: Any) -> None:
-    Attachment: AttachmentMixin = get_service(Registry).get_model("Attachment")
+    Attachment = cast(type[AttachmentMixin], get_service(Registry).get_model("Attachment"))
 
     if sender is not Attachment:
         return
@@ -327,7 +327,7 @@ async def on_pre_delete(sender: Any, instance: Any, model_instance: Any, **kwarg
 
 @post_delete.connect_via(AttachmentMixin)
 async def on_post_delete(sender: Any, instance: Any, model_instance: Any, **kwargs: Any) -> None:
-    Attachment: AttachmentMixin = get_service(Registry).get_model("Attachment")
+    Attachment = cast(type[AttachmentMixin], get_service(Registry).get_model("Attachment"))
 
     if sender is not Attachment:
         return

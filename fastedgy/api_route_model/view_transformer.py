@@ -7,11 +7,11 @@ from typing import Any, TYPE_CHECKING
 
 from fastedgy.http import Request
 from fastedgy.orm.query import QuerySet
-from fastedgy.schemas import BaseModel, Pagination
+from fastedgy.schemas import Pagination
+from fastedgy.models.base import BaseModel
 
 if TYPE_CHECKING:
     from fastapi import UploadFile
-    from fastedgy.models.base import BaseModel as EdgyBaseModel
 
 
 class BaseViewTransformer(ABC):
@@ -86,7 +86,7 @@ class PreUploadTransformer(BaseViewTransformer):
     async def pre_upload(
         self,
         request: Request,
-        record: "EdgyBaseModel",
+        record: "BaseModel",
         field: str,
         file: "UploadFile",
         ctx: dict[str, Any],
@@ -105,7 +105,7 @@ class PostUploadTransformer(BaseViewTransformer):
     async def post_upload(
         self,
         request: Request,
-        record: "EdgyBaseModel",
+        record: "BaseModel",
         field: str,
         path: str,
         ctx: dict[str, Any],
@@ -148,7 +148,7 @@ class PreDeleteFileTransformer(BaseViewTransformer):
         model: str,
         model_id: int,
         field: str,
-        record: "EdgyBaseModel",
+        record: "BaseModel",
         ctx: dict[str, Any],
     ) -> bool:
         """
@@ -168,7 +168,7 @@ class PostDeleteFileTransformer(BaseViewTransformer):
         model: str,
         model_id: int,
         field: str,
-        record: "EdgyBaseModel",
+        record: "BaseModel",
         ctx: dict[str, Any],
     ) -> None: ...
 

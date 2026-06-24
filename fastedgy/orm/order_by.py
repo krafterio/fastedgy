@@ -80,7 +80,7 @@ def _extract_rank_fields(query: QuerySet, order_by_fields: OrderByList) -> dict:
         label_name = f"_{field}_rank"
 
         for extra in query._extra_select:
-            if hasattr(extra, "name") and extra.name == label_name:
+            if getattr(extra, "name", None) == label_name:
                 result[label_name] = extra
                 break
 

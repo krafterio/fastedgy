@@ -38,11 +38,13 @@ def option(*param_decls: str, **attrs: Any) -> Callable:
     cls = attrs.pop("cls", Option)
 
     def decorator(func: Callable) -> Callable:
-        if not hasattr(func, "_scheduled_task_options"):
-            func._scheduled_task_options = []
+        options = getattr(func, "_scheduled_task_options", None)
+        if options is None:
+            options = []
+            setattr(func, "_scheduled_task_options", options)
 
         opt = cls(param_decls, **attrs)
-        func._scheduled_task_options.insert(0, opt)
+        options.insert(0, opt)
         return func
 
     return decorator
@@ -110,7 +112,7 @@ def scheduled_task(
         registry = get_service(ScheduledTaskRegistry)
         registry.register(task_def)
 
-        func._scheduled_task_def = task_def
+        setattr(func, "_scheduled_task_def", task_def)
 
         return func
 

@@ -8,9 +8,10 @@ from pathlib import Path
 from urllib.parse import quote
 
 
-from fastapi import APIRouter, HTTPException, Query, Request, UploadFile
+from fastapi import APIRouter, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 
+from fastedgy.http import Request
 from fastedgy.dependencies import Inject, get_service
 from fastedgy.metadata_model.registry import MetadataModelRegistry
 from starlette.responses import Response

@@ -128,7 +128,7 @@ async def get_current_workspace(
         return workspace
 
     request = context.get_request()
-    workspace_name = request.path_params.get("workspace", None)
+    workspace_name = request.path_params.get("workspace", None) if request else None
 
     if not workspace_name:
         return None

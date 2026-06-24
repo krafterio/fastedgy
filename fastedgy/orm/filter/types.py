@@ -49,10 +49,10 @@ FilterRules = list[FilterRule | FilterCondition]
 Filter = FilterRule | FilterCondition | FilterRules
 
 
-FilterRuleTuple = tuple[str, FilterOperator, Any | None]
-FilterRulesTuple = list[FilterRuleTuple | type("FilterConditionTuple")]
-FilterConditionTuple = tuple[FilterConditionType, FilterRulesTuple]
-FilterTuple = FilterRuleTuple | FilterConditionTuple | FilterRulesTuple
+type FilterRuleTuple = tuple[str, FilterOperator, Any | None]
+type FilterRulesTuple = list[FilterRuleTuple | FilterConditionTuple]
+type FilterConditionTuple = tuple[FilterConditionType, FilterRulesTuple]
+type FilterTuple = FilterRuleTuple | FilterConditionTuple | FilterRulesTuple
 
 
 __all__ = [

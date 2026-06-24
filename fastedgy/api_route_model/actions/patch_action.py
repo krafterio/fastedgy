@@ -2,12 +2,13 @@
 # MIT License (see LICENSE file).
 
 from datetime import datetime
-from typing import Callable, Any, Coroutine
+from typing import Callable, Any
 
 from fastapi import APIRouter, Path, Body
 
 from fastedgy.dependencies import get_service
 from fastedgy.http import Request
+from fastedgy.models.base import BaseModel
 from fastedgy.orm import transaction
 from fastedgy.timezone import ensure_aware
 from fastedgy.orm.query import QuerySet
@@ -16,6 +17,7 @@ from fastedgy.api_route_model.action import (
     generate_input_patch_model,
     generate_output_model,
     clean_empty_strings,
+    route_body_model,
 )
 from fastedgy.api_route_model.exception import handle_action_exception
 from fastedgy.api_route_model.params import FieldSelectorHeader
@@ -52,20 +54,22 @@ class PatchApiRouteAction(BaseApiRouteAction):
                 "methods": ["PATCH"],
                 "summary": f"Update {model_cls.__name__}",
                 "description": f"Update an existing {model_cls.__name__} by its ID",
+                "response_model": generate_output_model(model_cls) | dict[str, Any],
                 **options,
             }
         )
 
 
-def generate_patch_item[M = TypeModel](
-    model_cls: M,
-) -> Callable[[Request, int, M], Coroutine[Any, Any, M | dict[str, Any]]]:
+def generate_patch_item[M: BaseModel](
+    model_cls: type[M],
+) -> Callable[..., Any]:
+    @route_body_model(generate_input_patch_model(model_cls))
     async def patch_item(
         request: Request,
         item_id: int = Path(..., description="Item ID"),
-        item_data: generate_input_patch_model(model_cls) = Body(),
+        item_data: Any = Body(),
         fields: str | None = FieldSelectorHeader(),
-    ) -> generate_output_model(model_cls) | dict[str, Any]:
+    ) -> Any:
         return await patch_item_action(
             request,
             model_cls,
@@ -78,11 +82,11 @@ def generate_patch_item[M = TypeModel](
 
 
 @transaction
-async def patch_item_action[M = TypeModel](
+async def patch_item_action[M: BaseModel](
     request: Request,
-    model_cls: M,
+    model_cls: type[M],
     item_id: int,
-    item_data: type[M],
+    item_data: BaseModel,
     query: QuerySet | None = None,
     fields: str | None = None,
     transformers: list[BaseViewTransformer] | None = None,
@@ -93,7 +97,7 @@ async def patch_item_action[M = TypeModel](
         process_relational_fields,
     )
 
-    query = query or model_cls.query
+    query = query or model_cls.query.get_queryset()
     query = optimize_query_filter_fields(query, fields)
     transformers_ctx = transformers_ctx or {}
     vtr = get_service(ViewTransformerRegistry)

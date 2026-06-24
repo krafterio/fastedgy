@@ -19,6 +19,7 @@ from fastedgy.api_route_model.view_transformer import (
     PostDeleteTransformer,
 )
 from fastedgy.dependencies import get_service
+from fastedgy.models.base import BaseModel
 from fastedgy.orm import transaction
 from fastedgy.orm.query import QuerySet
 from fastedgy.http import Request
@@ -45,8 +46,8 @@ class DeleteApiRouteAction(BaseApiRouteAction):
         )
 
 
-def generate_delete_item[M = TypeModel](
-    model_cls: M,
+def generate_delete_item[M: BaseModel](
+    model_cls: type[M],
 ) -> Callable[[Request, int], Coroutine[Any, Any, None]]:
     async def delete_item(
         request: Request,
@@ -62,9 +63,9 @@ def generate_delete_item[M = TypeModel](
 
 
 @transaction
-async def delete_item_action[M = TypeModel](
+async def delete_item_action[M: BaseModel](
     request: Request,
-    model_cls: M,
+    model_cls: type[M],
     item_id: int,
     query: QuerySet | None = None,
     not_found_message: str = "Enregistrement non trouvé",
@@ -74,7 +75,7 @@ async def delete_item_action[M = TypeModel](
     try:
         vtr = get_service(ViewTransformerRegistry)
         transformers_ctx = transformers_ctx or {}
-        query = query or model_cls.query
+        query = query or model_cls.query.get_queryset()
 
         transformers_ctx["item_id"] = item_id
         for transformer in vtr.get_transformers(PreLoadRecordViewTransformer, model_cls, transformers):

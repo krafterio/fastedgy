@@ -1,6 +1,8 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+from typing import NoReturn
+
 from fastapi import HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastedgy.schemas import ValidationError, ErrorDetails
@@ -11,7 +13,9 @@ from fastedgy.orm.exceptions import ObjectNotFound
 from fastedgy.orm.transaction import is_serialization_error
 
 
-def handle_action_exception(e: Exception, model_cls: type | None = None, not_found_message: str | None = None) -> None:
+def handle_action_exception(
+    e: Exception, model_cls: type | None = None, not_found_message: str | None = None
+) -> NoReturn:
     """
     Centralized exception handler for API route model actions.
 

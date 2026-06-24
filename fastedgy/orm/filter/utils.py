@@ -1,13 +1,15 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 from fastedgy.orm.filter.types import (
     FilterRule,
     FilterCondition,
     Filter,
     FilterTuple,
+    FilterRuleTuple,
+    FilterConditionTuple,
     And,
 )
 
@@ -54,7 +56,7 @@ def merge_filters(*filters: Filter) -> FilterCondition | None:
             if parsed:
                 parsed_filters.append(parsed)
         elif isinstance(filter_item, (tuple, list)):
-            parsed = parse_filter_input_tuple(filter_item)
+            parsed = parse_filter_input_tuple(cast(FilterTuple, filter_item))
 
             if parsed:
                 parsed_filters.append(parsed)
@@ -83,21 +85,21 @@ def add_prefix_on_fields(field_prefix: str, filters: list | FilterTuple | None) 
         filters = parse_filter_input_array_to_tuple(filters)
 
     if is_rule(filters):
-        field, operator, value = filters
+        field, operator, value = cast(FilterRuleTuple, filters)
 
         return f"{field_prefix}.{field}", operator, value
 
     elif is_condition(filters):
-        condition, rules = filters
+        condition, rules = cast(FilterConditionTuple, filters)
         new_rules = []
 
         for rule in rules:
             new_rules.append(add_prefix_on_fields(field_prefix, rule))
 
-        return condition, new_rules
+        return cast(FilterConditionTuple, (condition, new_rules))
 
     elif isinstance(filters, list):
-        return [add_prefix_on_fields(field_prefix, item) for item in filters]
+        return cast(FilterTuple, [add_prefix_on_fields(field_prefix, item) for item in filters])
 
     return filters
 

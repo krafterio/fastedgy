@@ -2,7 +2,7 @@
 # MIT License (see LICENSE file).
 
 import importlib
-from typing import Any
+from typing import Any, cast
 
 
 class ImportFromStringError(Exception):
@@ -34,7 +34,7 @@ def import_from_string[A: Any = Any](import_str: str | A) -> A:
         message = 'Attribute "{attrs_str}" not found in module "{module_str}".'
         raise ImportFromStringError(message.format(attrs_str=attrs_str, module_str=module_str))
 
-    return instance
+    return cast(A, instance)
 
 
 __all__ = [

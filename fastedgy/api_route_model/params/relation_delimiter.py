@@ -2,6 +2,7 @@
 # MIT License (see LICENSE file).
 
 from enum import Enum
+from typing import Any
 
 from fastapi.params import Query
 
@@ -24,13 +25,12 @@ class RelationDelimiter(str, Enum):
                 return ","
 
 
-class RelationDelimiterQuery(Query):
-    def __init__(self):
-        super().__init__(
-            default=RelationDelimiter.newline,
-            title="Relation delimiter",
-            description="Delimiter for relation values (one2many, many2many) in export cells",
-        )
+def RelationDelimiterQuery() -> Any:
+    return Query(
+        default=RelationDelimiter.newline,
+        title="Relation delimiter",
+        description="Delimiter for relation values (one2many, many2many) in export cells",
+    )
 
 
 __all__ = [

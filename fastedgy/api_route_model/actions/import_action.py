@@ -24,6 +24,7 @@ from fastedgy.dataflow.importer import (
 )
 from fastedgy.dependencies import get_service
 from fastedgy.http import Request
+from fastedgy.models.base import BaseModel
 from fastedgy.orm.query import QuerySet
 
 
@@ -51,7 +52,7 @@ class ImportApiRouteAction(BaseApiRouteAction):
         )
 
 
-def generate_import_items[M = TypeModel](
+def generate_import_items[M: BaseModel](
     model_cls: type[M],
 ) -> Callable[[Request, UploadFile], Coroutine[Any, Any, ImportResult]]:
     async def import_items(
@@ -67,7 +68,7 @@ def generate_import_items[M = TypeModel](
     return import_items
 
 
-async def import_items_action[M = TypeModel](
+async def import_items_action[M: BaseModel](
     request: Request,
     model_cls: type[M],
     file: UploadFile,
@@ -101,7 +102,7 @@ async def import_items_action[M = TypeModel](
     for transformer in vtr.get_transformers(PreImportTransformer, model_cls, transformers):
         file = await transformer.pre_import(request, file, transformers_ctx)
 
-    query = query or model_cls.query
+    query = query or model_cls.query.get_queryset()
 
     try:
         result = await import_data(

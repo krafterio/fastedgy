@@ -1,14 +1,14 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import Type, Callable, TypeVar
+from typing import Callable, TypeVar
 
-from fastedgy.orm import Model
+from fastedgy.models.base import BaseModel
 from fastedgy.dependencies import get_service
 from fastedgy.metadata_model import MetadataModelRegistry
 
 
-M = TypeVar("M", bound=Type[Model])
+M = TypeVar("M", bound=type[BaseModel])
 
 
 def metadata_model() -> Callable[[M], M]:

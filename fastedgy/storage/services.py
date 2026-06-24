@@ -8,7 +8,7 @@ import mimetypes
 import base64
 
 from pathlib import Path
-from typing import Any, AsyncIterator
+from typing import TYPE_CHECKING, Any, AsyncIterator
 
 from fastapi import UploadFile
 
@@ -24,6 +24,9 @@ try:
     from PIL import Image
 except Exception:
     Image = None
+
+if TYPE_CHECKING:
+    from PIL.Image import Image as PILImage
 
 
 def _create_adapter(settings: BaseSettings, adapter_name: str) -> StorageAdapter:
@@ -51,7 +54,7 @@ class Storage:
     def __init__(self, settings: BaseSettings = Inject(BaseSettings)):
         self.settings = settings
         self.adapter: StorageAdapter = _create_adapter(settings, settings.storage_adapter)
-        self.cache_adapter: FilesystemAdapter = FilesystemAdapter(root=settings.storage_data_path)
+        self.cache_adapter: StorageAdapter = FilesystemAdapter(root=settings.storage_data_path)
         if settings.storage_cache_adapter != "filesystem":
             self.cache_adapter = _create_adapter(settings, settings.storage_cache_adapter)
 
@@ -222,7 +225,7 @@ class Storage:
 
     def _save_image_to_bytes(
         self,
-        img: "Image.Image",
+        img: "PILImage",
         pil_format: str,
         quality: int,
     ) -> bytes:
@@ -274,10 +277,10 @@ class Storage:
                 return cache_path, source_data, mime
 
             if mode == "contain":
-                resized = img.resize((tw, th), Image.LANCZOS)
+                resized = img.resize((tw, th), Image.Resampling.LANCZOS)
                 final_img = resized
             else:
-                resized = img.resize((tw, th), Image.LANCZOS)
+                resized = img.resize((tw, th), Image.Resampling.LANCZOS)
                 cw = w or tw
                 ch = h or th
                 left = max(0, (tw - cw) // 2)

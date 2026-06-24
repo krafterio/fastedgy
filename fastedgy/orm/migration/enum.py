@@ -91,8 +91,12 @@ def compare_enums(autogen_context: AutogenContext, upgrade_ops: UpgradeOps, sche
     registry = get_service(Registry)
     db_enums = {}
 
+    connection = autogen_context.connection
+    if connection is None:
+        return
+
     for sch in schemas:
-        rows = autogen_context.connection.execute(
+        rows = connection.execute(
             text(
                 "SELECT t.typname, e.enumlabel "
                 "FROM pg_type t "
@@ -115,7 +119,7 @@ def compare_enums(autogen_context: AutogenContext, upgrade_ops: UpgradeOps, sche
     # Get current default values for enum columns from database
     db_enum_defaults = {}
     for sch in schemas:
-        default_rows = autogen_context.connection.execute(
+        default_rows = connection.execute(
             text(
                 "SELECT c.table_name, c.column_name, c.column_default, t.typname "
                 "FROM information_schema.columns c "
@@ -290,26 +294,29 @@ def _generate_automatic_enum_mapping(
     if truly_removed_values:
         # Check if columns using this enum are nullable
         is_nullable = False
-        try:
-            result = autogen_context.connection.execute(
-                text(
-                    "SELECT c.is_nullable FROM information_schema.columns c "
-                    "JOIN pg_type t ON c.udt_name = t.typname "
-                    "JOIN pg_namespace n ON t.typnamespace = n.oid "
-                    "WHERE t.typname = :enum_name AND n.nspname = :schema_name "
-                    "LIMIT 1"
-                ),
-                {
-                    "enum_name": enum_name,
-                    "schema_name": autogen_context.dialect.default_schema_name or "public",
-                },
-            ).fetchone()
+        connection = autogen_context.connection
 
-            if result:
-                is_nullable = result[0] == "YES"
-        except Exception:
-            # Fallback if query fails
-            is_nullable = False
+        if connection is not None:
+            try:
+                result = connection.execute(
+                    text(
+                        "SELECT c.is_nullable FROM information_schema.columns c "
+                        "JOIN pg_type t ON c.udt_name = t.typname "
+                        "JOIN pg_namespace n ON t.typnamespace = n.oid "
+                        "WHERE t.typname = :enum_name AND n.nspname = :schema_name "
+                        "LIMIT 1"
+                    ),
+                    {
+                        "enum_name": enum_name,
+                        "schema_name": autogen_context.dialect.default_schema_name or "public",
+                    },
+                ).fetchone()
+
+                if result:
+                    is_nullable = result[0] == "YES"
+            except Exception:
+                # Fallback if query fails
+                is_nullable = False
 
         for removed_value in truly_removed_values:
             if is_nullable:

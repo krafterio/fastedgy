@@ -2,7 +2,7 @@
 # MIT License (see LICENSE file).
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from fastapi import Request as FastAPIRequest
 
@@ -11,6 +11,7 @@ from fastedgy.timezone import get_timezone
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
+from starlette.types import ASGIApp
 
 if TYPE_CHECKING:
     from fastedgy.app import FastEdgy
@@ -27,7 +28,7 @@ class Request(FastAPIRequest):
 
 class ContextRequestMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
-        token = set_request(request)
+        token = set_request(cast(Request, request))
 
         try:
             return await call_next(request)
@@ -38,11 +39,11 @@ class ContextRequestMiddleware(BaseHTTPMiddleware):
 class TimezoneMiddleware(BaseHTTPMiddleware):
     """Middleware to parse X-Timezone header and set timezone in context."""
 
-    def __init__(self, app: "FastEdgy", header_name: str = "X-Timezone"):
+    def __init__(self, app: ASGIApp, header_name: str = "X-Timezone"):
         super().__init__(app)
         self.header_name = header_name
 
-    async def dispatch(self, request: Request, call_next) -> Response:
+    async def dispatch(self, request: FastAPIRequest, call_next) -> Response:
         timezone_header = request.headers.get(self.header_name)
 
         if timezone_header:

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import logging
 from functools import lru_cache
-from typing import Any, Literal, Sequence
+from typing import TYPE_CHECKING, Any, Literal, Sequence, cast
 
 import sqlalchemy
 from sqlalchemy.dialects.postgresql import TSVECTOR
@@ -20,6 +20,9 @@ from edgy.core.db.fields.types import BaseFieldType
 
 from .field_html import HTMLField
 from .field_phone import PhoneField
+
+if TYPE_CHECKING:
+    from fastedgy.models.base import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +50,7 @@ def resolve_search_weight(field_info: BaseFieldType) -> SearchWeight | None:
     searchable = getattr(field_info, "searchable", None)
 
     if isinstance(searchable, str):
-        return searchable
+        return cast(SearchWeight, searchable)
 
     if searchable is False:
         return None
@@ -66,7 +69,7 @@ def resolve_search_weight(field_info: BaseFieldType) -> SearchWeight | None:
 
 @lru_cache(maxsize=None)
 def get_searchable_fields(
-    model_cls: type,
+    model_cls: type[BaseModel],
 ) -> dict[str, SearchWeight]:
     """
     Discover all searchable fields on a model and their weights.
@@ -168,7 +171,7 @@ class FulltextField(BaseField):
     def to_model(self, field_name: str, value: Any) -> dict[str, Any]:
         return {}
 
-    def clean(self, name: str, value: Any, for_query: bool = False) -> dict[str, Any]:
+    def clean(self, field_name: str, value: Any, for_query: bool = False) -> dict[str, Any]:
         return {}
 
     def __get__(self, instance: Any, owner: Any = None) -> None:
@@ -183,7 +186,7 @@ def get_pg_language(locale: str) -> str:
     try:
         from babel import Locale as BabelLocale
 
-        return BabelLocale.parse(locale).english_name.lower()
+        return (BabelLocale.parse(locale).english_name or "simple").lower()
     except Exception:
         return "simple"
 
@@ -195,7 +198,7 @@ def escape_sql(value: str) -> str:
 
 async def recompute_fulltext(
     model_class_path: str,
-    record_pk: any,
+    record_pk: Any,
     fulltext_field_name: str,
     locale: str,
 ) -> None:

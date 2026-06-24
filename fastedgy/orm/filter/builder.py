@@ -18,9 +18,6 @@ from fastedgy.orm.fields import (
     DateTimeField,
     DecimalField,
     FloatField,
-    ForeignKey,
-    ManyToMany,
-    OneToOne,
 )
 from fastedgy.orm.query import QuerySet
 from fastedgy.orm.utils import find_primary_key_field
@@ -51,7 +48,10 @@ def _get_cond_query(model_cls: type[Model]) -> QuerySet:
     )
 
 
-def build_filter_expression(model_cls: type[Model], filters: FilterRule | FilterCondition) -> Any | None:
+def build_filter_expression(model_cls: type[Model], filters: FilterRule | FilterCondition | None) -> Any | None:
+    if filters is None:
+        return None
+
     if isinstance(filters, FilterRule):
         field = filters.field
         operator_method = FILTER_OPERATORS_SQL.get(filters.operator, None)
@@ -70,14 +70,9 @@ def build_filter_expression(model_cls: type[Model], filters: FilterRule | Filter
         use_col = field.startswith("extra_")
         field_type = _find_field_type_in_model(model_cls, field)
 
-        if isinstance(field_type, ForeignKey):
-            field += "." + list(field_type.related_columns.keys())[0]
-        elif isinstance(field_type, OneToOne):
-            field += "." + list(field_type.related_columns.keys())[0]
-        elif isinstance(field_type, ManyToMany):
-            field += "." + list(field_type.related_columns.keys())[0]
-        elif field_type == "OneToMany":
-            field += "." + list(field_type.related_columns.keys())[0]
+        related_columns = getattr(field_type, "related_columns", None)
+        if related_columns:
+            field += "." + list(related_columns.keys())[0]
 
         column = _find_column_in_model(model_cls, field)
         value = _convert_value_by_field_type(model_cls, field, filters.value)
@@ -151,14 +146,9 @@ def _build_exists_expression(model_cls: type[Model], filters: FilterRule) -> Any
     field_type = _find_field_type_in_model(model_cls, field)
     resolved_field = field
 
-    if isinstance(field_type, ForeignKey):
-        resolved_field += "." + list(field_type.related_columns.keys())[0]
-    elif isinstance(field_type, OneToOne):
-        resolved_field += "." + list(field_type.related_columns.keys())[0]
-    elif isinstance(field_type, ManyToMany):
-        resolved_field += "." + list(field_type.related_columns.keys())[0]
-    elif field_type == "OneToMany":
-        resolved_field += "." + list(field_type.related_columns.keys())[0]
+    related_columns = getattr(field_type, "related_columns", None)
+    if related_columns:
+        resolved_field += "." + list(related_columns.keys())[0]
 
     parts = resolved_field.split(".")
     current_model = model_cls
@@ -171,7 +161,7 @@ def _build_exists_expression(model_cls: type[Model], filters: FilterRule) -> Any
 
         if hasattr(field_info, "related_from"):
             # Reverse relation (OneToMany): related_model has FK pointing back
-            related_model = field_info.related_from
+            related_model = getattr(field_info, "related_from")
 
             # Find the FK field on related_model whose related_name == part
             fk_field_name = None
@@ -184,6 +174,9 @@ def _build_exists_expression(model_cls: type[Model], filters: FilterRule) -> Any
                 return None
 
             current_pk = find_primary_key_field(current_model)
+
+            if current_pk is None:
+                return None
 
             if from_table is None:
                 from_table = related_model.table
@@ -200,8 +193,8 @@ def _build_exists_expression(model_cls: type[Model], filters: FilterRule) -> Any
 
         elif hasattr(field_info, "target"):
             # Forward FK
-            related_model = field_info.target
-            pk_col = list(field_info.related_columns.keys())[0]
+            related_model = getattr(field_info, "target")
+            pk_col = list(getattr(field_info, "related_columns").keys())[0]
 
             if from_table is None:
                 from_table = related_model.table
@@ -217,7 +210,7 @@ def _build_exists_expression(model_cls: type[Model], filters: FilterRule) -> Any
             current_model = related_model
 
         elif hasattr(field_info, "related_model"):
-            related_model = field_info.related_model
+            related_model = getattr(field_info, "related_model")
 
             if from_table is None:
                 from_table = related_model.table
@@ -336,7 +329,7 @@ def _resolve_fulltext_field(model_cls: type[Model], field_path: str) -> tuple[ty
     return current_cls, str(current_cls.meta.tablename), parts[-1]
 
 
-def _build_fulltext_search_expression(model_cls: type[Model], field_path: str, value: str) -> Any:
+def _build_fulltext_search_expression(model_cls: type[Model], field_path: str, value: Any) -> Any:
     """
     Build a fulltext search WHERE expression:
     tablename.column_locale @@ to_tsquery('language', unaccent('parsed_tsquery'))
@@ -375,7 +368,7 @@ def _fuzzy_correct_sql(column_name: str, tablename: str, term: str, param_name: 
     )
 
 
-def _build_fulltext_fuzzy_expression(model_cls: type[Model], field_path: str, value: str) -> Any:
+def _build_fulltext_fuzzy_expression(model_cls: type[Model], field_path: str, value: Any) -> Any:
     """
     Build a fulltext search expression with inline fuzzy term correction.
     Each term is corrected via a ts_stat subquery using pg_trgm similarity,
@@ -546,7 +539,7 @@ def _add_fulltext_rank_extra_select(query: QuerySet, filters: Filter | None) -> 
                 combined_no_unaccent = " || ".join(f"to_tsquery('{pg_language}', '{tq}')" for tq in tsqueries)
                 rank_expr = literal_column(f"ts_rank({qualified_column}, {combined_no_unaccent})").label(label_name)
 
-        query = query.extra_select(rank_expr)
+        query = cast(QuerySet, query.extra_select(cast(Any, rank_expr)))
 
     return query
 
@@ -580,10 +573,12 @@ def _find_field_type_in_model(model_cls: type[Model], field_path: str) -> type[B
 
                 if extra_field_name in extra_fields:
                     extra_field = extra_fields[extra_field_name]
-                    field_type = EXTRA_FIELDS_MAP.get(extra_field.field_type, None)
 
-                    if field_type:
-                        return field_type
+                    if extra_field.field_type is not None:
+                        field_type = EXTRA_FIELDS_MAP.get(extra_field.field_type)
+
+                        if field_type:
+                            return field_type
 
             raise InvalidFilterError(f"Field '{part}' not found in model {current_model.__name__}")
         elif i == len(field_parts) - 1:
@@ -600,11 +595,11 @@ def _find_field_type_in_model(model_cls: type[Model], field_path: str) -> type[B
             field_info = current_model.meta.fields[part]
 
             if hasattr(field_info, "related_model"):
-                current_model = field_info.related_model
+                current_model = getattr(field_info, "related_model")
             elif hasattr(field_info, "target"):
-                current_model = field_info.target
+                current_model = getattr(field_info, "target")
             elif hasattr(field_info, "related_from"):
-                current_model = field_info.related_from
+                current_model = getattr(field_info, "related_from")
             else:
                 raise InvalidFilterError(f"Field '{part}' is not a relationship field")
 
@@ -640,10 +635,12 @@ def _find_column_in_model(model_cls: type[Model], field_path: str) -> Any:
 
                 if extra_field_name in extra_fields:
                     extra_field = extra_fields[extra_field_name]
-                    field_type = EXTRA_FIELDS_MAP.get(extra_field.field_type, None)
 
-                    if field_type:
-                        return model_cls.columns.extra.op("->>")(extra_field_name)
+                    if extra_field.field_type is not None:
+                        field_type = EXTRA_FIELDS_MAP.get(extra_field.field_type)
+
+                        if field_type:
+                            return model_cls.columns.extra.op("->>")(extra_field_name)
 
             raise InvalidFilterError(f"Field '{part}' not found in model {current_model.__name__}")
         elif i == len(field_parts) - 1:
@@ -660,11 +657,11 @@ def _find_column_in_model(model_cls: type[Model], field_path: str) -> Any:
             field_info = current_model.meta.fields[part]
 
             if hasattr(field_info, "related_model"):
-                current_model = field_info.related_model
+                current_model = getattr(field_info, "related_model")
             elif hasattr(field_info, "target"):
-                current_model = field_info.target
+                current_model = getattr(field_info, "target")
             elif hasattr(field_info, "related_from"):
-                current_model = field_info.related_from
+                current_model = getattr(field_info, "related_from")
             else:
                 raise InvalidFilterError(f"Field '{part}' is not a relationship field")
 
@@ -701,10 +698,12 @@ def _convert_value_by_field_type(model_cls: type[Model], field_path: str, value:
 
             if extra_field_name in extra_fields:
                 extra_field = extra_fields[extra_field_name]
-                field_type = EXTRA_FIELDS_MAP.get(extra_field.field_type, None)
 
-                if field_type:
-                    field = field_type(**EXTRA_FIELD_TYPE_OPTIONS[extra_field.field_type])
+                if extra_field.field_type is not None:
+                    field_type = EXTRA_FIELDS_MAP.get(extra_field.field_type)
+
+                    if field_type:
+                        field = field_type(**EXTRA_FIELD_TYPE_OPTIONS[extra_field.field_type])
         else:
             field = current_cls.meta.fields.get(part)
             if not field:

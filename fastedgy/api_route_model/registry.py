@@ -14,7 +14,7 @@ from fastapi.datastructures import DefaultPlaceholder
 
 from fastedgy.api_route_model.view_transformer import BaseViewTransformer
 from fastedgy.dependencies import register_service, Token
-from fastedgy.orm import Model
+from fastedgy.models.base import BaseModel
 
 from starlette.responses import Response
 from starlette.routing import BaseRoute
@@ -59,11 +59,11 @@ class RouteModelOptions(dict):
     actions: dict[str, RouteModelOptionsValue]
 
 
-TypeModel = Type[Model]
+TypeModel = type[BaseModel]
 TypeModels = dict[TypeModel, RouteModelOptions]
 
 
-DEFAULT_ROUTE_MODEL_OPTIONS = {}
+DEFAULT_ROUTE_MODEL_OPTIONS: RouteModelOptions = RouteModelOptions()
 
 
 class RouteModelRegistry:
@@ -80,7 +80,7 @@ class RouteModelRegistry:
             model_cls: The Edgy model class to register
             options: Options for route generation, with type view in key and enabled or disabled in value
         """
-        self._models[model_cls] = {**DEFAULT_ROUTE_MODEL_OPTIONS, **(options or {})}
+        self._models[model_cls] = RouteModelOptions({**DEFAULT_ROUTE_MODEL_OPTIONS, **(options or {})})
 
     def get_registered_models(self) -> TypeModels:
         """Get all registered models with their options."""
@@ -120,11 +120,11 @@ class ViewTransformerRegistry:
     def get_transformers[T = BaseViewTransformer](
         self,
         transformer_cls: Type[T],
-        model_cls: TypeModel,
+        model_cls: TypeModel | None,
         transformers: list[BaseViewTransformer] | None = None,
     ) -> list[T]:
         if not bool(getattr(transformer_cls, "__abstractmethods__", False)):
-            raise ValueError(f"Model {model_cls.__name__} is not abstract")
+            raise ValueError(f"Transformer {transformer_cls.__name__} is not abstract")
 
         final_transformers = []
 

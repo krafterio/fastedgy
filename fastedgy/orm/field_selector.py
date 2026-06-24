@@ -33,7 +33,7 @@ def parse_field_selector_input(
     else:
         parts = fields_expr
 
-    result = {"id": True}
+    result: dict[str, Any] = {"id": True}
 
     if "+" in parts:
         for field_name, field in model_cls.meta.fields.items():
@@ -208,7 +208,7 @@ async def filter_selected_fields(item: Model, fields_expr: str | list[str] | Non
     use optimize_query_filter_fields() function directly on the query
     before executing first(), get(), or all().
     """
-    map_fields = parse_field_selector_input(item.meta.model, fields_expr)
+    map_fields = parse_field_selector_input(type(item), fields_expr)
     item_dump = item.model_dump()
 
     if map_fields is not None:

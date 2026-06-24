@@ -129,9 +129,10 @@ def register_all_fulltext_signals() -> None:
     for those that have at least one FulltextField with searchable source fields.
     """
     try:
-        from edgy import monkay
+        from fastedgy.dependencies import get_service
+        from fastedgy.orm import Registry
 
-        registry = monkay.instance.registry
+        registry = get_service(Registry)
 
         for model_cls in registry.models.values():
             has_fulltext = False

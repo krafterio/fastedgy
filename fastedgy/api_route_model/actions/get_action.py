@@ -1,10 +1,11 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import Callable, Coroutine, Any
+from typing import Callable, Any
 
 from fastapi import APIRouter, HTTPException, Path
 
+from fastedgy.models.base import BaseModel
 from fastedgy.api_route_model.action import BaseApiRouteAction, generate_output_model
 from fastedgy.api_route_model.params import FieldSelectorHeader
 from fastedgy.orm.field_selector import (
@@ -42,19 +43,20 @@ class GetApiRouteAction(BaseApiRouteAction):
                 "methods": ["GET"],
                 "summary": f"Get {model_cls.__name__}",
                 "description": f"Retrieve a single {model_cls.__name__} by its ID",
+                "response_model": generate_output_model(model_cls) | dict[str, Any],
                 **options,
             }
         )
 
 
-def generate_get_item[M = TypeModel](
-    model_cls: M,
-) -> Callable[[Request, int], Coroutine[Any, Any, M]]:
+def generate_get_item[M: BaseModel](
+    model_cls: type[M],
+) -> Callable[..., Any]:
     async def get_item(
         request: Request,
         item_id: int = Path(..., description="Item ID"),
         fields: str | None = FieldSelectorHeader(),
-    ) -> generate_output_model(model_cls) | dict[str, Any]:
+    ) -> Any:
         return await get_item_action(
             request,
             model_cls,
@@ -65,16 +67,16 @@ def generate_get_item[M = TypeModel](
     return get_item
 
 
-async def get_item_action[M = TypeModel](
+async def get_item_action[M: BaseModel](
     request: Request,
-    model_cls: M,
+    model_cls: type[M],
     item_id: int,
     query: QuerySet | None = None,
     fields: str | None = None,
     transformers: list[BaseViewTransformer] | None = None,
     transformers_ctx: dict[str, Any] | None = None,
 ) -> M | dict[str, Any]:
-    query = query or model_cls.query
+    query = query or model_cls.query.get_queryset()
     query = optimize_query_filter_fields(query, fields)
     transformers_ctx = transformers_ctx or {}
     vtr = get_service(ViewTransformerRegistry)
@@ -92,10 +94,10 @@ async def get_item_action[M = TypeModel](
         raise HTTPException(status_code=404, detail=f"{model_cls.__name__} not found")
 
 
-async def view_item_action[M = TypeModel](
+async def view_item_action[M: BaseModel](
     request: Request,
-    model_cls: M,
-    item,
+    model_cls: type[M],
+    item: M,
     fields: str | None = None,
     transformers: list[BaseViewTransformer] | None = None,
     transformers_ctx: dict[str, Any] | None = None,

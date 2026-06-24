@@ -33,7 +33,7 @@ MAIN_DATABASE_NAME: str = " "
 
 def iter_databases(
     registry: Registry,
-) -> Generator[tuple[str, Database, "sqlalchemy.MetaData"], None, None]:
+) -> Generator[tuple[str | None, Database, "sqlalchemy.MetaData"], None, None]:
     url: str | None = os.environ.get("EDGY_DATABASE_URL")
     name: str | Literal[False] | None = os.environ.get("EDGY_DATABASE") or False
     if url and not name:

@@ -2,9 +2,10 @@
 # MIT License (see LICENSE file).
 
 from edgy import Instance, monkay
-from fastapi import FastAPI, routing, Depends
+from fastapi import FastAPI, routing
 from fastapi.applications import AppType
 from fastapi.datastructures import Default
+from fastapi.params import Depends
 from fastapi.responses import Response, JSONResponse
 from fastapi.utils import generate_unique_id
 from fastedgy.config import BaseSettings, init_settings
@@ -37,6 +38,7 @@ from typing import (
     Sequence,
     Callable,
     Coroutine,
+    cast,
 )
 from typing_extensions import Doc, deprecated
 
@@ -805,7 +807,7 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
         ],
     ) -> None:
         settings = init_settings()
-        composed_lifespan = self._compose_lifespan(lifespan)
+        composed_lifespan = cast("FastEdgy[S]", self)._compose_lifespan(lifespan)
 
         super().__init__(
             debug=debug,

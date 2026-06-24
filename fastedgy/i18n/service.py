@@ -4,6 +4,8 @@
 import os
 import logging
 
+from typing import Any
+
 from babel.messages import Catalog
 from babel.messages.pofile import read_po
 
@@ -16,7 +18,10 @@ logger = logging.getLogger("fastedgy.i18n")
 
 
 class TranslatableString(str):
-    def __new__(cls, message: str, **kwargs):
+    message: str
+    kwargs: dict[str, Any]
+
+    def __new__(cls, message: str, **kwargs: Any) -> "TranslatableString":
         instance = super().__new__(cls, message)
         instance.message = message
         instance.kwargs = kwargs

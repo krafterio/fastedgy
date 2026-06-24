@@ -127,9 +127,7 @@ def serve(
         "db_max_overflow": db_overflow_display,
         "log_level": ctx.settings.log_level.value,
         "log_output": ctx.settings.log_output.value,
-        "log_format": ctx.settings.log_format.value
-        if hasattr(ctx.settings.log_format, "value")
-        else str(ctx.settings.log_format),
+        "log_format": getattr(ctx.settings.log_format, "value", str(ctx.settings.log_format)),
         "url": f"http://{host}:{port}",
     }
 

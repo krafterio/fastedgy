@@ -3,15 +3,16 @@
 
 import json
 from copy import copy
-from typing import get_origin, Union, get_args, Any
+from typing import Callable, get_origin, Union, get_args, Any, cast
 
 from pydantic_core import PydanticUndefined
+from edgy.core.db.fields.types import BaseFieldType
 
 from fastedgy.schemas import create_model
-from fastedgy.api_route_model.registry import TypeModel
+from fastedgy.models.base import BaseModel
 
 
-def _is_json_serializable(value) -> bool:
+def _is_json_serializable(value: Any) -> bool:
     try:
         json.dumps(value)
         return True
@@ -19,7 +20,7 @@ def _is_json_serializable(value) -> bool:
         return False
 
 
-def _has_unserializable_default(field) -> bool:
+def _has_unserializable_default(field: BaseFieldType) -> bool:
     factory = getattr(field, "default_factory", None)
 
     if factory is not None and not _is_json_serializable(factory):
@@ -30,14 +31,16 @@ def _has_unserializable_default(field) -> bool:
     return default is not PydanticUndefined and not _is_json_serializable(default)
 
 
-def generate_output_model[M = TypeModel](model_cls: M) -> type[M]:
+def generate_output_model[M: BaseModel](model_cls: type[M]) -> type[M]:
     from fastedgy.schemas import Field as PydanticField
     from fastedgy.api_route_model.action.relations import is_relation_field
     from edgy.core.db.fields.foreign_keys import ForeignKey
 
     fields = {}
 
-    for field_name, field in model_cls.model_fields.items():
+    for field_name, field_info in model_cls.model_fields.items():
+        field = cast(BaseFieldType, field_info)
+
         if not field.exclude:
             field_type = field.field_type
             field_to_use = field
@@ -58,7 +61,7 @@ def generate_output_model[M = TypeModel](model_cls: M) -> type[M]:
             if _has_unserializable_default(field):
                 field_to_use = copy(field)
                 field_to_use.default = None
-                field_to_use.default_factory = None
+                setattr(field_to_use, "default_factory", None)
 
             fields[field_name] = (field_type, field_to_use)
         elif is_relation_field(field):
@@ -67,17 +70,19 @@ def generate_output_model[M = TypeModel](model_cls: M) -> type[M]:
                 PydanticField(default=None, exclude=False),
             )
 
-    return create_model(f"{model_cls.__name__}", **fields)
+    return cast(type[M], create_model(f"{model_cls.__name__}", **fields))
 
 
-def generate_input_create_model[M = TypeModel](model_cls: M) -> type[M]:
+def generate_input_create_model[M: BaseModel](model_cls: type[M]) -> type[M]:
     """Generate Pydantic input model for POST with M2M/O2M support."""
     from fastedgy.schemas import Field as PydanticField
     from fastedgy.api_route_model.action.relations import is_relation_field
 
     fields = {}
 
-    for field_name, field in model_cls.model_fields.items():
+    for field_name, field_info in model_cls.model_fields.items():
+        field = cast(BaseFieldType, field_info)
+
         # Skip primary keys and read-only fields
         if field.read_only or field.primary_key:
             continue
@@ -123,17 +128,19 @@ def generate_input_create_model[M = TypeModel](model_cls: M) -> type[M]:
                 field_type = optional_field_type(field.field_type)
             fields[field_name] = (field_type, field)
 
-    return create_model(f"{model_cls.__name__}Create", **fields)
+    return cast(type[M], create_model(f"{model_cls.__name__}Create", **fields))
 
 
-def generate_input_patch_model[M = TypeModel](model_cls: M) -> type[M]:
+def generate_input_patch_model[M: BaseModel](model_cls: type[M]) -> type[M]:
     """Generate Pydantic input model for PATCH with M2M/O2M support."""
     from fastedgy.schemas import Field as PydanticField
     from fastedgy.api_route_model.action.relations import is_relation_field
 
     fields = {}
 
-    for field_name, field in model_cls.model_fields.items():
+    for field_name, field_info in model_cls.model_fields.items():
+        field = cast(BaseFieldType, field_info)
+
         # Skip primary keys and read-only fields
         if field.read_only or field.primary_key:
             continue
@@ -171,13 +178,13 @@ def generate_input_patch_model[M = TypeModel](model_cls: M) -> type[M]:
         elif not field.exclude:
             # Regular scalar field (only if not excluded)
             py_field = copy(field)
-            py_field.required = False
+            setattr(py_field, "required", False)
             py_field.null = True
             py_field.default = None
             py_field.field_type = optional_field_type(field.field_type)
             fields[field_name] = (py_field.field_type, py_field)
 
-    return create_model(f"{model_cls.__name__}Update", **fields)
+    return cast(type[M], create_model(f"{model_cls.__name__}Update", **fields))
 
 
 def optional_field_type(field_type):
@@ -192,12 +199,30 @@ def optional_field_type(field_type):
         return Union[field_type, None]
 
 
-def clean_empty_strings(item_data) -> None:
+def clean_empty_strings(item_data: BaseModel) -> None:
     """Convert empty strings to None in Pydantic model instance."""
     for field_name in item_data.model_fields_set:
         value = getattr(item_data, field_name)
         if value == "":
             setattr(item_data, field_name, None)
+
+
+def route_body_model[F: Callable[..., Any]](model: type[BaseModel], param: str = "item_data") -> Callable[[F], F]:
+    """Attach a dynamically generated request body model to a route endpoint.
+
+    FastAPI derives the request body schema from the parameter annotation, but a
+    runtime-generated model (``generate_input_create_model`` / ``generate_input_patch_model``)
+    cannot live in annotation position. This decorator sets it on ``__annotations__``
+    so FastAPI reads it, while the static annotation stays a plain type.
+
+    It is the request-body counterpart of FastAPI's native ``response_model=``.
+    """
+
+    def decorator(func: F) -> F:
+        func.__annotations__[param] = model
+        return func
+
+    return decorator
 
 
 __all__ = [
@@ -206,4 +231,5 @@ __all__ = [
     "generate_input_patch_model",
     "optional_field_type",
     "clean_empty_strings",
+    "route_body_model",
 ]

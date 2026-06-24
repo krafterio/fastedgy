@@ -4,7 +4,7 @@
 from edgy.core.db.fields.factories import FieldFactory
 from sqlalchemy.types import UserDefinedType
 from sqlalchemy.dialects.postgresql.base import ischema_names
-from typing import Any, Iterable, Sequence, cast
+from typing import Any, Iterable, Sequence, Sized, cast
 
 from .field_options import FieldOptions
 
@@ -55,7 +55,7 @@ class Vector(UserDefinedType):
         if isinstance(value, str):
             return value
 
-        if self.dimensions is not None and hasattr(value, "__len__"):
+        if self.dimensions is not None and isinstance(value, Sized):
             if len(value) != self.dimensions:
                 raise ValueError(f"Vector length must be {self.dimensions}")
 

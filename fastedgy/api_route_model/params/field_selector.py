@@ -1,30 +1,28 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+from typing import Any
+
 from fastapi.params import Query, Header
 
 
-class FieldSelectorQuery(Query):
+def FieldSelectorQuery() -> Any:
     """FastAPI Query parameter for field selection."""
-
-    def __init__(self):
-        super().__init__(
-            default=None,
-            title="Fields Selector",
-            description="Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
-        )
+    return Query(
+        default=None,
+        title="Fields Selector",
+        description="Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+    )
 
 
-class FieldSelectorHeader(Header):
+def FieldSelectorHeader() -> Any:
     """FastAPI Header parameter for field selection."""
-
-    def __init__(self):
-        super().__init__(
-            default=None,
-            title="Fields Selector",
-            description="Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
-            alias="X-Fields",
-        )
+    return Header(
+        default=None,
+        title="Fields Selector",
+        description="Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+        alias="X-Fields",
+    )
 
 
 __all__ = [

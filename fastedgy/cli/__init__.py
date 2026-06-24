@@ -187,7 +187,7 @@ def register_commands_in_group(
                 if isinstance(obj, click.Command) and not isinstance(obj, click.Group):
                     # Apply decorators if provided
                     if decorators:
-                        excluded = exclude_decorators_for.get(obj.name, [])
+                        excluded = exclude_decorators_for.get(obj.name or "", [])
                         for decorator in decorators:
                             # Skip this decorator if it's excluded for this command
                             if decorator not in excluded:
@@ -268,13 +268,27 @@ class Command(RichCommand):
 
 
 class Group(RichGroup):
-    def command(self, *args: Any, **kwargs: Any) -> Union[Callable[[Callable[..., Any]], Command], Command]:
-        def decorator(f: Callable[..., Any]) -> Command:
-            kwargs.setdefault("cls", Command)
+    command_class = Command
 
-            return cast(Command, super(Group, self).command(*args, **kwargs)(f))
 
-        return decorator
+# variant: no call, directly as decorator for a function.
+@overload
+def command(name: _AnyCallable) -> Command: ...
+
+
+# variant: with positional name and with positional or keyword cls argument.
+@overload
+def command(name: Optional[str], cls: Type[CmdType], **attrs: Any) -> Callable[[_AnyCallable], CmdType]: ...
+
+
+# variant: name omitted, cls _must_ be a keyword argument.
+@overload
+def command(name: None = None, *, cls: Type[CmdType], **attrs: Any) -> Callable[[_AnyCallable], CmdType]: ...
+
+
+# variant: with optional string name, no cls argument provided -> defaults to our Command.
+@overload
+def command(name: Optional[str] = ..., cls: None = None, **attrs: Any) -> Callable[[_AnyCallable], Command]: ...
 
 
 def command(
@@ -282,15 +296,15 @@ def command(
     cls: Optional[Type[CmdType]] = None,
     **attrs: Any,
 ) -> Union[Command, Callable[[_AnyCallable], Union[RichCommand, CmdType]]]:
-    if cls is None:
-        cls = Command
+    if callable(name):
+        return click.command(cls=Command)(name)
 
-    return click.command(name, cls, **attrs)
+    return click.command(name, cls or Command, **attrs)
 
 
 # variant: no call, directly as decorator for a function.
 @overload
-def group(name: _AnyCallable) -> RichGroup: ...
+def group(name: _AnyCallable) -> Group: ...
 
 
 # variant: with positional name and with positional or keyword cls argument:
@@ -315,7 +329,7 @@ def group(
 
 # variant: with optional string name, no cls argument provided.
 @overload
-def group(name: Optional[str] = ..., cls: None = None, **attrs: Any) -> Callable[[_AnyCallable], RichGroup]: ...
+def group(name: Optional[str] = ..., cls: None = None, **attrs: Any) -> Callable[[_AnyCallable], Group]: ...
 
 
 def group(
@@ -323,10 +337,23 @@ def group(
     cls: Optional[Type[G]] = None,
     **attrs: Any,
 ) -> Union[Group, Callable[[_AnyCallable], Union[RichGroup, G]]]:
-    if cls is None:
-        cls = Group
+    if callable(name):
+        return click.group(cls=Group)(name)
 
-    return click.group(name, cls, **attrs)
+    return click.group(name, cls or Group, **attrs)
+
+
+def _current_context() -> Context:
+    """Return the active click context, raising if there is none.
+
+    ``get_current_context()`` is typed ``Optional[Context]`` even though, with
+    the default ``silent=False``, it raises rather than returning ``None``. This
+    helper narrows the type for the decorators below.
+    """
+    ctx = get_current_context()
+    if ctx is None:
+        raise RuntimeError("There is no active click context.")
+    return ctx
 
 
 def pass_context(f: "Callable[Concatenate[Context, P], R]") -> "Callable[P, R]":
@@ -336,13 +363,13 @@ def pass_context(f: "Callable[Concatenate[Context, P], R]") -> "Callable[P, R]":
     if inspect.iscoroutinefunction(inspect.unwrap(f)):
 
         async def async_func(*args: "P.args", **kwargs: "P.kwargs") -> "R":
-            return await f(get_current_context(), *args, **kwargs)
+            return await cast("Awaitable[R]", f(_current_context(), *args, **kwargs))
 
         wrapped_func = async_func
     else:
 
         def sync_func(*args: "P.args", **kwargs: "P.kwargs") -> "R":
-            return f(get_current_context(), *args, **kwargs)
+            return f(_current_context(), *args, **kwargs)
 
         wrapped_func = sync_func
 
@@ -357,13 +384,13 @@ def pass_cli_context(f: "Callable[Concatenate[CliContext, P], R]") -> "Callable[
     if inspect.iscoroutinefunction(inspect.unwrap(f)):
 
         async def async_func(*args: "P.args", **kwargs: "P.kwargs") -> "R":
-            return await f(get_current_context().obj, *args, **kwargs)
+            return await cast("Awaitable[R]", f(_current_context().obj, *args, **kwargs))
 
         wrapped_func = async_func
     else:
 
         def sync_func(*args: "P.args", **kwargs: "P.kwargs") -> "R":
-            return f(get_current_context().obj, *args, **kwargs)
+            return f(_current_context().obj, *args, **kwargs)
 
         wrapped_func = sync_func
 
@@ -375,15 +402,15 @@ def initialize_app(f: "Callable[P, R]") -> "Callable[P, R]":
     if inspect.iscoroutinefunction(inspect.unwrap(f)):
 
         async def async_func(*args: "P.args", **kwargs: "P.kwargs") -> "R":
-            ctx = get_current_context().obj
+            ctx = _current_context().obj
             ctx.app.initialize()
-            return await f(*args, **kwargs)
+            return await cast("Awaitable[R]", f(*args, **kwargs))
 
         wrapped_func = async_func
     else:
 
         def sync_func(*args: "P.args", **kwargs: "P.kwargs") -> "R":
-            ctx = get_current_context().obj
+            ctx = _current_context().obj
             ctx.app.initialize()
             return f(*args, **kwargs)
 
@@ -420,15 +447,15 @@ def lifespan(f: "Callable[P, R]") -> "Callable[P, R]":
     if inspect.iscoroutinefunction(inspect.unwrap(f)):
 
         async def async_func(*args: "P.args", **kwargs: "P.kwargs") -> "R":
-            ctx = get_current_context().obj
+            ctx = _current_context().obj
             async with ctx.lifespan():
-                return await f(*args, **kwargs)
+                return await cast("Awaitable[R]", f(*args, **kwargs))
 
         wrapped_func = async_func
     else:
 
         def sync_func(*args: "P.args", **kwargs: "P.kwargs") -> "R":
-            ctx = get_current_context().obj
+            ctx = _current_context().obj
 
             with run_async_context_sync(ctx.lifespan()):
                 return f(*args, **kwargs)
@@ -467,7 +494,7 @@ def make_pass_decorator(
         if inspect.iscoroutinefunction(inspect.unwrap(f)):
 
             async def async_func(*args: "P.args", **kwargs: "P.kwargs") -> "R":
-                ctx = get_current_context()
+                ctx = _current_context()
 
                 obj: T | None
                 if ensure:
@@ -488,7 +515,7 @@ def make_pass_decorator(
         else:
 
             def sync_func(*args: "P.args", **kwargs: "P.kwargs") -> "R":
-                ctx = get_current_context()
+                ctx = _current_context()
 
                 obj: T | None
                 if ensure:
@@ -531,7 +558,7 @@ def pass_meta_key(
         if inspect.iscoroutinefunction(inspect.unwrap(f)):
 
             async def async_func(*args: "P.args", **kwargs: "P.kwargs") -> R:
-                ctx = get_current_context()
+                ctx = _current_context()
                 obj = ctx.meta[key]
                 return await cast(Awaitable[R], ctx.invoke(f, obj, *args, **kwargs))
 
@@ -539,7 +566,7 @@ def pass_meta_key(
         else:
 
             def sync_func(*args: "P.args", **kwargs: "P.kwargs") -> R:
-                ctx = get_current_context()
+                ctx = _current_context()
                 obj = ctx.meta[key]
                 return ctx.invoke(f, obj, *args, **kwargs)
 
@@ -567,7 +594,7 @@ class CliContext[S: BaseSettings = BaseSettings, A: FastEdgy = FastEdgy]:
             from fastedgy.modules import import_from_string
 
             app_factory = import_from_string(self.settings.app_factory)
-            self._app = app_factory()
+            self._app = cast(A, app_factory())
 
         return self._app
 

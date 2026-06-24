@@ -12,6 +12,7 @@ from fastedgy.api_route_model.action.generators import (
     generate_input_patch_model,
     optional_field_type,
     clean_empty_strings,
+    route_body_model,
 )
 
 from fastedgy.api_route_model.action.relations import (
@@ -31,6 +32,7 @@ __all__ = [
     "generate_input_patch_model",
     "optional_field_type",
     "clean_empty_strings",
+    "route_body_model",
     # Relations
     "is_relation_field",
     "get_related_model",

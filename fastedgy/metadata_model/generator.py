@@ -4,7 +4,8 @@
 import re
 
 from fastedgy import context
-from fastedgy.orm import Model
+from fastedgy.models.base import BaseModel
+from fastedgy.orm import Model, BaseModelType
 from fastedgy.orm.fields import (
     BaseFieldType,
     ForeignKey,
@@ -21,7 +22,7 @@ from fastedgy.schemas import PydanticUndefined
 class MetadataFieldError(Exception): ...
 
 
-def generate_metadata_name(model_cls: type[Model] | Model) -> str:
+def generate_metadata_name(model_cls: type[BaseModelType] | BaseModelType) -> str:
     class_name = model_cls.__name__
     return re.sub(r"(?<!^)(?=[A-Z])", "_", class_name).lower()
 
@@ -30,7 +31,7 @@ def generate_class_name(metadata_name: str) -> str:
     return re.sub(r"_", " ", metadata_name).title().replace(" ", "")
 
 
-async def generate_metadata_model(model_cls: Model) -> MetadataModel:
+async def generate_metadata_model(model_cls: type[BaseModel]) -> MetadataModel:
     class_name = model_cls.__name__
     name = generate_metadata_name(model_cls)
     api_name = str(model_cls.meta.tablename)
@@ -83,11 +84,11 @@ async def generate_metadata_model(model_cls: Model) -> MetadataModel:
     return metadata
 
 
-async def generate_metadata_fields(model_cls: Model) -> dict[str, MetadataField]:
+async def generate_metadata_fields(model_cls: type[BaseModel]) -> dict[str, MetadataField]:
     fields = {}
     for field_name, field_info in model_cls.meta.fields.items():
         is_filterable = getattr(field_info, "filterable", not getattr(field_info, "exclude", False))
-        if not field_info.exclude or (hasattr(field_info, "is_m2m") and field_info.is_m2m) or is_filterable:
+        if not field_info.exclude or getattr(field_info, "is_m2m", False) or is_filterable:
             fields[field_name] = generate_metadata_field(model_cls, field_info)
 
     await add_extra_fields(model_cls, fields)
@@ -95,13 +96,18 @@ async def generate_metadata_fields(model_cls: Model) -> dict[str, MetadataField]
     return fields
 
 
-async def add_extra_fields(model_cls: Model, fields: dict[str, MetadataField]) -> None:
+async def add_extra_fields(model_cls: type[BaseModel], fields: dict[str, MetadataField]) -> None:
     from fastedgy.models.workspace_extra_field import EXTRA_FIELDS_MAP
 
     model_name = generate_metadata_name(model_cls)
 
     for extra_field in context.get_workspace_extra_fields(model_name):
-        field_class = EXTRA_FIELDS_MAP.get(extra_field.field_type)
+        field_type = extra_field.field_type
+
+        if field_type is None:
+            continue
+
+        field_class = EXTRA_FIELDS_MAP.get(field_type)
 
         if not field_class:
             continue
@@ -114,7 +120,7 @@ async def add_extra_fields(model_cls: Model, fields: dict[str, MetadataField]) -
             required=extra_field.required,
             searchable=True,
             extra=True,
-            filter_operators=get_filter_operators_for_extra_field(extra_field.field_type),
+            filter_operators=get_filter_operators_for_extra_field(field_type),
             target=None,
         )
 
@@ -137,15 +143,17 @@ def get_field_choices(field: BaseFieldType) -> dict[str, str] | None:
     Returns a dict {value: label} or None if not a choice field.
     Order is preserved (Python 3.7+ dicts maintain insertion order).
     """
-    if not hasattr(field, "choices") or field.choices is None:
+    choices = getattr(field, "choices", None)
+    if choices is None:
         return None
 
     # Check if we have custom labels (from fastedgy's ChoiceField)
-    if hasattr(field, "_choice_labels") and field._choice_labels:
-        return {name: str(label) for name, label in field._choice_labels.items()}
+    choice_labels = getattr(field, "_choice_labels", None)
+    if choice_labels:
+        return {name: str(label) for name, label in choice_labels.items()}
 
     # Fallback for standard edgy ChoiceField (enum without custom labels)
-    return {member.name: str(member.value) for member in field.choices}
+    return {member.name: str(member.value) for member in choices}
 
 
 def generate_metadata_field_type(field: BaseFieldType) -> str:
@@ -162,7 +170,7 @@ def generate_metadata_field_type(field: BaseFieldType) -> str:
     return re.sub(r"(?<!^)(?=[A-Z])", "_", field_type).lower()
 
 
-def generate_metadata_field(model_cls: Model, field: BaseFieldType) -> MetadataField:
+def generate_metadata_field(model_cls: type[Model], field: BaseFieldType) -> MetadataField:
     name_parts = field.name.split("_")
     label = name_parts[0].capitalize()
     if len(name_parts) > 1:
@@ -176,10 +184,10 @@ def generate_metadata_field(model_cls: Model, field: BaseFieldType) -> MetadataF
     if find_primary_key_field(model_cls) == field.name:
         readonly = True
 
-    target_model = field.target if field and hasattr(field, "target") else None
-    label = field.label if field and hasattr(field, "label") else label
+    target_model = getattr(field, "target", None)
+    label = getattr(field, "label", label)
     filter_operators = get_filter_operators(field)
-    searchable = field.searchable if field and hasattr(field, "searchable") else len(filter_operators) > 0
+    searchable = getattr(field, "searchable", len(filter_operators) > 0)
 
     if searchable and not filter_operators:
         raise MetadataFieldError(f"Metadata field {field.name} must have a filter operator if searchable is enabled")
@@ -198,7 +206,7 @@ def generate_metadata_field(model_cls: Model, field: BaseFieldType) -> MetadataF
     )
 
 
-def add_inverse_relations(models: dict[Model, MetadataModel]) -> None:
+def add_inverse_relations(models: dict[type[BaseModel], MetadataModel]) -> None:
     """
     Add inverse relations (one2many and many2many) to metadata models.
 
@@ -246,7 +254,9 @@ def add_inverse_relations(models: dict[Model, MetadataModel]) -> None:
         target_metadata.fields[field_name] = metadata_field
 
 
-def _find_model_by_metadata_name(models: dict[Model, MetadataModel], metadata_name: str) -> Model | None:
+def _find_model_by_metadata_name(
+    models: dict[type[BaseModel], MetadataModel], metadata_name: str
+) -> type[BaseModel] | None:
     """Find a Model class by its metadata name."""
     for model_cls, metadata_model in models.items():
         if metadata_model.name == metadata_name:
@@ -256,7 +266,7 @@ def _find_model_by_metadata_name(models: dict[Model, MetadataModel], metadata_na
 
 def _prepare_one_to_many_relation(
     foreign_key_field: ForeignKey,
-    source_model_cls: Model,
+    source_model_cls: type[BaseModel],
     source_metadata: MetadataModel,
     target_metadata: MetadataModel,
 ) -> tuple[str, MetadataField] | None:
@@ -290,7 +300,7 @@ def _prepare_one_to_many_relation(
 
 def _add_one_to_many_relation(
     foreign_key_field: ForeignKey,
-    source_model_cls: Model,
+    source_model_cls: type[BaseModel],
     source_metadata: MetadataModel,
     target_metadata: MetadataModel,
 ) -> None:
@@ -303,7 +313,7 @@ def _add_one_to_many_relation(
 
 def _prepare_many_to_many_relation(
     many_to_many_field: ManyToMany,
-    source_model_cls: Model,
+    source_model_cls: type[BaseModel],
     source_metadata: MetadataModel,
     target_metadata: MetadataModel,
 ) -> tuple[str, MetadataField] | None:
@@ -328,7 +338,7 @@ def _prepare_many_to_many_relation(
         required=False,
         searchable=True,
         extra=False,
-        filter_operators=get_filter_operators(ManyToMany),
+        filter_operators=get_filter_operators(many_to_many_field),
         target=source_metadata.name,
     )
 
@@ -337,7 +347,7 @@ def _prepare_many_to_many_relation(
 
 def _add_many_to_many_relation(
     many_to_many_field: ManyToMany,
-    source_model_cls: Model,
+    source_model_cls: type[BaseModel],
     source_metadata: MetadataModel,
     target_metadata: MetadataModel,
 ) -> None:
@@ -352,7 +362,7 @@ def _add_many_to_many_relation(
 
 def _prepare_one_to_one_relation(
     one_to_one_field: OneToOne,
-    source_model_cls: Model,
+    source_model_cls: type[BaseModel],
     source_metadata: MetadataModel,
     target_metadata: MetadataModel,
 ) -> tuple[str, MetadataField] | None:
@@ -372,7 +382,7 @@ def _prepare_one_to_one_relation(
         required=False,
         searchable=True,
         extra=False,
-        filter_operators=get_filter_operators(OneToOne),
+        filter_operators=get_filter_operators(one_to_one_field),
         target=source_metadata.name,
     )
 
@@ -381,7 +391,7 @@ def _prepare_one_to_one_relation(
 
 def _add_one_to_one_relation(
     one_to_one_field: OneToOne,
-    source_model_cls: Model,
+    source_model_cls: type[BaseModel],
     source_metadata: MetadataModel,
     target_metadata: MetadataModel,
 ) -> None:

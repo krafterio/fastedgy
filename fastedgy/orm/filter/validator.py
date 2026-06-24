@@ -4,25 +4,25 @@
 from fastedgy.orm import Model
 from fastedgy.orm.filter.types import (
     InvalidFilterError,
+    FilterRule,
     FilterCondition,
     Filter,
     And,
     Or,
 )
 from fastedgy.orm.filter.operators import get_filter_operators
-from fastedgy.orm.filter.utils import is_rule, is_condition
 
 
 def validate_filters(
     model_cls: type[Model],
     filters: Filter | None,
     allow_excluded: bool = False,
-) -> FilterCondition | None:
+) -> FilterRule | FilterCondition | None:
     if not filters:
         return None
 
     # Filter Rule
-    if is_rule(filters):
+    if isinstance(filters, FilterRule):
         if not validate_filter_field(model_cls, filters.field, allow_excluded=allow_excluded):
             raise InvalidFilterError(f"Invalid filter field: {filters.field}")
 
@@ -32,7 +32,7 @@ def validate_filters(
         return filters
 
     # Filter Condition
-    if is_condition(filters):
+    if isinstance(filters, FilterCondition):
         validated_rules = []
 
         for rule in filters.rules:
@@ -121,14 +121,19 @@ def validate_filter_operator(model_cls: type[Model], field_path: str, operator: 
             return False
 
         extra_field = extra_fields[extra_field_name]
-        field_type = EXTRA_FIELDS_MAP.get(extra_field.field_type, None)
+        field_type_enum = extra_field.field_type
+
+        if field_type_enum is None:
+            return False
+
+        field_type = EXTRA_FIELDS_MAP.get(field_type_enum)
 
         if not field_type:
             return False
 
-        ft = field_type(**EXTRA_FIELD_TYPE_OPTIONS[extra_field.field_type])
+        ft = field_type(**EXTRA_FIELD_TYPE_OPTIONS[field_type_enum])
 
-        return get_filter_operators(ft)
+        return operator in get_filter_operators(ft)
 
     parts = field_path.split(".")
     current_cls = model_cls

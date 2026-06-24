@@ -2,11 +2,11 @@
 # MIT License (see LICENSE file).
 
 from abc import abstractmethod
-from typing import Any, ClassVar, Optional
+from typing import TYPE_CHECKING, Any, ClassVar, Optional
 
 from datetime import datetime
 
-from fastedgy.orm import Model, fields
+from fastedgy.orm import Model, Meta, fields
 from fastedgy.orm.manager import (
     BaseManager,
     Manager,
@@ -17,7 +17,15 @@ from fastedgy.orm.view import create_view
 from fastedgy.orm.registry import lazy_register_model
 from fastedgy.schemas import ConfigDict
 
+from edgy.core.db.models.metaclasses import BaseModelMeta
+
 from sqlalchemy import MetaData, Selectable, Table
+
+
+class ModelMeta(BaseModelMeta):
+    if TYPE_CHECKING:
+
+        def __hash__(self) -> int: ...
 
 
 def _fix_inherited_abstract(cls: type) -> None:
@@ -53,7 +61,7 @@ def _fix_inherited_abstract(cls: type) -> None:
             model_fields_on_class["pk"] = pk_field
 
 
-class BaseModel(Model):
+class BaseModel(Model, metaclass=ModelMeta):
     id: int | None = fields.IntegerField(primary_key=True, autoincrement=True, label="ID")
 
     created_at: datetime | None = fields.DateTimeField(
@@ -64,7 +72,7 @@ class BaseModel(Model):
         default_factory=datetime.now, auto_now=True, label="Mis à jour le"
     )
 
-    class Meta(Model.Meta):
+    class Meta(Meta):
         abstract = True
         exclude_secrets = True
 
@@ -108,7 +116,7 @@ class BaseModel(Model):
     global_query: ClassVar[BaseManager] = Manager()
 
 
-class BaseView(Model):
+class BaseView(Model, metaclass=ModelMeta):
     """
     Base class for defining SQL views.
 
@@ -162,7 +170,7 @@ class BaseView(Model):
     ```
     """
 
-    class Meta(Model.Meta):
+    class Meta(Meta):
         abstract = True
         exclude_secrets = True
         is_view = True

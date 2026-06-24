@@ -4,7 +4,7 @@
 from typing import Any
 
 from fastedgy import context
-from fastedgy.orm import fields, Model
+from fastedgy.orm import fields, Model, Meta
 from fastedgy.i18n import _ts
 from fastedgy.schemas import ConfigDict
 
@@ -22,7 +22,7 @@ class WorkspaceableMixin(Model):
             pass
     """
 
-    class Meta(Model.Meta):
+    class Meta(Meta):
         abstract = True
 
     model_config = ConfigDict(
@@ -61,7 +61,7 @@ class WorkspaceableMixin(Model):
             )
 
     async def save(
-        self: Model,
+        self,
         force_insert: bool = False,
         values: dict[str, Any] | set[str] | None = None,
         force_save: bool | None = None,
@@ -90,7 +90,7 @@ class BlameableMixin(Model):
             pass
     """
 
-    class Meta(Model.Meta):
+    class Meta(Meta):
         abstract = True
 
     model_config = ConfigDict(
@@ -108,7 +108,7 @@ class BlameableMixin(Model):
     )
 
     async def save(
-        self: Model,
+        self,
         force_insert: bool = False,
         values: dict[str, Any] | set[str] | None = None,
         force_save: bool | None = None,
@@ -136,7 +136,7 @@ class SearchableMixin(Model):
             description = fields.TextField(null=True)
     """
 
-    class Meta(Model.Meta):
+    class Meta(Meta):
         abstract = True
 
     search_value = fields.FulltextField(

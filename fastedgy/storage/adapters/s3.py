@@ -1,9 +1,14 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import AsyncIterator
+from contextlib import AbstractAsyncContextManager
+from typing import TYPE_CHECKING, AsyncIterator, cast
 
 from fastedgy.storage.adapters.base import StorageAdapter
+
+if TYPE_CHECKING:
+    from aioboto3 import Session
+    from types_aiobotocore_s3 import S3Client
 
 
 class S3Adapter(StorageAdapter):
@@ -27,7 +32,7 @@ class S3Adapter(StorageAdapter):
         self.access_key_id = access_key_id
         self.secret_access_key = secret_access_key
         self.prefix = prefix.strip("/") if prefix else None
-        self._session = None
+        self._session: "Session | None" = None
 
     def _key(self, path: str) -> str:
         """Build the full S3 key from a relative path."""
@@ -36,7 +41,7 @@ class S3Adapter(StorageAdapter):
             return f"{self.prefix}/{clean}"
         return clean
 
-    def _get_session(self):
+    def _get_session(self) -> "Session":
         if self._session is None:
             import aioboto3
 
@@ -55,8 +60,11 @@ class S3Adapter(StorageAdapter):
             kwargs["aws_secret_access_key"] = self.secret_access_key
         return kwargs
 
-    def _client(self):
-        return self._get_session().client("s3", **self._client_kwargs())
+    def _client(self) -> AbstractAsyncContextManager["S3Client"]:
+        return cast(
+            AbstractAsyncContextManager["S3Client"],
+            self._get_session().client("s3", **self._client_kwargs()),
+        )
 
     async def exists(self, path: str) -> bool:
         from botocore.exceptions import ClientError
@@ -127,8 +135,10 @@ class S3Adapter(StorageAdapter):
             async for page in paginator.paginate(Bucket=self.bucket, Prefix=prefix):
                 objects = page.get("Contents", [])
                 if objects:
-                    delete_request = {"Objects": [{"Key": obj["Key"]} for obj in objects]}
-                    await s3.delete_objects(Bucket=self.bucket, Delete=delete_request)
+                    await s3.delete_objects(
+                        Bucket=self.bucket,
+                        Delete={"Objects": [{"Key": obj["Key"]} for obj in objects]},
+                    )
 
     async def file_size(self, path: str) -> int:
         async with self._client() as s3:

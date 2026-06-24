@@ -1,7 +1,7 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import Any, Generic, Optional, TypeVar
+from typing import Any, Generic, Literal, Optional, TypeVar
 
 import asyncio
 from contextlib import AbstractAsyncContextManager
@@ -35,7 +35,7 @@ class SyncAsyncContextManager(Generic[T]):
         exc_type: Optional[type[BaseException]],
         exc_val: Optional[BaseException],
         exc_tb: Any,
-    ) -> bool:
+    ) -> Literal[False]:
         """Exit the async context manager synchronously"""
         if self.entered and self.loop is not None:
             try:

@@ -122,7 +122,7 @@ class QueuedTaskMixin(BaseModel):
     date_failed: datetime | None = fields.DateTimeField(null=True, label="Date d'échec")
 
     async def save(
-        self: Model,
+        self,
         force_insert: bool = False,
         values: dict[str, Any] | set[str] | None = None,
         force_save: bool | None = None,

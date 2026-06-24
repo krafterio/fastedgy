@@ -504,6 +504,7 @@ class QueueWorkerManager:
                     # back as if it had never been claimed.
                     if not self.is_running:
                         self._channel_release(task)
+                        assert task.id is not None
                         await self._release_claimed_task(task.id)
                         break
 

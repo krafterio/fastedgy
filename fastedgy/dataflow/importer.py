@@ -242,7 +242,7 @@ def _format_db_error_message(error: Exception, model_cls: type["Model"] | None =
 
 
 @transaction
-async def import_data[M](
+async def import_data[M: "Model"](
     model_cls: type[M],
     file: "UploadFile",
     query: QuerySet | None = None,
@@ -348,6 +348,9 @@ async def parse_xlsx_file(file: "UploadFile") -> list[list[str]]:
     wb = openpyxl.load_workbook(io.BytesIO(content), read_only=True)
     ws = wb.active
 
+    if ws is None:
+        raise HTTPException(status_code=400, detail="File has no active worksheet")
+
     rows = []
     for row in ws.iter_rows(values_only=True):
         # Convert all values to strings, handle None
@@ -440,9 +443,9 @@ def find_field_by_label(model_cls: type["Model"], label: str) -> str | None:
 
                         # Navigate to related model
                         if hasattr(field, "target"):
-                            current_model = field.target
+                            current_model = getattr(field, "target")
                         elif hasattr(field, "related_from"):
-                            current_model = field.related_from
+                            current_model = getattr(field, "related_from")
 
                         found = True
                         break
@@ -542,7 +545,7 @@ async def process_row(
 
     # Determine action: UPDATE if identifier is filled, CREATE otherwise
     existing_record = None
-    if identifier_value:
+    if identifier_value and identifier_field is not None:
         # Try to find existing record
         try:
             q = query or model_cls.query
@@ -592,7 +595,7 @@ async def process_row(
                 model_data[field_name] = convert_value(value, field)
 
     # Create or update record
-    if existing_record:
+    if existing_record and identifier_field is not None:
         # UPDATE using query.update() for proper transaction handling
         try:
             q = query or model_cls.query
@@ -602,7 +605,8 @@ async def process_row(
             existing_record = await q.filter(**{identifier_field: identifier_value}).first()
 
             # Handle relational fields
-            await process_relational_data(existing_record, relational_data)
+            if existing_record:
+                await process_relational_data(existing_record, relational_data)
         except (IntegrityError, DataError, ProgrammingError) as e:
             raise ValueError(_format_db_error_message(e, model_cls))
 

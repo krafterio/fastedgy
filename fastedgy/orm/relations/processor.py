@@ -82,9 +82,10 @@ async def process_relation_operations(
                     candidate_field,
                 ) in related_model.model_fields.items():
                     # Check if this field is a FK pointing to the parent model
-                    if hasattr(candidate_field, "target"):
+                    target = getattr(candidate_field, "target", None)
+                    if target is not None:
                         try:
-                            if candidate_field.target == parent_model:
+                            if target == parent_model:
                                 fk_field_name = candidate_name
                                 break
                         except Exception:
@@ -159,9 +160,10 @@ async def process_relation_operations(
                     candidate_name,
                     candidate_field,
                 ) in related_model.model_fields.items():
-                    if hasattr(candidate_field, "target"):
+                    target = getattr(candidate_field, "target", None)
+                    if target is not None:
                         try:
-                            if candidate_field.target == parent_model:
+                            if target == parent_model:
                                 fk_field_name = candidate_name
                                 is_fk_nullable = getattr(candidate_field, "null", True)
                                 break
@@ -209,9 +211,10 @@ async def process_relation_operations(
                     candidate_name,
                     candidate_field,
                 ) in related_model.model_fields.items():
-                    if hasattr(candidate_field, "target"):
+                    target = getattr(candidate_field, "target", None)
+                    if target is not None:
                         try:
-                            if candidate_field.target == parent_model:
+                            if target == parent_model:
                                 is_fk_nullable = getattr(candidate_field, "null", True)
                                 break
                         except Exception:

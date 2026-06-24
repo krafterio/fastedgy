@@ -1,24 +1,20 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import TYPE_CHECKING
-
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
+from starlette.types import ASGIApp
 
 from fastedgy.context import set_locale
 from fastedgy.config import BaseSettings
 from fastedgy.dependencies import get_service
 
-if TYPE_CHECKING:
-    from fastedgy.app import FastEdgy
-
 
 class LocaleMiddleware(BaseHTTPMiddleware):
     """Middleware to parse Accept-Language header and set locale in context."""
 
-    def __init__(self, app: "FastEdgy"):
+    def __init__(self, app: ASGIApp):
         super().__init__(app)
 
     async def dispatch(self, request: Request, call_next) -> Response:

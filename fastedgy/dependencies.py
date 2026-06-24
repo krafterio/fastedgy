@@ -50,7 +50,7 @@ ProviderKey = Union[Type[Any], Token[Any]]
 
 
 _services_registry: Dict[ProviderKey, Union[Any, Type[Any]]] = {}
-_dependencies_cache: Dict[tuple[Callable[..., Any], tuple[str]], Any] = {}
+_dependencies_cache: Dict[tuple[ProviderKey, Type[Any]], Any] = {}
 
 
 def register_service(
@@ -107,7 +107,7 @@ def get_service(key: Union[Type[T], Token[T], str]) -> T:
         raise LookupError(f"Service {key} is not a class and cannot be resolved")
 
     service_class = value
-    cache_key = (normalized_key, service_class, ())
+    cache_key = (normalized_key, service_class)
 
     if cache_key in _dependencies_cache:
         return _dependencies_cache[cache_key]

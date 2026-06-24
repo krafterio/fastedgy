@@ -1,10 +1,11 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import Callable, Coroutine, Any, cast
+from typing import Callable, Any, cast
 
 from fastapi import APIRouter, Query, HTTPException
 
+from fastedgy.models.base import BaseModel
 from fastedgy.api_route_model.action import BaseApiRouteAction, generate_output_model
 from fastedgy.api_route_model.params import (
     OrderByQuery,
@@ -55,14 +56,18 @@ class ListApiRouteAction(BaseApiRouteAction):
                 "methods": ["GET"],
                 "summary": f"List {model_cls.__name__} items",
                 "description": f"Retrieve a paginated list of {model_cls.__name__} items",
+                "response_model": create_model(
+                    model_cls.__name__ + "List",
+                    __base__=Pagination[generate_output_model(model_cls) | dict[str, Any]],
+                ),
                 **options,
             }
         )
 
 
-def generate_list_items[M = TypeModel](
-    model_cls: M,
-) -> Callable[[Request, int, int, str, str], Coroutine[Any, Any, Pagination[M]]]:
+def generate_list_items[M: BaseModel](
+    model_cls: type[M],
+) -> Callable[..., Any]:
     async def list_items(
         request: Request,
         limit: int = Query(50, ge=0, le=1000),
@@ -70,10 +75,7 @@ def generate_list_items[M = TypeModel](
         order_by: str | None = OrderByQuery(),
         fields: str | None = FieldSelectorHeader(),
         filters: str | None = FilterHeader(),
-    ) -> create_model(
-        model_cls.__name__ + "List",
-        __base__=Pagination[generate_output_model(model_cls) | dict[str, Any]],
-    ):
+    ) -> Any:
         return await list_items_action(
             request,
             model_cls,
@@ -87,9 +89,9 @@ def generate_list_items[M = TypeModel](
     return list_items
 
 
-async def list_items_action[M = TypeModel](
+async def list_items_action[M: BaseModel](
     request: Request,
-    model_cls: M,
+    model_cls: type[M],
     query: QuerySet | None = None,
     limit: int | None = None,
     offset: int = 0,
@@ -98,12 +100,12 @@ async def list_items_action[M = TypeModel](
     filters: str | None = None,
     transformers: list[BaseViewTransformer] | None = None,
     transformers_ctx: dict[str, Any] | None = None,
-) -> Coroutine[Any, Any, Pagination[M | dict[str, Any]]]:
+) -> Pagination[M | dict[str, Any]]:
     transformers_ctx = transformers_ctx or {}
     vtr = get_service(ViewTransformerRegistry)
 
     try:
-        query = query or model_cls.query
+        query = query or model_cls.query.get_queryset()
         transformers_ctx["filters"] = filters
         transformers_ctx["order_by"] = order_by
         query = optimize_query_filter_fields(query, fields)
@@ -118,7 +120,10 @@ async def list_items_action[M = TypeModel](
         if limit == 0:
             items = []
         else:
-            items = await query.limit(limit).offset(offset).all()
+            paged = query.offset(offset)
+            if limit is not None:
+                paged = paged.limit(limit)
+            items = await paged.all()
     except InvalidFilterError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
@@ -143,14 +148,14 @@ async def list_items_action[M = TypeModel](
     result = Pagination(
         items=result_items,
         total=total,
-        limit=limit,
+        limit=limit if limit is not None else total,
         offset=offset,
     )
 
     for transformer in vtr.get_transformers(PostPaginateViewTransformer, model_cls, transformers):
         await transformer.post_paginate(request, result, transformers_ctx)
 
-    return cast(Pagination[M], result)
+    return cast(Pagination[M | dict[str, Any]], result)
 
 
 __all__ = [

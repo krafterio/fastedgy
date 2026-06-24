@@ -6,18 +6,17 @@ from fastedgy.metadata_model.generator import (
     add_inverse_relations,
 )
 from fastedgy.models.base import BaseModel
-from fastedgy.orm import Model
 from fastedgy.schemas.dataset import MetadataModel
 
-TypeMetadataModels = dict[Model, MetadataModel]
+TypeMetadataModels = dict[type[BaseModel], MetadataModel]
 TypeMapMetadataModels = dict[str, MetadataModel]
 
 
 class MetadataModelRegistry:
     def __init__(self):
         self._models: TypeMetadataModels = {}
-        self._map_names: dict[str, Model] = {}
-        self._lazy_models: list[Model] = []
+        self._map_names: dict[str, type[BaseModel]] = {}
+        self._lazy_models: list[type[BaseModel]] = []
 
     async def load_models(self) -> None:
         if not self._lazy_models:
@@ -30,7 +29,7 @@ class MetadataModelRegistry:
 
         add_inverse_relations(self._models)
 
-    def register_model(self, model_cls: Model):
+    def register_model(self, model_cls: type[BaseModel]):
         """
         Register a model for metadata exposure.
         """
@@ -51,7 +50,7 @@ class MetadataModelRegistry:
 
         return maps
 
-    async def is_registered(self, model_cls: Model | str) -> bool:
+    async def is_registered(self, model_cls: type[BaseModel] | str) -> bool:
         """Check if a model is registered for metadata."""
         await self.load_models()
 
@@ -63,7 +62,7 @@ class MetadataModelRegistry:
 
         return model_cls in self._models
 
-    async def get_metadata(self, model_cls: Model | str) -> MetadataModel:
+    async def get_metadata(self, model_cls: type[BaseModel] | str) -> MetadataModel:
         """
         Get a model by its name.
 

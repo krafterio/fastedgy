@@ -4,6 +4,7 @@
 from typing import Any
 
 from fastedgy.api_route_model.registry import TypeModel
+from fastedgy.models.base import BaseModel
 
 
 def is_relation_field(field) -> bool:
@@ -47,8 +48,8 @@ def get_related_model(field) -> type:
 
 
 async def process_relational_fields(
-    instance: "TypeModel",
-    model_cls: type["TypeModel"],
+    instance: "BaseModel",
+    model_cls: "TypeModel",
     relational_data: dict[str, Any],
 ) -> None:
     """

@@ -23,10 +23,14 @@ def compare_view(autogen_context: AutogenContext, upgrade_ops: UpgradeOps, schem
     registry = get_service(Registry)
     db_views = defaultdict()
 
+    connection = autogen_context.connection
+    if connection is None:
+        return
+
     # Get views created by extensions (PostGIS, etc.)
     extension_views = set()
     try:
-        ext_rows = autogen_context.connection.execute(
+        ext_rows = connection.execute(
             text(
                 "SELECT DISTINCT c.relname "
                 "FROM pg_depend d "
@@ -40,7 +44,7 @@ def compare_view(autogen_context: AutogenContext, upgrade_ops: UpgradeOps, schem
         pass
 
     for sch in schemas:
-        rows = autogen_context.connection.execute(
+        rows = connection.execute(
             text(
                 "SELECT table_schema, table_name, view_definition "
                 "FROM information_schema.views "
@@ -97,7 +101,7 @@ def compare_view(autogen_context: AutogenContext, upgrade_ops: UpgradeOps, schem
 
         if model_def_for_db != db_def:
             schema, name = key
-            if _check_db_view_difference(autogen_context.connection, name, model_def, db_def, schema):
+            if _check_db_view_difference(connection, name, model_def, db_def, schema):
                 replace_ops.append(ReplaceViewOperation(name, model_def, db_views[key]))
 
     # Add operations (they will be reordered later by fastedgy_process_revision_directives)
@@ -138,10 +142,10 @@ class DropViewOperation(MigrateOperation):
 
 @Operations.register_operation("replace_view")
 class ReplaceViewOperation(MigrateOperation):
-    def __init__(self, name: str, definition: str, reverse_definition: str | None) -> None:
+    def __init__(self, name: str, definition: str, reverse_definition: str) -> None:
         self.name: str = name
         self.definition: str = definition
-        self.reverse_definition: str | None = reverse_definition
+        self.reverse_definition: str = reverse_definition
 
     @classmethod
     def replace_view(cls, operations, name: str, definition: str, reverse_definition: str) -> None:

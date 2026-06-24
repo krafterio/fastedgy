@@ -7,7 +7,7 @@ import tomllib
 
 from functools import cached_property
 from pathlib import Path
-from typing import Annotated, Type
+from typing import Annotated, Any, Type
 from urllib.parse import urlparse
 from fastedgy.dependencies import Inject, get_service, has_service, register_service
 from fastedgy.logger import LogLevel, LogOutput, LogFormat
@@ -186,7 +186,8 @@ class BaseSettings(PydanticBaseSettings):
     @classmethod
     def from_env_file(cls, env_file: str):
         """Create Settings with custom env file path."""
-        return cls(_env_file=env_file)
+        overrides: dict[str, Any] = {"_env_file": env_file}
+        return cls(**overrides)
 
     @property
     def project_path(self) -> str:

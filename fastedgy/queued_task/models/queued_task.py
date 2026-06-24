@@ -33,8 +33,8 @@ class QueuedTaskMixin(BaseModel):
 
     class Meta(BaseModel.Meta):
         abstract = True
-        label = "Tâche en file d'attente"
-        label_plural = "Tâches en file d'attente"
+        label = _ts("Queued task")
+        label_plural = _ts("Queued tasks")
         indexes = [
             fields.Index(fields=["state", "date_enqueued"], name="idx_queued_tasks_state_date"),
             fields.Index(fields=["parent_task"], name="idx_queued_tasks_parent"),
@@ -52,52 +52,54 @@ class QueuedTaskMixin(BaseModel):
             ),
         ]
 
-    name: str | None = fields.CharField(max_length=255, null=True, label="Nom de la tâche")
+    name: str | None = fields.CharField(max_length=255, null=True, label=_ts("Task name"))
 
-    module_name: str | None = fields.CharField(max_length=255, null=True, label="Nom du module")
+    module_name: str | None = fields.CharField(max_length=255, null=True, label=_ts("Module name"))
 
-    function_name: str | None = fields.CharField(max_length=255, null=True, label="Nom de la fonction")
+    function_name: str | None = fields.CharField(max_length=255, null=True, label=_ts("Function name"))
 
-    serialized_function: bytes | None = fields.BinaryField(null=True, label="Fonction sérialisée")
+    serialized_function: bytes | None = fields.BinaryField(null=True, label=_ts("Serialized function"))
 
-    state: QueuedTaskState = fields.ChoiceField(choices=QueuedTaskState, default=QueuedTaskState.enqueued, label="État")
+    state: QueuedTaskState = fields.ChoiceField(
+        choices=QueuedTaskState, default=QueuedTaskState.enqueued, label=_ts("State")
+    )
 
-    args: list = fields.JSONField(default=[], label="Arguments positionnels")
+    args: list = fields.JSONField(default=[], label=_ts("Positional arguments"))
 
-    kwargs: dict = fields.JSONField(default={}, label="Arguments nommés")
+    kwargs: dict = fields.JSONField(default={}, label=_ts("Keyword arguments"))
 
-    context: dict = fields.JSONField(default={}, label="Contexte de la tâche")
+    context: dict = fields.JSONField(default={}, label=_ts("Task context"))
 
     # Execution lane and ordering: the claim picks the highest-priority ready
     # row among the channels that still have a free slot on the claiming
     # container (capacities from QUEUED_TASK_CHANNELS), oldest first within
     # equal priority. Channels are concurrency caps, priority is the global
     # order — see QueuedTaskConfig.channels.
-    channel: str = fields.CharField(max_length=64, default="default", label="Channel d'exécution")
+    channel: str = fields.CharField(max_length=64, default="default", label=_ts("Execution channel"))
 
-    priority: int = fields.IntegerField(default=0, label="Priorité")
+    priority: int = fields.IntegerField(default=0, label=_ts("Priority"))
 
     parent_task: "QueuedTask | None" = fields.ForeignKey(
-        "QueuedTask", on_delete="CASCADE", null=True, label="Task parent"
+        "QueuedTask", on_delete="CASCADE", null=True, label=_ts("Parent task")
     )
 
-    exception_name: str | None = fields.CharField(max_length=255, null=True, label="Nom de l'exception")
+    exception_name: str | None = fields.CharField(max_length=255, null=True, label=_ts("Exception name"))
 
-    exception_message: str | None = fields.TextField(null=True, label="Message d'exception")
+    exception_message: str | None = fields.TextField(null=True, label=_ts("Exception message"))
 
-    exception_info: str | None = fields.TextField(null=True, label="Informations d'exception")
+    exception_info: str | None = fields.TextField(null=True, label=_ts("Exception info"))
 
-    execution_time: float = fields.FloatField(default=0.0, label="Temps d'exécution (secondes)")
+    execution_time: float = fields.FloatField(default=0.0, label=_ts("Execution time (seconds)"))
 
-    date_enqueued: datetime | None = fields.DateTimeField(null=True, label="Date de mise en queue")
+    date_enqueued: datetime | None = fields.DateTimeField(null=True, label=_ts("Enqueued date"))
 
-    date_started: datetime | None = fields.DateTimeField(null=True, label="Date de démarrage")
+    date_started: datetime | None = fields.DateTimeField(null=True, label=_ts("Start date"))
 
-    date_stopped: datetime | None = fields.DateTimeField(null=True, label="Date d'arrêt")
+    date_stopped: datetime | None = fields.DateTimeField(null=True, label=_ts("Stop date"))
 
-    date_ended: datetime | None = fields.DateTimeField(null=True, label="Date de fin")
+    date_ended: datetime | None = fields.DateTimeField(null=True, label=_ts("End date"))
 
-    auto_remove: bool = fields.BooleanField(default=False, label="Suppression automatique après succès")
+    auto_remove: bool = fields.BooleanField(default=False, label=_ts("Auto remove after success"))
 
     # Lease ownership: server_name of the worker manager that claimed the
     # task (set by the claim UPDATE, cleared on release/re-enqueue).
@@ -105,21 +107,21 @@ class QueuedTaskMixin(BaseModel):
     # reaper recover a 'doing' row immediately when its owner dies instead
     # of waiting for the task-timeout criterion — essential with start-first
     # deploys where several containers (= servers) briefly overlap.
-    claimed_by: str | None = fields.CharField(max_length=255, null=True, label="Serveur propriétaire")
+    claimed_by: str | None = fields.CharField(max_length=255, null=True, label=_ts("Owner server"))
 
     # Bounded auto-retry: a failed run is re-enqueued with an exponential
     # delay until retry_count reaches the budget, then fails terminally.
     # max_retries NULL → the QUEUED_TASK_MAX_RETRIES config default applies
     # at failure time. Manual restart/retry resets retry_count (fresh budget).
-    retry_count: int = fields.IntegerField(default=0, label="Nombre de tentatives automatiques")
+    retry_count: int = fields.IntegerField(default=0, label=_ts("Automatic retry count"))
 
-    max_retries: int | None = fields.IntegerField(null=True, label="Nombre maximum de tentatives automatiques")
+    max_retries: int | None = fields.IntegerField(null=True, label=_ts("Maximum automatic retries"))
 
-    date_done: datetime | None = fields.DateTimeField(null=True, label="Date de succès")
+    date_done: datetime | None = fields.DateTimeField(null=True, label=_ts("Success date"))
 
-    date_cancelled: datetime | None = fields.DateTimeField(null=True, label="Date d'annulation")
+    date_cancelled: datetime | None = fields.DateTimeField(null=True, label=_ts("Cancellation date"))
 
-    date_failed: datetime | None = fields.DateTimeField(null=True, label="Date d'échec")
+    date_failed: datetime | None = fields.DateTimeField(null=True, label=_ts("Failure date"))
 
     async def save(
         self,

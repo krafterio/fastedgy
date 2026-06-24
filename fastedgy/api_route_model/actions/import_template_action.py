@@ -5,6 +5,7 @@ from typing import Callable, Any
 
 from fastapi import APIRouter, Query, HTTPException
 
+from fastedgy.i18n import _t
 from fastedgy.models.base import BaseModel
 from fastedgy.api_route_model.action import BaseApiRouteAction
 from fastedgy.api_route_model.params import (
@@ -136,7 +137,7 @@ async def import_template_action[M: BaseModel](
     if format.lower() == "ods":
         return generate_ods_export(field_labels, data_rows, f"{filename_base}.ods")
 
-    raise HTTPException(status_code=400, detail=f"Unsupported format: {format}")
+    raise HTTPException(status_code=400, detail=_t("Unsupported format: {format}", format=format))
 
 
 __all__ = [

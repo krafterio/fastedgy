@@ -1,6 +1,8 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+from fastedgy.i18n import _ts
+
 from datetime import datetime
 
 from fastedgy.orm import fields
@@ -10,8 +12,8 @@ from fastedgy.models.base import BaseModel
 class BaseUser(BaseModel):
     class Meta(BaseModel.Meta):
         abstract = True
-        label = "Utilisateur"
-        label_plural = "Utilisateurs"
+        label = _ts("User")
+        label_plural = _ts("Users")
         model_name: str | None = None
 
     def __init_subclass__(cls, **kwargs):
@@ -30,25 +32,25 @@ class BaseUser(BaseModel):
 
         raise RuntimeError(f"Multiple user models detected: {BaseUser.Meta.model_name} and {cls.__name__}")
 
-    email: str | None = fields.EmailField(unique=True, label="Email")
+    email: str | None = fields.EmailField(unique=True, label=_ts("Email"))
 
-    name: str | None = fields.CharField(max_length=255, null=True, label="Nom")
+    name: str | None = fields.CharField(max_length=255, null=True, label=_ts("Name"))
 
-    password: str | None = fields.PasswordField(exclude=True, label="Mot de passe")
+    password: str | None = fields.PasswordField(exclude=True, label=_ts("Password"))
 
-    initials: str | None = fields.ComputedField(getter="get_initials", label="Initials")
+    initials: str | None = fields.ComputedField(getter="get_initials", label=_ts("Initials"))
 
     reset_pwd_token: str | None = fields.CharField(
         max_length=255,
         null=True,
         exclude=True,
-        label="Token de réinitialisation de mot de passe",
+        label=_ts("Password reset token"),
     )
 
     reset_pwd_expires_at: datetime | None = fields.DateTimeField(
         null=True,
         exclude=True,
-        label="Date d'expiration du token de réinitialisation de mot de passe",
+        label=_ts("Password reset token expiration"),
     )
 
     @classmethod

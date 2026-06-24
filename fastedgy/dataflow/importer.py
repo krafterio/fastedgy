@@ -286,11 +286,11 @@ async def import_data[M: "Model"](
     else:
         raise HTTPException(
             status_code=400,
-            detail="Unsupported file format. Supported formats: CSV, XLSX, ODS",
+            detail=_t("Unsupported file format. Supported formats: CSV, XLSX, ODS"),
         )
 
     if not rows:
-        raise HTTPException(status_code=400, detail="File is empty or has no data rows")
+        raise HTTPException(status_code=400, detail=_t("File is empty or has no data rows"))
 
     # Extract headers (first row)
     headers = rows[0]
@@ -342,14 +342,14 @@ async def parse_xlsx_file(file: "UploadFile") -> list[list[str]]:
     try:
         import openpyxl
     except ImportError:
-        raise HTTPException(status_code=500, detail="openpyxl library is not installed")
+        raise HTTPException(status_code=500, detail=_t("openpyxl library is not installed"))
 
     content = await file.read()
     wb = openpyxl.load_workbook(io.BytesIO(content), read_only=True)
     ws = wb.active
 
     if ws is None:
-        raise HTTPException(status_code=400, detail="File has no active worksheet")
+        raise HTTPException(status_code=400, detail=_t("File has no active worksheet"))
 
     rows = []
     for row in ws.iter_rows(values_only=True):
@@ -366,7 +366,7 @@ async def parse_ods_file(file: "UploadFile") -> list[list[str]]:
     try:
         from pyexcel_ods3 import get_data
     except ImportError:
-        raise HTTPException(status_code=500, detail="pyexcel-ods3 library is not installed")
+        raise HTTPException(status_code=500, detail=_t("pyexcel-ods3 library is not installed"))
 
     content = await file.read()
     data = get_data(io.BytesIO(content))

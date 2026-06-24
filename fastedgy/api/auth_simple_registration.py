@@ -1,6 +1,8 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+from fastedgy.i18n import _t
+
 from typing import TYPE_CHECKING, cast
 from fastapi import APIRouter, Body, HTTPException, status
 from fastedgy import context
@@ -25,7 +27,7 @@ async def register_user(
 
     existing_user = await user_model.query.filter(email=user_data.email).first()
     if existing_user:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_t("Email already registered"))
 
     user = user_model(
         name=user_data.name,
@@ -37,7 +39,7 @@ async def register_user(
 
     context.set_user(user)
 
-    return SimpleMessage(message="User registered successfully")
+    return SimpleMessage(message=_t("User registered successfully"))
 
 
 __all__ = [

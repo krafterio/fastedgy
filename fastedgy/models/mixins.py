@@ -35,7 +35,7 @@ class WorkspaceableMixin(Model):
         related_name="+",  # "+" means no reverse relation is created
         exclude=True,
         null=True,
-        label="Espace de travail",
+        label=_ts("Workspace"),
     )
 
     # This is a class method that will be called when the model is being created
@@ -97,14 +97,14 @@ class BlameableMixin(Model):
         extra="ignore",
     )
 
-    created_by = fields.ForeignKey("User", on_delete="SET NULL", null=True, related_name=False, label="Créé par")
+    created_by = fields.ForeignKey("User", on_delete="SET NULL", null=True, related_name=False, label=_ts("Created by"))
 
     updated_by = fields.ForeignKey(
         "User",
         on_delete="SET NULL",
         null=True,
         related_name=False,
-        label="Mis à jour par",
+        label=_ts("Updated by"),
     )
 
     async def save(
@@ -140,7 +140,7 @@ class SearchableMixin(Model):
         abstract = True
 
     search_value = fields.FulltextField(
-        label=_ts("Valeur de recherche texte"),
+        label=_ts("Fulltext search value"),
     )
 
 

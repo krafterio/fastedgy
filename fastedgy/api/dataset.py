@@ -1,6 +1,8 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+from fastedgy.i18n import _t
+
 from typing import Any, cast
 from fastapi import APIRouter, HTTPException
 
@@ -27,7 +29,7 @@ async def resequence(
     registry: Registry = Inject(Registry),
 ) -> Resequence:
     if not await meta_registry.is_registered(data.model_name):
-        raise HTTPException(status_code=400, detail=f"Model '{data.model_name}' not found")
+        raise HTTPException(status_code=400, detail=_t("Model {model_name} not found", model_name=data.model_name))
 
     model_class_name = generate_class_name(data.model_name)
     model_class = cast(type[Model], registry.get_model(model_class_name))
@@ -41,13 +43,13 @@ async def resequence(
         if not group_update and not sequence_update:
             raise HTTPException(
                 status_code=400,
-                detail="No action requested. Please provide group_field or sequence_field for resequencing",
+                detail=_t("No action requested. Please provide group_field or sequence_field for resequencing"),
             )
 
         existing_records = await model_class.query.filter(model_class.columns.id.in_(data.ids)).all()
 
         if len(existing_records) != len(data.ids):
-            raise HTTPException(status_code=400, detail="Some IDs in the target list do not exist")
+            raise HTTPException(status_code=400, detail=_t("Some IDs in the target list do not exist"))
 
         async with model_class.query.database.transaction():
             records_by_id = {record.id: record for record in existing_records}
@@ -93,10 +95,10 @@ def _prepare_group_update(
         return None
 
     if not group_field:
-        raise HTTPException(status_code=400, detail="group_field is required")
+        raise HTTPException(status_code=400, detail=_t("group_field is required"))
 
     if group_field not in model_class.meta.fields:
-        raise HTTPException(status_code=400, detail=f"Field '{group_field}' not found on model")
+        raise HTTPException(status_code=400, detail=_t("Field {field_name} not found on model", field_name=group_field))
 
     return {"field": group_field, "value": group_value}
 
@@ -109,7 +111,9 @@ def _prepare_sequence_update(
         return None
 
     if sequence_field not in model_class.meta.fields:
-        raise HTTPException(status_code=400, detail=f"Field '{sequence_field}' not found on model")
+        raise HTTPException(
+            status_code=400, detail=_t("Field {field_name} not found on model", field_name=sequence_field)
+        )
 
     return {
         "field": sequence_field,

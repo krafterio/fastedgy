@@ -1,6 +1,8 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+from fastedgy.i18n import _ts
+
 import socket
 
 from datetime import datetime
@@ -18,8 +20,8 @@ class QueuedTaskWorkerMixin(Model):
 
     class Meta(Model.Meta):
         abstract = True
-        label = "Worker des tâches en file d'attente"
-        label_plural = "Workers des tâches en file d'attente"
+        label = _ts("Queued task worker")
+        label_plural = _ts("Queued task workers")
         unique_together = [("server_name",)]
         indexes = [
             fields.Index(
@@ -31,22 +33,22 @@ class QueuedTaskWorkerMixin(Model):
         ]
 
     server_name: str = fields.CharField(
-        max_length=255, default_factory=lambda: socket.gethostname(), label="Server Name"
+        max_length=255, default_factory=lambda: socket.gethostname(), label=_ts("Server Name")
     )
 
-    max_workers: int = fields.IntegerField(default=1, label="Max Workers")
+    max_workers: int = fields.IntegerField(default=1, label=_ts("Max Workers"))
 
-    active_workers: int = fields.IntegerField(default=0, label="Active Workers")
+    active_workers: int = fields.IntegerField(default=0, label=_ts("Active Workers"))
 
-    idle_workers: int = fields.IntegerField(default=0, label="Idle Workers")
+    idle_workers: int = fields.IntegerField(default=0, label=_ts("Idle Workers"))
 
-    is_running: bool = fields.BooleanField(default=False, label="Is Running")
+    is_running: bool = fields.BooleanField(default=False, label=_ts("Is Running"))
 
-    last_heartbeat: datetime = fields.DateTimeField(auto_now=True, label="Last Heartbeat")
+    last_heartbeat: datetime = fields.DateTimeField(auto_now=True, label=_ts("Last Heartbeat"))
 
-    started_at: Optional[datetime] = fields.DateTimeField(null=True, label="Started At")
+    started_at: Optional[datetime] = fields.DateTimeField(null=True, label=_ts("Started At"))
 
-    version: Optional[str] = fields.CharField(max_length=50, null=True, label="Version")
+    version: Optional[str] = fields.CharField(max_length=50, null=True, label=_ts("Version"))
 
     @property
     def total_workers(self) -> int:

@@ -84,7 +84,7 @@ async def upload_attachments(
     if "Attachment" not in registry.models:
         raise HTTPException(
             status_code=501,
-            detail="Attachment model is not configured. Please add the Attachment model to your project.",
+            detail=_t("Attachment model is not configured. Please add the Attachment model to your project."),
         )
 
     Attachment: Any = registry.get_model("Attachment")
@@ -389,7 +389,7 @@ async def download_file(
     # Check file exists
     if not resolved_path.startswith("__cache__:"):
         if not await storage.file_exists(resolved_path, global_storage=global_storage):
-            raise HTTPException(status_code=404, detail="Fichier non trouvé")
+            raise HTTPException(status_code=404, detail=_t("File not found"))
 
     for transformer in vtr.get_transformers(PostDownloadTransformer, None, None):
         resolved_path = await transformer.post_download(request, path, resolved_path, transformers_ctx)

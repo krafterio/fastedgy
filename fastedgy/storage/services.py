@@ -419,7 +419,7 @@ class Storage:
         create_attachment: bool = False,
     ) -> str:
         if not file.filename:
-            raise ValueError("Missing filename")
+            raise ValueError(_t("Missing filename"))
 
         ext = os.path.splitext(file.filename)[1].lower()[1:]
         if not ext:
@@ -447,7 +447,7 @@ class Storage:
         create_attachment: bool = False,
     ) -> str:
         if not data.startswith("data:"):
-            raise ValueError("Content is not a data URL")
+            raise ValueError(_t("Content is not a data URL"))
 
         header, base64_data = data.split(",", 1)
         content_type = header.split(";")[0][5:]

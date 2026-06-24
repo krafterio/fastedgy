@@ -1,6 +1,8 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+from fastedgy.i18n import _ts
+
 from typing import TYPE_CHECKING, Union
 
 from fastedgy.orm import fields
@@ -17,8 +19,8 @@ class BaseWorkspaceUser(BaseModel):
 
     class Meta(BaseModel.Meta):
         abstract = True
-        label = "Utilisateur de l'espace de travail"
-        label_plural = "Utilisateurs de l'espace de travail"
+        label = _ts("Workspace user")
+        label_plural = _ts("Workspace users")
         unique_together = [("workspace", "user")]
         model_name: str | None = None
 
@@ -44,14 +46,14 @@ class BaseWorkspaceUser(BaseModel):
         "Workspace",
         on_delete="CASCADE",
         related_name="workspace_users",
-        label="Espace de travail",
+        label=_ts("Workspace"),
     )
 
     user: Union["User", None] = fields.ForeignKey(
         "User",
         on_delete="CASCADE",
         related_name="workspace_memberships",
-        label="Utilisateur",
+        label=_ts("User"),
     )
 
 

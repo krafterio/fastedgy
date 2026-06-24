@@ -39,7 +39,7 @@ class AttachmentMixin(BaseModel):
 
     name: str = fields.CharField(
         max_length=255,
-        label=_ts("Nom"),
+        label=_ts("Name"),
     )
 
     extension: str | None = fields.CharField(
@@ -51,22 +51,22 @@ class AttachmentMixin(BaseModel):
     mime_type: str | None = fields.CharField(
         max_length=150,
         null=True,
-        label=_ts("Type MIME"),
+        label=_ts("MIME type"),
     )
 
     size_bytes: int | None = fields.BigIntegerField(
         null=True,
-        label=_ts("Taille (octets)"),
+        label=_ts("Size (bytes)"),
     )
 
     width: int | None = fields.IntegerField(
         null=True,
-        label=_ts("Largeur"),
+        label=_ts("Width"),
     )
 
     height: int | None = fields.IntegerField(
         null=True,
-        label=_ts("Hauteur"),
+        label=_ts("Height"),
     )
 
     # Storage
@@ -74,7 +74,7 @@ class AttachmentMixin(BaseModel):
         max_length=1024,
         null=True,
         exclude=True,
-        label=_ts("Chemin de stockage"),
+        label=_ts("Storage path"),
     )
 
     parent: Union["Attachment", None] = fields.ForeignKey(
@@ -108,7 +108,7 @@ class AttachmentPathMixin(AttachmentMixin):
         max_length=1500,
         index=True,
         default="",
-        label=_ts("Chemin complet"),
+        label=_ts("Full path"),
     )
 
     parent_ids: list[int] | None = fields.JSONField(
@@ -118,7 +118,7 @@ class AttachmentPathMixin(AttachmentMixin):
 
     depth: int = fields.SmallIntegerField(
         default=0,
-        label=_ts("Profondeur"),
+        label=_ts("Depth"),
     )
 
 
@@ -135,7 +135,7 @@ async def on_pre_save(sender: Any, instance: Any, model_instance: Any, **kwargs:
         if record_id is not None:
             current = await type(model_instance).query.only("type").get(id=record_id)
             if getattr(current, "type", None) != new_type:
-                raise ValueError(_t("Le champ 'type' ne peut pas être modifié"))
+                raise ValueError(_t("The type field cannot be changed"))
 
     # Compute path/depth/parent_ids based on current model_instance values
     name: str | None = getattr(model_instance, "name", None)
@@ -180,7 +180,7 @@ async def on_pre_update(sender: Any, instance: Any, model_instance: Any, **kwarg
 
     # lock type changes
     if "type" in values or "type" in column_values:
-        raise ValueError(_t("Le champ 'type' ne peut pas être modifié"))
+        raise ValueError(_t("The type field cannot be changed"))
 
     # validate new parent, if any
     new_parent_id = column_values.get("parent_id", None)

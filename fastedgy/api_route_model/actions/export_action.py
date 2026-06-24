@@ -1,6 +1,8 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+from fastedgy.i18n import _t
+
 from typing import Callable, Any
 
 from fastapi import APIRouter, Query, HTTPException
@@ -148,7 +150,7 @@ async def export_items_action[M: BaseModel](
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
         if filters:
-            raise HTTPException(status_code=422, detail="Invalid filters")
+            raise HTTPException(status_code=422, detail=_t("Invalid filters"))
         else:
             raise e
 

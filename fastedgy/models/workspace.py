@@ -1,6 +1,8 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+from fastedgy.i18n import _ts
+
 import string
 import random
 
@@ -17,8 +19,8 @@ def generate_slug(length=10) -> str:
 class BaseWorkspace(BaseModel):
     class Meta(BaseModel.Meta):
         abstract = True
-        label = "Espace de travail"
-        label_plural = "Espaces de travail"
+        label = _ts("Workspace")
+        label_plural = _ts("Workspaces")
         default_order_by: OrderByList = [("name", "asc")]
         indexes = [
             fields.Index(fields=["name"]),
@@ -42,11 +44,11 @@ class BaseWorkspace(BaseModel):
 
         raise RuntimeError(f"Multiple workspace models detected: {BaseWorkspace.Meta.model_name} and {cls.__name__}")
 
-    name: str | None = fields.CharField(max_length=255, null=True, label="Nom")
+    name: str | None = fields.CharField(max_length=255, null=True, label=_ts("Name"))
 
-    slug: str | None = fields.CharField(max_length=32, unique=True, label="Slug")
+    slug: str | None = fields.CharField(max_length=32, unique=True, label=_ts("Slug"))
 
-    image_url: str | None = fields.CharField(max_length=255, null=True, label="Image")
+    image_url: str | None = fields.CharField(max_length=255, null=True, label=_ts("Image"))
 
 
 __all__ = [

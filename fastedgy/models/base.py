@@ -1,6 +1,8 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+from fastedgy.i18n import _ts
+
 from abc import abstractmethod
 from typing import TYPE_CHECKING, Any, ClassVar, Optional
 
@@ -62,14 +64,14 @@ def _fix_inherited_abstract(cls: type) -> None:
 
 
 class BaseModel(Model, metaclass=ModelMeta):
-    id: int | None = fields.IntegerField(primary_key=True, autoincrement=True, label="ID")
+    id: int | None = fields.IntegerField(primary_key=True, autoincrement=True, label=_ts("ID"))
 
     created_at: datetime | None = fields.DateTimeField(
-        default_factory=datetime.now, read_only=True, auto_now_add=True, label="Créé le"
+        default_factory=datetime.now, read_only=True, auto_now_add=True, label=_ts("Created at")
     )
 
     updated_at: datetime | None = fields.DateTimeField(
-        default_factory=datetime.now, auto_now=True, label="Mis à jour le"
+        default_factory=datetime.now, auto_now=True, label=_ts("Updated at")
     )
 
     class Meta(Meta):

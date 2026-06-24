@@ -29,27 +29,27 @@ class QueuedTaskLogMixin(BaseModel):
 
     class Meta(BaseModel.Meta):
         abstract = True
-        label = "Log des tâches en file d'attente"
-        label_plural = "Logs des tâches en file d'attente"
+        label = _ts("Queued task log")
+        label_plural = _ts("Queued task logs")
         indexes = [
             fields.Index(fields=["task", "logged_at"], name="idx_queued_task_logs_task_date"),
             fields.Index(fields=["log_type", "logged_at"], name="idx_queued_task_logs_type_date"),
             fields.Index(fields=["logged_at"], name="idx_queued_task_logs_date"),
         ]
 
-    task: "QueuedTask" = fields.ForeignKey("QueuedTask", on_delete="CASCADE", label="Tâche", related_name="logs")
+    task: "QueuedTask" = fields.ForeignKey("QueuedTask", on_delete="CASCADE", label=_ts("Task"), related_name="logs")
 
-    log_type: QueuedTaskLogType = fields.ChoiceField(choices=QueuedTaskLogType, label="Type de log")
+    log_type: QueuedTaskLogType = fields.ChoiceField(choices=QueuedTaskLogType, label=_ts("Log type"))
 
     logged_at: datetime | None = fields.DateTimeField(
         default_factory=datetime.now,
         read_only=True,
         auto_now_add=True,
-        label="Horodatage",
+        label=_ts("Timestamp"),
     )
 
-    name: str | None = fields.CharField(max_length=255, null=True, label="Nom")
+    name: str | None = fields.CharField(max_length=255, null=True, label=_ts("Name"))
 
-    message: str | None = fields.TextField(null=True, label="Message")
+    message: str | None = fields.TextField(null=True, label=_ts("Message"))
 
-    info: str | None = fields.TextField(null=True, label="Informations")
+    info: str | None = fields.TextField(null=True, label=_ts("Information"))

@@ -1,6 +1,8 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+from fastedgy.i18n import _t
+
 from typing import TYPE_CHECKING, cast
 from uuid import uuid4
 from fastapi import APIRouter, Body, Depends, HTTPException, status
@@ -71,7 +73,7 @@ async def login_for_access_token(
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
+            detail=_t("Incorrect email or password"),
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -99,7 +101,7 @@ async def refresh_access_token(
 
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate refresh token",
+        detail=_t("Could not validate refresh token"),
         headers={"WWW-Authenticate": "Bearer"},
     )
 
@@ -147,14 +149,14 @@ async def password_reset(data: ResetPasswordRequest, registry: Registry = Inject
     ).first()
 
     if not user:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Token invalid or expired")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_t("Token invalid or expired"))
 
     user.set_password(data.password)
     user.reset_pwd_token = None
     user.reset_pwd_expires_at = None
     await user.save()
 
-    return SimpleMessage(message="Password updated")
+    return SimpleMessage(message=_t("Password updated"))
 
 
 @public_router.post("/password/forgot")
@@ -170,7 +172,7 @@ async def password_forgot(
     user = await User.query.filter(email=data.email).first()
 
     if not user:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email not found")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_t("Email not found"))
 
     user.reset_pwd_token = str(uuid4())
     user.reset_pwd_expires_at = datetime.now(context.get_timezone()) + timedelta(hours=1)
@@ -191,7 +193,7 @@ async def password_forgot(
         },
     )
 
-    return SimpleMessage(message="Password reset email sent")
+    return SimpleMessage(message=_t("Password reset email sent"))
 
 
 @public_router.post("/password/validate")
@@ -209,7 +211,7 @@ async def password_validate(
     ).first()
 
     if not user:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Token invalid or expired")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_t("Token invalid or expired"))
 
     return ForgotPasswordValidate(email=user.email, valid=True)
 
@@ -222,13 +224,13 @@ async def change_password(
     if not current_user.verify_password(data.current_password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Current password is incorrect",
+            detail=_t("Current password is incorrect"),
         )
 
     current_user.set_password(data.new_password)
     await current_user.save()
 
-    return SimpleMessage(message="Password changed successfully")
+    return SimpleMessage(message=_t("Password changed successfully"))
 
 
 __all__ = [

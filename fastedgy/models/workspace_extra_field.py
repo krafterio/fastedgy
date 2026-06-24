@@ -46,20 +46,20 @@ EXTRA_FIELD_TYPE_OPTIONS = {
 class BaseWorkspaceExtraField(BaseModel, WorkspaceableMixin):
     class Meta(BaseModel.Meta, WorkspaceableMixin.Meta):
         abstract = True
-        label = "Champs personnalisé"
-        label_plural = "Champs personnalisés"
+        label = _ts("Custom field")
+        label_plural = _ts("Custom fields")
         default_order_by: OrderByList = [("label", "asc")]
         unique_together = [
             ("workspace", "name"),
         ]
 
-    label: str | None = fields.CharField(max_length=255, label="Label")
+    label: str | None = fields.CharField(max_length=255, label=_ts("Label"))
 
-    name: str | None = fields.CharField(max_length=40, label="Nom technique")
+    name: str | None = fields.CharField(max_length=40, label=_ts("Technical name"))
 
-    field_type: WorkspaceExtraFieldType | None = fields.ChoiceField(WorkspaceExtraFieldType, label="Type")
+    field_type: WorkspaceExtraFieldType | None = fields.ChoiceField(WorkspaceExtraFieldType, label=_ts("Type"))
 
-    required: bool = fields.BooleanField(default=False, label="Requis")
+    required: bool = fields.BooleanField(default=False, label=_ts("Required"))
 
 
 __all__ = [

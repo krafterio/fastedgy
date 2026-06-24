@@ -5,6 +5,7 @@ from typing import Callable, Any
 
 from fastapi import APIRouter, HTTPException, Path
 
+from fastedgy.i18n import _t
 from fastedgy.models.base import BaseModel
 from fastedgy.api_route_model.action import BaseApiRouteAction, generate_output_model
 from fastedgy.api_route_model.params import FieldSelectorHeader
@@ -91,7 +92,7 @@ async def get_item_action[M: BaseModel](
 
         return await view_item_action(request, model_cls, item, fields, transformers, transformers_ctx)
     except ObjectNotFound:
-        raise HTTPException(status_code=404, detail=f"{model_cls.__name__} not found")
+        raise HTTPException(status_code=404, detail=_t("{model} not found", model=model_cls.__name__))
 
 
 async def view_item_action[M: BaseModel](

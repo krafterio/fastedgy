@@ -1,6 +1,8 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+from fastedgy.i18n import _t
+
 import io
 import csv
 import html2text
@@ -127,7 +129,7 @@ async def export_data[M: BaseModel](
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
         if filters:
-            raise HTTPException(status_code=422, detail="Invalid filters")
+            raise HTTPException(status_code=422, detail=_t("Invalid filters"))
         else:
             raise e
 
@@ -186,7 +188,7 @@ async def export_data[M: BaseModel](
     if format.lower() == "ods":
         return generate_ods_export(field_labels, data_rows, f"{model_cls.__name__}_export.ods")
 
-    raise HTTPException(status_code=400, detail=f"Unsupported export format: {format}")
+    raise HTTPException(status_code=400, detail=_t("Unsupported export format: {format}", format=format))
 
 
 def format_value(value: Any, relation_delimiter: RelationDelimiter = RelationDelimiter.newline) -> str | None:
@@ -237,13 +239,13 @@ def generate_xlsx_export(field_names: list[str], data_rows: list[list[str]], fil
         import openpyxl
         from openpyxl.utils import get_column_letter
     except ImportError:
-        raise HTTPException(status_code=500, detail="openpyxl library is not installed")
+        raise HTTPException(status_code=500, detail=_t("openpyxl library is not installed"))
 
     wb = openpyxl.Workbook()
     ws = wb.active
 
     if ws is None:
-        raise HTTPException(status_code=400, detail="Failed to create worksheet")
+        raise HTTPException(status_code=400, detail=_t("Failed to create worksheet"))
 
     ws.title = "Export"
 
@@ -277,7 +279,7 @@ def generate_ods_export(field_names: list[str], data_rows: list[list[str]], file
     try:
         from pyexcel_ods3 import save_data
     except ImportError:
-        raise HTTPException(status_code=500, detail="pyexcel-ods3 library is not installed")
+        raise HTTPException(status_code=500, detail=_t("pyexcel-ods3 library is not installed"))
 
     # Prepare data for pyexcel-ods3
     sheet_data = [field_names]  # Header row

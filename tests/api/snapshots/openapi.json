@@ -54,6 +54,9 @@
           "parent": {
             "anyOf": [
               {
+                "$ref": "#/components/schemas/Attachment"
+              },
+              {
                 "additionalProperties": true,
                 "type": "object"
               },
@@ -1117,6 +1120,9 @@
           "category": {
             "anyOf": [
               {
+                "$ref": "#/components/schemas/Category"
+              },
+              {
                 "additionalProperties": true,
                 "type": "object"
               },
@@ -1739,6 +1745,9 @@
           "parent_task": {
             "anyOf": [
               {
+                "$ref": "#/components/schemas/QueuedTask"
+              },
+              {
                 "additionalProperties": true,
                 "type": "object"
               },
@@ -2161,11 +2170,11 @@
           "task": {
             "anyOf": [
               {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/QueuedTask"
               },
               {
-                "type": "null"
+                "additionalProperties": true,
+                "type": "object"
               }
             ],
             "title": "Task"
@@ -4392,11 +4401,11 @@
           "user": {
             "anyOf": [
               {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/User"
               },
               {
-                "type": "null"
+                "additionalProperties": true,
+                "type": "object"
               }
             ],
             "title": "User"
@@ -4404,11 +4413,11 @@
           "workspace": {
             "anyOf": [
               {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/Workspace"
               },
               {
-                "type": "null"
+                "additionalProperties": true,
+                "type": "object"
               }
             ],
             "title": "Workspace"

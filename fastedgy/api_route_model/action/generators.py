@@ -58,41 +58,69 @@ def _has_unserializable_default(field: BaseFieldType) -> bool:
     return default is not PydanticUndefined and not _is_json_serializable(default)
 
 
-@cache
+_output_model_cache: dict[type, type] = {}
+_output_model_building: set[type] = set()
+
+
 def generate_output_model[M: BaseModel](model_cls: type[M]) -> type[M]:
     from fastedgy.schemas import Field as PydanticField
     from fastedgy.api_route_model.action.relations import is_exposed_relation_field
     from edgy.core.db.fields.foreign_keys import ForeignKey
 
-    fields = {}
+    cached = _output_model_cache.get(model_cls)
+    if cached is not None:
+        return cast(type[M], cached)
 
-    for field_name, field_info in model_cls.model_fields.items():
-        field = cast(BaseFieldType, field_info)
+    # A foreign key can point back to a model whose output is still being built
+    # (self-references such as parent/parent_task). Break the cycle with a string
+    # forward reference, resolved by model_rebuild() once the class exists.
+    if model_cls in _output_model_building:
+        return cast(type[M], model_cls.__name__)
 
-        if not field.exclude:
-            field_type = field.field_type
-            field_to_use = field
+    _output_model_building.add(model_cls)
 
-            # ForeignKey is serialized as a dict ({"id": ...} or the selected
-            # fields), so the output exposes a plain object, not the related model.
-            if isinstance(field, ForeignKey):
-                field_type = dict[str, Any] | None
+    try:
+        fields = {}
 
-            # Drop non-JSON-serializable defaults (auto_now/auto_now_add render as
-            # functools.partial, default_factory callables, ...) from the output schema
-            if _has_unserializable_default(field):
-                field_to_use = copy(field)
-                field_to_use.default = None
-                setattr(field_to_use, "default_factory", None)
+        for field_name, field_info in model_cls.model_fields.items():
+            field = cast(BaseFieldType, field_info)
 
-            fields[field_name] = (field_type, field_to_use)
-        elif is_exposed_relation_field(field):
-            fields[field_name] = (
-                list[dict[str, Any]] | None,
-                PydanticField(default=None, exclude=False),
-            )
+            if not field.exclude:
+                field_type = field.field_type
+                field_to_use = field
 
-    return cast(type[M], create_model(f"{model_cls.__name__}", **fields))
+                # A ForeignKey is serialized either as the related model (when its
+                # fields are expanded) or as a partial object ({"id": ...} by
+                # default, or the selected fields with X-Fields), and as null when
+                # the relation is optional.
+                if isinstance(field, ForeignKey):
+                    related_output = generate_output_model(field.target)
+                    if field.null:
+                        field_type = Union[related_output, dict[str, Any], None]
+                    else:
+                        field_type = Union[related_output, dict[str, Any]]
+
+                # Drop non-JSON-serializable defaults (auto_now/auto_now_add render as
+                # functools.partial, default_factory callables, ...) from the output schema
+                if _has_unserializable_default(field):
+                    field_to_use = copy(field)
+                    field_to_use.default = None
+                    setattr(field_to_use, "default_factory", None)
+
+                fields[field_name] = (field_type, field_to_use)
+            elif is_exposed_relation_field(field):
+                fields[field_name] = (
+                    list[dict[str, Any]] | None,
+                    PydanticField(default=None, exclude=False),
+                )
+
+        model = cast(type[M], create_model(f"{model_cls.__name__}", **fields))
+        model.model_rebuild()
+        _output_model_cache[model_cls] = model
+    finally:
+        _output_model_building.discard(model_cls)
+
+    return model
 
 
 @cache

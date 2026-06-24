@@ -29,7 +29,7 @@ def hash_password(password: str) -> str:
     return pwd_context.hash(password)
 
 
-def verify_password(password: str, verify_password: str) -> bool:
+def verify_password(password: str | None, verify_password: str | None) -> bool:
     if not password or not verify_password:
         return False
 

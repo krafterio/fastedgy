@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, cast
 from fastapi import APIRouter, Body, HTTPException, status
 from fastedgy import context
 from fastedgy.orm import Registry
-from fastedgy.depends.security import hash_password
 from fastedgy.dependencies import Inject
 from fastedgy.schemas.auth import UserRegisterRequest
 from fastedgy.schemas.base import SimpleMessage
@@ -28,12 +27,12 @@ async def register_user(
     if existing_user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
 
-    hashed_password = hash_password(user_data.password)
     user = user_model(
         name=user_data.name,
         email=user_data.email,
-        password=hashed_password,
+        password="",
     )
+    user.set_password(user_data.password)
     await user.save()
 
     context.set_user(user)

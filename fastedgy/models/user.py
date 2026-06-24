@@ -61,6 +61,16 @@ class BaseUser(BaseModel):
 
         return instance.email[0].upper() if instance.email else ""
 
+    def set_password(self, raw_password: str) -> None:
+        from fastedgy.depends.security import hash_password
+
+        self.password = hash_password(raw_password)
+
+    def verify_password(self, raw_password: str) -> bool:
+        from fastedgy.depends.security import verify_password
+
+        return verify_password(self.password, raw_password)
+
 
 __all__ = [
     "BaseUser",

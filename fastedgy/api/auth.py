@@ -11,7 +11,6 @@ from fastedgy.depends.security import (
     create_access_token,
     create_refresh_token,
     get_current_user,
-    hash_password,
 )
 from fastedgy.orm import Registry
 from fastedgy.schemas.auth import (
@@ -150,7 +149,7 @@ async def password_reset(data: ResetPasswordRequest, registry: Registry = Inject
     if not user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Token invalid or expired")
 
-    user.password = hash_password(data.password)
+    user.set_password(data.password)
     user.reset_pwd_token = None
     user.reset_pwd_expires_at = None
     await user.save()
@@ -226,7 +225,7 @@ async def change_password(
             detail="Current password is incorrect",
         )
 
-    current_user.password = hash_password(data.new_password)
+    current_user.set_password(data.new_password)
     await current_user.save()
 
     return SimpleMessage(message="Password changed successfully")

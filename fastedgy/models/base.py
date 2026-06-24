@@ -2,13 +2,13 @@
 # MIT License (see LICENSE file).
 
 from abc import abstractmethod
-from typing import ClassVar, Optional, Union
+from typing import ClassVar, Optional
 
 from datetime import datetime
 
 from fastedgy.orm import Model, fields
-from fastedgy.orm.query import QuerySet
 from fastedgy.orm.manager import (
+    BaseManager,
     Manager,
     WorkspaceableManager,
     WorkspaceableRedirectManager,
@@ -101,13 +101,11 @@ class BaseModel(Model):
 
         return data
 
-    query: ClassVar[Union[WorkspaceableManager, QuerySet]] = WorkspaceableManager()
+    query = WorkspaceableManager()
 
-    query_related: ClassVar[Union[WorkspaceableRedirectManager, QuerySet]] = WorkspaceableRedirectManager(
-        redirect_name="query"
-    )
+    query_related = WorkspaceableRedirectManager(redirect_name="query")
 
-    global_query: ClassVar[Union[Manager, QuerySet]] = Manager()
+    global_query: ClassVar[BaseManager] = Manager()
 
 
 class BaseView(Model):
@@ -202,13 +200,11 @@ class BaseView(Model):
 
         return data
 
-    query: ClassVar[Union[WorkspaceableManager, "QuerySet"]] = WorkspaceableManager()
+    query = WorkspaceableManager()
 
-    query_related: ClassVar[Union[WorkspaceableRedirectManager, "QuerySet"]] = WorkspaceableRedirectManager(
-        redirect_name="query"
-    )
+    query_related = WorkspaceableRedirectManager(redirect_name="query")
 
-    global_query: ClassVar[Union[Manager, "QuerySet"]] = Manager()
+    global_query: ClassVar[BaseManager] = Manager()
 
     @classmethod
     def build(

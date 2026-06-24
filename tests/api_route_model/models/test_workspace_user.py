@@ -3,7 +3,7 @@
 
 import httpx
 
-from ..helpers import seed_user
+from fastedgy.test.factories import create_user
 
 
 async def _make_workspace(client: httpx.AsyncClient, slug: str = "acme") -> dict:
@@ -13,11 +13,11 @@ async def _make_workspace(client: httpx.AsyncClient, slug: str = "acme") -> dict
 # --- create -----------------------------------------------------------------
 
 
-async def test_create_links_workspace_and_user(setup_http: httpx.AsyncClient) -> None:
-    workspace = await _make_workspace(setup_http)
-    user = await seed_user()
+async def test_create_links_workspace_and_user(auth_http: httpx.AsyncClient) -> None:
+    workspace = await _make_workspace(auth_http)
+    user = await create_user()
 
-    response = await setup_http.post(
+    response = await auth_http.post(
         "/api/workspace_users",
         json={"workspace": workspace["id"], "user": user.id},
     )
@@ -30,21 +30,21 @@ async def test_create_links_workspace_and_user(setup_http: httpx.AsyncClient) ->
     assert item["user"] == {"id": user.id}
 
 
-async def test_create_requires_both_foreign_keys(setup_http: httpx.AsyncClient) -> None:
-    workspace = await _make_workspace(setup_http)
+async def test_create_requires_both_foreign_keys(auth_http: httpx.AsyncClient) -> None:
+    workspace = await _make_workspace(auth_http)
 
-    response = await setup_http.post("/api/workspace_users", json={"workspace": workspace["id"]})
+    response = await auth_http.post("/api/workspace_users", json={"workspace": workspace["id"]})
 
     assert response.status_code == 422
 
 
-async def test_duplicate_pair_is_rejected(setup_http: httpx.AsyncClient) -> None:
-    workspace = await _make_workspace(setup_http)
-    user = await seed_user()
+async def test_duplicate_pair_is_rejected(auth_http: httpx.AsyncClient) -> None:
+    workspace = await _make_workspace(auth_http)
+    user = await create_user()
     payload = {"workspace": workspace["id"], "user": user.id}
 
-    await setup_http.post("/api/workspace_users", json=payload)
-    response = await setup_http.post("/api/workspace_users", json=payload)
+    await auth_http.post("/api/workspace_users", json=payload)
+    response = await auth_http.post("/api/workspace_users", json=payload)
 
     assert response.status_code == 400
 
@@ -52,27 +52,27 @@ async def test_duplicate_pair_is_rejected(setup_http: httpx.AsyncClient) -> None
 # --- get / delete -----------------------------------------------------------
 
 
-async def test_get_returns_membership(setup_http: httpx.AsyncClient) -> None:
-    workspace = await _make_workspace(setup_http)
-    user = await seed_user()
+async def test_get_returns_membership(auth_http: httpx.AsyncClient) -> None:
+    workspace = await _make_workspace(auth_http)
+    user = await create_user()
     created = (
-        await setup_http.post("/api/workspace_users", json={"workspace": workspace["id"], "user": user.id})
+        await auth_http.post("/api/workspace_users", json={"workspace": workspace["id"], "user": user.id})
     ).json()
 
-    response = await setup_http.get(f"/api/workspace_users/{created['id']}")
+    response = await auth_http.get(f"/api/workspace_users/{created['id']}")
 
     assert response.status_code == 200
     assert response.json()["id"] == created["id"]
 
 
-async def test_delete_removes_membership(setup_http: httpx.AsyncClient) -> None:
-    workspace = await _make_workspace(setup_http)
-    user = await seed_user()
+async def test_delete_removes_membership(auth_http: httpx.AsyncClient) -> None:
+    workspace = await _make_workspace(auth_http)
+    user = await create_user()
     created = (
-        await setup_http.post("/api/workspace_users", json={"workspace": workspace["id"], "user": user.id})
+        await auth_http.post("/api/workspace_users", json={"workspace": workspace["id"], "user": user.id})
     ).json()
 
-    response = await setup_http.delete(f"/api/workspace_users/{created['id']}")
+    response = await auth_http.delete(f"/api/workspace_users/{created['id']}")
 
     assert response.status_code in (200, 204)
-    assert (await setup_http.get(f"/api/workspace_users/{created['id']}")).status_code == 404
+    assert (await auth_http.get(f"/api/workspace_users/{created['id']}")).status_code == 404

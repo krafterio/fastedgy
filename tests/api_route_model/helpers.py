@@ -28,15 +28,3 @@ async def get_product(client: httpx.AsyncClient, product_id: int) -> dict:
 
 def tag_ids(product: dict) -> set[int]:
     return {tag["id"] for tag in (product.get("tags") or [])}
-
-
-async def seed_user(email: str = "john@example.io", name: str | None = "John Doe", password: str = "secret"):
-    # Users are created through a dedicated flow, not the generic CRUD endpoint
-    # (``password`` is excluded from the input model), so seed them via the ORM.
-    from fastedgy.test.models.user import User
-
-    user = User(email=email, name=name, password=password)
-    await user.save()
-
-    return user
-

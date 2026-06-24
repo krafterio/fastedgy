@@ -4,8 +4,8 @@
 import httpx
 
 
-async def test_import_template_has_only_importable_headers(setup_http: httpx.AsyncClient) -> None:
-    response = await setup_http.get("/api/test_categories/import/template?format=csv")
+async def test_import_template_has_only_importable_headers(auth_http: httpx.AsyncClient) -> None:
+    response = await auth_http.get("/api/test_categories/import/template?format=csv")
 
     assert response.status_code == 200
 

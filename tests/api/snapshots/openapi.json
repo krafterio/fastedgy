@@ -57,6 +57,11 @@
             ],
             "title": "Children"
           },
+          "depth": {
+            "default": 0,
+            "title": "Depth",
+            "type": "integer"
+          },
           "extension": {
             "anyOf": [
               {
@@ -108,6 +113,21 @@
             ],
             "title": "Parent"
           },
+          "parent_ids": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Ids"
+          },
+          "path": {
+            "default": "",
+            "maxLength": 1500,
+            "title": "Path",
+            "type": "string"
+          },
           "size_bytes": {
             "anyOf": [
               {
@@ -118,6 +138,10 @@
               }
             ],
             "title": "Size Bytes"
+          },
+          "type": {
+            "$ref": "#/components/schemas/AttachmentType",
+            "default": "file"
           },
           "width": {
             "anyOf": [
@@ -182,6 +206,14 @@
         "title": "AttachmentList",
         "type": "object"
       },
+      "AttachmentType": {
+        "enum": [
+          "file",
+          "folder"
+        ],
+        "title": "AttachmentType",
+        "type": "string"
+      },
       "AttachmentUpdate": {
         "properties": {
           "children": {
@@ -237,6 +269,17 @@
               ]
             ],
             "title": "Children"
+          },
+          "depth": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Depth"
           },
           "extension": {
             "anyOf": [
@@ -296,6 +339,27 @@
             ],
             "title": "Parent"
           },
+          "parent_ids": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Ids"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "maxLength": 1500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
+          },
           "size_bytes": {
             "anyOf": [
               {
@@ -306,6 +370,16 @@
               }
             ],
             "title": "Size Bytes"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AttachmentType"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "width": {
             "anyOf": [
@@ -694,6 +768,69 @@
         "title": "CategoryUpdate",
         "type": "object"
       },
+      "ChangePasswordRequest": {
+        "properties": {
+          "current_password": {
+            "title": "Current Password",
+            "type": "string"
+          },
+          "new_password": {
+            "title": "New Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "current_password",
+          "new_password"
+        ],
+        "title": "ChangePasswordRequest",
+        "type": "object"
+      },
+      "ForgotPasswordRequest": {
+        "properties": {
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "ForgotPasswordRequest",
+        "type": "object"
+      },
+      "ForgotPasswordValidate": {
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "valid": {
+            "title": "Valid",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "email",
+          "valid"
+        ],
+        "title": "ForgotPasswordValidate",
+        "type": "object"
+      },
+      "ForgotPasswordValidateRequest": {
+        "properties": {
+          "token": {
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "title": "ForgotPasswordValidateRequest",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -705,6 +842,19 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "Health": {
+        "properties": {
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "Health",
         "type": "object"
       },
       "ImportErrorResponse": {
@@ -784,6 +934,176 @@
           }
         },
         "title": "ImportResult",
+        "type": "object"
+      },
+      "LoginRequest": {
+        "properties": {
+          "password": {
+            "title": "Password",
+            "type": "string"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "LoginRequest",
+        "type": "object"
+      },
+      "MetadataField": {
+        "properties": {
+          "choices": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Choices"
+          },
+          "extra": {
+            "title": "Extra",
+            "type": "boolean"
+          },
+          "filter_operators": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Filter Operators",
+            "type": "array"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "readonly": {
+            "title": "Readonly",
+            "type": "boolean"
+          },
+          "required": {
+            "title": "Required",
+            "type": "boolean"
+          },
+          "searchable": {
+            "title": "Searchable",
+            "type": "boolean"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "label",
+          "type",
+          "readonly",
+          "required",
+          "searchable",
+          "extra",
+          "filter_operators"
+        ],
+        "title": "MetadataField",
+        "type": "object"
+      },
+      "MetadataModel": {
+        "properties": {
+          "api_name": {
+            "title": "Api Name",
+            "type": "string"
+          },
+          "fields": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/MetadataField"
+            },
+            "title": "Fields",
+            "type": "object"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "label_plural": {
+            "title": "Label Plural",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "search_field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Search Field"
+          },
+          "searchable": {
+            "title": "Searchable",
+            "type": "boolean"
+          },
+          "searchable_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Searchable Fields",
+            "type": "array"
+          },
+          "sortable": {
+            "title": "Sortable",
+            "type": "boolean"
+          },
+          "sortable_field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sortable Field"
+          }
+        },
+        "required": [
+          "name",
+          "api_name",
+          "label",
+          "label_plural",
+          "searchable",
+          "searchable_fields",
+          "sortable",
+          "fields"
+        ],
+        "title": "MetadataModel",
         "type": "object"
       },
       "ProductCreate": {
@@ -2722,6 +3042,154 @@
         "title": "RelationDelimiter",
         "type": "string"
       },
+      "Resequence": {
+        "description": "Schema for result resequence.",
+        "properties": {
+          "group_field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Field"
+          },
+          "group_value": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Value"
+          },
+          "model_name": {
+            "title": "Model Name",
+            "type": "string"
+          },
+          "records": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "sequence_field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sequence Field"
+          },
+          "sequence_offset": {
+            "default": 0,
+            "title": "Sequence Offset",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "model_name",
+          "records"
+        ],
+        "title": "Resequence",
+        "type": "object"
+      },
+      "ResequenceRequest": {
+        "description": "Schema for resequencing records within a list while allowing group reassignment.\n\nThis schema enables the reorganization of records in a list by providing\nthe ability to specify a new grouping field/value and define the desired\norder of all list records through their IDs.\n\nAttributes:\n    model_name: str: The name of the model to resequence.\n    sequence_field (str | None): The field name used for sequencing records. Value must be defined to resequence.\n    sequence_offset (int | None): The offset to apply to the sequence.\n    group_field (str | None): The field name used for grouping records. Value must be defined to update group.\n    group_value (Any | None): The new value to assign to the group field.\n    ids (list[int]): List of record IDs in the desired order.",
+        "properties": {
+          "group_field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Field"
+          },
+          "group_value": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Value"
+          },
+          "ids": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Ids",
+            "type": "array"
+          },
+          "model_name": {
+            "title": "Model Name",
+            "type": "string"
+          },
+          "sequence_field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sequence Field"
+          },
+          "sequence_offset": {
+            "default": 0,
+            "title": "Sequence Offset",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "model_name",
+          "ids"
+        ],
+        "title": "ResequenceRequest",
+        "type": "object"
+      },
+      "ResetPasswordRequest": {
+        "properties": {
+          "password": {
+            "title": "Password",
+            "type": "string"
+          },
+          "token": {
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "password"
+        ],
+        "title": "ResetPasswordRequest",
+        "type": "object"
+      },
+      "SimpleMessage": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "SimpleMessage",
+        "type": "object"
+      },
       "TagCreate": {
         "properties": {
           "name": {
@@ -2907,6 +3375,121 @@
         "title": "TagUpdate",
         "type": "object"
       },
+      "Token": {
+        "properties": {
+          "access_token": {
+            "title": "Access Token",
+            "type": "string"
+          },
+          "refresh_token": {
+            "title": "Refresh Token",
+            "type": "string"
+          },
+          "token_type": {
+            "title": "Token Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "access_token",
+          "refresh_token",
+          "token_type"
+        ],
+        "title": "Token",
+        "type": "object"
+      },
+      "TokenRefresh": {
+        "properties": {
+          "refresh_token": {
+            "title": "Refresh Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "refresh_token"
+        ],
+        "title": "TokenRefresh",
+        "type": "object"
+      },
+      "UploadedAttachment": {
+        "properties": {
+          "extension": {
+            "title": "Extension",
+            "type": "string"
+          },
+          "height": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height"
+          },
+          "mime_type": {
+            "title": "Mime Type",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Width"
+          }
+        },
+        "required": [
+          "name",
+          "extension",
+          "mime_type",
+          "size_bytes"
+        ],
+        "title": "UploadedAttachment",
+        "type": "object"
+      },
+      "UploadedAttachments": {
+        "properties": {
+          "attachments": {
+            "items": {
+              "$ref": "#/components/schemas/UploadedAttachment"
+            },
+            "title": "Attachments",
+            "type": "array"
+          }
+        },
+        "required": [
+          "attachments"
+        ],
+        "title": "UploadedAttachments",
+        "type": "object"
+      },
+      "UploadedModelField": {
+        "properties": {
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "UploadedModelField",
+        "type": "object"
+      },
       "UserCreate": {
         "properties": {
           "email": {
@@ -3031,6 +3614,36 @@
           "total_pages"
         ],
         "title": "UserList",
+        "type": "object"
+      },
+      "UserRegisterRequest": {
+        "properties": {
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "password": {
+            "title": "Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "UserRegisterRequest",
         "type": "object"
       },
       "UserUpdate": {
@@ -3867,6 +4480,11 @@
             "title": "Created At",
             "type": "string"
           },
+          "depth": {
+            "default": 0,
+            "title": "Depth",
+            "type": "integer"
+          },
           "extension": {
             "maxLength": 20,
             "title": "Extension",
@@ -3905,9 +4523,22 @@
             ],
             "title": "Parent"
           },
+          "parent_ids": {
+            "title": "Parent Ids"
+          },
+          "path": {
+            "default": "",
+            "maxLength": 1500,
+            "title": "Path",
+            "type": "string"
+          },
           "size_bytes": {
             "title": "Size Bytes",
             "type": "integer"
+          },
+          "type": {
+            "$ref": "#/components/schemas/AttachmentType",
+            "default": "file"
           },
           "updated_at": {
             "format": "date-time",
@@ -4660,6 +5291,11 @@
             "title": "Created At",
             "type": "string"
           },
+          "depth": {
+            "default": 0,
+            "title": "Depth",
+            "type": "integer"
+          },
           "extension": {
             "anyOf": [
               {
@@ -4715,6 +5351,21 @@
             ],
             "title": "Parent"
           },
+          "parent_ids": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Ids"
+          },
+          "path": {
+            "default": "",
+            "maxLength": 1500,
+            "title": "Path",
+            "type": "string"
+          },
           "size_bytes": {
             "anyOf": [
               {
@@ -4737,6 +5388,10 @@
               }
             ],
             "title": "Storage Path"
+          },
+          "type": {
+            "$ref": "#/components/schemas/AttachmentType",
+            "default": "file"
           },
           "updated_at": {
             "format": "date-time",
@@ -4767,6 +5422,11 @@
             "format": "date-time",
             "title": "Created At",
             "type": "string"
+          },
+          "depth": {
+            "default": 0,
+            "title": "Depth",
+            "type": "integer"
           },
           "extension": {
             "anyOf": [
@@ -4823,6 +5483,21 @@
             ],
             "title": "Parent"
           },
+          "parent_ids": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Ids"
+          },
+          "path": {
+            "default": "",
+            "maxLength": 1500,
+            "title": "Path",
+            "type": "string"
+          },
           "size_bytes": {
             "anyOf": [
               {
@@ -4833,6 +5508,10 @@
               }
             ],
             "title": "Size Bytes"
+          },
+          "type": {
+            "$ref": "#/components/schemas/AttachmentType",
+            "default": "file"
           },
           "updated_at": {
             "format": "date-time",
@@ -6400,6 +7079,17 @@
         "title": "WorkspaceUser",
         "type": "object"
       }
+    },
+    "securitySchemes": {
+      "OAuth2PasswordBearer": {
+        "flows": {
+          "password": {
+            "scopes": {},
+            "tokenUrl": "/api/auth/token"
+          }
+        },
+        "type": "oauth2"
+      }
     }
   },
   "info": {
@@ -6514,6 +7204,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "List Attachment items",
         "tags": [
           "attachments"
@@ -6583,6 +7278,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Create Attachment",
         "tags": [
           "attachments"
@@ -6726,6 +7426,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Export Attachment items",
         "tags": [
           "attachments"
@@ -6778,6 +7483,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Import Attachment items",
         "tags": [
           "attachments"
@@ -6846,6 +7556,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Import template of Attachment",
         "tags": [
           "attachments"
@@ -6884,6 +7599,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Delete Attachment",
         "tags": [
           "attachments"
@@ -6954,6 +7674,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Get Attachment",
         "tags": [
           "attachments"
@@ -7034,9 +7759,410 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Update Attachment",
         "tags": [
           "attachments"
+        ]
+      }
+    },
+    "/api/auth/password/change": {
+      "post": {
+        "operationId": "change_password_api_auth_password_change_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimpleMessage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Change Password",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/password/forgot": {
+      "post": {
+        "operationId": "password_forgot_api_auth_password_forgot_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForgotPasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimpleMessage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Password Forgot",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/password/reset": {
+      "post": {
+        "operationId": "password_reset_api_auth_password_reset_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimpleMessage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Password Reset",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/password/validate": {
+      "post": {
+        "operationId": "password_validate_api_auth_password_validate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForgotPasswordValidateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForgotPasswordValidate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Password Validate",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/refresh": {
+      "post": {
+        "operationId": "refresh_access_token_api_auth_refresh_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TokenRefresh"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Token"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Refresh Access Token",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "operationId": "register_user_api_auth_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserRegisterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimpleMessage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register User",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/token": {
+      "post": {
+        "operationId": "login_for_access_token_api_auth_token_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Token"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Login For Access Token",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/dataset/metadatas": {
+      "get": {
+        "operationId": "get_metadata_models_api_dataset_metadatas_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/MetadataModel"
+                  },
+                  "title": "Response Get Metadata Models Api Dataset Metadatas Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Get Metadata Models",
+        "tags": [
+          "dataset"
+        ]
+      }
+    },
+    "/api/dataset/resequence": {
+      "put": {
+        "operationId": "resequence_api_dataset_resequence_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResequenceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Resequence"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Resequence",
+        "tags": [
+          "dataset"
+        ]
+      }
+    },
+    "/api/health": {
+      "get": {
+        "description": "Health check endpoint to verify the API is running.",
+        "operationId": "health_check_api_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Health Check",
+        "tags": [
+          "health",
+          "health"
         ]
       }
     },
@@ -7145,6 +8271,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "List QueuedTaskLog items",
         "tags": [
           "queued_task_logs"
@@ -7214,6 +8345,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Create QueuedTaskLog",
         "tags": [
           "queued_task_logs"
@@ -7357,6 +8493,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Export QueuedTaskLog items",
         "tags": [
           "queued_task_logs"
@@ -7409,6 +8550,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Import QueuedTaskLog items",
         "tags": [
           "queued_task_logs"
@@ -7477,6 +8623,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Import template of QueuedTaskLog",
         "tags": [
           "queued_task_logs"
@@ -7515,6 +8666,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Delete QueuedTaskLog",
         "tags": [
           "queued_task_logs"
@@ -7585,6 +8741,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Get QueuedTaskLog",
         "tags": [
           "queued_task_logs"
@@ -7665,6 +8826,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Update QueuedTaskLog",
         "tags": [
           "queued_task_logs"
@@ -7776,6 +8942,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "List QueuedTaskWorker items",
         "tags": [
           "queued_task_workers"
@@ -7845,6 +9016,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Create QueuedTaskWorker",
         "tags": [
           "queued_task_workers"
@@ -7988,6 +9164,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Export QueuedTaskWorker items",
         "tags": [
           "queued_task_workers"
@@ -8040,6 +9221,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Import QueuedTaskWorker items",
         "tags": [
           "queued_task_workers"
@@ -8108,6 +9294,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Import template of QueuedTaskWorker",
         "tags": [
           "queued_task_workers"
@@ -8146,6 +9337,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Delete QueuedTaskWorker",
         "tags": [
           "queued_task_workers"
@@ -8216,6 +9412,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Get QueuedTaskWorker",
         "tags": [
           "queued_task_workers"
@@ -8296,6 +9497,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Update QueuedTaskWorker",
         "tags": [
           "queued_task_workers"
@@ -8407,6 +9613,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "List QueuedTask items",
         "tags": [
           "queued_tasks"
@@ -8476,6 +9687,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Create QueuedTask",
         "tags": [
           "queued_tasks"
@@ -8619,6 +9835,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Export QueuedTask items",
         "tags": [
           "queued_tasks"
@@ -8671,6 +9892,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Import QueuedTask items",
         "tags": [
           "queued_tasks"
@@ -8739,6 +9965,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Import template of QueuedTask",
         "tags": [
           "queued_tasks"
@@ -8777,6 +10008,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Delete QueuedTask",
         "tags": [
           "queued_tasks"
@@ -8847,6 +10083,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Get QueuedTask",
         "tags": [
           "queued_tasks"
@@ -8927,9 +10168,439 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Update QueuedTask",
         "tags": [
           "queued_tasks"
+        ]
+      }
+    },
+    "/api/storage/download/attachments/{id}": {
+      "get": {
+        "description": "Download an attachment by its ID.",
+        "operationId": "download_attachment_api_storage_download_attachments__id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "force_download",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Force Download",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "w",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "W"
+            }
+          },
+          {
+            "in": "query",
+            "name": "h",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "H"
+            }
+          },
+          {
+            "in": "query",
+            "name": "m",
+            "required": false,
+            "schema": {
+              "default": "contain",
+              "title": "M",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "e",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "E"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Download Attachment",
+        "tags": [
+          "storage"
+        ]
+      }
+    },
+    "/api/storage/download/{path}": {
+      "get": {
+        "operationId": "download_file_api_storage_download__path__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "path",
+            "required": true,
+            "schema": {
+              "title": "Path",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "force_download",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Force Download",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "w",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "W"
+            }
+          },
+          {
+            "in": "query",
+            "name": "h",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "H"
+            }
+          },
+          {
+            "in": "query",
+            "name": "m",
+            "required": false,
+            "schema": {
+              "default": "contain",
+              "title": "M",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "e",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "E"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Download File",
+        "tags": [
+          "storage"
+        ]
+      }
+    },
+    "/api/storage/file/{model}/{model_id}/{field}": {
+      "delete": {
+        "operationId": "delete_file_api_storage_file__model___model_id___field__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "model",
+            "required": true,
+            "schema": {
+              "title": "Model",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "field",
+            "required": true,
+            "schema": {
+              "title": "Field",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "model_id",
+            "required": true,
+            "schema": {
+              "title": "Model Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Delete File",
+        "tags": [
+          "storage"
+        ]
+      }
+    },
+    "/api/storage/upload/attachments": {
+      "post": {
+        "description": "Upload one or many files as Attachments.",
+        "operationId": "upload_attachments_api_storage_upload_attachments_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "<filename>": {
+                    "description": "Key is the filename and the value is the binary content. Multiple files can be uploaded",
+                    "format": "binary",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "<filename>"
+                ],
+                "title": "UploadAttachments",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadedAttachments"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Upload Attachments",
+        "tags": [
+          "storage"
+        ]
+      }
+    },
+    "/api/storage/upload/{model}/{model_id}/{field}": {
+      "post": {
+        "description": "Upload a file to a model field.",
+        "operationId": "upload_model_field_file_api_storage_upload__model___model_id___field__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "model",
+            "required": true,
+            "schema": {
+              "title": "Model",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "field",
+            "required": true,
+            "schema": {
+              "title": "Field",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "model_id",
+            "required": true,
+            "schema": {
+              "title": "Model Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "file": {
+                    "description": "Binary content of the file",
+                    "format": "binary",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "file"
+                ],
+                "title": "UploadModelField",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadedModelField"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Upload Model Field File",
+        "tags": [
+          "storage"
         ]
       }
     },
@@ -9038,6 +10709,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "List Category items",
         "tags": [
           "test_categories"
@@ -9107,6 +10783,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Create Category",
         "tags": [
           "test_categories"
@@ -9250,6 +10931,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Export Category items",
         "tags": [
           "test_categories"
@@ -9302,6 +10988,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Import Category items",
         "tags": [
           "test_categories"
@@ -9370,6 +11061,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Import template of Category",
         "tags": [
           "test_categories"
@@ -9408,6 +11104,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Delete Category",
         "tags": [
           "test_categories"
@@ -9478,6 +11179,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Get Category",
         "tags": [
           "test_categories"
@@ -9558,6 +11264,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Update Category",
         "tags": [
           "test_categories"
@@ -9669,6 +11380,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "List Product items",
         "tags": [
           "test_products"
@@ -9738,6 +11454,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Create Product",
         "tags": [
           "test_products"
@@ -9881,6 +11602,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Export Product items",
         "tags": [
           "test_products"
@@ -9933,6 +11659,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Import Product items",
         "tags": [
           "test_products"
@@ -10001,6 +11732,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Import template of Product",
         "tags": [
           "test_products"
@@ -10039,6 +11775,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Delete Product",
         "tags": [
           "test_products"
@@ -10109,6 +11850,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Get Product",
         "tags": [
           "test_products"
@@ -10189,6 +11935,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Update Product",
         "tags": [
           "test_products"
@@ -10300,6 +12051,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "List Tag items",
         "tags": [
           "test_tags"
@@ -10369,6 +12125,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Create Tag",
         "tags": [
           "test_tags"
@@ -10512,6 +12273,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Export Tag items",
         "tags": [
           "test_tags"
@@ -10564,6 +12330,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Import Tag items",
         "tags": [
           "test_tags"
@@ -10632,6 +12403,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Import template of Tag",
         "tags": [
           "test_tags"
@@ -10670,6 +12446,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Delete Tag",
         "tags": [
           "test_tags"
@@ -10740,6 +12521,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Get Tag",
         "tags": [
           "test_tags"
@@ -10820,6 +12606,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Update Tag",
         "tags": [
           "test_tags"
@@ -10931,6 +12722,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "List User items",
         "tags": [
           "users"
@@ -11000,6 +12796,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Create User",
         "tags": [
           "users"
@@ -11143,6 +12944,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Export User items",
         "tags": [
           "users"
@@ -11195,6 +13001,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Import User items",
         "tags": [
           "users"
@@ -11263,6 +13074,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Import template of User",
         "tags": [
           "users"
@@ -11301,6 +13117,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Delete User",
         "tags": [
           "users"
@@ -11371,6 +13192,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Get User",
         "tags": [
           "users"
@@ -11451,6 +13277,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Update User",
         "tags": [
           "users"
@@ -11562,6 +13393,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "List WorkspaceExtraField items",
         "tags": [
           "workspace_extra_fields"
@@ -11631,6 +13467,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Create WorkspaceExtraField",
         "tags": [
           "workspace_extra_fields"
@@ -11774,6 +13615,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Export WorkspaceExtraField items",
         "tags": [
           "workspace_extra_fields"
@@ -11826,6 +13672,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Import WorkspaceExtraField items",
         "tags": [
           "workspace_extra_fields"
@@ -11894,6 +13745,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Import template of WorkspaceExtraField",
         "tags": [
           "workspace_extra_fields"
@@ -11932,6 +13788,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Delete WorkspaceExtraField",
         "tags": [
           "workspace_extra_fields"
@@ -12002,6 +13863,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Get WorkspaceExtraField",
         "tags": [
           "workspace_extra_fields"
@@ -12082,6 +13948,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Update WorkspaceExtraField",
         "tags": [
           "workspace_extra_fields"
@@ -12193,6 +14064,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "List WorkspaceUser items",
         "tags": [
           "workspace_users"
@@ -12262,6 +14138,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Create WorkspaceUser",
         "tags": [
           "workspace_users"
@@ -12405,6 +14286,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Export WorkspaceUser items",
         "tags": [
           "workspace_users"
@@ -12457,6 +14343,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Import WorkspaceUser items",
         "tags": [
           "workspace_users"
@@ -12525,6 +14416,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Import template of WorkspaceUser",
         "tags": [
           "workspace_users"
@@ -12563,6 +14459,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Delete WorkspaceUser",
         "tags": [
           "workspace_users"
@@ -12633,6 +14534,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Get WorkspaceUser",
         "tags": [
           "workspace_users"
@@ -12713,6 +14619,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Update WorkspaceUser",
         "tags": [
           "workspace_users"
@@ -12824,6 +14735,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "List Workspace items",
         "tags": [
           "workspaces"
@@ -12893,6 +14809,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Create Workspace",
         "tags": [
           "workspaces"
@@ -13036,6 +14957,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Export Workspace items",
         "tags": [
           "workspaces"
@@ -13088,6 +15014,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Import Workspace items",
         "tags": [
           "workspaces"
@@ -13156,6 +15087,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Import template of Workspace",
         "tags": [
           "workspaces"
@@ -13194,6 +15130,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Delete Workspace",
         "tags": [
           "workspaces"
@@ -13264,6 +15205,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Get Workspace",
         "tags": [
           "workspaces"
@@ -13344,6 +15290,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Update Workspace",
         "tags": [
           "workspaces"

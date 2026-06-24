@@ -4,12 +4,12 @@
 import httpx
 
 
-async def test_import_creates_records_from_csv(setup_http: httpx.AsyncClient) -> None:
-    header = (await setup_http.get("/api/test_categories/import/template?format=csv")).text.splitlines()[0]
+async def test_import_creates_records_from_csv(auth_http: httpx.AsyncClient) -> None:
+    header = (await auth_http.get("/api/test_categories/import/template?format=csv")).text.splitlines()[0]
 
     csv_content = header + "\nImported A,desc A\nImported B,desc B\n"
 
-    response = await setup_http.post(
+    response = await auth_http.post(
         "/api/test_categories/import",
         files={"file": ("data.csv", csv_content, "text/csv")},
     )
@@ -23,7 +23,7 @@ async def test_import_creates_records_from_csv(setup_http: httpx.AsyncClient) ->
     assert result["errors"] == 0
     assert set(result) >= {"success", "errors", "created", "updated", "error_details"}
 
-    listing = (await setup_http.get("/api/test_categories")).json()
+    listing = (await auth_http.get("/api/test_categories")).json()
 
     assert listing["total"] == 2
     assert {item["name"] for item in listing["items"]} == {"Imported A", "Imported B"}

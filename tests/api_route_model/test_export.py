@@ -4,11 +4,11 @@
 import httpx
 
 
-async def test_export_csv_contains_headers_and_data(setup_http: httpx.AsyncClient) -> None:
-    await setup_http.post("/api/test_categories", json={"name": "Books", "description": "stuff"})
-    await setup_http.post("/api/test_categories", json={"name": "Movies"})
+async def test_export_csv_contains_headers_and_data(auth_http: httpx.AsyncClient) -> None:
+    await auth_http.post("/api/test_categories", json={"name": "Books", "description": "stuff"})
+    await auth_http.post("/api/test_categories", json={"name": "Movies"})
 
-    response = await setup_http.get("/api/test_categories/export?format=csv")
+    response = await auth_http.get("/api/test_categories/export?format=csv")
 
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/csv")
@@ -21,11 +21,11 @@ async def test_export_csv_contains_headers_and_data(setup_http: httpx.AsyncClien
     assert any("Movies" in line for line in lines[1:])
 
 
-async def test_export_supports_spreadsheet_formats(setup_http: httpx.AsyncClient) -> None:
-    await setup_http.post("/api/test_categories", json={"name": "Books"})
+async def test_export_supports_spreadsheet_formats(auth_http: httpx.AsyncClient) -> None:
+    await auth_http.post("/api/test_categories", json={"name": "Books"})
 
-    xlsx = await setup_http.get("/api/test_categories/export?format=xlsx")
-    ods = await setup_http.get("/api/test_categories/export?format=ods")
+    xlsx = await auth_http.get("/api/test_categories/export?format=xlsx")
+    ods = await auth_http.get("/api/test_categories/export?format=ods")
 
     assert xlsx.status_code == 200
     assert "spreadsheetml" in xlsx.headers["content-type"]
@@ -36,7 +36,7 @@ async def test_export_supports_spreadsheet_formats(setup_http: httpx.AsyncClient
     assert len(ods.content) > 0
 
 
-async def test_export_unsupported_format_is_rejected(setup_http: httpx.AsyncClient) -> None:
-    response = await setup_http.get("/api/test_categories/export?format=pdf")
+async def test_export_unsupported_format_is_rejected(auth_http: httpx.AsyncClient) -> None:
+    response = await auth_http.get("/api/test_categories/export?format=pdf")
 
     assert response.status_code == 400

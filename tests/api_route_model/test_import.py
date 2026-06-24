@@ -3,6 +3,24 @@
 
 import httpx
 
+from fastedgy.app import FastEdgy
+
+
+def test_import_body_schema_is_shared(setup_openapi_app: FastEdgy) -> None:
+    spec = setup_openapi_app.openapi()
+    schemas = spec["components"]["schemas"]
+
+    assert "ImportItemsBody" in schemas
+    assert not [name for name in schemas if name.startswith("Body_import_items")]
+
+    refs = {
+        next(iter(item["post"]["requestBody"]["content"].values()))["schema"]["$ref"]
+        for path, item in spec["paths"].items()
+        if path.endswith("/import") and "post" in item
+    }
+
+    assert refs == {"#/components/schemas/ImportItemsBody"}
+
 
 async def test_import_creates_records_from_csv(auth_http: httpx.AsyncClient) -> None:
     header = (await auth_http.get("/api/test_categories/import/template?format=csv")).text.splitlines()[0]

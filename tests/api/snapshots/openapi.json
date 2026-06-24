@@ -491,171 +491,6 @@
         "title": "AttachmentUpdate",
         "type": "object"
       },
-      "Body_import_items_api_attachments_import_post": {
-        "properties": {
-          "file": {
-            "description": "File to import (CSV, XLSX, ODS)",
-            "format": "binary",
-            "title": "File",
-            "type": "string"
-          }
-        },
-        "required": [
-          "file"
-        ],
-        "title": "Body_import_items_api_attachments_import_post",
-        "type": "object"
-      },
-      "Body_import_items_api_queued_task_logs_import_post": {
-        "properties": {
-          "file": {
-            "description": "File to import (CSV, XLSX, ODS)",
-            "format": "binary",
-            "title": "File",
-            "type": "string"
-          }
-        },
-        "required": [
-          "file"
-        ],
-        "title": "Body_import_items_api_queued_task_logs_import_post",
-        "type": "object"
-      },
-      "Body_import_items_api_queued_task_workers_import_post": {
-        "properties": {
-          "file": {
-            "description": "File to import (CSV, XLSX, ODS)",
-            "format": "binary",
-            "title": "File",
-            "type": "string"
-          }
-        },
-        "required": [
-          "file"
-        ],
-        "title": "Body_import_items_api_queued_task_workers_import_post",
-        "type": "object"
-      },
-      "Body_import_items_api_queued_tasks_import_post": {
-        "properties": {
-          "file": {
-            "description": "File to import (CSV, XLSX, ODS)",
-            "format": "binary",
-            "title": "File",
-            "type": "string"
-          }
-        },
-        "required": [
-          "file"
-        ],
-        "title": "Body_import_items_api_queued_tasks_import_post",
-        "type": "object"
-      },
-      "Body_import_items_api_test_categories_import_post": {
-        "properties": {
-          "file": {
-            "description": "File to import (CSV, XLSX, ODS)",
-            "format": "binary",
-            "title": "File",
-            "type": "string"
-          }
-        },
-        "required": [
-          "file"
-        ],
-        "title": "Body_import_items_api_test_categories_import_post",
-        "type": "object"
-      },
-      "Body_import_items_api_test_products_import_post": {
-        "properties": {
-          "file": {
-            "description": "File to import (CSV, XLSX, ODS)",
-            "format": "binary",
-            "title": "File",
-            "type": "string"
-          }
-        },
-        "required": [
-          "file"
-        ],
-        "title": "Body_import_items_api_test_products_import_post",
-        "type": "object"
-      },
-      "Body_import_items_api_test_tags_import_post": {
-        "properties": {
-          "file": {
-            "description": "File to import (CSV, XLSX, ODS)",
-            "format": "binary",
-            "title": "File",
-            "type": "string"
-          }
-        },
-        "required": [
-          "file"
-        ],
-        "title": "Body_import_items_api_test_tags_import_post",
-        "type": "object"
-      },
-      "Body_import_items_api_users_import_post": {
-        "properties": {
-          "file": {
-            "description": "File to import (CSV, XLSX, ODS)",
-            "format": "binary",
-            "title": "File",
-            "type": "string"
-          }
-        },
-        "required": [
-          "file"
-        ],
-        "title": "Body_import_items_api_users_import_post",
-        "type": "object"
-      },
-      "Body_import_items_api_workspace_extra_fields_import_post": {
-        "properties": {
-          "file": {
-            "description": "File to import (CSV, XLSX, ODS)",
-            "format": "binary",
-            "title": "File",
-            "type": "string"
-          }
-        },
-        "required": [
-          "file"
-        ],
-        "title": "Body_import_items_api_workspace_extra_fields_import_post",
-        "type": "object"
-      },
-      "Body_import_items_api_workspace_users_import_post": {
-        "properties": {
-          "file": {
-            "description": "File to import (CSV, XLSX, ODS)",
-            "format": "binary",
-            "title": "File",
-            "type": "string"
-          }
-        },
-        "required": [
-          "file"
-        ],
-        "title": "Body_import_items_api_workspace_users_import_post",
-        "type": "object"
-      },
-      "Body_import_items_api_workspaces_import_post": {
-        "properties": {
-          "file": {
-            "description": "File to import (CSV, XLSX, ODS)",
-            "format": "binary",
-            "title": "File",
-            "type": "string"
-          }
-        },
-        "required": [
-          "file"
-        ],
-        "title": "Body_import_items_api_workspaces_import_post",
-        "type": "object"
-      },
       "Category": {
         "properties": {
           "created_at": {
@@ -1053,6 +888,22 @@
           "error_details"
         ],
         "title": "ImportErrorResponse",
+        "type": "object"
+      },
+      "ImportItemsBody": {
+        "description": "Shared multipart body for every import endpoint.\n\nDeclared once so the OpenAPI schema references a single ``ImportItemsBody``\ninstead of generating an identical ``Body_import_items_*`` per model route.",
+        "properties": {
+          "file": {
+            "description": "File to import (CSV, XLSX, ODS)",
+            "format": "binary",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "ImportItemsBody",
         "type": "object"
       },
       "ImportResult": {
@@ -5036,7 +4887,7 @@
           "content": {
             "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/Body_import_items_api_attachments_import_post"
+                "$ref": "#/components/schemas/ImportItemsBody"
               }
             }
           },
@@ -6147,7 +5998,7 @@
           "content": {
             "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/Body_import_items_api_queued_task_logs_import_post"
+                "$ref": "#/components/schemas/ImportItemsBody"
               }
             }
           },
@@ -6862,7 +6713,7 @@
           "content": {
             "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/Body_import_items_api_queued_task_workers_import_post"
+                "$ref": "#/components/schemas/ImportItemsBody"
               }
             }
           },
@@ -7577,7 +7428,7 @@
           "content": {
             "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/Body_import_items_api_queued_tasks_import_post"
+                "$ref": "#/components/schemas/ImportItemsBody"
               }
             }
           },
@@ -8717,7 +8568,7 @@
           "content": {
             "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/Body_import_items_api_test_categories_import_post"
+                "$ref": "#/components/schemas/ImportItemsBody"
               }
             }
           },
@@ -9432,7 +9283,7 @@
           "content": {
             "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/Body_import_items_api_test_products_import_post"
+                "$ref": "#/components/schemas/ImportItemsBody"
               }
             }
           },
@@ -10147,7 +9998,7 @@
           "content": {
             "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/Body_import_items_api_test_tags_import_post"
+                "$ref": "#/components/schemas/ImportItemsBody"
               }
             }
           },
@@ -10862,7 +10713,7 @@
           "content": {
             "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/Body_import_items_api_users_import_post"
+                "$ref": "#/components/schemas/ImportItemsBody"
               }
             }
           },
@@ -11577,7 +11428,7 @@
           "content": {
             "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/Body_import_items_api_workspace_extra_fields_import_post"
+                "$ref": "#/components/schemas/ImportItemsBody"
               }
             }
           },
@@ -12292,7 +12143,7 @@
           "content": {
             "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/Body_import_items_api_workspace_users_import_post"
+                "$ref": "#/components/schemas/ImportItemsBody"
               }
             }
           },
@@ -13007,7 +12858,7 @@
           "content": {
             "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/Body_import_items_api_workspaces_import_post"
+                "$ref": "#/components/schemas/ImportItemsBody"
               }
             }
           },

@@ -1,9 +1,10 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import Callable, Coroutine, Any
+from typing import Annotated, Callable, Coroutine, Any
 
 from fastapi import APIRouter, File, UploadFile
+from pydantic import BaseModel as PydanticBaseModel, Field as PydanticField
 
 from fastedgy.api_route_model.action import BaseApiRouteAction
 from fastedgy.api_route_model.registry import (
@@ -26,6 +27,16 @@ from fastedgy.dependencies import get_service
 from fastedgy.http import Request
 from fastedgy.models.base import BaseModel
 from fastedgy.orm.query import QuerySet
+
+
+class ImportItemsBody(PydanticBaseModel):
+    """Shared multipart body for every import endpoint.
+
+    Declared once so the OpenAPI schema references a single ``ImportItemsBody``
+    instead of generating an identical ``Body_import_items_*`` per model route.
+    """
+
+    file: UploadFile = PydanticField(description="File to import (CSV, XLSX, ODS)")
 
 
 class ImportApiRouteAction(BaseApiRouteAction):
@@ -54,15 +65,15 @@ class ImportApiRouteAction(BaseApiRouteAction):
 
 def generate_import_items[M: BaseModel](
     model_cls: type[M],
-) -> Callable[[Request, UploadFile], Coroutine[Any, Any, ImportResult]]:
+) -> Callable[[Request, ImportItemsBody], Coroutine[Any, Any, ImportResult]]:
     async def import_items(
         request: Request,
-        file: UploadFile = File(..., description="File to import (CSV, XLSX, ODS)"),
+        body: Annotated[ImportItemsBody, File()],
     ) -> ImportResult:
         return await import_items_action(
             request,
             model_cls,
-            file,
+            body.file,
         )
 
     return import_items
@@ -133,6 +144,7 @@ async def import_items_action[M: BaseModel](
 
 
 __all__ = [
+    "ImportItemsBody",
     "ImportApiRouteAction",
     "generate_import_items",
     "import_items_action",

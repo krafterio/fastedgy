@@ -159,4 +159,6 @@ async def test_invalid_operation_format_is_rejected(auth_http: httpx.AsyncClient
         json={"tags": [["link"]]},
     )
 
-    assert response.status_code == 400
+    # A malformed operation no longer matches the typed schema, so request
+    # validation rejects it (422) before it reaches the relation processor.
+    assert response.status_code == 422

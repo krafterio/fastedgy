@@ -71,6 +71,11 @@ async def process_relational_fields(
         field = model_cls.model_fields[field_name]
         related_model = get_related_model(field)
 
+        # Advanced-mode operations validate as RelationOperation (RootModel) items;
+        # unwrap them back to plain tuples for the operation processor.
+        if isinstance(operations, list):
+            operations = [getattr(op, "root", op) for op in operations]
+
         # Handle null or empty array as "clear" action
         if operations is None or (isinstance(operations, list) and len(operations) == 0):
             operations = [["clear"]]

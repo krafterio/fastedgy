@@ -186,15 +186,27 @@ PATCH /api/products/42
 
 **Error responses:**
 
+A well-formed operation that targets a missing record returns a `400 Bad Request`:
+
 ```json
 // 400 Bad Request - Record not found
 {
   "detail": "Record with id=999 not found in Tag"
 }
+```
 
-// 400 Bad Request - Invalid operation format
+A malformed operation (wrong shape or unknown action, e.g. `["link"]` without a value) no longer matches the typed request schema and is rejected by request validation with a `422 Unprocessable Entity`:
+
+```json
+// 422 Unprocessable Entity - Invalid operation format
 {
-  "detail": "Invalid operation format: ['link']. Expected [action, value] format."
+  "detail": [
+    {
+      "type": "...",
+      "loc": ["body", "tags", 0],
+      "msg": "..."
+    }
+  ]
 }
 ```
 

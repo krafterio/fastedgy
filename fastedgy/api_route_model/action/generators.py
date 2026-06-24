@@ -3,13 +3,40 @@
 
 import json
 from copy import copy
-from typing import Callable, get_origin, Union, get_args, Any, cast
+from functools import cache
+from typing import Callable, get_origin, Literal, Union, get_args, Any, cast
 
+from pydantic import RootModel
 from pydantic_core import PydanticUndefined
 from edgy.core.db.fields.types import BaseFieldType
 
 from fastedgy.schemas import create_model
 from fastedgy.models.base import BaseModel
+
+
+class RelationOperation(
+    RootModel[
+        Union[
+            tuple[Literal["link"], int],
+            tuple[Literal["unlink"], int],
+            tuple[Literal["delete"], int],
+            tuple[Literal["create"], dict[str, Any]],
+            tuple[Literal["update"], dict[str, Any]],
+            tuple[Literal["set"], list[int]],
+            tuple[Literal["clear"]],
+        ]
+    ]
+):
+    """A single advanced-mode relation operation: ``[action, value]`` (or
+    ``[action]`` for ``clear``).
+
+    Declared as a shared model so the OpenAPI schema documents each operation
+    once (referenced by every relation field) instead of inlining it everywhere.
+    """
+
+
+# Relation input: simple mode (list of ids) or advanced mode (list of operations).
+RelationInput = Union[list[int], list[RelationOperation]]
 
 
 def _is_json_serializable(value: Any) -> bool:
@@ -31,6 +58,7 @@ def _has_unserializable_default(field: BaseFieldType) -> bool:
     return default is not PydanticUndefined and not _is_json_serializable(default)
 
 
+@cache
 def generate_output_model[M: BaseModel](model_cls: type[M]) -> type[M]:
     from fastedgy.schemas import Field as PydanticField
     from fastedgy.api_route_model.action.relations import is_relation_field
@@ -45,16 +73,10 @@ def generate_output_model[M: BaseModel](model_cls: type[M]) -> type[M]:
             field_type = field.field_type
             field_to_use = field
 
-            # ForeignKey fields are serialized as dicts by model_dump()
-            # It is required to accept both the model type and dict[str, Any]
+            # ForeignKey is serialized as a dict ({"id": ...} or the selected
+            # fields), so the output exposes a plain object, not the related model.
             if isinstance(field, ForeignKey):
-                if get_origin(field_type) is Union:
-                    args = get_args(field_type)
-                    # Add dict[str, Any] to the union if not already present
-                    if dict not in args and not any(get_origin(arg) is dict for arg in args):
-                        field_type = Union[*args, dict[str, Any]]
-                else:
-                    field_type = Union[field_type, dict[str, Any]]
+                field_type = dict[str, Any] | None
 
             # Drop non-JSON-serializable defaults (auto_now/auto_now_add render as
             # functools.partial, default_factory callables, ...) from the output schema
@@ -73,10 +95,12 @@ def generate_output_model[M: BaseModel](model_cls: type[M]) -> type[M]:
     return cast(type[M], create_model(f"{model_cls.__name__}", **fields))
 
 
+@cache
 def generate_input_create_model[M: BaseModel](model_cls: type[M]) -> type[M]:
     """Generate Pydantic input model for POST with M2M/O2M support."""
     from fastedgy.schemas import Field as PydanticField
     from fastedgy.api_route_model.action.relations import is_relation_field
+    from edgy.core.db.fields.foreign_keys import ForeignKey
 
     fields = {}
 
@@ -93,9 +117,7 @@ def generate_input_create_model[M: BaseModel](model_cls: type[M]) -> type[M]:
             # - list[int] (simple: [1,2,3] → [["set", [1,2,3]]])
             # - list[list] (advanced: [["create", {...}], ["link", 42]])
             # Using Any for advanced mode to keep OpenAPI schema simple
-            field_type = (
-                optional_field_type(Union[list[int], list[list]]) if field.null else Union[list[int], list[list]]
-            )
+            field_type = optional_field_type(RelationInput) if field.null else RelationInput
 
             fields[field_name] = (
                 field_type,
@@ -121,6 +143,12 @@ def generate_input_create_model[M: BaseModel](model_cls: type[M]) -> type[M]:
                     ],
                 ),
             )
+        elif isinstance(field, ForeignKey) and not field.exclude:
+            # ForeignKey is set on input with the related record id.
+            if field.null:
+                fields[field_name] = (int | None, PydanticField(default=None))
+            else:
+                fields[field_name] = (int, PydanticField())
         elif not field.exclude:
             # Regular scalar field (only if not excluded)
             field_type = field.field_type
@@ -131,10 +159,12 @@ def generate_input_create_model[M: BaseModel](model_cls: type[M]) -> type[M]:
     return cast(type[M], create_model(f"{model_cls.__name__}Create", **fields))
 
 
+@cache
 def generate_input_patch_model[M: BaseModel](model_cls: type[M]) -> type[M]:
     """Generate Pydantic input model for PATCH with M2M/O2M support."""
     from fastedgy.schemas import Field as PydanticField
     from fastedgy.api_route_model.action.relations import is_relation_field
+    from edgy.core.db.fields.foreign_keys import ForeignKey
 
     fields = {}
 
@@ -152,7 +182,7 @@ def generate_input_patch_model[M: BaseModel](model_cls: type[M]) -> type[M]:
             # - list[list] (advanced: [["clear"], ["create", {...}], ["link", 42]])
             # Using list[list] for advanced mode to keep OpenAPI schema simple
             fields[field_name] = (
-                Union[list[int], list[list], None],
+                Union[RelationInput, None],
                 PydanticField(
                     default=None,
                     description=(
@@ -175,6 +205,9 @@ def generate_input_patch_model[M: BaseModel](model_cls: type[M]) -> type[M]:
                     ],
                 ),
             )
+        elif isinstance(field, ForeignKey) and not field.exclude:
+            # ForeignKey is set on input with the related record id.
+            fields[field_name] = (int | None, PydanticField(default=None))
         elif not field.exclude:
             # Regular scalar field (only if not excluded)
             py_field = copy(field)

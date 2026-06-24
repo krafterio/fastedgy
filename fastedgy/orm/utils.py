@@ -64,11 +64,11 @@ def get_columns(mixed):
         SA Table object, SA Mapper, SA declarative class, SA declarative class
         instance or an alias of any of these objects
     """
-    if isinstance(mixed, sa.sql.selectable.Selectable):  # type: ignore
+    if isinstance(mixed, sa.sql.selectable.Selectable):
         return mixed.selected_columns
-    if isinstance(mixed, sa.orm.util.AliasedClass):  # type: ignore
+    if isinstance(mixed, sa.orm.util.AliasedClass):
         return sa.inspect(mixed).mapper.columns
-    if isinstance(mixed, sa.orm.Mapper):  # type: ignore
+    if isinstance(mixed, sa.orm.Mapper):
         return mixed.columns
     if isinstance(mixed, InstrumentedAttribute):
         return mixed.property.columns
@@ -148,7 +148,7 @@ async def get_value_from_path(instance: Model, path: str) -> Any | None:
         field = obj_or_list.meta.fields.get(key, None)
 
         if hasattr(value, "all") and callable(value.all):
-            value = await value.all()  # type: ignore
+            value = await value.all()
 
             return await _resolve(value, rest or ["id"])
 

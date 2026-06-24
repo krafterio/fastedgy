@@ -9,9 +9,9 @@ from pydantic.json_schema import JsonSchemaValue
 from pydantic_core import CoreSchema, core_schema
 
 from edgy.core.db.fields import ChoiceField as EdgyChoiceField
-from edgy.core.db.fields.types import BaseFieldType
 
 from .field_converter import FieldExportConverter
+from .field_options import FieldOptions
 from ...i18n import TranslatableString
 
 
@@ -108,7 +108,7 @@ class _ChoiceMirrorEnum(str, Enum):
         return self.name
 
 
-class ChoiceField(EdgyChoiceField, FieldExportConverter[Enum | None, str | None]):
+class ChoiceField(FieldOptions[Any], EdgyChoiceField, FieldExportConverter[Enum | None, str | None]):
     """
     Custom ChoiceField that stores enum names (left side of =) in the database
     while preserving the enum values as labels (which can be TranslatedStrings).
@@ -136,7 +136,7 @@ class ChoiceField(EdgyChoiceField, FieldExportConverter[Enum | None, str | None]
 
     _choice_labels: dict[str, str | TranslatableString]
 
-    def __new__(cls, choices: type[Enum], **kwargs: Any) -> BaseFieldType:
+    def __new__[E: Enum](cls, choices: type[E], **kwargs: Any) -> E:
         # Create a mirror enum where value = name (for DB storage)
         # Using _ChoiceMirrorEnum as base for proper comparison support
         mirror_enum = cast(

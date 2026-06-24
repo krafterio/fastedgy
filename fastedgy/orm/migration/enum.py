@@ -92,7 +92,7 @@ def compare_enums(autogen_context: AutogenContext, upgrade_ops: UpgradeOps, sche
     db_enums = {}
 
     for sch in schemas:
-        rows = autogen_context.connection.execute(  # type: ignore
+        rows = autogen_context.connection.execute(
             text(
                 "SELECT t.typname, e.enumlabel "
                 "FROM pg_type t "
@@ -102,7 +102,7 @@ def compare_enums(autogen_context: AutogenContext, upgrade_ops: UpgradeOps, sche
                 "ORDER BY t.typname, e.enumsortorder"
             ),
             {
-                "nspname": autogen_context.dialect.default_schema_name if sch is None else sch,  # type: ignore
+                "nspname": autogen_context.dialect.default_schema_name if sch is None else sch,
             },
         )
 
@@ -115,7 +115,7 @@ def compare_enums(autogen_context: AutogenContext, upgrade_ops: UpgradeOps, sche
     # Get current default values for enum columns from database
     db_enum_defaults = {}
     for sch in schemas:
-        default_rows = autogen_context.connection.execute(  # type: ignore
+        default_rows = autogen_context.connection.execute(
             text(
                 "SELECT c.table_name, c.column_name, c.column_default, t.typname "
                 "FROM information_schema.columns c "
@@ -125,7 +125,7 @@ def compare_enums(autogen_context: AutogenContext, upgrade_ops: UpgradeOps, sche
                 "AND t.typtype = 'e'"
             ),
             {
-                "nspname": autogen_context.dialect.default_schema_name if sch is None else sch,  # type: ignore
+                "nspname": autogen_context.dialect.default_schema_name if sch is None else sch,
             },
         )
 
@@ -291,7 +291,7 @@ def _generate_automatic_enum_mapping(
         # Check if columns using this enum are nullable
         is_nullable = False
         try:
-            result = autogen_context.connection.execute(  # type: ignore
+            result = autogen_context.connection.execute(
                 text(
                     "SELECT c.is_nullable FROM information_schema.columns c "
                     "JOIN pg_type t ON c.udt_name = t.typname "
@@ -301,7 +301,7 @@ def _generate_automatic_enum_mapping(
                 ),
                 {
                     "enum_name": enum_name,
-                    "schema_name": autogen_context.dialect.default_schema_name or "public",  # type: ignore
+                    "schema_name": autogen_context.dialect.default_schema_name or "public",
                 },
             ).fetchone()
 

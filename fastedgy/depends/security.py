@@ -128,7 +128,7 @@ async def get_current_workspace(
         return workspace
 
     request = context.get_request()
-    workspace_name = request.path_params.get("workspace", None)  # type: ignore
+    workspace_name = request.path_params.get("workspace", None)
 
     if not workspace_name:
         return None
@@ -148,7 +148,7 @@ async def get_current_workspace(
             detail="Aucun workspace trouvé",
         )
 
-    workspace = await Workspace.query.get(id=workspace_user.workspace.id)  # type: ignore
+    workspace = await Workspace.query.get(id=workspace_user.workspace.id)
     context.set_workspace(workspace)
     context.set_workspace_user(workspace_user)
 

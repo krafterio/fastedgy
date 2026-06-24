@@ -31,7 +31,7 @@ def get_metadata_field_from_path(model_cls: type[Model], field_path: str) -> Met
             current_model = None
 
     if current_field and current_model:
-        return generate_metadata_field(current_model, current_field)  # type: ignore
+        return generate_metadata_field(current_model, current_field)
 
     if current_field:
         parent_model = model_cls
@@ -44,7 +44,7 @@ def get_metadata_field_from_path(model_cls: type[Model], field_path: str) -> Met
             else:
                 return None
 
-        return generate_metadata_field(parent_model, current_field)  # type: ignore
+        return generate_metadata_field(parent_model, current_field)
 
     return None
 

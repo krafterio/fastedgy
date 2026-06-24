@@ -132,7 +132,7 @@ async def export_items_action[M = TypeModel](
     vtr = get_service(ViewTransformerRegistry)
 
     try:
-        query = query or model_cls.query  # type: ignore
+        query = query or model_cls.query
         query = filter_query(query, filters)
         query = optimize_query_filter_fields(query, fields)
 

@@ -54,7 +54,7 @@ def merge_filters(*filters: Filter) -> FilterCondition | None:
             if parsed:
                 parsed_filters.append(parsed)
         elif isinstance(filter_item, (tuple, list)):
-            parsed = parse_filter_input_tuple(filter_item)  # type: ignore
+            parsed = parse_filter_input_tuple(filter_item)
 
             if parsed:
                 parsed_filters.append(parsed)

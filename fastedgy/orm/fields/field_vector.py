@@ -2,10 +2,11 @@
 # MIT License (see LICENSE file).
 
 from edgy.core.db.fields.factories import FieldFactory
-from edgy.core.db.fields.types import BaseFieldType
 from sqlalchemy.types import UserDefinedType
 from sqlalchemy.dialects.postgresql.base import ischema_names
-from typing import Any, Iterable, Sequence
+from typing import Any, Iterable, Sequence, cast
+
+from .field_options import FieldOptions
 
 
 class Vector(UserDefinedType):
@@ -55,10 +56,10 @@ class Vector(UserDefinedType):
             return value
 
         if self.dimensions is not None and hasattr(value, "__len__"):
-            if len(value) != self.dimensions:  # type: ignore[arg-type]
+            if len(value) != self.dimensions:
                 raise ValueError(f"Vector length must be {self.dimensions}")
 
-        return "[" + ",".join(str(float(x)) for x in value) + "]"  # type: ignore[arg-type]
+        return "[" + ",".join(str(float(x)) for x in value) + "]"
 
     class comparator_factory(UserDefinedType.Comparator):
         def l1_distance(self, other: Iterable[float]):
@@ -125,7 +126,7 @@ class Vector(UserDefinedType):
 ischema_names["vector"] = Vector
 
 
-class VectorField(FieldFactory, list):
+class VectorField(FieldOptions[list[float]], FieldFactory, list):
     field_type = list[float]
 
     def __new__(
@@ -133,12 +134,12 @@ class VectorField(FieldFactory, list):
         *,
         dimensions: int | None = None,
         **kwargs: Any,
-    ) -> BaseFieldType:
+    ) -> list[float]:
         kwargs = {
             **kwargs,
             **{k: v for k, v in locals().items() if k not in ["cls", "__class__", "kwargs"]},
         }
-        return super().__new__(cls, **kwargs)
+        return cast(list[float], super().__new__(cls, **kwargs))
 
     @classmethod
     def get_column_type(cls, kwargs: dict[str, Any]) -> Any:

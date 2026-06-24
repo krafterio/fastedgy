@@ -54,13 +54,15 @@ def _fix_inherited_abstract(cls: type) -> None:
 
 
 class BaseModel(Model):
-    id: int | None = fields.IntegerField(primary_key=True, autoincrement=True, label="ID")  # type: ignore
+    id: int | None = fields.IntegerField(primary_key=True, autoincrement=True, label="ID")
+
     created_at: datetime | None = fields.DateTimeField(
         default_factory=datetime.now, read_only=True, auto_now_add=True, label="Créé le"
-    )  # type: ignore
+    )
+
     updated_at: datetime | None = fields.DateTimeField(
         default_factory=datetime.now, auto_now=True, label="Mis à jour le"
-    )  # type: ignore
+    )
 
     class Meta(Model.Meta):
         abstract = True
@@ -100,9 +102,11 @@ class BaseModel(Model):
         return data
 
     query: ClassVar[Union[WorkspaceableManager, QuerySet]] = WorkspaceableManager()
+
     query_related: ClassVar[Union[WorkspaceableRedirectManager, QuerySet]] = WorkspaceableRedirectManager(
         redirect_name="query"
     )
+
     global_query: ClassVar[Union[Manager, QuerySet]] = Manager()
 
 
@@ -199,9 +203,11 @@ class BaseView(Model):
         return data
 
     query: ClassVar[Union[WorkspaceableManager, "QuerySet"]] = WorkspaceableManager()
+
     query_related: ClassVar[Union[WorkspaceableRedirectManager, "QuerySet"]] = WorkspaceableRedirectManager(
         redirect_name="query"
     )
+
     global_query: ClassVar[Union[Manager, "QuerySet"]] = Manager()
 
     @classmethod

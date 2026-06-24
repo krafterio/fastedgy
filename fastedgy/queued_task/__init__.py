@@ -31,7 +31,7 @@ from fastedgy.queued_task.services.queue_hooks import (
     on_post_run,
 )
 
-import fastedgy.queued_task.workspace_hooks as workspace_hooks  # noqa: F401
+import fastedgy.queued_task.workspace_hooks  # noqa: F401
 
 
 __all__ = [

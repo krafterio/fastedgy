@@ -100,7 +100,7 @@ def do_run_migrations(connection: Any, name: str, metadata: "sqlalchemy.MetaData
     # this callback is used to prevent an auto-migration from being generated
     # when there are no changes to the schema
     # reference: http://alembic.zzzcomputing.com/en/latest/cookbook.html
-    def process_revision_directives(context, revision, directives) -> Any:  # type: ignore
+    def process_revision_directives(context, revision, directives) -> Any:
         fastedgy_process_revision_directives(context, revision, directives)
 
         if getattr(config.cmd_opts, "autogenerate", False):

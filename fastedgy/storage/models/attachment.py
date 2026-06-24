@@ -37,38 +37,37 @@ class AttachmentMixin(BaseModel):
             )
         ]
 
-    # Métadonnées principales
     name: str = fields.CharField(
         max_length=255,
         label=_ts("Nom"),
-    )  # type: ignore
+    )
 
     extension: str | None = fields.CharField(
         max_length=20,
         null=True,
         label=_ts("Extension"),
-    )  # type: ignore
+    )
 
     mime_type: str | None = fields.CharField(
         max_length=150,
         null=True,
         label=_ts("Type MIME"),
-    )  # type: ignore
+    )
 
     size_bytes: int | None = fields.BigIntegerField(
         null=True,
         label=_ts("Taille (octets)"),
-    )  # type: ignore
+    )
 
     width: int | None = fields.IntegerField(
         null=True,
         label=_ts("Largeur"),
-    )  # type: ignore
+    )
 
     height: int | None = fields.IntegerField(
         null=True,
         label=_ts("Hauteur"),
-    )  # type: ignore
+    )
 
     # Storage
     storage_path: str | None = fields.CharField(
@@ -76,7 +75,7 @@ class AttachmentMixin(BaseModel):
         null=True,
         exclude=True,
         label=_ts("Chemin de stockage"),
-    )  # type: ignore
+    )
 
     parent: Union["Attachment", None] = fields.ForeignKey(
         "Attachment",
@@ -84,7 +83,7 @@ class AttachmentMixin(BaseModel):
         related_name="children",
         on_delete="CASCADE",
         label=_ts("Parent"),
-    )  # type: ignore
+    )
 
 
 class AttachmentType(str, Enum):
@@ -99,33 +98,32 @@ class AttachmentPathMixin(AttachmentMixin):
             fields.Index(fields=["path"]),
         ]
 
-    # Type de nœud
     type: AttachmentType = fields.CharChoiceField(
         choices=AttachmentType,
         default=AttachmentType.file,
         label=_ts("Type"),
-    )  # type: ignore
+    )
 
     path: str = fields.CharField(
         max_length=1500,
         index=True,
         default="",
         label=_ts("Chemin complet"),
-    )  # type: ignore
+    )
 
     parent_ids: list[int] | None = fields.JSONField(
         null=True,
         label=_ts("Parents"),
-    )  # type: ignore
+    )
 
     depth: int = fields.SmallIntegerField(
         default=0,
         label=_ts("Profondeur"),
-    )  # type: ignore
+    )
 
 
 @pre_save.connect_via(AttachmentPathMixin)
-async def on_pre_save(sender: Any, instance: Any, model_instance: Any, **kwargs: Any) -> None:  # noqa: ANN401
+async def on_pre_save(sender: Any, instance: Any, model_instance: Any, **kwargs: Any) -> None:
     is_update: bool = bool(kwargs.get("is_update"))
     values: dict[str, Any] = kwargs.get("values", {}) or {}
     column_values: dict[str, Any] = kwargs.get("column_values", {}) or {}
@@ -168,8 +166,8 @@ async def on_pre_save(sender: Any, instance: Any, model_instance: Any, **kwargs:
 
 
 @pre_update.connect_via(AttachmentPathMixin)
-async def on_pre_update(sender: Any, instance: Any, model_instance: Any, **kwargs: Any) -> None:  # noqa: ANN401
-    Attachment: AttachmentPathMixin = get_service(Registry).get_model("Attachment")  # type: ignore
+async def on_pre_update(sender: Any, instance: Any, model_instance: Any, **kwargs: Any) -> None:
+    Attachment: AttachmentPathMixin = get_service(Registry).get_model("Attachment")
     if sender is not Attachment:
         return
 
@@ -192,16 +190,14 @@ async def on_pre_update(sender: Any, instance: Any, model_instance: Any, **kwarg
     # snapshot if name or parent changes
     if ("name" in values) or ("parent" in values) or ("parent_id" in column_values):
         models = await instance  # QuerySet is awaitable -> list[Attachment]
-        instance._fe_att_snapshot = {  # type: ignore[attr-defined]
-            m.id: {"old_path": m.path, "old_pi": m.parent_ids or []} for m in models
-        }
-        instance._fe_att_new_parent_id = new_parent_id  # type: ignore[attr-defined]
-        instance._fe_att_new_name = values.get("name", None)  # type: ignore[attr-defined]
+        instance._fe_att_snapshot = {m.id: {"old_path": m.path, "old_pi": m.parent_ids or []} for m in models}
+        instance._fe_att_new_parent_id = new_parent_id
+        instance._fe_att_new_name = values.get("name", None)
 
 
 @post_update.connect_via(AttachmentPathMixin)
-async def on_post_update(sender: Any, instance: Any, model_instance: Any, **kwargs: Any) -> None:  # noqa: ANN401
-    Attachment: AttachmentPathMixin = get_service(Registry).get_model("Attachment")  # type: ignore
+async def on_post_update(sender: Any, instance: Any, model_instance: Any, **kwargs: Any) -> None:
+    Attachment: AttachmentPathMixin = get_service(Registry).get_model("Attachment")
 
     if sender is not Attachment:
         return
@@ -235,7 +231,7 @@ async def on_post_update(sender: Any, instance: Any, model_instance: Any, **kwar
             new_ai = [*parent_ai, new_parent_id] if new_parent_id is not None else []
         else:
             # only rename
-            base_parent = (await node.parent.load_recursive()) if getattr(node, "parent", None) else None  # type: ignore[attr-defined]
+            base_parent = (await node.parent.load_recursive()) if getattr(node, "parent", None) else None
             if base_parent:
                 base = base_parent.path.strip("/")
                 new_prefix = f"{base}/{node.name}" if base else node.name
@@ -283,15 +279,15 @@ async def on_post_update(sender: Any, instance: Any, model_instance: Any, **kwar
             )
 
     # cleanup snapshot
-    with contextlib.suppress(Exception):  # type: ignore[name-defined]
+    with contextlib.suppress(Exception):
         delattr(instance, "_fe_att_snapshot")
         delattr(instance, "_fe_att_new_parent_id")
         delattr(instance, "_fe_att_new_name")
 
 
 @pre_delete.connect_via(AttachmentMixin)
-async def on_pre_delete(sender: Any, instance: Any, model_instance: Any, **kwargs: Any) -> None:  # noqa: ANN401
-    Attachment: AttachmentMixin = get_service(Registry).get_model("Attachment")  # type: ignore
+async def on_pre_delete(sender: Any, instance: Any, model_instance: Any, **kwargs: Any) -> None:
+    Attachment: AttachmentMixin = get_service(Registry).get_model("Attachment")
 
     if sender is not Attachment:
         return
@@ -324,14 +320,14 @@ async def on_pre_delete(sender: Any, instance: Any, model_instance: Any, **kwarg
                             files_to_delete.append(d.get("storage_path"))
 
     # Store files to delete for post_delete
-    instance._fe_att_files_to_delete = files_to_delete  # type: ignore[attr-defined]
+    instance._fe_att_files_to_delete = files_to_delete
     if model_instance is not None:
-        model_instance._fe_att_files_to_delete = files_to_delete  # type: ignore[attr-defined]
+        model_instance._fe_att_files_to_delete = files_to_delete
 
 
 @post_delete.connect_via(AttachmentMixin)
-async def on_post_delete(sender: Any, instance: Any, model_instance: Any, **kwargs: Any) -> None:  # noqa: ANN401
-    Attachment: AttachmentMixin = get_service(Registry).get_model("Attachment")  # type: ignore
+async def on_post_delete(sender: Any, instance: Any, model_instance: Any, **kwargs: Any) -> None:
+    Attachment: AttachmentMixin = get_service(Registry).get_model("Attachment")
 
     if sender is not Attachment:
         return
@@ -355,7 +351,7 @@ async def on_post_delete(sender: Any, instance: Any, model_instance: Any, **kwar
             pass
 
     # Clean up
-    with contextlib.suppress(Exception):  # type: ignore[name-defined]
+    with contextlib.suppress(Exception):
         delattr(instance, "_fe_att_files_to_delete")
         if model_instance is not None:
             delattr(model_instance, "_fe_att_files_to_delete")

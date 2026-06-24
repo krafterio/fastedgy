@@ -42,9 +42,11 @@ class BaseWorkspace(BaseModel):
 
         raise RuntimeError(f"Multiple workspace models detected: {BaseWorkspace.Meta.model_name} and {cls.__name__}")
 
-    name: str | None = fields.CharField(max_length=255, null=True, label="Nom")  # type: ignore
-    slug: str | None = fields.CharField(max_length=32, unique=True, label="Slug")  # type: ignore
-    image_url: str | None = fields.CharField(max_length=255, null=True, label="Image")  # type: ignore
+    name: str | None = fields.CharField(max_length=255, null=True, label="Nom")
+
+    slug: str | None = fields.CharField(max_length=32, unique=True, label="Slug")
+
+    image_url: str | None = fields.CharField(max_length=255, null=True, label="Image")
 
 
 __all__ = [

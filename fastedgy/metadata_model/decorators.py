@@ -21,7 +21,7 @@ def metadata_model() -> Callable[[M], M]:
 
     def decorator(model_cls: M) -> M:
         registry = get_service(MetadataModelRegistry)
-        registry.register_model(model_cls)  # type: ignore
+        registry.register_model(model_cls)
 
         return model_cls
 

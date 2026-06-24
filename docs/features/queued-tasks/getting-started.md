@@ -19,7 +19,7 @@ from fastedgy.i18n import _t
 
 
 class QueuedTask(BaseQueuedTask):
-    class Meta:  # type: ignore
+    class Meta:
         tablename = "queued_tasks"
         label = _t("Tâche en file d'attente")
         label_plural = _t("Tâches en file d'attente")
@@ -34,7 +34,7 @@ from fastedgy.i18n import _t
 
 
 class QueuedTaskLog(BaseQueuedTaskLog):
-    class Meta:  # type: ignore
+    class Meta:
         tablename = "queued_task_logs"
         label = _t("Log de la tâche en file d'attente")
         label_plural = _t("Logs de la tâche en file d'attente")
@@ -48,7 +48,7 @@ from fastedgy.i18n import _t
 
 
 class QueuedTaskWorker(BaseQueuedTaskWorker):
-    class Meta:  # type: ignore
+    class Meta:
         tablename = "queued_task_workers"
         label = _t("Worker de la tâche en file d'attente")
         label_plural = _t("Workers de la tâche en file d'attente")

@@ -43,7 +43,7 @@ class FieldExportConverter(Generic[InputT, OutputT]):
             kw["_export_converter_class"] = __cls
             return original_new(__cls, *args, **kw)
 
-        cls.__new__ = patched_new  # type: ignore
+        setattr(cls, "__new__", patched_new)
 
     @abstractmethod
     def get_export_converters(self) -> list[str]:

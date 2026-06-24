@@ -26,7 +26,7 @@ def compare_view(autogen_context: AutogenContext, upgrade_ops: UpgradeOps, schem
     # Get views created by extensions (PostGIS, etc.)
     extension_views = set()
     try:
-        ext_rows = autogen_context.connection.execute(  # type: ignore
+        ext_rows = autogen_context.connection.execute(
             text(
                 "SELECT DISTINCT c.relname "
                 "FROM pg_depend d "
@@ -40,14 +40,14 @@ def compare_view(autogen_context: AutogenContext, upgrade_ops: UpgradeOps, schem
         pass
 
     for sch in schemas:
-        rows = autogen_context.connection.execute(  # type: ignore
+        rows = autogen_context.connection.execute(
             text(
                 "SELECT table_schema, table_name, view_definition "
                 "FROM information_schema.views "
                 "WHERE table_schema=:nspname"
             ),
             {
-                "nspname": autogen_context.dialect.default_schema_name if sch is None else sch,  # type: ignore
+                "nspname": autogen_context.dialect.default_schema_name if sch is None else sch,
             },
         )
 
@@ -61,7 +61,7 @@ def compare_view(autogen_context: AutogenContext, upgrade_ops: UpgradeOps, schem
     for model in registry.models.values():
         if isinstance(model.table, TableView):
             for sch in schemas:
-                schema = autogen_context.dialect.default_schema_name if sch is None else sch  # type: ignore
+                schema = autogen_context.dialect.default_schema_name if sch is None else sch
                 definition = normalize_sql(
                     str(
                         model.table.selectable.compile(
@@ -148,7 +148,7 @@ class ReplaceViewOperation(MigrateOperation):
         operations.invoke(cls(name, definition, reverse_definition))
 
     def reverse(self) -> MigrateOperation:
-        return ReplaceViewOperation(self.name, self.reverse_definition, self.definition)  # type: ignore
+        return ReplaceViewOperation(self.name, self.reverse_definition, self.definition)
 
 
 @Operations.implementation_for(CreateViewOperation)

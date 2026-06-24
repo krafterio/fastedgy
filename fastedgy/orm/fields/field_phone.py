@@ -3,8 +3,10 @@
 
 from edgy.core.db.fields import CharField
 
+from .field_options import FieldOptions
 
-class PhoneField(CharField): ...
+
+class PhoneField(FieldOptions[str], CharField): ...
 
 
 __all__ = [

@@ -551,7 +551,7 @@ class QueueWorker:
         manager_registry = self.config.get_manager_registry()
         if manager_registry is not None:
             return manager_registry.database
-        from fastedgy.orm import Database as EdgyDatabase  # type: ignore
+        from fastedgy.orm import Database as EdgyDatabase
 
         return get_service(EdgyDatabase)
 
@@ -569,7 +569,7 @@ class QueueWorker:
                 async with database.transaction():
                     await op_coro_factory()
                 return
-            except (DBAPIError, OperationalError) as e:  # type: ignore
+            except (DBAPIError, OperationalError) as e:
                 if self._is_retryable_db_error(e) and attempt < max_attempts - 1:
                     delay = base_delay * (2**attempt) + random.uniform(0, base_delay)
                     if is_disconnect_error(e):

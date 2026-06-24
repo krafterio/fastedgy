@@ -6,7 +6,9 @@ from edgy.core.db.fields.types import BaseFieldType
 from sqlalchemy import Column, Index
 from sqlalchemy.types import UserDefinedType
 from sqlalchemy.dialects.postgresql.base import ischema_names
-from typing import Any, Sequence
+from typing import Any, Sequence, cast
+
+from .field_options import FieldOptions
 
 
 class Point(UserDefinedType):
@@ -144,7 +146,7 @@ class Point(UserDefinedType):
 ischema_names["geometry"] = Point
 
 
-class PointField(FieldFactory, tuple):
+class PointField(FieldOptions[tuple[float, float]], FieldFactory, tuple):
     field_type = tuple[float, float]
 
     def __new__(
@@ -153,12 +155,12 @@ class PointField(FieldFactory, tuple):
         srid: int = 4326,
         index: bool = True,
         **kwargs: Any,
-    ) -> BaseFieldType:
+    ) -> tuple[float, float]:
         kwargs = {
             **kwargs,
             **{k: v for k, v in locals().items() if k not in ["cls", "__class__", "kwargs"]},
         }
-        return super().__new__(cls, **kwargs)
+        return cast(tuple[float, float], super().__new__(cls, **kwargs))
 
     @classmethod
     def get_column_type(cls, kwargs: dict[str, Any]) -> Any:

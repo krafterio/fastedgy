@@ -1,7 +1,7 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from datetime import datetime
 
@@ -37,14 +37,19 @@ class QueuedTaskLogMixin(BaseModel):
             fields.Index(fields=["logged_at"], name="idx_queued_task_logs_date"),
         ]
 
-    task: "QueuedTask" = fields.ForeignKey("QueuedTask", on_delete="CASCADE", label="Tâche", related_name="logs")  # type: ignore
-    log_type: QueuedTaskLogType = fields.ChoiceField(choices=QueuedTaskLogType, label="Type de log")  # type: ignore
+    task: "QueuedTask" = fields.ForeignKey("QueuedTask", on_delete="CASCADE", label="Tâche", related_name="logs")
+
+    log_type: QueuedTaskLogType = fields.ChoiceField(choices=QueuedTaskLogType, label="Type de log")
+
     logged_at: datetime | None = fields.DateTimeField(
         default_factory=datetime.now,
         read_only=True,
         auto_now_add=True,
         label="Horodatage",
-    )  # type: ignore
-    name: Optional[str] = fields.CharField(max_length=255, null=True, label="Nom")  # type: ignore
-    message: Optional[str] = fields.TextField(null=True, label="Message")  # type: ignore
-    info: Optional[str] = fields.TextField(null=True, label="Informations")  # type: ignore
+    )
+
+    name: str | None = fields.CharField(max_length=255, null=True, label="Nom")
+
+    message: str | None = fields.TextField(null=True, label="Message")
+
+    info: str | None = fields.TextField(null=True, label="Informations")

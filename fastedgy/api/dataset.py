@@ -44,9 +44,7 @@ async def resequence(
                 detail="No action requested. Please provide group_field or sequence_field for resequencing",
             )
 
-        existing_records = await model_class.query.filter(  # type: ignore
-            model_class.columns.id.in_(data.ids)
-        ).all()
+        existing_records = await model_class.query.filter(model_class.columns.id.in_(data.ids)).all()
 
         if len(existing_records) != len(data.ids):
             raise HTTPException(status_code=400, detail="Some IDs in the target list do not exist")

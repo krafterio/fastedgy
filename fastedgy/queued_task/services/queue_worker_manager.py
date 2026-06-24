@@ -340,7 +340,7 @@ class QueueWorkerManager:
         channel = self.config.notify_channel
         logger.info(f"Starting PostgreSQL notification listener on channel '{channel}'")
 
-        def on_notify(connection, pid, ch, payload):  # type: ignore[no-untyped-def]
+        def on_notify(connection, pid, ch, payload):
             try:
                 # Schedule processing immediately outside of the LISTEN connection.
                 # Keep a strong ref until completion so the task (and the pooled
@@ -606,8 +606,8 @@ class QueueWorkerManager:
                     return None
 
                 try:
-                    claimed_id = int(row[0])  # type: ignore[index]
-                    claimed_channel = str(row[1] or "default")  # type: ignore[index]
+                    claimed_id = int(row[0])
+                    claimed_channel = str(row[1] or "default")
                 except Exception:
                     # Unparseable claim row: the DB row is 'doing' with no
                     # local execution — the reaper recovers it.
@@ -1216,7 +1216,7 @@ class QueueWorkerManager:
                 await with_transaction(self.worker_status_record.save)
             else:
                 # Create new record
-                queued_task_worker = QueuedTaskWorker(  # type: ignore
+                queued_task_worker = QueuedTaskWorker(
                     server_name=self.server_name,
                     max_workers=self.max_workers,
                     is_running=True,

@@ -33,9 +33,9 @@ from fastedgy.api_route_model.view_transformer import (
 )
 
 try:
-    from uuid_extensions import uuid7  # type: ignore
+    from uuid_extensions import uuid7
 except Exception:
-    from uuid import uuid4 as uuid7  # type: ignore
+    from uuid import uuid4 as uuid7
 
 
 if TYPE_CHECKING:

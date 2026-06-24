@@ -131,7 +131,7 @@ def register_all_fulltext_signals() -> None:
     try:
         from edgy import monkay
 
-        registry = monkay.instance.registry  # type: ignore
+        registry = monkay.instance.registry
 
         for model_cls in registry.models.values():
             has_fulltext = False

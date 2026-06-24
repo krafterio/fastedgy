@@ -33,12 +33,19 @@ class QueuedTaskWorkerMixin(Model):
     server_name: str = fields.CharField(
         max_length=255, default_factory=lambda: socket.gethostname(), label="Server Name"
     )
+
     max_workers: int = fields.IntegerField(default=1, label="Max Workers")
+
     active_workers: int = fields.IntegerField(default=0, label="Active Workers")
+
     idle_workers: int = fields.IntegerField(default=0, label="Idle Workers")
+
     is_running: bool = fields.BooleanField(default=False, label="Is Running")
+
     last_heartbeat: datetime = fields.DateTimeField(auto_now=True, label="Last Heartbeat")
+
     started_at: Optional[datetime] = fields.DateTimeField(null=True, label="Started At")
+
     version: Optional[str] = fields.CharField(max_length=50, null=True, label="Version")
 
     @property

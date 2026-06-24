@@ -21,9 +21,9 @@ from fastedgy.storage.adapters.base import StorageAdapter
 from fastedgy.storage.adapters.filesystem import FilesystemAdapter
 
 try:
-    from PIL import Image  # type: ignore
-except Exception:  # pragma: no cover - Pillow optional at runtime
-    Image = None  # type: ignore
+    from PIL import Image
+except Exception:
+    Image = None
 
 
 def _create_adapter(settings: BaseSettings, adapter_name: str) -> StorageAdapter:
@@ -222,7 +222,7 @@ class Storage:
 
     def _save_image_to_bytes(
         self,
-        img: "Image.Image",  # type: ignore[name-defined]
+        img: "Image.Image",
         pil_format: str,
         quality: int,
     ) -> bytes:
@@ -261,7 +261,7 @@ class Storage:
             mime = mimetypes.guess_type(source_name)[0] or "application/octet-stream"
             return cache_path, source_data, mime
 
-        with Image.open(io.BytesIO(source_data)) as img:  # type: ignore[attr-defined]
+        with Image.open(io.BytesIO(source_data)) as img:
             ow, oh = img.size
             w, h = self._clamp_dimensions(ow, oh, w, h)
             tw, th, mode = self._compute_target_size(ow, oh, w, h, mode)
@@ -274,10 +274,10 @@ class Storage:
                 return cache_path, source_data, mime
 
             if mode == "contain":
-                resized = img.resize((tw, th), Image.LANCZOS)  # type: ignore
+                resized = img.resize((tw, th), Image.LANCZOS)
                 final_img = resized
             else:
-                resized = img.resize((tw, th), Image.LANCZOS)  # type: ignore
+                resized = img.resize((tw, th), Image.LANCZOS)
                 cw = w or tw
                 ch = h or th
                 left = max(0, (tw - cw) // 2)
@@ -614,9 +614,9 @@ class Storage:
                 img_height: int | None = None
                 if (mime_type or "").startswith("image/"):
                     try:
-                        from PIL import Image  # type: ignore
+                        from PIL import Image
 
-                        with Image.open(io.BytesIO(content)) as img:  # type: ignore
+                        with Image.open(io.BytesIO(content)) as img:
                             img_width, img_height = img.size
                     except Exception:
                         pass
@@ -625,7 +625,7 @@ class Storage:
                     if original_name
                     else os.path.splitext(os.path.basename(safe_filename))[0]
                 )
-                attachment = AttachmentModel(  # type: ignore[misc]
+                attachment = AttachmentModel(
                     type=AttachmentType.file,
                     name=base_name,
                     extension=ext,

@@ -30,21 +30,26 @@ class BaseUser(BaseModel):
 
         raise RuntimeError(f"Multiple user models detected: {BaseUser.Meta.model_name} and {cls.__name__}")
 
-    email: str | None = fields.EmailField(unique=True, label="Email")  # type: ignore
-    name: str | None = fields.CharField(max_length=255, null=True, label="Nom")  # type: ignore
-    password: str | None = fields.PasswordField(exclude=True, label="Mot de passe")  # type: ignore
-    initials: str | None = fields.ComputedField(getter="get_initials", label="Initials")  # type: ignore
+    email: str | None = fields.EmailField(unique=True, label="Email")
+
+    name: str | None = fields.CharField(max_length=255, null=True, label="Nom")
+
+    password: str | None = fields.PasswordField(exclude=True, label="Mot de passe")
+
+    initials: str | None = fields.ComputedField(getter="get_initials", label="Initials")
+
     reset_pwd_token: str | None = fields.CharField(
         max_length=255,
         null=True,
         exclude=True,
         label="Token de réinitialisation de mot de passe",
-    )  # type: ignore
+    )
+
     reset_pwd_expires_at: datetime | None = fields.DateTimeField(
         null=True,
         exclude=True,
         label="Date d'expiration du token de réinitialisation de mot de passe",
-    )  # type: ignore
+    )
 
     @classmethod
     def get_initials(cls, field, instance, owner=None) -> str:

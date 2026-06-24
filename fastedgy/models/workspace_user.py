@@ -45,13 +45,14 @@ class BaseWorkspaceUser(BaseModel):
         on_delete="CASCADE",
         related_name="workspace_users",
         label="Espace de travail",
-    )  # type: ignore
+    )
+
     user: Union["User", None] = fields.ForeignKey(
         "User",
         on_delete="CASCADE",
         related_name="workspace_memberships",
         label="Utilisateur",
-    )  # type: ignore
+    )
 
 
 __all__ = [

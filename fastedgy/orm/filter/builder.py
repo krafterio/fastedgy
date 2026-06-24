@@ -647,7 +647,7 @@ def _find_column_in_model(model_cls: type[Model], field_path: str) -> Any:
 
             raise InvalidFilterError(f"Field '{part}' not found in model {current_model.__name__}")
         elif i == len(field_parts) - 1:
-            columns = current_model.table.columns  # type: ignore
+            columns = current_model.table.columns
 
             if hasattr(columns, part):
                 return columns[part]

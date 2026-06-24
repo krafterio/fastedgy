@@ -53,7 +53,7 @@ def generate_import_template[M = TypeModel](
     async def import_template(
         request: Request,
         format: str = Query("csv", description="Export format (csv, xlsx, ods)"),
-        fields: str | None = FieldSelectorHeader(),  # type: ignore
+        fields: str | None = FieldSelectorHeader(),
     ) -> StreamingResponse:
         return await import_template_action(
             request,
@@ -62,7 +62,7 @@ def generate_import_template[M = TypeModel](
             fields=fields,
         )
 
-    return import_template  # type: ignore
+    return import_template
 
 
 async def import_template_action[M = TypeModel](

@@ -44,7 +44,7 @@ def register_api_route_models(
     mmr = get_service(MetadataModelRegistry)
 
     for model_cls in list(registry_instance.get_registered_models()):
-        mmr.register_model(model_cls)  # type: ignore
+        mmr.register_model(model_cls)
 
 
 def register_admin_api_route_models(router: APIRouter) -> None:

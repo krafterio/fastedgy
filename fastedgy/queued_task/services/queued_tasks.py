@@ -89,10 +89,10 @@ class QueuedTasks:
         self,
         func: Callable[P, Any],
         *args: P.args,
-        parent: QueuedTaskRef | None = None,  # type: ignore
-        max_retries: int | None = None,  # type: ignore
-        channel: str | None = None,  # type: ignore
-        priority: int | None = None,  # type: ignore
+        parent: QueuedTaskRef | None = None,
+        max_retries: int | None = None,
+        channel: str | None = None,
+        priority: int | None = None,
         **kwargs: P.kwargs,
     ) -> QueuedTaskRef:
         """
@@ -251,9 +251,9 @@ class QueuedTasks:
         self,
         func: Callable[P, Any],
         *args: P.args,
-        max_retries: int | None = None,  # type: ignore
-        channel: str | None = None,  # type: ignore
-        priority: int | None = None,  # type: ignore
+        max_retries: int | None = None,
+        channel: str | None = None,
+        priority: int | None = None,
         **kwargs: P.kwargs,
     ) -> "QueuedTask":
         """

@@ -101,7 +101,7 @@ async def import_items_action[M = TypeModel](
     for transformer in vtr.get_transformers(PreImportTransformer, model_cls, transformers):
         file = await transformer.pre_import(request, file, transformers_ctx)
 
-    query = query or model_cls.query  # type: ignore
+    query = query or model_cls.query
 
     try:
         result = await import_data(

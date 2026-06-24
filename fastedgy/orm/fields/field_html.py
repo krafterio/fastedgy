@@ -3,8 +3,10 @@
 
 from edgy.core.db.fields import TextField
 
+from .field_options import FieldOptions
 
-class HTMLField(TextField): ...
+
+class HTMLField(FieldOptions[str], TextField): ...
 
 
 __all__ = [

@@ -14,6 +14,13 @@ fix:
 check:
     uv run pyright
 
+# Fix, Format, Check and Lint Python code
+fcl:
+    uv run ruff check --fix
+    uv run ruff format
+    uv run pyright
+    uv run ruff check
+
 # Run Python tests
 test:
     uv run pytest

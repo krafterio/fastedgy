@@ -3,8 +3,6 @@
 
 import json
 
-from pathlib import Path
-
 from fastapi import APIRouter
 
 from fastedgy.app import FastEdgy
@@ -15,15 +13,13 @@ from fastedgy.api_route_model.standard_actions import (
 from fastedgy.dependencies import get_service
 from fastedgy.orm import Registry
 
-from tests.models import ALL_MODELS
+from fastedgy.test.models import ALL_MODELS
 
 
 APP_TITLE = "FastEdgy Test API"
 APP_VERSION = "0.0.0-test"
 APP_DESCRIPTION = "Synthetic FastEdgy application used as the OpenAPI regression fixture."
 API_PREFIX = "/api"
-
-SNAPSHOT_PATH = Path(__file__).resolve().parents[1] / "snapshots" / "openapi.json"
 
 _standard_actions_registered = False
 
@@ -65,7 +61,6 @@ __all__ = [
     "APP_VERSION",
     "APP_DESCRIPTION",
     "API_PREFIX",
-    "SNAPSHOT_PATH",
     "ALL_MODELS",
     "build_app",
     "dump_openapi",

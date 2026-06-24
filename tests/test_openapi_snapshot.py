@@ -3,9 +3,14 @@
 
 import difflib
 
+from pathlib import Path
+
 from fastedgy.app import FastEdgy
 
-from tests.helpers.app import APP_VERSION, SNAPSHOT_PATH, build_app, dump_openapi
+from fastedgy.test.app import APP_VERSION, build_app, dump_openapi
+
+
+SNAPSHOT_PATH = Path(__file__).resolve().parent / "snapshots" / "openapi.json"
 
 
 def test_openapi_matches_committed_snapshot() -> None:
@@ -28,8 +33,8 @@ def test_openapi_matches_committed_snapshot() -> None:
         )
 
 
-def test_openapi_app_exposes_generated_routes(openapi_app: FastEdgy) -> None:
-    spec = openapi_app.openapi()
+def test_openapi_app_exposes_generated_routes(setup_openapi_app: FastEdgy) -> None:
+    spec = setup_openapi_app.openapi()
 
     assert spec["info"]["version"] == APP_VERSION
     assert "/api/test_products" in spec["paths"]

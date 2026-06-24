@@ -100,7 +100,7 @@
           "parent": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/tests__models__attachment__Attachment"
+                "$ref": "#/components/schemas/fastedgy__test__models__attachment__Attachment"
               },
               {
                 "type": "null"
@@ -288,7 +288,7 @@
           "parent": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/tests__models__attachment__Attachment"
+                "$ref": "#/components/schemas/fastedgy__test__models__attachment__Attachment"
               },
               {
                 "type": "null"
@@ -791,7 +791,7 @@
           "category": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/tests__models__category__Category"
+                "$ref": "#/components/schemas/fastedgy__test__models__category__Category"
               },
               {
                 "type": "null"
@@ -1009,7 +1009,7 @@
               "category": {
                 "anyOf": [
                   {
-                    "$ref": "#/components/schemas/tests__models__category__Category"
+                    "$ref": "#/components/schemas/fastedgy__test__models__category__Category"
                   },
                   {
                     "type": "null"
@@ -1131,7 +1131,7 @@
               },
               "tags": {
                 "items": {
-                  "$ref": "#/components/schemas/tests__models__tag__Tag"
+                  "$ref": "#/components/schemas/fastedgy__test__models__tag__Tag"
                 },
                 "title": "Tags",
                 "type": "array"
@@ -1194,7 +1194,7 @@
               "category": {
                 "anyOf": [
                   {
-                    "$ref": "#/components/schemas/tests__models__category__Category"
+                    "$ref": "#/components/schemas/fastedgy__test__models__category__Category"
                   },
                   {
                     "type": "null"
@@ -1352,7 +1352,7 @@
           "category": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/tests__models__category__Category"
+                "$ref": "#/components/schemas/fastedgy__test__models__category__Category"
               },
               {
                 "type": "null"
@@ -1798,7 +1798,7 @@
           "parent_task": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/tests__models__queued_task__QueuedTask"
+                "$ref": "#/components/schemas/fastedgy__test__models__queued_task__QueuedTask"
               },
               {
                 "type": "null"
@@ -1975,7 +1975,7 @@
             "title": "Name"
           },
           "task": {
-            "$ref": "#/components/schemas/tests__models__queued_task__QueuedTask",
+            "$ref": "#/components/schemas/fastedgy__test__models__queued_task__QueuedTask",
             "title": "Task"
           }
         },
@@ -2091,7 +2091,7 @@
           "task": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/tests__models__queued_task__QueuedTask"
+                "$ref": "#/components/schemas/fastedgy__test__models__queued_task__QueuedTask"
               },
               {
                 "type": "null"
@@ -2413,7 +2413,7 @@
           "parent_task": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/tests__models__queued_task__QueuedTask"
+                "$ref": "#/components/schemas/fastedgy__test__models__queued_task__QueuedTask"
               },
               {
                 "type": "null"
@@ -3822,7 +3822,7 @@
           "user": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/tests__models__user__User"
+                "$ref": "#/components/schemas/fastedgy__test__models__user__User"
               },
               {
                 "type": "null"
@@ -3833,7 +3833,7 @@
           "workspace": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/tests__models__workspace__Workspace"
+                "$ref": "#/components/schemas/fastedgy__test__models__workspace__Workspace"
               },
               {
                 "type": "null"
@@ -3893,7 +3893,7 @@
           "parent": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/tests__models__attachment__Attachment-Output"
+                "$ref": "#/components/schemas/fastedgy__test__models__attachment__Attachment-Output"
               },
               {
                 "additionalProperties": true,
@@ -3981,7 +3981,7 @@
           "category": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/tests__models__category__Category"
+                "$ref": "#/components/schemas/fastedgy__test__models__category__Category"
               },
               {
                 "additionalProperties": true,
@@ -4207,7 +4207,7 @@
           "parent_task": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/tests__models__queued_task__QueuedTask-Output"
+                "$ref": "#/components/schemas/fastedgy__test__models__queued_task__QueuedTask-Output"
               },
               {
                 "additionalProperties": true,
@@ -4301,7 +4301,7 @@
           "task": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/tests__models__queued_task__QueuedTask-Output"
+                "$ref": "#/components/schemas/fastedgy__test__models__queued_task__QueuedTask-Output"
               },
               {
                 "additionalProperties": true,
@@ -4622,7 +4622,7 @@
           "user": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/tests__models__user__User-Output"
+                "$ref": "#/components/schemas/fastedgy__test__models__user__User-Output"
               },
               {
                 "additionalProperties": true,
@@ -4634,7 +4634,7 @@
           "workspace": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/tests__models__workspace__Workspace"
+                "$ref": "#/components/schemas/fastedgy__test__models__workspace__Workspace"
               },
               {
                 "additionalProperties": true,
@@ -4653,7 +4653,7 @@
         "title": "WorkspaceUser",
         "type": "object"
       },
-      "tests__models__attachment__Attachment": {
+      "fastedgy__test__models__attachment__Attachment": {
         "properties": {
           "created_at": {
             "format": "date-time",
@@ -4707,7 +4707,7 @@
           "parent": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/tests__models__attachment__Attachment"
+                "$ref": "#/components/schemas/fastedgy__test__models__attachment__Attachment"
               },
               {
                 "type": "null"
@@ -4761,7 +4761,7 @@
         "title": "Attachment",
         "type": "object"
       },
-      "tests__models__attachment__Attachment-Output": {
+      "fastedgy__test__models__attachment__Attachment-Output": {
         "properties": {
           "created_at": {
             "format": "date-time",
@@ -4815,7 +4815,7 @@
           "parent": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/tests__models__attachment__Attachment-Output"
+                "$ref": "#/components/schemas/fastedgy__test__models__attachment__Attachment-Output"
               },
               {
                 "type": "null"
@@ -4857,7 +4857,7 @@
         "title": "Attachment",
         "type": "object"
       },
-      "tests__models__category__Category": {
+      "fastedgy__test__models__category__Category": {
         "properties": {
           "created_at": {
             "format": "date-time",
@@ -4896,13 +4896,13 @@
         "title": "Category",
         "type": "object"
       },
-      "tests__models__product__Product": {
+      "fastedgy__test__models__product__Product": {
         "additionalProperties": true,
         "properties": {
           "category": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/tests__models__category__Category"
+                "$ref": "#/components/schemas/fastedgy__test__models__category__Category"
               },
               {
                 "type": "null"
@@ -5024,7 +5024,7 @@
           },
           "tags": {
             "items": {
-              "$ref": "#/components/schemas/tests__models__tag__Tag"
+              "$ref": "#/components/schemas/fastedgy__test__models__tag__Tag"
             },
             "title": "Tags",
             "type": "array"
@@ -5042,13 +5042,13 @@
         "title": "Product",
         "type": "object"
       },
-      "tests__models__product__Product-Output": {
+      "fastedgy__test__models__product__Product-Output": {
         "additionalProperties": true,
         "properties": {
           "category": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/tests__models__category__Category"
+                "$ref": "#/components/schemas/fastedgy__test__models__category__Category"
               },
               {
                 "type": "null"
@@ -5165,7 +5165,7 @@
         "title": "Product",
         "type": "object"
       },
-      "tests__models__queued_task__QueuedTask": {
+      "fastedgy__test__models__queued_task__QueuedTask": {
         "properties": {
           "args": {
             "default": [],
@@ -5384,7 +5384,7 @@
           "parent_task": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/tests__models__queued_task__QueuedTask"
+                "$ref": "#/components/schemas/fastedgy__test__models__queued_task__QueuedTask"
               },
               {
                 "type": "null"
@@ -5427,7 +5427,7 @@
         "title": "QueuedTask",
         "type": "object"
       },
-      "tests__models__queued_task__QueuedTask-Output": {
+      "fastedgy__test__models__queued_task__QueuedTask-Output": {
         "properties": {
           "args": {
             "default": [],
@@ -5646,7 +5646,7 @@
           "parent_task": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/tests__models__queued_task__QueuedTask-Output"
+                "$ref": "#/components/schemas/fastedgy__test__models__queued_task__QueuedTask-Output"
               },
               {
                 "type": "null"
@@ -5689,7 +5689,7 @@
         "title": "QueuedTask",
         "type": "object"
       },
-      "tests__models__queued_task_log__QueuedTaskLog": {
+      "fastedgy__test__models__queued_task_log__QueuedTaskLog": {
         "properties": {
           "created_at": {
             "format": "date-time",
@@ -5743,7 +5743,7 @@
             "title": "Name"
           },
           "task": {
-            "$ref": "#/components/schemas/tests__models__queued_task__QueuedTask",
+            "$ref": "#/components/schemas/fastedgy__test__models__queued_task__QueuedTask",
             "title": "Task"
           },
           "updated_at": {
@@ -5759,7 +5759,7 @@
         "title": "QueuedTaskLog",
         "type": "object"
       },
-      "tests__models__queued_task_log__QueuedTaskLog-Output": {
+      "fastedgy__test__models__queued_task_log__QueuedTaskLog-Output": {
         "properties": {
           "created_at": {
             "format": "date-time",
@@ -5813,7 +5813,7 @@
             "title": "Name"
           },
           "task": {
-            "$ref": "#/components/schemas/tests__models__queued_task__QueuedTask-Output",
+            "$ref": "#/components/schemas/fastedgy__test__models__queued_task__QueuedTask-Output",
             "title": "Task"
           },
           "updated_at": {
@@ -5829,7 +5829,7 @@
         "title": "QueuedTaskLog",
         "type": "object"
       },
-      "tests__models__tag__Tag": {
+      "fastedgy__test__models__tag__Tag": {
         "properties": {
           "created_at": {
             "format": "date-time",
@@ -5857,7 +5857,7 @@
         "title": "Tag",
         "type": "object"
       },
-      "tests__models__user__User": {
+      "fastedgy__test__models__user__User": {
         "properties": {
           "created_at": {
             "format": "date-time",
@@ -5937,7 +5937,7 @@
         "title": "User",
         "type": "object"
       },
-      "tests__models__user__User-Output": {
+      "fastedgy__test__models__user__User-Output": {
         "properties": {
           "created_at": {
             "format": "date-time",
@@ -5978,7 +5978,7 @@
         "title": "User",
         "type": "object"
       },
-      "tests__models__workspace__Workspace": {
+      "fastedgy__test__models__workspace__Workspace": {
         "properties": {
           "created_at": {
             "format": "date-time",
@@ -6030,7 +6030,7 @@
         "title": "Workspace",
         "type": "object"
       },
-      "tests__models__workspace_extra_field__WorkspaceExtraField": {
+      "fastedgy__test__models__workspace_extra_field__WorkspaceExtraField": {
         "properties": {
           "created_at": {
             "format": "date-time",
@@ -6067,7 +6067,7 @@
           "workspace": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/tests__models__workspace__Workspace"
+                "$ref": "#/components/schemas/fastedgy__test__models__workspace__Workspace"
               },
               {
                 "type": "null"
@@ -6084,7 +6084,7 @@
         "title": "WorkspaceExtraField",
         "type": "object"
       },
-      "tests__models__workspace_extra_field__WorkspaceExtraField-Output": {
+      "fastedgy__test__models__workspace_extra_field__WorkspaceExtraField-Output": {
         "properties": {
           "created_at": {
             "format": "date-time",
@@ -6127,7 +6127,7 @@
         "title": "WorkspaceExtraField",
         "type": "object"
       },
-      "tests__models__workspace_user__WorkspaceUser": {
+      "fastedgy__test__models__workspace_user__WorkspaceUser": {
         "properties": {
           "created_at": {
             "format": "date-time",
@@ -6283,7 +6283,7 @@
         "title": "WorkspaceUser",
         "type": "object"
       },
-      "tests__models__workspace_user__WorkspaceUser-Output": {
+      "fastedgy__test__models__workspace_user__WorkspaceUser-Output": {
         "properties": {
           "created_at": {
             "format": "date-time",

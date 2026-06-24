@@ -6,8 +6,8 @@ from fastedgy.models.base import BaseModel
 from fastedgy.models.mixins import SearchableMixin
 from fastedgy.api_route_model import api_route_model
 
-from tests.models.category import Category
-from tests.models.tag import Tag
+from fastedgy.test.models.category import Category
+from fastedgy.test.models.tag import Tag
 
 
 @api_route_model()

@@ -4,7 +4,7 @@
 import os
 import tempfile
 
-from tests.helpers import database
+from fastedgy.test import database
 
 
 def _run_migrations() -> None:
@@ -33,7 +33,7 @@ def main() -> None:
 
     database.recreate_template_database()
 
-    from tests.helpers.app import build_app
+    from fastedgy.test.app import build_app
 
     build_app()
     _run_migrations()

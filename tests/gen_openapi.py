@@ -1,8 +1,13 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from tests.helpers.database import configure_database_env
-from tests.helpers.app import SNAPSHOT_PATH, build_app, dump_openapi
+from pathlib import Path
+
+from fastedgy.test.app import build_app, dump_openapi
+from fastedgy.test.database import configure_database_env
+
+
+SNAPSHOT_PATH = Path(__file__).resolve().parent / "snapshots" / "openapi.json"
 
 
 def main() -> None:

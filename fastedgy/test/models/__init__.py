@@ -1,17 +1,17 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from tests.models.user import User
-from tests.models.workspace import Workspace
-from tests.models.workspace_user import WorkspaceUser
-from tests.models.workspace_extra_field import WorkspaceExtraField
-from tests.models.attachment import Attachment
-from tests.models.queued_task import QueuedTask
-from tests.models.queued_task_log import QueuedTaskLog
-from tests.models.queued_task_worker import QueuedTaskWorker
-from tests.models.tag import Tag
-from tests.models.category import Category
-from tests.models.product import Product
+from fastedgy.test.models.user import User
+from fastedgy.test.models.workspace import Workspace
+from fastedgy.test.models.workspace_user import WorkspaceUser
+from fastedgy.test.models.workspace_extra_field import WorkspaceExtraField
+from fastedgy.test.models.attachment import Attachment
+from fastedgy.test.models.queued_task import QueuedTask
+from fastedgy.test.models.queued_task_log import QueuedTaskLog
+from fastedgy.test.models.queued_task_worker import QueuedTaskWorker
+from fastedgy.test.models.tag import Tag
+from fastedgy.test.models.category import Category
+from fastedgy.test.models.product import Product
 
 
 STANDARD_MODELS = [

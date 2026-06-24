@@ -20,4 +20,4 @@ test:
 
 # Regenerate the golden OpenAPI snapshot
 gen-openapi:
-    uv run python -m tests.helpers.gen_openapi
+    uv run python -m tests.gen_openapi

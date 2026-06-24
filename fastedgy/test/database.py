@@ -16,7 +16,7 @@ from sqlalchemy.engine.url import make_url
 DEFAULT_DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/fastedgy"
 TEST_DATABASE_SUFFIX = "-test"
 
-_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+_PROJECT_ROOT = Path.cwd()
 
 
 def _resolve_base_database_url() -> str:
@@ -168,7 +168,7 @@ def drop_worker_database(worker_id: str) -> None:
 
 def _build_template_subprocess() -> None:
     result = subprocess.run(
-        [sys.executable, "-m", "tests.helpers.build_template"],
+        [sys.executable, "-m", "fastedgy.test.build_template"],
         cwd=str(_PROJECT_ROOT),
         env=os.environ.copy(),
         capture_output=True,

@@ -2,7 +2,7 @@
 # MIT License (see LICENSE file).
 
 from abc import abstractmethod
-from typing import ClassVar, Optional
+from typing import Any, ClassVar, Optional
 
 from datetime import datetime
 
@@ -77,7 +77,7 @@ class BaseModel(Model):
         extra="ignore",
     )
 
-    def model_dump(self, **kwargs):
+    def model_dump(self, show_pk: bool | None = None, **kwargs: Any) -> dict[str, Any]:
         """Override model_dump to serialize datetime with timezone.
 
         `warnings=False` is set by default to silence Pydantic's
@@ -92,7 +92,7 @@ class BaseModel(Model):
         from fastedgy.serializers import datetime_serializer
 
         kwargs.setdefault("warnings", False)
-        data = super().model_dump(**kwargs)
+        data = super().model_dump(show_pk=show_pk, **kwargs)
 
         if isinstance(data, dict):
             for key, value in data.items():
@@ -176,7 +176,7 @@ class BaseView(Model):
         extra="ignore",
     )
 
-    def model_dump(self, **kwargs):
+    def model_dump(self, show_pk: bool | None = None, **kwargs: Any) -> dict[str, Any]:
         """Override model_dump to serialize datetime with timezone.
 
         `warnings=False` is set by default to silence Pydantic's
@@ -191,7 +191,7 @@ class BaseView(Model):
         from fastedgy.serializers import datetime_serializer
 
         kwargs.setdefault("warnings", False)
-        data = super().model_dump(**kwargs)
+        data = super().model_dump(show_pk=show_pk, **kwargs)
 
         if isinstance(data, dict):
             for key, value in data.items():

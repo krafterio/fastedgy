@@ -168,6 +168,8 @@ class BaseSettings(PydanticBaseSettings):
     image_quality: int = 80
 
     # Mail
+    mail_adapter: str = "smtp"
+    mail_templates_path: str | None = None
     smtp_host: str = ""
     smtp_port: int = 587
     smtp_use_tls: bool = True
@@ -221,7 +223,13 @@ class BaseSettings(PydanticBaseSettings):
 
     @cached_property
     def mail_template_path(self) -> str:
-        return os.path.join(self.server_path, "templates")
+        if not self.mail_templates_path:
+            return os.path.join(self.server_path, "templates")
+
+        if os.path.isabs(self.mail_templates_path):
+            return self.mail_templates_path
+
+        return os.path.join(self.project_path, self.mail_templates_path)
 
     @cached_property
     def db_migration_path(self) -> str:

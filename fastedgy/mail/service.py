@@ -1,23 +1,24 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-import aiosmtplib
-
 import logging
 
-import html2text
-
 import re
+
+import html2text
 
 from email.message import EmailMessage
 from email.utils import formataddr, parseaddr
 
 from enum import Enum
 
-from fastedgy.dependencies import Inject
-from fastedgy.config import BaseSettings
-
 from jinja2 import Environment, FileSystemLoader, Undefined, select_autoescape
+
+from fastedgy.config import BaseSettings
+from fastedgy.dependencies import Inject
+from fastedgy.mail.adapters.base import MailAdapter
+from fastedgy.mail.adapters.mock import MockAdapter
+from fastedgy.mail.adapters.smtp import SmtpAdapter
 
 
 logger = logging.getLogger("services.mail")
@@ -30,30 +31,11 @@ class TemplatePart(Enum):
 
 
 class Mail:
-    """Service to send emails"""
+    """Service to send emails through a configurable adapter."""
 
     def __init__(self, settings: BaseSettings = Inject(BaseSettings)):
-        if not settings.smtp_host:
-            logger.error("SMTP host is not configured")
-            raise ValueError("SMTP host is not configured")
-
-        if not settings.smtp_port:
-            logger.error("SMTP port is not configured")
-            raise ValueError("SMTP port is not configured")
-
-        if not settings.smtp_username:
-            logger.error("SMTP username is not configured")
-            raise ValueError("SMTP username is not configured")
-
-        if not settings.smtp_password:
-            logger.error("SMTP password is not configured")
-            raise ValueError("SMTP password is not configured")
-
-        if not settings.smtp_default_from:
-            logger.error("SMTP default from is not configured")
-            raise ValueError("SMTP default from is not configured")
-
         self.settings = settings
+        self.adapter = self._build_adapter(settings)
         self.jinja_env = Environment(
             loader=FileSystemLoader(self._template_path),
             autoescape=select_autoescape(["html", "xml"]),
@@ -70,6 +52,23 @@ class Mail:
         self.html_converter.body_width = 0
         self.html_converter.unicode_snob = True
         self.html_converter.protect_links = False
+
+    def _build_adapter(self, settings: BaseSettings) -> MailAdapter:
+        adapter = (settings.mail_adapter or "smtp").lower()
+
+        if adapter == "mock":
+            return MockAdapter()
+
+        if adapter == "smtp":
+            return SmtpAdapter(
+                host=settings.smtp_host,
+                port=settings.smtp_port,
+                username=settings.smtp_username,
+                password=settings.smtp_password,
+                use_tls=settings.smtp_use_tls,
+            )
+
+        raise ValueError(f"Unknown mail adapter: {settings.mail_adapter}")
 
     @property
     def _template_path(self) -> str:
@@ -165,33 +164,14 @@ class Mail:
         await self.send(email)
 
     async def send(self, email: EmailMessage) -> None:
-        if not email["From"]:
+        if not email["From"] and self.settings.smtp_default_from:
             email["From"] = self.settings.smtp_default_from
 
         for header in ("To", "Cc", "Bcc"):
             if email.get(header):
                 email.replace_header(header, self._encode_email_address(email.get(header, "")))
 
-        recipients = email.get("To", "")
-        logger.debug(f"Sending email to {recipients}")
-
-        smtp = aiosmtplib.SMTP(
-            hostname=self.settings.smtp_host,
-            port=self.settings.smtp_port,
-            start_tls=self.settings.smtp_use_tls,
-            username=self.settings.smtp_username,
-            password=self.settings.smtp_password,
-        )
-
-        try:
-            await smtp.connect()
-            await smtp.send_message(email)
-            logger.debug(f"Email sent successfully to {recipients}")
-        except Exception as e:
-            logger.error(f"Failed to send email: {str(e)}")
-            raise
-        finally:
-            smtp.close()
+        await self.adapter.deliver(email)
 
 
 class SilentUndefined(Undefined):

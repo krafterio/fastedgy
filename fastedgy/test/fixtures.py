@@ -23,6 +23,11 @@ database.configure_database_env(WORKER_ID)
 # A signing key is required for the JWT auth flow exercised by the test app.
 os.environ.setdefault("AUTH_SECRET_KEY", "fastedgy-test-secret-key")
 
+# Emails are captured in-memory (no SMTP) and rendered from the bundled test
+# templates, so the mail-sending endpoints stay exercisable in tests.
+os.environ.setdefault("MAIL_ADAPTER", "mock")
+os.environ.setdefault("MAIL_TEMPLATES_PATH", os.path.join(os.path.dirname(__file__), "templates"))
+
 # Each worker gets an isolated storage root under the system temp directory so
 # filesystem uploads never collide across parallel pytest-xdist workers. This is
 # forced (not setdefault): xdist workers inherit the controller's environment, so

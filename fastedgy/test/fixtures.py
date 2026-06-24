@@ -36,6 +36,11 @@ STORAGE_ROOT = os.path.join(tempfile.gettempdir(), "fastedgy-test-storage", WORK
 os.environ["DATA_PATH"] = STORAGE_ROOT
 
 
+def stored_file_path(relative_path: str) -> str:
+    """Absolute on-disk path of a stored file (tests have no workspace, so the "global" prefix)."""
+    return os.path.join(STORAGE_ROOT, "global", relative_path)
+
+
 @pytest.fixture(scope="session", autouse=True)
 def cleanup_storage_root() -> Iterator[None]:
     # Each worker owns its storage root, so removing it on teardown is safe under

@@ -5,12 +5,7 @@ import os
 
 import httpx
 
-from fastedgy.test.fixtures import STORAGE_ROOT
-
-
-def _stored_file_path(storage_path: str) -> str:
-    # No workspace context in tests, so files live under the "global" prefix.
-    return os.path.join(STORAGE_ROOT, "global", storage_path)
+from fastedgy.test.fixtures import stored_file_path
 
 
 async def test_upload_creates_attachment(auth_http: httpx.AsyncClient) -> None:
@@ -76,7 +71,7 @@ async def test_upload_persists_record_and_file_on_disk(auth_http: httpx.AsyncCli
     assert record.storage_path.startswith("attachments/")
 
     # The file is physically written at the resolved location with its content.
-    full_path = _stored_file_path(record.storage_path)
+    full_path = stored_file_path(record.storage_path)
     assert os.path.isfile(full_path)
     with open(full_path, "rb") as handle:
         assert handle.read() == b"hello world"
@@ -90,7 +85,7 @@ async def test_delete_attachment_removes_record_and_file(auth_http: httpx.AsyncC
         files={"doc.txt": ("doc.txt", b"hello world", "text/plain")},
     )
     attachment_id = upload.json()["attachments"][0]["id"]
-    full_path = _stored_file_path((await Attachment.query.get(id=attachment_id)).storage_path)
+    full_path = stored_file_path((await Attachment.query.get(id=attachment_id)).storage_path)
 
     assert os.path.isfile(full_path)
 

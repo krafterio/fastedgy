@@ -21,6 +21,10 @@ async def _login(client: httpx.AsyncClient, username: str, password: str) -> htt
     return await client.post("/api/auth/token", json={"username": username, "password": password})
 
 
+def _auth_headers(access_token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {access_token}"}
+
+
 async def test_register_then_login_returns_tokens(setup_http: httpx.AsyncClient) -> None:
     assert (await _register(setup_http, "alice@example.io")).status_code == 200
 
@@ -69,7 +73,7 @@ async def test_access_token_grants_access_to_protected_routes(setup_http: httpx.
     await _register(setup_http, "erin@example.io")
     access_token = (await _login(setup_http, "erin@example.io", "secret")).json()["access_token"]
 
-    response = await setup_http.get("/api/health", headers={"Authorization": f"Bearer {access_token}"})
+    response = await setup_http.get("/api/health", headers=_auth_headers(access_token))
 
     assert response.status_code == 200
 
@@ -81,7 +85,7 @@ async def test_change_password(setup_http: httpx.AsyncClient) -> None:
     response = await setup_http.post(
         "/api/auth/password/change",
         json={"current_password": "secret", "new_password": "updated"},
-        headers={"Authorization": f"Bearer {access_token}"},
+        headers=_auth_headers(access_token),
     )
 
     assert response.status_code == 200
@@ -95,7 +99,7 @@ async def test_change_password_with_wrong_current_is_rejected(setup_http: httpx.
     response = await setup_http.post(
         "/api/auth/password/change",
         json={"current_password": "wrong", "new_password": "updated"},
-        headers={"Authorization": f"Bearer {access_token}"},
+        headers=_auth_headers(access_token),
     )
 
     assert response.status_code == 400

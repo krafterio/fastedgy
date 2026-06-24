@@ -8,7 +8,48 @@ These helpers create records through the ORM so they work both for API tests
 that never touch the HTTP layer.
 """
 
+from collections.abc import Generator
+from contextlib import contextmanager
+from typing import Any
+
 import httpx
+
+from fastedgy import context
+from fastedgy.http import Request
+
+
+def make_request(headers: list[tuple[bytes, bytes]] | None = None) -> Request:
+    """Build a minimal ASGI request usable to drive the context in tests."""
+    return Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "path": "/",
+            "query_string": b"",
+            "headers": headers or [],
+        }
+    )
+
+
+@contextmanager
+def use_request(*, locale: str | None = None, timezone: str | None = None, user: Any = None) -> Generator[Request]:
+    """Run a block within a request context, optionally seeding locale/timezone/user."""
+    request = make_request()
+    token = context.set_request(request)
+
+    try:
+        if locale is not None:
+            context.set_locale(locale)
+
+        if timezone is not None:
+            context.set_timezone(timezone)
+
+        if user is not None:
+            context.set_user(user)
+
+        yield request
+    finally:
+        context.reset_request(token)
 
 
 async def create_user(
@@ -77,6 +118,8 @@ def authenticate(client: httpx.AsyncClient, user) -> httpx.AsyncClient:
 
 
 __all__ = [
+    "make_request",
+    "use_request",
     "create_user",
     "create_workspace",
     "create_category",

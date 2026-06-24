@@ -10,7 +10,8 @@ from fastapi.security import OAuth2PasswordBearer
 from fastedgy import context
 from fastedgy.config import BaseSettings
 from fastedgy.orm import Registry
-from passlib.context import CryptContext
+
+import bcrypt
 
 
 if TYPE_CHECKING:
@@ -22,18 +23,25 @@ if TYPE_CHECKING:
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
 oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/api/auth/token", auto_error=False)
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def _bcrypt_bytes(raw: str) -> bytes:
+    # bcrypt only considers the first 72 bytes; truncating keeps hashes produced
+    # by the previous passlib-based implementation verifiable.
+    return raw.encode("utf-8")[:72]
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    return bcrypt.hashpw(_bcrypt_bytes(password), bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(password: str | None, verify_password: str | None) -> bool:
     if not password or not verify_password:
         return False
 
-    return pwd_context.verify(verify_password, password)
+    try:
+        return bcrypt.checkpw(_bcrypt_bytes(verify_password), password.encode("utf-8"))
+    except ValueError:
+        return False
 
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None):

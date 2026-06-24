@@ -20,9 +20,31 @@ def test_hash_and_verify_password() -> None:
     hashed = hash_password("secret")
 
     assert hashed != "secret"
+    assert hashed.startswith("$2b$")
     assert verify_password(hashed, "secret") is True
     assert verify_password(hashed, "wrong") is False
     assert verify_password("", "secret") is False
+    assert verify_password(hashed, "") is False
+
+
+def test_verify_password_accepts_a_preexisting_bcrypt_hash() -> None:
+    # A hash produced before the passlib-to-bcrypt switch must still verify.
+    legacy_hash = "$2b$12$0GnN9bwwrzSImYer4BiNu.izB7eAJnt2uzkCAj5lFelyFM3.LlpKi"
+
+    assert verify_password(legacy_hash, "secret") is True
+    assert verify_password(legacy_hash, "wrong") is False
+
+
+def test_verify_password_rejects_a_malformed_hash() -> None:
+    assert verify_password("not-a-bcrypt-hash", "secret") is False
+
+
+def test_hash_password_handles_passwords_longer_than_72_bytes() -> None:
+    long_password = "a" * 100
+
+    hashed = hash_password(long_password)
+
+    assert verify_password(hashed, long_password) is True
 
 
 async def test_create_access_token_roundtrip(setup_db: FastEdgy) -> None:

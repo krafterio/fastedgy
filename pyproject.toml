@@ -23,7 +23,6 @@ dependencies = [
     "httpx ~= 0.28",
     "jinja2 ~= 3.1",
     "openpyxl ~= 3.1",
-    "passlib[bcrypt] ~= 1.7",
     "pillow ~= 11.3",
     "pyexcel-ods3 ~= 0.6",
     "pydantic ~= 2.11",

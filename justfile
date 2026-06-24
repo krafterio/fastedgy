@@ -1,18 +1,18 @@
 # Format Python code
-format:
-    uv run ruff format
+format *args:
+    uv run ruff format {{args}}
 
 # Lint Python code
-lint:
-    uv run ruff check
+lint *args:
+    uv run ruff check {{args}}
 
 # Fix Python lint issues
-fix:
-    uv run ruff check --fix
+fix *args:
+    uv run ruff check --fix {{args}}
 
 # Type-check Python code
-check:
-    uv run pyright
+check *args:
+    uv run pyright {{args}}
 
 # Fix, Format, Check and Lint Python code
 fcl:
@@ -22,9 +22,9 @@ fcl:
     uv run ruff check
 
 # Run Python tests
-test:
-    uv run pytest
+test *args:
+    uv run pytest {{args}}
 
 # Regenerate the golden OpenAPI snapshot
-gen-openapi:
-    uv run python -m tests.api.gen_openapi
+gen-openapi *args:
+    uv run python -m tests.api.gen_openapi {{args}}

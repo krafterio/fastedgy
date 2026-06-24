@@ -207,8 +207,38 @@
                 "type": "integer"
               },
               {
+                "$ref": "#/components/schemas/ForeignKeyObject"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyOperation"
+              },
+              {
                 "type": "null"
               }
+            ],
+            "description": "Foreign key for parent.\n\n**Link by id:** `5`\n\n**Link by object:** `{\"id\": 5}`\n\n**Link and update:** `{\"id\": 5, \"name\": \"New\"}`\n\n**Unlink:** `null`\n\n**Advanced mode:** a single operation `[\"action\", value]`\n\nAvailable actions:\n- `create` - Create a new record and link (value=object)\n- `update` - Update the record and link (value={id:X,...})\n- `link` - Link an existing record (value=id)\n- `unlink` - Remove the link (no value)\n- `delete` - Delete the record and remove the link (value=id)",
+            "examples": [
+              5,
+              {
+                "id": 5
+              },
+              {
+                "id": 5,
+                "name": "New"
+              },
+              [
+                "link",
+                5
+              ],
+              [
+                "create",
+                {
+                  "name": "New"
+                }
+              ],
+              [
+                "unlink"
+              ]
             ],
             "title": "Parent"
           },
@@ -432,8 +462,38 @@
                 "type": "integer"
               },
               {
+                "$ref": "#/components/schemas/ForeignKeyObject"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyOperation"
+              },
+              {
                 "type": "null"
               }
+            ],
+            "description": "Foreign key for parent.\n\n**Link by id:** `5`\n\n**Link by object:** `{\"id\": 5}`\n\n**Link and update:** `{\"id\": 5, \"name\": \"New\"}`\n\n**Unlink:** `null`\n\n**Advanced mode:** a single operation `[\"action\", value]`\n\nAvailable actions:\n- `create` - Create a new record and link (value=object)\n- `update` - Update the record and link (value={id:X,...})\n- `link` - Link an existing record (value=id)\n- `unlink` - Remove the link (no value)\n- `delete` - Delete the record and remove the link (value=id)",
+            "examples": [
+              5,
+              {
+                "id": 5
+              },
+              {
+                "id": 5,
+                "name": "New"
+              },
+              [
+                "link",
+                5
+              ],
+              [
+                "create",
+                {
+                  "name": "New"
+                }
+              ],
+              [
+                "unlink"
+              ]
             ],
             "title": "Parent"
           },
@@ -778,6 +838,96 @@
         ],
         "title": "ErrorMessage",
         "type": "object"
+      },
+      "ForeignKeyObject": {
+        "additionalProperties": true,
+        "description": "Object form of a foreign key input.\n\nLinks the related record identified by ``id``; any extra property updates\nthat record in place (link + update). Declared as a shared model so the\nOpenAPI schema documents it once instead of inlining it on every relation.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "ForeignKeyObject",
+        "type": "object"
+      },
+      "ForeignKeyOperation": {
+        "anyOf": [
+          {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "const": "link",
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "type": "array"
+          },
+          {
+            "maxItems": 1,
+            "minItems": 1,
+            "prefixItems": [
+              {
+                "const": "unlink",
+                "type": "string"
+              }
+            ],
+            "type": "array"
+          },
+          {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "const": "delete",
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "type": "array"
+          },
+          {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "const": "create",
+                "type": "string"
+              },
+              {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            ],
+            "type": "array"
+          },
+          {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "const": "update",
+                "type": "string"
+              },
+              {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            ],
+            "type": "array"
+          }
+        ],
+        "description": "A single advanced-mode foreign key operation: ``[action, value]`` (or\n``[action]`` for ``unlink``).",
+        "title": "ForeignKeyOperation"
       },
       "ForgotPasswordRequest": {
         "properties": {
@@ -1225,8 +1375,38 @@
                 "type": "integer"
               },
               {
+                "$ref": "#/components/schemas/ForeignKeyObject"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyOperation"
+              },
+              {
                 "type": "null"
               }
+            ],
+            "description": "Foreign key for category.\n\n**Link by id:** `5`\n\n**Link by object:** `{\"id\": 5}`\n\n**Link and update:** `{\"id\": 5, \"name\": \"New\"}`\n\n**Unlink:** `null`\n\n**Advanced mode:** a single operation `[\"action\", value]`\n\nAvailable actions:\n- `create` - Create a new record and link (value=object)\n- `update` - Update the record and link (value={id:X,...})\n- `link` - Link an existing record (value=id)\n- `unlink` - Remove the link (no value)\n- `delete` - Delete the record and remove the link (value=id)",
+            "examples": [
+              5,
+              {
+                "id": 5
+              },
+              {
+                "id": 5,
+                "name": "New"
+              },
+              [
+                "link",
+                5
+              ],
+              [
+                "create",
+                {
+                  "name": "New"
+                }
+              ],
+              [
+                "unlink"
+              ]
             ],
             "title": "Category"
           },
@@ -1438,8 +1618,38 @@
                 "type": "integer"
               },
               {
+                "$ref": "#/components/schemas/ForeignKeyObject"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyOperation"
+              },
+              {
                 "type": "null"
               }
+            ],
+            "description": "Foreign key for category.\n\n**Link by id:** `5`\n\n**Link by object:** `{\"id\": 5}`\n\n**Link and update:** `{\"id\": 5, \"name\": \"New\"}`\n\n**Unlink:** `null`\n\n**Advanced mode:** a single operation `[\"action\", value]`\n\nAvailable actions:\n- `create` - Create a new record and link (value=object)\n- `update` - Update the record and link (value={id:X,...})\n- `link` - Link an existing record (value=id)\n- `unlink` - Remove the link (no value)\n- `delete` - Delete the record and remove the link (value=id)",
+            "examples": [
+              5,
+              {
+                "id": 5
+              },
+              {
+                "id": 5,
+                "name": "New"
+              },
+              [
+                "link",
+                5
+              ],
+              [
+                "create",
+                {
+                  "name": "New"
+                }
+              ],
+              [
+                "unlink"
+              ]
             ],
             "title": "Category"
           },
@@ -2055,8 +2265,38 @@
                 "type": "integer"
               },
               {
+                "$ref": "#/components/schemas/ForeignKeyObject"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyOperation"
+              },
+              {
                 "type": "null"
               }
+            ],
+            "description": "Foreign key for parent_task.\n\n**Link by id:** `5`\n\n**Link by object:** `{\"id\": 5}`\n\n**Link and update:** `{\"id\": 5, \"name\": \"New\"}`\n\n**Unlink:** `null`\n\n**Advanced mode:** a single operation `[\"action\", value]`\n\nAvailable actions:\n- `create` - Create a new record and link (value=object)\n- `update` - Update the record and link (value={id:X,...})\n- `link` - Link an existing record (value=id)\n- `unlink` - Remove the link (no value)\n- `delete` - Delete the record and remove the link (value=id)",
+            "examples": [
+              5,
+              {
+                "id": 5
+              },
+              {
+                "id": 5,
+                "name": "New"
+              },
+              [
+                "link",
+                5
+              ],
+              [
+                "create",
+                {
+                  "name": "New"
+                }
+              ],
+              [
+                "unlink"
+              ]
             ],
             "title": "Parent Task"
           },
@@ -2235,8 +2475,42 @@
             "title": "Name"
           },
           "task": {
-            "title": "Task",
-            "type": "integer"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyObject"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyOperation"
+              }
+            ],
+            "description": "Foreign key for task.\n\n**Link by id:** `5`\n\n**Link by object:** `{\"id\": 5}`\n\n**Link and update:** `{\"id\": 5, \"name\": \"New\"}`\n\n**Unlink:** `null`\n\n**Advanced mode:** a single operation `[\"action\", value]`\n\nAvailable actions:\n- `create` - Create a new record and link (value=object)\n- `update` - Update the record and link (value={id:X,...})\n- `link` - Link an existing record (value=id)\n- `unlink` - Remove the link (no value)\n- `delete` - Delete the record and remove the link (value=id)",
+            "examples": [
+              5,
+              {
+                "id": 5
+              },
+              {
+                "id": 5,
+                "name": "New"
+              },
+              [
+                "link",
+                5
+              ],
+              [
+                "create",
+                {
+                  "name": "New"
+                }
+              ],
+              [
+                "unlink"
+              ]
+            ],
+            "title": "Task"
           }
         },
         "required": [
@@ -2354,8 +2628,38 @@
                 "type": "integer"
               },
               {
+                "$ref": "#/components/schemas/ForeignKeyObject"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyOperation"
+              },
+              {
                 "type": "null"
               }
+            ],
+            "description": "Foreign key for task.\n\n**Link by id:** `5`\n\n**Link by object:** `{\"id\": 5}`\n\n**Link and update:** `{\"id\": 5, \"name\": \"New\"}`\n\n**Unlink:** `null`\n\n**Advanced mode:** a single operation `[\"action\", value]`\n\nAvailable actions:\n- `create` - Create a new record and link (value=object)\n- `update` - Update the record and link (value={id:X,...})\n- `link` - Link an existing record (value=id)\n- `unlink` - Remove the link (no value)\n- `delete` - Delete the record and remove the link (value=id)",
+            "examples": [
+              5,
+              {
+                "id": 5
+              },
+              {
+                "id": 5,
+                "name": "New"
+              },
+              [
+                "link",
+                5
+              ],
+              [
+                "create",
+                {
+                  "name": "New"
+                }
+              ],
+              [
+                "unlink"
+              ]
             ],
             "title": "Task"
           }
@@ -2675,8 +2979,38 @@
                 "type": "integer"
               },
               {
+                "$ref": "#/components/schemas/ForeignKeyObject"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyOperation"
+              },
+              {
                 "type": "null"
               }
+            ],
+            "description": "Foreign key for parent_task.\n\n**Link by id:** `5`\n\n**Link by object:** `{\"id\": 5}`\n\n**Link and update:** `{\"id\": 5, \"name\": \"New\"}`\n\n**Unlink:** `null`\n\n**Advanced mode:** a single operation `[\"action\", value]`\n\nAvailable actions:\n- `create` - Create a new record and link (value=object)\n- `update` - Update the record and link (value={id:X,...})\n- `link` - Link an existing record (value=id)\n- `unlink` - Remove the link (no value)\n- `delete` - Delete the record and remove the link (value=id)",
+            "examples": [
+              5,
+              {
+                "id": 5
+              },
+              {
+                "id": 5,
+                "name": "New"
+              },
+              [
+                "link",
+                5
+              ],
+              [
+                "create",
+                {
+                  "name": "New"
+                }
+              ],
+              [
+                "unlink"
+              ]
             ],
             "title": "Parent Task"
           },
@@ -4435,12 +4769,80 @@
       "WorkspaceUserCreate": {
         "properties": {
           "user": {
-            "title": "User",
-            "type": "integer"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyObject"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyOperation"
+              }
+            ],
+            "description": "Foreign key for user.\n\n**Link by id:** `5`\n\n**Link by object:** `{\"id\": 5}`\n\n**Link and update:** `{\"id\": 5, \"name\": \"New\"}`\n\n**Unlink:** `null`\n\n**Advanced mode:** a single operation `[\"action\", value]`\n\nAvailable actions:\n- `create` - Create a new record and link (value=object)\n- `update` - Update the record and link (value={id:X,...})\n- `link` - Link an existing record (value=id)\n- `unlink` - Remove the link (no value)\n- `delete` - Delete the record and remove the link (value=id)",
+            "examples": [
+              5,
+              {
+                "id": 5
+              },
+              {
+                "id": 5,
+                "name": "New"
+              },
+              [
+                "link",
+                5
+              ],
+              [
+                "create",
+                {
+                  "name": "New"
+                }
+              ],
+              [
+                "unlink"
+              ]
+            ],
+            "title": "User"
           },
           "workspace": {
-            "title": "Workspace",
-            "type": "integer"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyObject"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyOperation"
+              }
+            ],
+            "description": "Foreign key for workspace.\n\n**Link by id:** `5`\n\n**Link by object:** `{\"id\": 5}`\n\n**Link and update:** `{\"id\": 5, \"name\": \"New\"}`\n\n**Unlink:** `null`\n\n**Advanced mode:** a single operation `[\"action\", value]`\n\nAvailable actions:\n- `create` - Create a new record and link (value=object)\n- `update` - Update the record and link (value={id:X,...})\n- `link` - Link an existing record (value=id)\n- `unlink` - Remove the link (no value)\n- `delete` - Delete the record and remove the link (value=id)",
+            "examples": [
+              5,
+              {
+                "id": 5
+              },
+              {
+                "id": 5,
+                "name": "New"
+              },
+              [
+                "link",
+                5
+              ],
+              [
+                "create",
+                {
+                  "name": "New"
+                }
+              ],
+              [
+                "unlink"
+              ]
+            ],
+            "title": "Workspace"
           }
         },
         "required": [
@@ -4503,8 +4905,38 @@
                 "type": "integer"
               },
               {
+                "$ref": "#/components/schemas/ForeignKeyObject"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyOperation"
+              },
+              {
                 "type": "null"
               }
+            ],
+            "description": "Foreign key for user.\n\n**Link by id:** `5`\n\n**Link by object:** `{\"id\": 5}`\n\n**Link and update:** `{\"id\": 5, \"name\": \"New\"}`\n\n**Unlink:** `null`\n\n**Advanced mode:** a single operation `[\"action\", value]`\n\nAvailable actions:\n- `create` - Create a new record and link (value=object)\n- `update` - Update the record and link (value={id:X,...})\n- `link` - Link an existing record (value=id)\n- `unlink` - Remove the link (no value)\n- `delete` - Delete the record and remove the link (value=id)",
+            "examples": [
+              5,
+              {
+                "id": 5
+              },
+              {
+                "id": 5,
+                "name": "New"
+              },
+              [
+                "link",
+                5
+              ],
+              [
+                "create",
+                {
+                  "name": "New"
+                }
+              ],
+              [
+                "unlink"
+              ]
             ],
             "title": "User"
           },
@@ -4514,8 +4946,38 @@
                 "type": "integer"
               },
               {
+                "$ref": "#/components/schemas/ForeignKeyObject"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyOperation"
+              },
+              {
                 "type": "null"
               }
+            ],
+            "description": "Foreign key for workspace.\n\n**Link by id:** `5`\n\n**Link by object:** `{\"id\": 5}`\n\n**Link and update:** `{\"id\": 5, \"name\": \"New\"}`\n\n**Unlink:** `null`\n\n**Advanced mode:** a single operation `[\"action\", value]`\n\nAvailable actions:\n- `create` - Create a new record and link (value=object)\n- `update` - Update the record and link (value={id:X,...})\n- `link` - Link an existing record (value=id)\n- `unlink` - Remove the link (no value)\n- `delete` - Delete the record and remove the link (value=id)",
+            "examples": [
+              5,
+              {
+                "id": 5
+              },
+              {
+                "id": 5,
+                "name": "New"
+              },
+              [
+                "link",
+                5
+              ],
+              [
+                "create",
+                {
+                  "name": "New"
+                }
+              ],
+              [
+                "unlink"
+              ]
             ],
             "title": "Workspace"
           }

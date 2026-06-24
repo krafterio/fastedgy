@@ -6,7 +6,7 @@ from copy import copy
 from functools import cache
 from typing import Callable, get_origin, Literal, Union, get_args, Any, cast
 
-from pydantic import RootModel
+from pydantic import BaseModel as PydanticBaseModel, ConfigDict, RootModel
 from pydantic_core import PydanticUndefined
 from edgy.core.db.fields.types import BaseFieldType
 
@@ -37,6 +37,67 @@ class RelationOperation(
 
 # Relation input: simple mode (list of ids) or advanced mode (list of operations).
 RelationInput = Union[list[int], list[RelationOperation]]
+
+
+class ForeignKeyObject(PydanticBaseModel):
+    """Object form of a foreign key input.
+
+    Links the related record identified by ``id``; any extra property updates
+    that record in place (link + update). Declared as a shared model so the
+    OpenAPI schema documents it once instead of inlining it on every relation.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    id: int
+
+
+class ForeignKeyOperation(
+    RootModel[
+        Union[
+            tuple[Literal["link"], int],
+            tuple[Literal["unlink"]],
+            tuple[Literal["delete"], int],
+            tuple[Literal["create"], dict[str, Any]],
+            tuple[Literal["update"], dict[str, Any]],
+        ]
+    ]
+):
+    """A single advanced-mode foreign key operation: ``[action, value]`` (or
+    ``[action]`` for ``unlink``).
+    """
+
+
+# Foreign key input: an id (link), an object (link, plus update with extra
+# properties), or a single advanced-mode operation.
+ForeignKeyInput = Union[int, ForeignKeyObject, ForeignKeyOperation]
+
+
+def _foreign_key_field_options(field_name: str) -> dict[str, Any]:
+    return {
+        "description": (
+            f"Foreign key for {field_name}.\n\n"
+            f"**Link by id:** `5`\n\n"
+            f'**Link by object:** `{{"id": 5}}`\n\n'
+            f'**Link and update:** `{{"id": 5, "name": "New"}}`\n\n'
+            f"**Unlink:** `null`\n\n"
+            f'**Advanced mode:** a single operation `["action", value]`\n\n'
+            f"Available actions:\n"
+            f"- `create` - Create a new record and link (value=object)\n"
+            f"- `update` - Update the record and link (value={{id:X,...}})\n"
+            f"- `link` - Link an existing record (value=id)\n"
+            f"- `unlink` - Remove the link (no value)\n"
+            f"- `delete` - Delete the record and remove the link (value=id)"
+        ),
+        "examples": [
+            5,
+            {"id": 5},
+            {"id": 5, "name": "New"},
+            ["link", 5],
+            ["create", {"name": "New"}],
+            ["unlink"],
+        ],
+    }
 
 
 def _is_json_serializable(value: Any) -> bool:
@@ -172,11 +233,16 @@ def generate_input_create_model[M: BaseModel](model_cls: type[M]) -> type[M]:
                 ),
             )
         elif isinstance(field, ForeignKey) and not field.exclude:
-            # ForeignKey is set on input with the related record id.
+            # ForeignKey accepts an id, an object ({"id": ...} with optional
+            # updates) or a single advanced-mode operation.
+            options = _foreign_key_field_options(field_name)
             if field.null:
-                fields[field_name] = (int | None, PydanticField(default=None))
+                fields[field_name] = (
+                    Union[ForeignKeyInput, None],
+                    PydanticField(default=None, **options),
+                )
             else:
-                fields[field_name] = (int, PydanticField())
+                fields[field_name] = (ForeignKeyInput, PydanticField(**options))
         elif not field.exclude:
             # Regular scalar field (only if not excluded)
             field_type = field.field_type
@@ -234,8 +300,12 @@ def generate_input_patch_model[M: BaseModel](model_cls: type[M]) -> type[M]:
                 ),
             )
         elif isinstance(field, ForeignKey) and not field.exclude:
-            # ForeignKey is set on input with the related record id.
-            fields[field_name] = (int | None, PydanticField(default=None))
+            # ForeignKey accepts an id, an object ({"id": ...} with optional
+            # updates), null to unlink, or a single advanced-mode operation.
+            fields[field_name] = (
+                Union[ForeignKeyInput, None],
+                PydanticField(default=None, **_foreign_key_field_options(field_name)),
+            )
         elif not field.exclude:
             # Regular scalar field (only if not excluded)
             py_field = copy(field)
@@ -287,6 +357,11 @@ def route_body_model[F: Callable[..., Any]](model: type[BaseModel], param: str =
 
 
 __all__ = [
+    "RelationOperation",
+    "RelationInput",
+    "ForeignKeyObject",
+    "ForeignKeyOperation",
+    "ForeignKeyInput",
     "generate_output_model",
     "generate_input_create_model",
     "generate_input_patch_model",

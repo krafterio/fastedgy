@@ -57,14 +57,77 @@ X-Fields: name,price,category.name,description
 
 ### ForeignKey relationships
 
-Generated endpoints support foreign key references:
+A foreign key points to a single related record. The same field accepts several input forms,
+including the same operations as collections applied to one record.
+
+#### Simple mode
+
+For the common cases, set the field to an id, an object or `null`:
 
 ```bash
-# Create with foreign key reference
+# Link by id
 POST /api/products/
 {"name": "Smartphone", "category": 1, "price": "599.99"}
 
-# Filter by related fields
+# Link by object (id only)
+POST /api/products/
+{"name": "Smartphone", "category": {"id": 1}, "price": "599.99"}
+
+# Link and update the related record (id plus other properties)
+POST /api/products/
+{"name": "Smartphone", "category": {"id": 1, "name": "Phones"}, "price": "599.99"}
+
+# Unlink (nullable foreign keys only)
+PATCH /api/products/42
+{"category": null}
+```
+
+#### Advanced mode
+
+For the remaining cases, use a single operation `[action, value]` (the same actions as
+collections, applied to one record):
+
+**Available operations:**
+
+| Operation | Description | Example Value |
+|-----------|-------------|---------------|
+| `link` | Link an existing record | `["link", 42]` |
+| `unlink` | Remove the link (keep record) | `["unlink"]` |
+| `create` | Create a new record and link it | `["create", {"name": "New"}]` |
+| `update` | Update the record and link it | `["update", {"id": 10, "name": "Updated"}]` |
+| `delete` | Delete the record and remove the link | `["delete", 15]` |
+
+**When to use each form:**
+
+- **id / `["link", id]`** - Link an existing record
+- **object `{"id": ...}`** - Link an existing record (object form)
+- **object `{"id": ..., ...}` / `["update", {...}]`** - Link a record and update its properties
+- **`null` / `["unlink"]`** - Remove the link without deleting the record (nullable foreign keys only)
+- **`["create", {...}]`** - Create a record and link it in a single request
+- **`["delete", id]`** - Permanently delete the record and remove the link
+
+**Examples:**
+
+```bash
+# Create a related record and link it in a single request
+POST /api/products/
+{"name": "Smartphone", "category": ["create", {"name": "Phones"}], "price": "599.99"}
+
+# Update the linked record and ensure the link
+PATCH /api/products/42
+{"category": ["update", {"id": 1, "name": "Renamed"}]}
+
+# Delete the linked record and clear the foreign key
+PATCH /api/products/42
+{"category": ["delete", 1]}
+```
+
+!!! note "Required foreign keys"
+    A required (non-nullable) foreign key cannot be unlinked: `null` and `["unlink"]` are rejected.
+
+Foreign keys can be filtered by related fields too:
+
+```bash
 GET /api/products/
 X-Filter: ["category.name", "=", "Electronics"]
 

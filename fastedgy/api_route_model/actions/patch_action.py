@@ -99,6 +99,8 @@ async def patch_item_action[M: BaseModel](
 ) -> M | dict[str, Any]:
     from fastedgy.api_route_model.action import (
         is_relation_field,
+        is_foreign_key_field,
+        process_foreign_key_fields,
         process_relational_fields,
     )
 
@@ -115,8 +117,9 @@ async def patch_item_action[M: BaseModel](
         resolved_id = transformers_ctx.get("item_id", item_id)
         item = await query.filter(id=resolved_id).get()
 
-        # Separate relational and scalar fields
+        # Separate relational, foreign key and scalar fields
         relational_data = {}
+        foreign_key_data = {}
         scalar_data = {}
 
         clean_empty_strings(item_data)
@@ -129,8 +132,14 @@ async def patch_item_action[M: BaseModel](
 
             if field and is_relation_field(field):
                 relational_data[key] = value
+            elif field and is_foreign_key_field(field):
+                foreign_key_data[key] = value
             else:
                 scalar_data[key] = value
+
+        # Resolve foreign keys to their ids (creating/updating related records as needed)
+        resolved_fk, deferred_fk_deletes = await process_foreign_key_fields(model_cls, foreign_key_data)
+        scalar_data.update(resolved_fk)
 
         # Update scalar fields
         for key, value in scalar_data.items():
@@ -145,6 +154,11 @@ async def patch_item_action[M: BaseModel](
         if not transformers_ctx.get("skip_save"):
             await item.save()
             await item.load()
+
+            # Delete records targeted by a foreign key delete operation, now that
+            # the instance no longer references them.
+            for record in deferred_fk_deletes:
+                await record.delete()
 
         # Process relational fields after save
         await process_relational_fields(item, model_cls, relational_data)

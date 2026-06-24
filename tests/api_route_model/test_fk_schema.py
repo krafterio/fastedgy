@@ -9,6 +9,11 @@ from fastedgy.api_route_model.action import (
     generate_input_patch_model,
     generate_output_model,
 )
+from fastedgy.api_route_model.action.generators import (
+    ForeignKeyInput,
+    ForeignKeyObject,
+    ForeignKeyOperation,
+)
 
 from fastedgy.test.models.category import Category
 from fastedgy.test.models.product import Product
@@ -43,10 +48,30 @@ def test_output_self_referential_fk_does_not_recurse(setup_openapi_app: FastEdgy
     assert type(None) in args
 
 
-def test_input_fk_is_an_integer(setup_openapi_app: FastEdgy) -> None:
-    # A foreign key is set on input with the related record id only (no object).
-    create_annotation = generate_input_create_model(Product).model_fields["category"].annotation
-    assert int in get_args(create_annotation) or create_annotation is int
+def test_input_nullable_fk_accepts_id_object_operation_or_null(setup_openapi_app: FastEdgy) -> None:
+    # category is nullable: id (link), object (link + update), operation, or null.
+    annotation = generate_input_create_model(Product).model_fields["category"].annotation
+    args = get_args(annotation)
 
-    patch_annotation = generate_input_patch_model(Product).model_fields["category"].annotation
-    assert int in get_args(patch_annotation)
+    assert int in args
+    assert ForeignKeyObject in args
+    assert ForeignKeyOperation in args
+    assert type(None) in args
+
+
+def test_input_patch_fk_accepts_null_to_unlink(setup_openapi_app: FastEdgy) -> None:
+    annotation = generate_input_patch_model(Product).model_fields["category"].annotation
+    args = get_args(annotation)
+
+    assert int in args
+    assert ForeignKeyObject in args
+    assert ForeignKeyOperation in args
+    assert type(None) in args
+
+
+def test_input_required_fk_excludes_null(setup_openapi_app: FastEdgy) -> None:
+    # task is a required foreign key: it cannot be unlinked, so null is not allowed.
+    annotation = generate_input_create_model(QueuedTaskLog).model_fields["task"].annotation
+    args = get_args(annotation)
+
+    assert annotation is ForeignKeyInput or (int in args and type(None) not in args)

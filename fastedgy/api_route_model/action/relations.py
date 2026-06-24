@@ -78,6 +78,91 @@ def get_related_model(field) -> type:
     return field.target
 
 
+def is_foreign_key_field(field) -> bool:
+    """
+    Check if a field is a (forward) foreign key.
+
+    Args:
+        field: The field to check
+
+    Returns:
+        True if the field is a ForeignKey (excluding M2M/O2M reverse relations)
+    """
+    from edgy.core.db.fields.foreign_keys import ForeignKey
+
+    return isinstance(field, ForeignKey)
+
+
+def _plain_foreign_key_value(value: Any) -> Any:
+    """Normalize a validated foreign key input to plain Python data.
+
+    PATCH reads values straight off the Pydantic model, so unwrap the shared
+    ``ForeignKeyOperation`` RootModel and ``ForeignKeyObject`` model into the
+    tuple/dict the processor expects (CREATE already dumps them via model_dump).
+    """
+    if value is None or isinstance(value, (int, dict, list, tuple)):
+        return value
+
+    root = getattr(value, "root", None)
+    if root is not None:
+        return list(root) if isinstance(root, tuple) else root
+
+    if hasattr(value, "model_dump"):
+        return value.model_dump()
+
+    return value
+
+
+async def process_foreign_key_fields(
+    model_cls: "TypeModel",
+    foreign_key_data: dict[str, Any],
+) -> tuple[dict[str, int | None], list["BaseModel"]]:
+    """
+    Resolve foreign key inputs to the ids to store on the instance.
+
+    Each value may be an id, an object ({"id": ...} with optional updates), null
+    (unlink) or a single advanced-mode operation. Related records are created or
+    updated before the id is returned; records targeted by a ``delete`` operation
+    are returned for deletion once the owning instance has been saved.
+
+    Args:
+        model_cls: The model class
+        foreign_key_data: Dictionary of field_name -> foreign key input
+
+    Returns:
+        A tuple of (field_name -> resolved id or None, records to delete after save)
+
+    Raises:
+        HTTPException: If a foreign key operation fails
+    """
+    from fastedgy.orm.relations.processor import process_foreign_key_operation
+    from fastedgy.orm.relations.utils import RelationOperationError
+    from fastapi import HTTPException
+
+    resolved: dict[str, int | None] = {}
+    deferred_deletes: list["BaseModel"] = []
+
+    for field_name, value in foreign_key_data.items():
+        field = model_cls.model_fields[field_name]
+
+        try:
+            record_id, to_delete = await process_foreign_key_operation(
+                get_related_model(field),
+                _plain_foreign_key_value(value),
+                nullable=getattr(field, "null", False),
+                field_name=field_name,
+            )
+        except RelationOperationError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+        resolved[field_name] = record_id
+
+        if to_delete is not None:
+            deferred_deletes.append(to_delete)
+
+    return resolved, deferred_deletes
+
+
 async def process_relational_fields(
     instance: "BaseModel",
     model_cls: "TypeModel",
@@ -124,6 +209,9 @@ async def process_relational_fields(
 
 __all__ = [
     "is_relation_field",
+    "is_exposed_relation_field",
+    "is_foreign_key_field",
     "get_related_model",
     "process_relational_fields",
+    "process_foreign_key_fields",
 ]

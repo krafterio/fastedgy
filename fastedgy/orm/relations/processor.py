@@ -15,6 +15,122 @@ from fastedgy.orm.relations.utils import (
 )
 
 
+def _require_nullable(nullable: bool, field_name: str) -> None:
+    if not nullable:
+        raise RelationOperationError(f"Foreign key '{field_name}' is required and cannot be unlinked")
+
+
+async def _get_related_or_raise(related_model: type["BaseModel"], record_id: int) -> "BaseModel":
+    from edgy.exceptions import ObjectNotFound
+
+    try:
+        return await related_model.query.get(id=record_id)
+    except ObjectNotFound:
+        raise RelationOperationError(f"Record with id={record_id} not found in {related_model.__name__}")
+
+
+async def process_foreign_key_operation(
+    related_model: type["BaseModel"],
+    value: Any,
+    *,
+    nullable: bool,
+    field_name: str,
+) -> tuple[int | None, "BaseModel | None"]:
+    """
+    Resolve a foreign key input to the id to store (or None to unlink).
+
+    Applies create/update side effects on the related record and returns the id
+    to assign to the foreign key column, together with an optional record to
+    delete once the owning instance has been saved (``delete`` action) so the
+    deletion does not run while the foreign key still references the record.
+
+    Accepts:
+        - None: unlink (requires a nullable relation)
+        - int: link an existing record by id
+        - dict with 'id': link, plus update the record with the extra properties
+        - [action, value]: a single advanced-mode operation
+          (link, unlink, create, update, delete)
+
+    Returns:
+        A tuple of (resolved id or None, record to delete after save or None)
+
+    Raises:
+        RelationOperationError: If the operation is invalid or the record is missing
+    """
+    if value is None:
+        _require_nullable(nullable, field_name)
+        return None, None
+
+    if isinstance(value, bool):
+        raise RelationOperationError(f"Invalid foreign key value for {field_name}: {value}")
+
+    if isinstance(value, int):
+        await _get_related_or_raise(related_model, value)
+        return value, None
+
+    if isinstance(value, dict):
+        record_id, update_values = extract_id_and_values(value)
+        record = await _get_related_or_raise(related_model, record_id)
+
+        if update_values:
+            for key, val in update_values.items():
+                setattr(record, key, val)
+            await record.save()
+
+        return record_id, None
+
+    if isinstance(value, (list, tuple)):
+        if len(value) < 1 or not isinstance(value[0], str):
+            raise RelationOperationError(f"Invalid operation format: {value}. Expected [action, ...] format.")
+
+        action = value[0]
+
+        try:
+            if action == "link":
+                record_id = extract_id(value[1])
+                await _get_related_or_raise(related_model, record_id)
+                return record_id, None
+
+            if action == "unlink":
+                _require_nullable(nullable, field_name)
+                return None, None
+
+            if action == "create":
+                values = value[1]
+                if not isinstance(values, dict):
+                    raise RelationOperationError(f"create requires dict of values, got: {type(values).__name__}")
+                new_record = await related_model.query.create(**values)
+                return new_record.id, None
+
+            if action == "update":
+                record_id, update_values = extract_id_and_values(value[1])
+                record = await _get_related_or_raise(related_model, record_id)
+                for key, val in update_values.items():
+                    setattr(record, key, val)
+                await record.save()
+                return record_id, None
+
+            if action == "delete":
+                _require_nullable(nullable, field_name)
+                record_id = extract_id(value[1])
+                record = await _get_related_or_raise(related_model, record_id)
+                # The deletion is deferred until the owning instance is saved with
+                # the foreign key cleared, otherwise it still references the record.
+                return None, record
+
+            raise RelationOperationError(f"Unknown operation: {action}")
+        except RelationOperationError:
+            raise
+        except IndexError:
+            raise RelationOperationError(f"Operation '{action}' requires a value")
+        except Exception as e:
+            raise RelationOperationError(f"Error executing {action} operation on {field_name}: {str(e)}") from e
+
+    raise RelationOperationError(
+        f"Invalid foreign key value for {field_name}: {value!r}. Expected an id, an object or an operation."
+    )
+
+
 async def process_relation_operations(
     instance: "BaseModel",
     field_name: str,

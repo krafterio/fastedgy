@@ -18,8 +18,10 @@ from fastedgy.api_route_model.action.generators import (
 from fastedgy.api_route_model.action.relations import (
     is_relation_field,
     is_exposed_relation_field,
+    is_foreign_key_field,
     get_related_model,
     process_relational_fields,
+    process_foreign_key_fields,
 )
 
 
@@ -37,6 +39,8 @@ __all__ = [
     # Relations
     "is_relation_field",
     "is_exposed_relation_field",
+    "is_foreign_key_field",
     "get_related_model",
     "process_relational_fields",
+    "process_foreign_key_fields",
 ]

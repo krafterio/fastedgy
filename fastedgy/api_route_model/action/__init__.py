@@ -8,6 +8,7 @@ from fastedgy.api_route_model.action.base import (
 
 from fastedgy.api_route_model.action.generators import (
     generate_output_model,
+    finalize_output_models,
     generate_input_create_model,
     generate_input_patch_model,
     optional_field_type,
@@ -31,6 +32,7 @@ __all__ = [
     "ApiRouteActionRegistry",
     # Generators
     "generate_output_model",
+    "finalize_output_models",
     "generate_input_create_model",
     "generate_input_patch_model",
     "optional_field_type",

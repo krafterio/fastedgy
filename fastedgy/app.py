@@ -900,6 +900,12 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
     @asynccontextmanager
     async def _native_lifespan(self, app):
         """FastEdgy native lifespan: DB + services"""
+        from fastedgy.api_route_model.action import finalize_output_models
+
+        # Resolve the foreign-key references of the generated output models now
+        # that the ORM registry is ready, so responses validate correctly.
+        finalize_output_models()
+
         db = get_service(Database)
         await db.connect()
         try:
@@ -921,6 +927,16 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
             await lifecycle.wait_all_unlocked()
         except Exception:
             pass  # Don't break lifespan for this
+
+    def openapi(self) -> dict[str, Any]:
+        # Resolve foreign-key references of the generated output models before the
+        # schema is built (covers `app.openapi()` outside the request lifecycle,
+        # e.g. snapshot generation).
+        from fastedgy.api_route_model.action import finalize_output_models
+
+        finalize_output_models()
+
+        return super().openapi()
 
     def initialize(self) -> None:
         pass

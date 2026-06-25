@@ -120,7 +120,15 @@ def _has_unserializable_default(field: BaseFieldType) -> bool:
 
 
 _output_model_cache: dict[type, type] = {}
-_output_model_building: set[type] = set()
+_pending_fk_fields: list[Any] = []
+
+
+def _foreign_key_target_name(field: Any) -> str:
+    """The related model's name, used as a forward reference. ``field.to`` is
+    available at declaration time, so it does not require the ORM registry."""
+    to = field.to
+
+    return to if isinstance(to, str) else to.__name__
 
 
 def generate_output_model[M: BaseModel](model_cls: type[M]) -> type[M]:
@@ -132,56 +140,79 @@ def generate_output_model[M: BaseModel](model_cls: type[M]) -> type[M]:
     if cached is not None:
         return cast(type[M], cached)
 
-    # A foreign key can point back to a model whose output is still being built
-    # (self-references such as parent/parent_task). Break the cycle with a string
-    # forward reference, resolved by model_rebuild() once the class exists.
-    if model_cls in _output_model_building:
-        return cast(type[M], model_cls.__name__)
+    fields = {}
 
-    _output_model_building.add(model_cls)
+    for field_name, field_info in model_cls.model_fields.items():
+        field = cast(BaseFieldType, field_info)
 
-    try:
-        fields = {}
+        if not field.exclude:
+            field_type = field.field_type
+            field_to_use = field
 
-        for field_name, field_info in model_cls.model_fields.items():
-            field = cast(BaseFieldType, field_info)
+            # A ForeignKey is serialized either as the related model (when its
+            # fields are expanded) or as a partial object ({"id": ...} by default,
+            # or the selected fields with X-Fields), and as null when the relation
+            # is optional. The related model is referenced through a forward
+            # reference resolved by finalize_output_models() once the ORM registry
+            # is ready, so generating the output model at import time (before
+            # init_models, e.g. response_model=generate_output_model(...)) never
+            # fails.
+            if isinstance(field, ForeignKey):
+                ref = _foreign_key_target_name(field)
+                if field.null:
+                    field_type = Union[ref, dict[str, Any], None]
+                else:
+                    field_type = Union[ref, dict[str, Any]]
+                _pending_fk_fields.append(field)
 
-            if not field.exclude:
-                field_type = field.field_type
-                field_to_use = field
+            # Drop non-JSON-serializable defaults (auto_now/auto_now_add render as
+            # functools.partial, default_factory callables, ...) from the output schema
+            if _has_unserializable_default(field):
+                field_to_use = copy(field)
+                field_to_use.default = None
+                setattr(field_to_use, "default_factory", None)
 
-                # A ForeignKey is serialized either as the related model (when its
-                # fields are expanded) or as a partial object ({"id": ...} by
-                # default, or the selected fields with X-Fields), and as null when
-                # the relation is optional.
-                if isinstance(field, ForeignKey):
-                    related_output = generate_output_model(field.target)
-                    if field.null:
-                        field_type = Union[related_output, dict[str, Any], None]
-                    else:
-                        field_type = Union[related_output, dict[str, Any]]
+            fields[field_name] = (field_type, field_to_use)
+        elif is_exposed_relation_field(field):
+            fields[field_name] = (
+                list[dict[str, Any]] | None,
+                PydanticField(default=None, exclude=False),
+            )
 
-                # Drop non-JSON-serializable defaults (auto_now/auto_now_add render as
-                # functools.partial, default_factory callables, ...) from the output schema
-                if _has_unserializable_default(field):
-                    field_to_use = copy(field)
-                    field_to_use.default = None
-                    setattr(field_to_use, "default_factory", None)
-
-                fields[field_name] = (field_type, field_to_use)
-            elif is_exposed_relation_field(field):
-                fields[field_name] = (
-                    list[dict[str, Any]] | None,
-                    PydanticField(default=None, exclude=False),
-                )
-
-        model = cast(type[M], create_model(f"{model_cls.__name__}", **fields))
-        model.model_rebuild()
-        _output_model_cache[model_cls] = model
-    finally:
-        _output_model_building.discard(model_cls)
+    # defer_build so the unresolved foreign-key forward references do not fail at
+    # creation time; finalize_output_models() rebuilds the model afterwards.
+    model = cast(
+        type[M],
+        create_model(f"{model_cls.__name__}", __config__=ConfigDict(defer_build=True), **fields),
+    )
+    _output_model_cache[model_cls] = model
 
     return model
+
+
+def finalize_output_models() -> None:
+    """Resolve the foreign-key forward references of the generated output models.
+
+    Must run once the ORM registry is ready (before the OpenAPI schema is built
+    and before responses are validated): it generates the output model of every
+    foreign-key target, then rebuilds each output model with the full namespace
+    so every reference resolves. It is a no-op when there is nothing pending.
+    """
+    if not _pending_fk_fields:
+        return
+
+    index = 0
+    while index < len(_pending_fk_fields):
+        field = _pending_fk_fields[index]
+        index += 1
+        generate_output_model(field.target)
+
+    _pending_fk_fields.clear()
+
+    namespace = {model.__name__: model for model in _output_model_cache.values()}
+
+    for model in _output_model_cache.values():
+        model.model_rebuild(_types_namespace=namespace, force=True)
 
 
 @cache
@@ -363,6 +394,7 @@ __all__ = [
     "ForeignKeyOperation",
     "ForeignKeyInput",
     "generate_output_model",
+    "finalize_output_models",
     "generate_input_create_model",
     "generate_input_patch_model",
     "optional_field_type",

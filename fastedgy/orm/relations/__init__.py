@@ -34,6 +34,7 @@ from fastedgy.orm.relations.utils import (
 from fastedgy.orm.relations.processor import (
     process_relation_operations,
 )
+from fastedgy.orm.relations.many import Many
 
 __all__ = [
     # Operations
@@ -51,4 +52,6 @@ __all__ = [
     "RelationOperationError",
     # Processor
     "process_relation_operations",
+    # Relation typing
+    "Many",
 ]

@@ -932,11 +932,26 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
         # Resolve foreign-key references of the generated output models before the
         # schema is built (covers `app.openapi()` outside the request lifecycle,
         # e.g. snapshot generation).
+        import warnings
+
+        from pydantic.json_schema import PydanticJsonSchemaWarning
+
         from fastedgy.api_route_model.action import finalize_output_models
 
         finalize_output_models()
 
-        return super().openapi()
+        # Auto-managed ORM fields (auto_now/auto_now_add) carry a functools.partial
+        # default that is not JSON-serializable; Pydantic correctly excludes it from
+        # the schema but warns for every such field. The exclusion is the desired
+        # behaviour, so silence that specific (benign) warning during schema build.
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message=".*is not JSON serializable.*",
+                category=PydanticJsonSchemaWarning,
+            )
+
+            return super().openapi()
 
     def initialize(self) -> None:
         pass

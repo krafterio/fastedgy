@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Path
 
 from fastedgy.i18n import _t
 from fastedgy.schemas import ErrorMessage
-from fastedgy.models.base import BaseModel
+from fastedgy.models.base import BaseModel, BaseView
 from fastedgy.api_route_model.action import BaseApiRouteAction, generate_output_model
 from fastedgy.api_route_model.params import FieldSelectorHeader
 from fastedgy.orm.field_selector import (
@@ -52,7 +52,7 @@ class GetApiRouteAction(BaseApiRouteAction):
         )
 
 
-def generate_get_item[M: BaseModel](
+def generate_get_item[M: BaseModel | BaseView](
     model_cls: type[M],
 ) -> Callable[..., Any]:
     async def get_item(
@@ -70,7 +70,7 @@ def generate_get_item[M: BaseModel](
     return get_item
 
 
-async def get_item_action[M: BaseModel](
+async def get_item_action[M: BaseModel | BaseView](
     request: Request,
     model_cls: type[M],
     item_id: int,
@@ -97,7 +97,7 @@ async def get_item_action[M: BaseModel](
         raise HTTPException(status_code=404, detail=_t("{model} not found", model=model_cls.__name__))
 
 
-async def view_item_action[M: BaseModel](
+async def view_item_action[M: BaseModel | BaseView](
     request: Request,
     model_cls: type[M],
     item: M,

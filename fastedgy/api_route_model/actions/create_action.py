@@ -9,7 +9,7 @@ from fastapi import APIRouter, Body
 from fastedgy.dependencies import get_service
 from fastedgy.http import Request
 from fastedgy.schemas import ErrorMessage
-from fastedgy.models.base import BaseModel
+from fastedgy.models.base import BaseModel, BaseView
 from fastedgy.timezone import ensure_aware
 from fastedgy.api_route_model.action import (
     BaseApiRouteAction,
@@ -57,7 +57,7 @@ class CreateApiRouteAction(BaseApiRouteAction):
         )
 
 
-def generate_create_item[M: BaseModel](
+def generate_create_item[M: BaseModel | BaseView](
     model_cls: type[M],
 ) -> Callable[..., Any]:
     @route_body_model(generate_input_create_model(model_cls))
@@ -77,7 +77,7 @@ def generate_create_item[M: BaseModel](
 
 
 @transaction
-async def create_item_action[M: BaseModel](
+async def create_item_action[M: BaseModel | BaseView](
     request: Request,
     model_cls: type[M],
     item_data: BaseModel,

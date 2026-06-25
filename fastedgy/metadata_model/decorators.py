@@ -3,12 +3,12 @@
 
 from typing import Callable, TypeVar
 
-from fastedgy.models.base import BaseModel
+from fastedgy.models.base import BaseModel, BaseView
 from fastedgy.dependencies import get_service
 from fastedgy.metadata_model import MetadataModelRegistry
 
 
-M = TypeVar("M", bound=type[BaseModel])
+M = TypeVar("M", bound=type[BaseModel | BaseView])
 
 
 def metadata_model() -> Callable[[M], M]:

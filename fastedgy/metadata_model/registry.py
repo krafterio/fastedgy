@@ -5,18 +5,18 @@ from fastedgy.metadata_model.generator import (
     generate_metadata_model,
     add_inverse_relations,
 )
-from fastedgy.models.base import BaseModel
+from fastedgy.models.base import BaseModel, BaseView
 from fastedgy.schemas.dataset import MetadataModel
 
-TypeMetadataModels = dict[type[BaseModel], MetadataModel]
+TypeMetadataModels = dict[type[BaseModel | BaseView], MetadataModel]
 TypeMapMetadataModels = dict[str, MetadataModel]
 
 
 class MetadataModelRegistry:
     def __init__(self):
         self._models: TypeMetadataModels = {}
-        self._map_names: dict[str, type[BaseModel]] = {}
-        self._lazy_models: list[type[BaseModel]] = []
+        self._map_names: dict[str, type[BaseModel | BaseView]] = {}
+        self._lazy_models: list[type[BaseModel | BaseView]] = []
 
     async def load_models(self) -> None:
         if not self._lazy_models:
@@ -29,7 +29,7 @@ class MetadataModelRegistry:
 
         add_inverse_relations(self._models)
 
-    def register_model(self, model_cls: type[BaseModel]):
+    def register_model(self, model_cls: type[BaseModel | BaseView]):
         """
         Register a model for metadata exposure.
         """
@@ -50,7 +50,7 @@ class MetadataModelRegistry:
 
         return maps
 
-    async def is_registered(self, model_cls: type[BaseModel] | str) -> bool:
+    async def is_registered(self, model_cls: type[BaseModel | BaseView] | str) -> bool:
         """Check if a model is registered for metadata."""
         await self.load_models()
 
@@ -62,7 +62,7 @@ class MetadataModelRegistry:
 
         return model_cls in self._models
 
-    async def get_metadata(self, model_cls: type[BaseModel] | str) -> MetadataModel:
+    async def get_metadata(self, model_cls: type[BaseModel | BaseView] | str) -> MetadataModel:
         """
         Get a model by its name.
 
@@ -77,7 +77,7 @@ class MetadataModelRegistry:
 
         raise ValueError(f"Model {str(model_cls)} not found in metadata registry")
 
-    async def get_model_from_metadata(self, metadata: MetadataModel | str) -> type[BaseModel]:
+    async def get_model_from_metadata(self, metadata: MetadataModel | str) -> type[BaseModel | BaseView]:
         await self.load_models()
 
         if isinstance(metadata, str):

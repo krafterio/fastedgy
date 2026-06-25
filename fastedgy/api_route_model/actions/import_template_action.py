@@ -6,7 +6,7 @@ from typing import Callable, Any
 from fastapi import APIRouter, Query, HTTPException
 
 from fastedgy.i18n import _t
-from fastedgy.models.base import BaseModel
+from fastedgy.models.base import BaseModel, BaseView
 from fastedgy.api_route_model.action import BaseApiRouteAction
 from fastedgy.api_route_model.params import (
     FieldSelectorHeader,
@@ -50,7 +50,7 @@ class ImportTemplateApiRouteAction(BaseApiRouteAction):
         )
 
 
-def generate_import_template[M: BaseModel](
+def generate_import_template[M: BaseModel | BaseView](
     model_cls: type[M],
 ) -> Callable[..., Any]:
     async def import_template(
@@ -68,7 +68,7 @@ def generate_import_template[M: BaseModel](
     return import_template
 
 
-async def import_template_action[M: BaseModel](
+async def import_template_action[M: BaseModel | BaseView](
     request: Request,
     model_cls: type[M],
     format: str = "csv",

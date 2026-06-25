@@ -7,7 +7,7 @@ from typing import Callable, Any, cast
 
 from fastapi import APIRouter, Query, HTTPException
 
-from fastedgy.models.base import BaseModel
+from fastedgy.models.base import BaseModel, BaseView
 from fastedgy.api_route_model.action import BaseApiRouteAction, generate_output_model
 from fastedgy.api_route_model.params import (
     OrderByQuery,
@@ -67,7 +67,7 @@ class ListApiRouteAction(BaseApiRouteAction):
         )
 
 
-def generate_list_items[M: BaseModel](
+def generate_list_items[M: BaseModel | BaseView](
     model_cls: type[M],
 ) -> Callable[..., Any]:
     async def list_items(
@@ -91,7 +91,7 @@ def generate_list_items[M: BaseModel](
     return list_items
 
 
-async def list_items_action[M: BaseModel](
+async def list_items_action[M: BaseModel | BaseView](
     request: Request,
     model_cls: type[M],
     query: QuerySet | None = None,

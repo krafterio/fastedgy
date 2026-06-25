@@ -13,7 +13,7 @@ from enum import Enum
 from typing import Any
 
 from fastedgy.api_route_model.params import RelationDelimiter
-from fastedgy.models.base import BaseModel
+from fastedgy.models.base import BaseModel, BaseView
 
 from fastapi import HTTPException
 
@@ -84,7 +84,7 @@ def apply_export_converter(model_cls: type, field_path: str, value: Any, convert
     return value
 
 
-async def export_data[M: BaseModel](
+async def export_data[M: BaseModel | BaseView](
     model_cls: type[M],
     format: str,
     query: QuerySet | None = None,

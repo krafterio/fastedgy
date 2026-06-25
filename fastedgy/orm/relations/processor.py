@@ -6,7 +6,7 @@
 from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from fastedgy.models.base import BaseModel
+    from fastedgy.models.base import BaseModel, BaseView
 
 from fastedgy.orm.relations.utils import (
     extract_id,
@@ -132,7 +132,7 @@ async def process_foreign_key_operation(
 
 
 async def process_relation_operations(
-    instance: "BaseModel",
+    instance: "BaseModel | BaseView",
     field_name: str,
     operations: list[list[Any]] | list[tuple[str, Any]],
     related_model: type["BaseModel"],

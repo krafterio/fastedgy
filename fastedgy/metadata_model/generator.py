@@ -4,7 +4,7 @@
 import re
 
 from fastedgy import context
-from fastedgy.models.base import BaseModel
+from fastedgy.models.base import BaseModel, BaseView
 from fastedgy.orm import Model, BaseModelType
 from fastedgy.orm.fields import (
     BaseFieldType,
@@ -31,7 +31,7 @@ def generate_class_name(metadata_name: str) -> str:
     return re.sub(r"_", " ", metadata_name).title().replace(" ", "")
 
 
-async def generate_metadata_model(model_cls: type[BaseModel]) -> MetadataModel:
+async def generate_metadata_model(model_cls: type[BaseModel | BaseView]) -> MetadataModel:
     class_name = model_cls.__name__
     name = generate_metadata_name(model_cls)
     api_name = str(model_cls.meta.tablename)
@@ -84,7 +84,7 @@ async def generate_metadata_model(model_cls: type[BaseModel]) -> MetadataModel:
     return metadata
 
 
-async def generate_metadata_fields(model_cls: type[BaseModel]) -> dict[str, MetadataField]:
+async def generate_metadata_fields(model_cls: type[BaseModel | BaseView]) -> dict[str, MetadataField]:
     fields = {}
     for field_name, field_info in model_cls.meta.fields.items():
         is_filterable = getattr(field_info, "filterable", not getattr(field_info, "exclude", False))
@@ -96,7 +96,7 @@ async def generate_metadata_fields(model_cls: type[BaseModel]) -> dict[str, Meta
     return fields
 
 
-async def add_extra_fields(model_cls: type[BaseModel], fields: dict[str, MetadataField]) -> None:
+async def add_extra_fields(model_cls: type[BaseModel | BaseView], fields: dict[str, MetadataField]) -> None:
     from fastedgy.models.workspace_extra_field import EXTRA_FIELDS_MAP
 
     model_name = generate_metadata_name(model_cls)
@@ -206,7 +206,7 @@ def generate_metadata_field(model_cls: type[Model], field: BaseFieldType) -> Met
     )
 
 
-def add_inverse_relations(models: dict[type[BaseModel], MetadataModel]) -> None:
+def add_inverse_relations(models: dict[type[BaseModel | BaseView], MetadataModel]) -> None:
     """
     Add inverse relations (one2many and many2many) to metadata models.
 
@@ -255,8 +255,8 @@ def add_inverse_relations(models: dict[type[BaseModel], MetadataModel]) -> None:
 
 
 def _find_model_by_metadata_name(
-    models: dict[type[BaseModel], MetadataModel], metadata_name: str
-) -> type[BaseModel] | None:
+    models: dict[type[BaseModel | BaseView], MetadataModel], metadata_name: str
+) -> type[BaseModel | BaseView] | None:
     """Find a Model class by its metadata name."""
     for model_cls, metadata_model in models.items():
         if metadata_model.name == metadata_name:
@@ -266,7 +266,7 @@ def _find_model_by_metadata_name(
 
 def _prepare_one_to_many_relation(
     foreign_key_field: ForeignKey,
-    source_model_cls: type[BaseModel],
+    source_model_cls: type[BaseModel | BaseView],
     source_metadata: MetadataModel,
     target_metadata: MetadataModel,
 ) -> tuple[str, MetadataField] | None:
@@ -300,7 +300,7 @@ def _prepare_one_to_many_relation(
 
 def _add_one_to_many_relation(
     foreign_key_field: ForeignKey,
-    source_model_cls: type[BaseModel],
+    source_model_cls: type[BaseModel | BaseView],
     source_metadata: MetadataModel,
     target_metadata: MetadataModel,
 ) -> None:
@@ -313,7 +313,7 @@ def _add_one_to_many_relation(
 
 def _prepare_many_to_many_relation(
     many_to_many_field: ManyToMany,
-    source_model_cls: type[BaseModel],
+    source_model_cls: type[BaseModel | BaseView],
     source_metadata: MetadataModel,
     target_metadata: MetadataModel,
 ) -> tuple[str, MetadataField] | None:
@@ -347,7 +347,7 @@ def _prepare_many_to_many_relation(
 
 def _add_many_to_many_relation(
     many_to_many_field: ManyToMany,
-    source_model_cls: type[BaseModel],
+    source_model_cls: type[BaseModel | BaseView],
     source_metadata: MetadataModel,
     target_metadata: MetadataModel,
 ) -> None:
@@ -362,7 +362,7 @@ def _add_many_to_many_relation(
 
 def _prepare_one_to_one_relation(
     one_to_one_field: OneToOne,
-    source_model_cls: type[BaseModel],
+    source_model_cls: type[BaseModel | BaseView],
     source_metadata: MetadataModel,
     target_metadata: MetadataModel,
 ) -> tuple[str, MetadataField] | None:
@@ -391,7 +391,7 @@ def _prepare_one_to_one_relation(
 
 def _add_one_to_one_relation(
     one_to_one_field: OneToOne,
-    source_model_cls: type[BaseModel],
+    source_model_cls: type[BaseModel | BaseView],
     source_metadata: MetadataModel,
     target_metadata: MetadataModel,
 ) -> None:

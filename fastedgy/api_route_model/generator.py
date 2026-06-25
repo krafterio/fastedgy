@@ -10,7 +10,7 @@ from fastapi import APIRouter
 
 from fastapi.params import Depends
 from fastedgy.dependencies import get_service, Token
-from fastedgy.models.base import BaseModel
+from fastedgy.models.base import BaseModel, BaseView
 from fastedgy.api_route_model.registry import (
     ADMIN_ROUTE_MODEL_REGISTRY_TOKEN,
     RouteModelActionOptions,
@@ -24,7 +24,7 @@ logger = logging.getLogger("api_route_model.generator")
 
 
 def generate_router_for_model(
-    registry: RouteModelRegistry, model_cls: type[BaseModel], tags: bool = True
+    registry: RouteModelRegistry, model_cls: type[BaseModel | BaseView], tags: bool = True
 ) -> APIRouter | None:
     """
     Generate a FastAPI router for a model.

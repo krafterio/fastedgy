@@ -20,7 +20,7 @@ from fastedgy.api_route_model.view_transformer import (
 )
 from fastedgy.dependencies import get_service
 from fastedgy.schemas import ErrorMessage
-from fastedgy.models.base import BaseModel
+from fastedgy.models.base import BaseModel, BaseView
 from fastedgy.orm import transaction
 from fastedgy.orm.query import QuerySet
 from fastedgy.http import Request
@@ -48,7 +48,7 @@ class DeleteApiRouteAction(BaseApiRouteAction):
         )
 
 
-def generate_delete_item[M: BaseModel](
+def generate_delete_item[M: BaseModel | BaseView](
     model_cls: type[M],
 ) -> Callable[[Request, int], Coroutine[Any, Any, None]]:
     async def delete_item(
@@ -65,7 +65,7 @@ def generate_delete_item[M: BaseModel](
 
 
 @transaction
-async def delete_item_action[M: BaseModel](
+async def delete_item_action[M: BaseModel | BaseView](
     request: Request,
     model_cls: type[M],
     item_id: int,

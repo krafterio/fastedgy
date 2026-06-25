@@ -25,7 +25,7 @@ from fastedgy.dataflow.importer import (
 )
 from fastedgy.dependencies import get_service
 from fastedgy.http import Request
-from fastedgy.models.base import BaseModel
+from fastedgy.models.base import BaseModel, BaseView
 from fastedgy.orm.query import QuerySet
 
 
@@ -63,7 +63,7 @@ class ImportApiRouteAction(BaseApiRouteAction):
         )
 
 
-def generate_import_items[M: BaseModel](
+def generate_import_items[M: BaseModel | BaseView](
     model_cls: type[M],
 ) -> Callable[[Request, ImportItemsBody], Coroutine[Any, Any, ImportResult]]:
     async def import_items(
@@ -79,7 +79,7 @@ def generate_import_items[M: BaseModel](
     return import_items
 
 
-async def import_items_action[M: BaseModel](
+async def import_items_action[M: BaseModel | BaseView](
     request: Request,
     model_cls: type[M],
     file: UploadFile,

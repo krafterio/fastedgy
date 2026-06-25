@@ -8,7 +8,7 @@ from typing import Any, TYPE_CHECKING
 from fastedgy.http import Request
 from fastedgy.orm.query import QuerySet
 from fastedgy.schemas import Pagination
-from fastedgy.models.base import BaseModel
+from fastedgy.models.base import BaseModel, BaseView
 
 if TYPE_CHECKING:
     from fastapi import UploadFile
@@ -25,29 +25,29 @@ class PrePaginateViewTransformer(BaseViewTransformer):
     async def pre_paginate(self, request: Request, query: QuerySet, ctx: dict[str, Any]) -> QuerySet: ...
 
 
-class PostPaginateViewTransformer[M = BaseModel](BaseViewTransformer):
+class PostPaginateViewTransformer[M = BaseModel | BaseView](BaseViewTransformer):
     @abstractmethod
     async def post_paginate(self, request: Request, pagination: Pagination[M], ctx: dict[str, Any]) -> None: ...
 
 
-class PreLoadRecordViewTransformer[M = BaseModel](BaseViewTransformer):
+class PreLoadRecordViewTransformer[M = BaseModel | BaseView](BaseViewTransformer):
     @abstractmethod
     async def pre_load_record(self, request: Request, query: QuerySet, ctx: dict[str, Any]) -> QuerySet: ...
 
 
-class GetViewsTransformer[M = BaseModel](BaseViewTransformer):
+class GetViewsTransformer[M = BaseModel | BaseView](BaseViewTransformer):
     @abstractmethod
     async def get_views(self, request: Request, items: list[M], ctx: dict[str, Any]) -> None: ...
 
 
-class GetViewTransformer[M = BaseModel](BaseViewTransformer):
+class GetViewTransformer[M = BaseModel | BaseView](BaseViewTransformer):
     @abstractmethod
     async def get_view(
         self, request: Request, item: M, item_dump: dict[str, Any], ctx: dict[str, Any]
     ) -> dict[str, Any]: ...
 
 
-class PreSaveTransformer[M = BaseModel](BaseViewTransformer):
+class PreSaveTransformer[M = BaseModel | BaseView](BaseViewTransformer):
     @abstractmethod
     async def pre_save(
         self,
@@ -59,7 +59,7 @@ class PreSaveTransformer[M = BaseModel](BaseViewTransformer):
     ) -> None: ...
 
 
-class PostSaveTransformer[M = BaseModel](BaseViewTransformer):
+class PostSaveTransformer[M = BaseModel | BaseView](BaseViewTransformer):
     @abstractmethod
     async def post_save(
         self,
@@ -71,12 +71,12 @@ class PostSaveTransformer[M = BaseModel](BaseViewTransformer):
     ) -> None: ...
 
 
-class PreDeleteTransformer[M = BaseModel](BaseViewTransformer):
+class PreDeleteTransformer[M = BaseModel | BaseView](BaseViewTransformer):
     @abstractmethod
     async def pre_delete(self, request: Request, item: M, ctx: dict[str, Any], /) -> None: ...
 
 
-class PostDeleteTransformer[M = BaseModel](BaseViewTransformer):
+class PostDeleteTransformer[M = BaseModel | BaseView](BaseViewTransformer):
     @abstractmethod
     async def post_delete(self, request: Request, record: M, ctx: dict[str, Any]) -> None: ...
 

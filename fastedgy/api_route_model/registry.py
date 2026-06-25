@@ -14,7 +14,7 @@ from fastapi.datastructures import DefaultPlaceholder
 
 from fastedgy.api_route_model.view_transformer import BaseViewTransformer
 from fastedgy.dependencies import register_service, Token
-from fastedgy.models.base import BaseModel
+from fastedgy.models.base import BaseModel, BaseView
 
 from starlette.responses import Response
 from starlette.routing import BaseRoute
@@ -59,7 +59,7 @@ class RouteModelOptions(dict):
     actions: dict[str, RouteModelOptionsValue]
 
 
-TypeModel = type[BaseModel]
+TypeModel = type[BaseModel | BaseView]
 TypeModels = dict[TypeModel, RouteModelOptions]
 
 

@@ -11,7 +11,7 @@ from pydantic_core import PydanticUndefined
 from edgy.core.db.fields.types import BaseFieldType
 
 from fastedgy.schemas import create_model
-from fastedgy.models.base import BaseModel
+from fastedgy.models.base import BaseModel, BaseView
 
 
 class RelationOperation(
@@ -131,7 +131,7 @@ def _foreign_key_target_name(field: Any) -> str:
     return to if isinstance(to, str) else to.__name__
 
 
-def generate_output_model[M: BaseModel](model_cls: type[M]) -> type[M]:
+def generate_output_model[M: BaseModel | BaseView](model_cls: type[M]) -> type[M]:
     from fastedgy.schemas import Field as PydanticField
     from fastedgy.api_route_model.action.relations import is_exposed_relation_field
     from edgy.core.db.fields.foreign_keys import ForeignKey
@@ -216,7 +216,7 @@ def finalize_output_models() -> None:
 
 
 @cache
-def generate_input_create_model[M: BaseModel](model_cls: type[M]) -> type[M]:
+def generate_input_create_model[M: BaseModel | BaseView](model_cls: type[M]) -> type[M]:
     """Generate Pydantic input model for POST with M2M/O2M support."""
     from fastedgy.schemas import Field as PydanticField
     from fastedgy.api_route_model.action.relations import is_exposed_relation_field
@@ -300,7 +300,7 @@ def generate_input_create_model[M: BaseModel](model_cls: type[M]) -> type[M]:
 
 
 @cache
-def generate_input_patch_model[M: BaseModel](model_cls: type[M]) -> type[M]:
+def generate_input_patch_model[M: BaseModel | BaseView](model_cls: type[M]) -> type[M]:
     """Generate Pydantic input model for PATCH with M2M/O2M support."""
     from fastedgy.schemas import Field as PydanticField
     from fastedgy.api_route_model.action.relations import is_exposed_relation_field

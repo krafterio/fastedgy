@@ -7,7 +7,7 @@ from typing import Callable, Any
 
 from fastapi import APIRouter, Query, HTTPException
 
-from fastedgy.models.base import BaseModel
+from fastedgy.models.base import BaseModel, BaseView
 from fastedgy.api_route_model.action import BaseApiRouteAction
 from fastedgy.api_route_model.params import (
     OrderByQuery,
@@ -68,7 +68,7 @@ class ExportApiRouteAction(BaseApiRouteAction):
         )
 
 
-def generate_export_items[M: BaseModel](
+def generate_export_items[M: BaseModel | BaseView](
     model_cls: type[M],
 ) -> Callable[..., Any]:
     async def export_items(
@@ -96,7 +96,7 @@ def generate_export_items[M: BaseModel](
     return export_items
 
 
-async def export_items_action[M: BaseModel](
+async def export_items_action[M: BaseModel | BaseView](
     request: Request,
     model_cls: type[M],
     format: str = "csv",

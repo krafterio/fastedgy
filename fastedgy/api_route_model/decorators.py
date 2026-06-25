@@ -12,10 +12,10 @@ from fastedgy.api_route_model.registry import (
     RouteModelOptionsValue,
 )
 from fastedgy.dependencies import get_service, Token
-from fastedgy.models.base import BaseModel
+from fastedgy.models.base import BaseModel, BaseView
 
 
-M = TypeVar("M", bound=type[BaseModel])
+M = TypeVar("M", bound=type[BaseModel | BaseView])
 
 
 def build_api_route_model_decorator(

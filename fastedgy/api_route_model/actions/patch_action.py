@@ -2,7 +2,7 @@
 # MIT License (see LICENSE file).
 
 from datetime import datetime
-from typing import Callable, Any
+from typing import Callable, Any, cast
 
 from fastapi import APIRouter, Path, Body
 
@@ -13,6 +13,7 @@ from fastedgy.models.base import BaseModel, BaseView
 from fastedgy.orm import transaction
 from fastedgy.timezone import ensure_aware
 from fastedgy.orm.query import QuerySet
+from fastedgy.orm.manager import BaseManager
 from fastedgy.api_route_model.action import (
     BaseApiRouteAction,
     generate_input_patch_model,
@@ -92,7 +93,7 @@ async def patch_item_action[M: BaseModel | BaseView](
     model_cls: type[M],
     item_id: int,
     item_data: BaseModel,
-    query: QuerySet | None = None,
+    query: QuerySet | BaseManager | None = None,
     fields: str | None = None,
     transformers: list[BaseViewTransformer] | None = None,
     transformers_ctx: dict[str, Any] | None = None,
@@ -104,7 +105,7 @@ async def patch_item_action[M: BaseModel | BaseView](
         process_relational_fields,
     )
 
-    query = query or model_cls.query.get_queryset()
+    query = cast(QuerySet, query or model_cls.query)
     query = optimize_query_filter_fields(query, fields)
     transformers_ctx = transformers_ctx or {}
     vtr = get_service(ViewTransformerRegistry)

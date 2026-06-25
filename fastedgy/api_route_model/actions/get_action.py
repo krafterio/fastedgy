@@ -1,7 +1,7 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import Callable, Any
+from typing import Callable, Any, cast
 
 from fastapi import APIRouter, HTTPException, Path
 
@@ -27,6 +27,7 @@ from fastedgy.api_route_model.view_transformer import (
 from fastedgy.dependencies import get_service
 from fastedgy.http import Request
 from fastedgy.orm.query import QuerySet
+from fastedgy.orm.manager import BaseManager
 from fastedgy.orm.exceptions import ObjectNotFound
 
 
@@ -74,12 +75,12 @@ async def get_item_action[M: BaseModel | BaseView](
     request: Request,
     model_cls: type[M],
     item_id: int,
-    query: QuerySet | None = None,
+    query: QuerySet | BaseManager | None = None,
     fields: str | None = None,
     transformers: list[BaseViewTransformer] | None = None,
     transformers_ctx: dict[str, Any] | None = None,
 ) -> M | dict[str, Any]:
-    query = query or model_cls.query.get_queryset()
+    query = cast(QuerySet, query or model_cls.query)
     query = optimize_query_filter_fields(query, fields)
     transformers_ctx = transformers_ctx or {}
     vtr = get_service(ViewTransformerRegistry)

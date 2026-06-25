@@ -23,6 +23,7 @@ from fastedgy.schemas import ErrorMessage
 from fastedgy.models.base import BaseModel, BaseView
 from fastedgy.orm import transaction
 from fastedgy.orm.query import QuerySet
+from fastedgy.orm.manager import BaseManager
 from fastedgy.http import Request
 
 
@@ -69,7 +70,7 @@ async def delete_item_action[M: BaseModel | BaseView](
     request: Request,
     model_cls: type[M],
     item_id: int,
-    query: QuerySet | None = None,
+    query: QuerySet | BaseManager | None = None,
     not_found_message: str = "Enregistrement non trouvé",
     transformers: list[BaseViewTransformer] | None = None,
     transformers_ctx: dict[str, Any] | None = None,
@@ -77,7 +78,10 @@ async def delete_item_action[M: BaseModel | BaseView](
     try:
         vtr = get_service(ViewTransformerRegistry)
         transformers_ctx = transformers_ctx or {}
-        query = query or model_cls.query.get_queryset()
+        if query is None:
+            query = model_cls.query.get_queryset()
+        elif isinstance(query, BaseManager):
+            query = query.get_queryset()
 
         transformers_ctx["item_id"] = item_id
         for transformer in vtr.get_transformers(PreLoadRecordViewTransformer, model_cls, transformers):

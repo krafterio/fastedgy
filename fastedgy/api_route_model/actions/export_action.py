@@ -3,7 +3,7 @@
 
 from fastedgy.i18n import _t
 
-from typing import Callable, Any
+from typing import Callable, Any, cast
 
 from fastapi import APIRouter, Query, HTTPException
 
@@ -34,6 +34,7 @@ from fastedgy.orm.filter import InvalidFilterError, filter_query
 from fastedgy.orm.order_by import inject_order_by
 from fastedgy.orm.field_selector import optimize_query_filter_fields
 from fastedgy.orm.query import QuerySet
+from fastedgy.orm.manager import BaseManager
 
 from starlette.responses import StreamingResponse
 
@@ -100,7 +101,7 @@ async def export_items_action[M: BaseModel | BaseView](
     request: Request,
     model_cls: type[M],
     format: str = "csv",
-    query: QuerySet | None = None,
+    query: QuerySet | BaseManager | None = None,
     limit: int | None = None,
     offset: int = 0,
     order_by: str | None = None,
@@ -133,7 +134,7 @@ async def export_items_action[M: BaseModel | BaseView](
     vtr = get_service(ViewTransformerRegistry)
 
     try:
-        query = query or model_cls.query.get_queryset()
+        query = cast(QuerySet, query or model_cls.query)
         query = filter_query(query, filters)
         query = optimize_query_filter_fields(query, fields)
 

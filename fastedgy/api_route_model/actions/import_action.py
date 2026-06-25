@@ -27,6 +27,7 @@ from fastedgy.dependencies import get_service
 from fastedgy.http import Request
 from fastedgy.models.base import BaseModel, BaseView
 from fastedgy.orm.query import QuerySet
+from fastedgy.orm.manager import BaseManager
 
 
 class ImportItemsBody(PydanticBaseModel):
@@ -83,7 +84,7 @@ async def import_items_action[M: BaseModel | BaseView](
     request: Request,
     model_cls: type[M],
     file: UploadFile,
-    query: QuerySet | None = None,
+    query: QuerySet | BaseManager | None = None,
     transformers: list[BaseViewTransformer] | None = None,
     transformers_ctx: dict[str, Any] | None = None,
 ) -> ImportResult:

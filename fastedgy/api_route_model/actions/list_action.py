@@ -38,6 +38,7 @@ from fastedgy.api_route_model.view_transformer import (
 from fastedgy.dependencies import get_service
 from fastedgy.http import Request
 from fastedgy.orm.query import QuerySet
+from fastedgy.orm.manager import BaseManager
 from fastedgy.schemas.base import Pagination
 
 from fastedgy.schemas import create_model
@@ -94,7 +95,7 @@ def generate_list_items[M: BaseModel | BaseView](
 async def list_items_action[M: BaseModel | BaseView](
     request: Request,
     model_cls: type[M],
-    query: QuerySet | None = None,
+    query: QuerySet | BaseManager | None = None,
     limit: int | None = None,
     offset: int = 0,
     order_by: str | None = None,
@@ -107,7 +108,10 @@ async def list_items_action[M: BaseModel | BaseView](
     vtr = get_service(ViewTransformerRegistry)
 
     try:
-        query = query or model_cls.query.get_queryset()
+        if query is None:
+            query = model_cls.query.get_queryset()
+        elif isinstance(query, BaseManager):
+            query = query.get_queryset()
         transformers_ctx["filters"] = filters
         transformers_ctx["order_by"] = order_by
         query = optimize_query_filter_fields(query, fields)

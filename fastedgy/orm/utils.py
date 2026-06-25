@@ -80,7 +80,9 @@ def get_columns(mixed):
         return [mixed]
     if not isclass(mixed):
         mixed = mixed.__class__
-    return sa.inspect(mixed).columns
+    inspected = sa.inspect(mixed)
+    assert inspected is not None
+    return inspected.columns
 
 
 def get_field_from_path(model_cls: type[Model], path: str) -> Any | None:

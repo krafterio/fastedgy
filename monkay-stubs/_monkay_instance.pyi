@@ -1,0 +1,6 @@
+from typing import Any
+
+class MonkayInstance:
+    @property
+    def instance(self) -> Any: ...
+    def __getattr__(self, name: str) -> Any: ...

@@ -12,6 +12,9 @@ from rich.console import Console
 
 import edgy
 from edgy.core.connection import Database, Registry
+from fastedgy.config import BaseSettings
+from fastedgy.dependencies import get_service
+from fastedgy.logger import LogFormat
 from fastedgy.orm.migration import fastedgy_process_revision_directives
 
 if TYPE_CHECKING:
@@ -26,7 +29,10 @@ config: Any = context.config
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
-fileConfig(config.config_file_name)
+if get_service(BaseSettings).log_format != LogFormat.JSON:
+    fileConfig(config.config_file_name)
+else:
+    logging.getLogger("alembic").setLevel(logging.INFO)
 logger = logging.getLogger("alembic.env")
 MAIN_DATABASE_NAME: str = " "
 
@@ -42,12 +48,11 @@ def iter_databases(
         except KeyError:
             name = None
     if name is False:
-        db_names = edgy.monkay.settings.migrate_databases
-        for name in db_names:
-            if name is None:
+        for db_name in edgy.monkay.settings.migrate_databases:
+            if db_name is None:
                 yield (None, registry.database, registry.metadata_by_name[None])
             else:
-                yield (name, registry.extra[name], registry.metadata_by_name[name])
+                yield (db_name, registry.extra[db_name], registry.metadata_by_name[db_name])
     else:
         if name == MAIN_DATABASE_NAME:
             name = None

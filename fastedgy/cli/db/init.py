@@ -5,8 +5,6 @@ import os
 import edgy
 from pathlib import Path
 
-from alembic import command
-from edgy.cli.base import Config
 from fastedgy import cli
 from fastedgy.cli import CliContext
 from fastedgy.cli.db import db
@@ -32,6 +30,9 @@ FASTEDGY_TEMPLATE_DIR = Path(__file__).parent / "templates"
 @cli.pass_cli_context
 async def init(ctx: CliContext, template: str | None, package: bool):
     """Creates a new migration repository."""
+    from alembic import command
+    from edgy.cli.base import Config
+
     config = ctx.get(BaseSettings)
     directory = os.path.join(config.server_path, str(edgy.monkay.settings.migration_directory))
 

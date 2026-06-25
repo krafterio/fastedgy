@@ -73,7 +73,7 @@ class PostSaveTransformer[M = BaseModel](BaseViewTransformer):
 
 class PreDeleteTransformer[M = BaseModel](BaseViewTransformer):
     @abstractmethod
-    async def pre_delete(self, request: Request, record: M, ctx: dict[str, Any]) -> None: ...
+    async def pre_delete(self, request: Request, item: M, ctx: dict[str, Any], /) -> None: ...
 
 
 class PostDeleteTransformer[M = BaseModel](BaseViewTransformer):

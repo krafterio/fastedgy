@@ -279,7 +279,22 @@ def generate_input_create_model[M: BaseModel](model_cls: type[M]) -> type[M]:
             field_type = field.field_type
             if field.null:
                 field_type = optional_field_type(field.field_type)
-            fields[field_name] = (field_type, field)
+
+            field_to_use = field
+
+            # A non-JSON-serializable literal default (auto_now/auto_now_add on a
+            # writable field renders as functools.partial) would leak into the
+            # input schema and trip Pydantic's schema serializer. Drop it: the
+            # field stays optional and the ORM still applies its default at save
+            # time (the action uses exclude_unset). default_factory is left as-is,
+            # since Pydantic never serializes it into the schema.
+            default = getattr(field, "default", PydanticUndefined)
+            if default is not PydanticUndefined and default is not None and not _is_json_serializable(default):
+                field_to_use = copy(field)
+                field_to_use.default = None
+                field_type = optional_field_type(field.field_type)
+
+            fields[field_name] = (field_type, field_to_use)
 
     return cast(type[M], create_model(f"{model_cls.__name__}Create", **fields))
 

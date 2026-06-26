@@ -51,7 +51,7 @@ def option(*param_decls: str, **attrs: Any) -> Callable:
 
 
 def scheduled_task(
-    cron: str,
+    cron: Optional[str] = None,
     name: Optional[str] = None,
     description: str = "",
     auto_remove: bool = True,

@@ -184,7 +184,7 @@ async def upload_model_field_file(
             await storage.delete(getattr(record, field), global_storage=global_storage)
 
         path = await storage.upload(
-            cast(UploadFile, file),
+            file,
             model,
             global_storage=global_storage,
         )

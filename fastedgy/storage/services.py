@@ -10,7 +10,7 @@ import base64
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, AsyncIterator
 
-from fastapi import UploadFile
+from starlette.datastructures import UploadFile
 
 from fastedgy import context
 from fastedgy.config import BaseSettings

@@ -73,7 +73,7 @@ def _build_status_command() -> click.Command:
             enabled_style = "green" if enabled else "red"
 
             try:
-                schedule = CronSim(task_def.cron, now).explain()
+                schedule = CronSim(task_def.cron, now).explain() if task_def.cron else ""
             except Exception:
                 schedule = ""
 

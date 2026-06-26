@@ -1,13 +1,13 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import Any, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING, cast
 
 from datetime import datetime, timezone
 
 from sqlalchemy import text
 
-from fastedgy.orm import Model, fields
+from fastedgy.orm import fields
 from fastedgy.i18n import _ts
 from fastedgy.models.base import BaseModel
 
@@ -128,7 +128,7 @@ class QueuedTaskMixin(BaseModel):
         force_insert: bool = False,
         values: dict[str, Any] | set[str] | None = None,
         force_save: bool | None = None,
-    ) -> Model:
+    ) -> QueuedTask:
         """Override save to auto-generate name and compute dates"""
         if not hasattr(self, "name") or not self.name:
             if (
@@ -146,7 +146,7 @@ class QueuedTaskMixin(BaseModel):
         self._compute_date_ended()
         self._compute_execution_time()
 
-        return await super().save(force_insert, values, force_save)
+        return await cast(QueuedTask, super()).save(force_insert, values, force_save)
 
     def _compute_date_ended(self):
         """Automatically compute end date based on the last significant date"""

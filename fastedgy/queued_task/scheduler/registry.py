@@ -18,7 +18,7 @@ class ScheduledTaskDef:
     """Definition of a scheduled task registered via @scheduled_task."""
 
     name: str
-    cron: str
+    cron: str | None
     func: Callable
     description: str = ""
     options: list[click.Option] = field(default_factory=list)

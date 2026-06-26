@@ -128,7 +128,7 @@ class QueuedTaskMixin(BaseModel):
         force_insert: bool = False,
         values: dict[str, Any] | set[str] | None = None,
         force_save: bool | None = None,
-    ) -> QueuedTask:
+    ) -> "QueuedTask":
         """Override save to auto-generate name and compute dates"""
         if not hasattr(self, "name") or not self.name:
             if (

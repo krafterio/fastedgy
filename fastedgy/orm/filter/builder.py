@@ -20,6 +20,7 @@ from fastedgy.orm.fields import (
     FloatField,
 )
 from fastedgy.orm.query import QuerySet
+from fastedgy.orm.manager import BaseManager
 from fastedgy.orm.utils import find_primary_key_field
 from fastedgy.orm.filter.types import (
     InvalidFilterError,
@@ -251,7 +252,7 @@ def _build_exists_expression(model_cls: type[Model], filters: FilterRule) -> Any
 
 
 def filter_query(
-    query: QuerySet,
+    query: QuerySet | BaseManager,
     filters: str | list | FilterTuple | Filter | None,
     restrict_error: bool = False,
     allow_excluded: bool = False,

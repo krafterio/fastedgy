@@ -258,6 +258,7 @@ def filter_query(
     allow_excluded: bool = False,
 ) -> QuerySet:
     has_filters = filters is not None
+    query = cast(QuerySet, query)
 
     try:
         if not isinstance(filters, FilterCondition) and not isinstance(filters, FilterRule):

@@ -4,7 +4,7 @@
 from fastedgy.i18n import _ts
 
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Any, ClassVar, Optional
+from typing import TYPE_CHECKING, Any, ClassVar, Optional, Self
 
 from datetime import datetime
 
@@ -116,6 +116,15 @@ class BaseModel(Model, metaclass=ModelMeta):
     query_related = WorkspaceableRedirectManager(redirect_name="query")
 
     global_query: ClassVar[BaseManager] = Manager()
+
+    async def save(
+        self,
+        force_insert: bool = False,
+        values: dict[str, Any] | set[str] | None = None,
+        force_save: bool | None = None,
+    ) -> Self:
+        await super().save(force_insert=force_insert, values=values, force_save=force_save)
+        return self
 
 
 class BaseView(Model, metaclass=ModelMeta):

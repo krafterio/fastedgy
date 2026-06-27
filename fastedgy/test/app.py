@@ -1,6 +1,7 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+import importlib
 import json
 
 from fastapi import APIRouter
@@ -12,8 +13,6 @@ from fastedgy.api_route_model.standard_actions import (
 )
 from fastedgy.dependencies import get_service
 from fastedgy.orm import Registry
-
-from fastedgy.test.models import ALL_MODELS
 
 
 APP_TITLE = "FastEdgy Test API"
@@ -45,6 +44,11 @@ def build_app() -> FastEdgy:
 
     from fastedgy.api import auth, auth_simple_registration, dataset, health, storage
     from fastedgy.depends.security import get_current_user
+
+    # Imported here (not at module top) for its registration side effect: merely
+    # importing fastedgy.test must not register the synthetic models, so a
+    # downstream project can build its own app without a registry collision.
+    importlib.import_module("fastedgy.test.models")
 
     _ensure_standard_actions()
 
@@ -92,7 +96,6 @@ __all__ = [
     "APP_VERSION",
     "APP_DESCRIPTION",
     "API_PREFIX",
-    "ALL_MODELS",
     "build_app",
     "dump_openapi",
 ]

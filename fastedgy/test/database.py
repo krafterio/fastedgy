@@ -7,6 +7,7 @@ import subprocess
 import sys
 import time
 
+from collections.abc import Callable
 from pathlib import Path
 
 from dotenv import dotenv_values
@@ -196,9 +197,18 @@ def _wait_for_marker(marker: Path, timeout: float = 180.0) -> None:
     raise TimeoutError("Timed out waiting for the template database to be built")
 
 
-def ensure_template_database(shared_dir: Path | None, worker_id: str) -> None:
+def ensure_template_database(
+    shared_dir: Path | None,
+    worker_id: str,
+    build: Callable[[], None] | None = None,
+) -> None:
+    # `build` lets a downstream project supply how its template schema is created
+    # (e.g. applying its own migrations) while keeping the xdist-safe single-build
+    # coordination. Defaults to the framework's synthetic-app builder.
+    builder = build or _build_template_subprocess
+
     if worker_id == "main" or shared_dir is None:
-        _build_template_subprocess()
+        builder()
         return
 
     ready = shared_dir / f"{template_database_name()}.ready"
@@ -211,7 +221,7 @@ def ensure_template_database(shared_dir: Path | None, worker_id: str) -> None:
         return
 
     try:
-        _build_template_subprocess()
+        builder()
         ready.write_text("ok", encoding="utf-8")
     except Exception:
         ready.write_text("failed", encoding="utf-8")

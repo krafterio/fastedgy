@@ -7,7 +7,6 @@ import subprocess
 import sys
 import time
 
-from collections.abc import Callable
 from pathlib import Path
 
 from dotenv import dotenv_values
@@ -168,10 +167,16 @@ def drop_worker_database(worker_id: str) -> None:
 
 
 def _build_template_subprocess() -> None:
+    # Propagate the parent's import paths so the subprocess can resolve the
+    # project app factory (e.g. ``main:app``) — pytest's ``pythonpath`` only
+    # mutates the current process's ``sys.path``, not the environment.
+    env = os.environ.copy()
+    env["PYTHONPATH"] = os.pathsep.join(p for p in sys.path if p)
+
     result = subprocess.run(
         [sys.executable, "-m", "fastedgy.test.build_template"],
         cwd=str(_PROJECT_ROOT),
-        env=os.environ.copy(),
+        env=env,
         capture_output=True,
         text=True,
     )
@@ -197,18 +202,9 @@ def _wait_for_marker(marker: Path, timeout: float = 180.0) -> None:
     raise TimeoutError("Timed out waiting for the template database to be built")
 
 
-def ensure_template_database(
-    shared_dir: Path | None,
-    worker_id: str,
-    build: Callable[[], None] | None = None,
-) -> None:
-    # `build` lets a downstream project supply how its template schema is created
-    # (e.g. applying its own migrations) while keeping the xdist-safe single-build
-    # coordination. Defaults to the framework's synthetic-app builder.
-    builder = build or _build_template_subprocess
-
+def ensure_template_database(shared_dir: Path | None, worker_id: str) -> None:
     if worker_id == "main" or shared_dir is None:
-        builder()
+        _build_template_subprocess()
         return
 
     ready = shared_dir / f"{template_database_name()}.ready"
@@ -221,7 +217,7 @@ def ensure_template_database(
         return
 
     try:
-        builder()
+        _build_template_subprocess()
         ready.write_text("ok", encoding="utf-8")
     except Exception:
         ready.write_text("failed", encoding="utf-8")
@@ -231,11 +227,18 @@ def ensure_template_database(
 
 
 async def truncate_all_tables() -> None:
+    # Driven by the live database catalog rather than the ORM metadata: a real
+    # app may spread tables across several metadata groups with cross-group
+    # foreign keys, which breaks ``metadata.sorted_tables``. ``TRUNCATE … CASCADE``
+    # over the actual tables sidesteps that and resets identities.
     from fastedgy.dependencies import get_service
     from fastedgy.orm import Registry
 
     registry = get_service(Registry)
-    tables = [table.name for table in registry.metadata_by_name[None].sorted_tables if table.name != "alembic_version"]
+    rows = await registry.database.fetch_all(
+        "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> 'alembic_version'"
+    )
+    tables = [row[0] for row in rows]
 
     if not tables:
         return

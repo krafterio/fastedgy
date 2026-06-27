@@ -1,11 +1,13 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+import inspect
 import os
 import shutil
 import tempfile
 
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Callable, Iterator
+from typing import Any
 
 import httpx
 import pytest
@@ -13,7 +15,7 @@ import pytest
 from fastedgy.app import FastEdgy
 
 from fastedgy.test import database
-from fastedgy.test.app import build_app
+from fastedgy.test.app import build_app, load_app
 
 
 WORKER_ID = os.environ.get("PYTEST_XDIST_WORKER", "main")
@@ -82,16 +84,33 @@ async def setup_app(setup_database: bool) -> AsyncIterator[FastEdgy]:
     if not setup_database:
         pytest.skip("PostgreSQL is not available for integration tests")
 
-    app = build_app()
+    app = load_app()
 
     async with app.router.lifespan_context(app):
         yield app
 
 
 @pytest.fixture
-async def setup_db(setup_app: FastEdgy) -> FastEdgy:
-    """A truncated database for pure service/ORM tests (no HTTP client)."""
+def seed_data() -> Callable[[], Any] | None:
+    """Reference-data seeder run after each truncate.
+
+    Override in a project to return a zero-argument callable (sync or async) —
+    e.g. one that runs the project's ``init-data`` logic — so every test starts
+    from a freshly populated database. Returns ``None`` (no seeding) by default.
+    """
+    return None
+
+
+@pytest.fixture
+async def setup_db(setup_app: FastEdgy, seed_data: Callable[[], Any] | None) -> FastEdgy:
+    """A truncated (then optionally re-seeded) database before each test."""
     await database.truncate_all_tables()
+
+    if seed_data is not None:
+        result = seed_data()
+
+        if inspect.isawaitable(result):
+            await result
 
     return setup_app
 
@@ -129,6 +148,7 @@ __all__ = [
     "setup_openapi_app",
     "setup_database",
     "setup_app",
+    "seed_data",
     "setup_db",
     "setup_http",
     "auth_http",

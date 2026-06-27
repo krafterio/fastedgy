@@ -87,6 +87,25 @@ def build_app() -> FastEdgy:
     return app
 
 
+def load_app() -> FastEdgy:
+    """Resolve the application under test the way the HTTP workers do.
+
+    Uses ``settings.app_factory`` (e.g. ``main:app``) so a downstream project's
+    test suite runs against its real app. Falls back to the framework's synthetic
+    app when no project app is importable (FastEdgy's own test suite).
+    """
+    from fastedgy.config import init_settings
+    from fastedgy.modules import ImportFromStringError, import_from_string
+
+    try:
+        settings = init_settings()
+        factory = import_from_string(settings.app_factory)
+    except (ImportFromStringError, ImportError, AttributeError, ValueError):
+        return build_app()
+
+    return factory()
+
+
 def dump_openapi(app: FastEdgy) -> str:
     return json.dumps(app.openapi(), indent=2, sort_keys=True, ensure_ascii=False) + "\n"
 
@@ -97,5 +116,6 @@ __all__ = [
     "APP_DESCRIPTION",
     "API_PREFIX",
     "build_app",
+    "load_app",
     "dump_openapi",
 ]

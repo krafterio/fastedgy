@@ -7,7 +7,20 @@ import tempfile
 from fastedgy.test import database
 
 
-def _run_migrations() -> None:
+def _has_committed_migrations() -> bool:
+    """True when the app under test ships its own Alembic migration scripts."""
+    try:
+        from alembic.script import ScriptDirectory
+        from edgy.cli.base import Config
+
+        script = ScriptDirectory.from_config(Config.get_instance())
+
+        return next(iter(script.walk_revisions()), None) is not None
+    except Exception:
+        return False
+
+
+def _autogenerate_schema() -> None:
     import edgy
 
     from alembic import command
@@ -27,16 +40,28 @@ def _run_migrations() -> None:
     upgrade("head")
 
 
+def _build_schema() -> None:
+    # A project ships committed migrations: apply them so the template reproduces
+    # its real schema (table ordering, circular FKs, raw views). The synthetic
+    # test app has none, so fall back to autogenerating one from the models.
+    if _has_committed_migrations():
+        from edgy.cli.base import upgrade
+
+        upgrade("head")
+    else:
+        _autogenerate_schema()
+
+
 def main() -> None:
     os.environ["FASTEDGY_TEST_ACTIVE"] = "1"
     os.environ["DATABASE_URL"] = database.template_database_url()
 
     database.recreate_template_database()
 
-    from fastedgy.test.app import build_app
+    from fastedgy.test.app import load_app
 
-    build_app()
-    _run_migrations()
+    load_app()
+    _build_schema()
 
 
 if __name__ == "__main__":

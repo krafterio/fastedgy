@@ -107,6 +107,48 @@ class _ChoiceMirrorEnum(str, Enum):
     def __str__(self) -> str:
         return self.name
 
+    @classmethod
+    def __get_pydantic_core_schema__(cls, _source_type: Any, _handler: GetCoreSchemaHandler) -> CoreSchema:
+        """
+        Custom Pydantic schema that always serializes to the member name and
+        accepts the mirror member, the original ChoiceEnum (by name) or a string.
+
+        Without this, Pydantic builds a default enum schema for the mirror enum;
+        when the stored value is the original ChoiceEnum (whose value is a
+        TranslatableString), serialization emits a warning and the translated
+        label instead of the name.
+        """
+
+        def validate(value: Any) -> "_ChoiceMirrorEnum":
+            if isinstance(value, cls):
+                return value
+            if isinstance(value, str):
+                try:
+                    return cls.__members__[value]
+                except KeyError:
+                    raise ValueError(f"Invalid {cls.__name__}: {value}")
+            if isinstance(value, Enum):
+                try:
+                    return cls.__members__[value.name]
+                except KeyError:
+                    raise ValueError(f"Invalid {cls.__name__}: {value.name}")
+            raise ValueError(f"Invalid {cls.__name__}: {value}")
+
+        def serialize(value: Any) -> str:
+            return value.name if isinstance(value, Enum) else str(value)
+
+        return core_schema.no_info_plain_validator_function(
+            validate,
+            serialization=core_schema.plain_serializer_function_ser_schema(
+                serialize, info_arg=False, return_schema=core_schema.str_schema()
+            ),
+        )
+
+    @classmethod
+    def __get_pydantic_json_schema__(cls, _core_schema: CoreSchema, handler: GetJsonSchemaHandler) -> JsonSchemaValue:
+        member_names = [m.name for m in cls.__members__.values()]
+        return {"type": "string", "enum": member_names}
+
 
 class ChoiceField(FieldOptions[Any], EdgyChoiceField, FieldExportConverter[Enum | None, str | None]):
     """

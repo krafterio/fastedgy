@@ -74,6 +74,7 @@ class ChoiceEnum(TranslatableString, Enum):
 
         return core_schema.no_info_plain_validator_function(
             validate,
+            ref=f"{cls.__module__}.{cls.__qualname__}",
             serialization=core_schema.plain_serializer_function_ser_schema(
                 serialize, info_arg=False, return_schema=core_schema.str_schema()
             ),
@@ -82,7 +83,7 @@ class ChoiceEnum(TranslatableString, Enum):
     @classmethod
     def __get_pydantic_json_schema__(cls, _core_schema: CoreSchema, handler: GetJsonSchemaHandler) -> JsonSchemaValue:
         member_names = [m.name for m in cls.__members__.values()]
-        return {"type": "string", "enum": member_names}
+        return {"type": "string", "enum": member_names, "title": cls.__name__}
 
 
 class _ChoiceMirrorEnum(str, Enum):
@@ -139,6 +140,7 @@ class _ChoiceMirrorEnum(str, Enum):
 
         return core_schema.no_info_plain_validator_function(
             validate,
+            ref=f"{cls.__module__}.{cls.__qualname__}",
             serialization=core_schema.plain_serializer_function_ser_schema(
                 serialize, info_arg=False, return_schema=core_schema.str_schema()
             ),
@@ -147,7 +149,7 @@ class _ChoiceMirrorEnum(str, Enum):
     @classmethod
     def __get_pydantic_json_schema__(cls, _core_schema: CoreSchema, handler: GetJsonSchemaHandler) -> JsonSchemaValue:
         member_names = [m.name for m in cls.__members__.values()]
-        return {"type": "string", "enum": member_names}
+        return {"type": "string", "enum": member_names, "title": cls.__name__}
 
 
 class ChoiceField(FieldOptions[Any], EdgyChoiceField, FieldExportConverter[Enum | None, str | None]):
@@ -188,6 +190,10 @@ class ChoiceField(FieldOptions[Any], EdgyChoiceField, FieldExportConverter[Enum 
                 {member.name: member.name for member in choices},
             ),
         )
+
+        label = kwargs.get("label")
+        if label is not None and "title" not in kwargs:
+            kwargs["title"] = label.message if isinstance(label, TranslatableString) else str(label)
 
         obj = super().__new__(cls, choices=mirror_enum, **kwargs)
         cast("ChoiceField", obj)._choice_labels = {member.name: member.value for member in choices}

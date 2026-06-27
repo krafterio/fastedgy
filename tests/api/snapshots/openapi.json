@@ -1984,7 +1984,8 @@
           },
           "state": {
             "$ref": "#/components/schemas/QueuedTaskState",
-            "default": "enqueued"
+            "default": "enqueued",
+            "title": "State"
           },
           "updated_at": {
             "format": "date-time",
@@ -2324,7 +2325,8 @@
           },
           "state": {
             "$ref": "#/components/schemas/QueuedTaskState",
-            "default": "enqueued"
+            "default": "enqueued",
+            "title": "State"
           }
         },
         "title": "QueuedTaskCreate",
@@ -2391,7 +2393,8 @@
             "type": "string"
           },
           "log_type": {
-            "$ref": "#/components/schemas/QueuedTaskLogType"
+            "$ref": "#/components/schemas/QueuedTaskLogType",
+            "title": "Log type"
           },
           "logged_at": {
             "format": "date-time",
@@ -2449,7 +2452,8 @@
             "title": "Info"
           },
           "log_type": {
-            "$ref": "#/components/schemas/QueuedTaskLogType"
+            "$ref": "#/components/schemas/QueuedTaskLogType",
+            "title": "Log type"
           },
           "message": {
             "anyOf": [
@@ -2597,7 +2601,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "title": "Log type"
           },
           "message": {
             "anyOf": [
@@ -3056,7 +3061,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "title": "State"
           }
         },
         "title": "QueuedTaskUpdate",
@@ -4401,7 +4407,8 @@
             "type": "string"
           },
           "field_type": {
-            "$ref": "#/components/schemas/WorkspaceExtraFieldType"
+            "$ref": "#/components/schemas/WorkspaceExtraFieldType",
+            "title": "Type"
           },
           "id": {
             "title": "Id",
@@ -4441,7 +4448,8 @@
       "WorkspaceExtraFieldCreate": {
         "properties": {
           "field_type": {
-            "$ref": "#/components/schemas/WorkspaceExtraFieldType"
+            "$ref": "#/components/schemas/WorkspaceExtraFieldType",
+            "title": "Type"
           },
           "label": {
             "maxLength": 255,
@@ -4535,7 +4543,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "title": "Type"
           },
           "label": {
             "anyOf": [

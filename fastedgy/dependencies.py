@@ -197,15 +197,24 @@ def _resolve_dependencies(service_class: Type[T]) -> Dict[str, Any]:
                         param_type = token_key
                         break
 
+        has_default = param.default is not inspect.Parameter.empty
+
         if param_type == inspect.Parameter.empty or isinstance(param_type, str):
-            if param.default != inspect.Parameter.empty:
+            if has_default:
                 kwargs[param_name] = param.default
+            continue
+
+        # A parameter with a default is configuration, not a dependency: inject it
+        # only when its type is an explicitly registered service, otherwise keep the
+        # default (resolving e.g. a builtin would auto-instantiate a zero-value).
+        if has_default and not _has_service(_normalize_key(param_type)):
+            kwargs[param_name] = param.default
             continue
 
         try:
             kwargs[param_name] = get_service(param_type)
         except LookupError:
-            if param.default != inspect.Parameter.empty:
+            if has_default:
                 kwargs[param_name] = param.default
 
     return kwargs

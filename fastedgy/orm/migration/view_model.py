@@ -229,12 +229,13 @@ def normalize_sql(sql: str, clean_null_cast: bool = False) -> str:
     formatted = re.sub(r"\s*\)", ")", formatted)
     # Strip redundant single-expression parens (e.g. `where (a <> b)` -> `where a <> b`,
     # `(col)::text` -> `col`). Iterate to peel nested layers. Skip parens preceded by
-    # an identifier (function calls, type modifiers).
+    # an identifier (function calls, type modifiers) or by `distinct on` (where the
+    # parens are required syntax, not redundant — stripping them yields invalid SQL).
     prev = None
     while prev != formatted:
         prev = formatted
         formatted = re.sub(
-            r"(?<![a-zA-Z0-9_])\(\s*([^()\s](?:[^()]*?[^()\s])?)\s*\)",
+            r"(?<![a-zA-Z0-9_])(?<!distinct on )\(\s*([^()\s](?:[^()]*?[^()\s])?)\s*\)",
             r"\1",
             formatted,
         )

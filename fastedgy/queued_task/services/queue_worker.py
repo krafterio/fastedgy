@@ -279,13 +279,20 @@ class QueueWorker:
             }
 
         except asyncio.CancelledError:
-            # Graceful shutdown: mark task as stopped
+            # Graceful shutdown (the manager cancels in-flight coroutines on
+            # stop): mark task 'stopped' AND resume_requested=TRUE — a process
+            # shutdown is a deploy/restart, the task must resume on the next
+            # boot (the reaper re-enqueues it once this owner is gone). A
+            # deliberate per-task stop never reaches here; it flips the row to
+            # 'stopped' from outside, so the state guard below makes this a
+            # no-op and leaves resume_requested FALSE.
             async def _op_mark_stopped():
                 from sqlalchemy import text
 
                 database = self._get_manager_database()
                 sql = text(
                     "UPDATE queued_tasks SET state = 'stopped'::queuedtaskstate, "
+                    "resume_requested = TRUE, "
                     "date_stopped = NOW(), date_ended = NOW(), "
                     "execution_time = EXTRACT(EPOCH FROM (NOW() - COALESCE(date_started, NOW()))), "
                     "updated_at = NOW() "

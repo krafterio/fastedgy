@@ -1972,6 +1972,11 @@
             "title": "Priority",
             "type": "integer"
           },
+          "resume_requested": {
+            "default": false,
+            "title": "Resume Requested",
+            "type": "boolean"
+          },
           "retry_count": {
             "default": 0,
             "title": "Retry Count",
@@ -2305,6 +2310,11 @@
             "default": 0,
             "title": "Priority",
             "type": "integer"
+          },
+          "resume_requested": {
+            "default": false,
+            "title": "Resume Requested",
+            "type": "boolean"
           },
           "retry_count": {
             "default": 0,
@@ -3029,6 +3039,17 @@
               }
             ],
             "title": "Priority"
+          },
+          "resume_requested": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resume Requested"
           },
           "retry_count": {
             "anyOf": [

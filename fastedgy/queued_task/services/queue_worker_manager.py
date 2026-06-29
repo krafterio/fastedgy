@@ -64,6 +64,10 @@ class QueueWorkerManager:
         self.server_name = server_name or socket.gethostname()
         self.worker_pool = WorkerPool(self.max_workers)
         self.is_running = False
+        # Seconds given to in-flight task coroutines to unwind after cancel
+        # on a graceful stop, before the SQL safety-net force-marks them. Kept
+        # well under the container stop_grace_period (45s in the prod compose).
+        self._shutdown_cancel_grace = 10.0
         self.manager_tasks: List[asyncio.Task] = []
         self.worker_status_record: Optional["QueuedTaskWorker"] = None
         self.cron_scheduler: Optional[CronScheduler] = None
@@ -81,6 +85,14 @@ class QueueWorkerManager:
         # connection (the original GC "non-checked-in connection" leak). Each
         # task removes itself via add_done_callback when it finishes.
         self._notify_tasks: set[asyncio.Task] = set()
+        # Strong refs to the in-flight task EXECUTION coroutines (run_task).
+        # These are the only handle on running tasks: without it stop_workers
+        # had no way to actually cancel them, so a graceful shutdown forced the
+        # DB row to 'stopped' while the Python body kept running to the end
+        # (async) or burned stop_grace_period in shutdown_default_executor
+        # (sync). Cancelling these on stop makes the graceful path honest —
+        # run_task's CancelledError handler marks the row 'stopped' itself.
+        self._execution_tasks: set[asyncio.Task] = set()
 
         # Statistics
         self.stats = {
@@ -236,7 +248,32 @@ class QueueWorkerManager:
             self.cron_scheduler.stop()
             self.cron_scheduler = None
 
-        # Mark in-progress tasks as stopped before pool shutdown
+        # Actually cancel the in-flight execution coroutines. This is what
+        # makes the graceful path honest: run_task's CancelledError handler
+        # marks each row 'stopped' (resume_requested=TRUE, set below) and the
+        # async bodies stop at their next await instead of running to the end.
+        # Bounded so a coroutine that swallows cancellation can never hold the
+        # whole stop past stop_grace_period; whatever is left is force-marked
+        # by the SQL net below and recovered by the reaper if even that is lost.
+        # (Sync tasks in run_in_executor cannot be killed by asyncio — their
+        # thread keeps running; the drain-before-deploy in deploy.sh is what
+        # bounds that case.)
+        running = [t for t in self._execution_tasks if not t.done()]
+        if running:
+            logger.info(f"Cancelling {len(running)} in-flight task(s) for graceful shutdown")
+            for t in running:
+                t.cancel()
+            try:
+                await asyncio.wait(running, timeout=self._shutdown_cancel_grace)
+            except Exception:
+                pass
+
+        # Mark any still-'doing' rows as stopped before pool shutdown (safety
+        # net for tasks whose own CancelledError handler did not get to write —
+        # cancellation grace exceeded, sync zombie, write failure). The
+        # resume_requested flag distinguishes a process shutdown (deploy /
+        # restart → resume on the next boot) from a deliberate per-task stop
+        # (QueuedTaskRef.stop → stays terminal), see _reap_stale_tasks.
         for worker in self.worker_pool.get_busy_workers():
             if worker.current_task:
                 try:
@@ -244,6 +281,7 @@ class QueueWorkerManager:
 
                     sql = text(
                         "UPDATE queued_tasks SET state = 'stopped'::queuedtaskstate, "
+                        "resume_requested = TRUE, "
                         "date_stopped = NOW(), date_ended = NOW(), "
                         "execution_time = EXTRACT(EPOCH FROM (NOW() - COALESCE(date_started, NOW()))), "
                         "updated_at = NOW() "
@@ -512,7 +550,9 @@ class QueueWorkerManager:
                     logger.debug(
                         f"Assigning claimed task {task.id} to worker {worker.worker_id} (parent: {task.parent_task.id if task.parent_task else 'None'})"
                     )
-                    asyncio.create_task(self._execute_task_with_worker(worker, task))
+                    exec_task = asyncio.create_task(self._execute_task_with_worker(worker, task))
+                    self._execution_tasks.add(exec_task)
+                    exec_task.add_done_callback(self._execution_tasks.discard)
                     started = True
                 finally:
                     if not started:
@@ -788,6 +828,10 @@ class QueueWorkerManager:
         where several containers overlap and a hard-killed sibling still
         "looks alive" through its lingering heartbeat for ~2 minutes.
 
+        (1b) 'stopped' rows tagged resume_requested (interrupted by a process
+        shutdown — deploy/restart, NOT a per-task manual stop) are re-enqueued
+        once their owner is gone, with the same dead-owner lease check as (1).
+
         (2) Remaining 'doing' rows older than 2x task_timeout are zombies
         (the worker enforces task_timeout on every execution, so no
         legitimate run can last that long): the owner is alive but the
@@ -828,6 +872,42 @@ class QueueWorkerManager:
         if rows:
             ids = [row[0] for row in rows]
             logger.warning(f"Recovered {len(ids)} 'doing' task(s) whose owner is dead, re-enqueued: {ids}")
+
+        # (1b) Deploy/restart stops → resumed once their owner is gone.
+        # stop_workers / run_task tag a process-shutdown stop with
+        # resume_requested=TRUE (a per-task manual stop leaves it FALSE and
+        # stays terminal). Same dead-owner lease check as (1): the stopping
+        # server deletes its worker row on graceful shutdown, so the next
+        # container's reaper re-enqueues these within one cycle. Guarded so a
+        # task stopped by a still-draining sibling is not resumed under it
+        # (no double-run). retry_count reset: an interrupted deploy is not a
+        # failure. The UPDATE to 'enqueued' fires the NOTIFY trigger → picked
+        # up immediately.
+        resume_sql = text(
+            "UPDATE queued_tasks t "
+            "SET state = 'enqueued'::queuedtaskstate, "
+            "    resume_requested = FALSE, retry_count = 0, "
+            "    claimed_by = NULL, "
+            "    date_started = NULL, date_stopped = NULL, date_ended = NULL, "
+            "    execution_time = 0, "
+            "    date_enqueued = NOW(), updated_at = NOW() "
+            "WHERE t.state = 'stopped'::queuedtaskstate "
+            "  AND t.resume_requested IS TRUE "
+            "  AND ("
+            "    t.claimed_by IS NULL "
+            "    OR NOT EXISTS ("
+            "      SELECT 1 FROM queued_task_workers w "
+            "      WHERE w.server_name = t.claimed_by "
+            "        AND w.is_running IS TRUE "
+            "        AND w.last_heartbeat >= NOW() - interval '2 minutes'"
+            "    )"
+            "  ) "
+            "RETURNING t.id"
+        )
+        rows = await self.database.fetch_all(resume_sql)
+        if rows:
+            ids = [row[0] for row in rows]
+            logger.warning(f"Resumed {len(ids)} task(s) stopped by a deploy/restart, re-enqueued: {ids}")
 
         # (2) Timeout-stale 'doing' rows → reaped. Being reaped means infra
         # trouble (the worker couldn't even record the failure — e.g. its

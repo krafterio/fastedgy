@@ -117,6 +117,14 @@ class QueuedTaskMixin(BaseModel):
 
     max_retries: int | None = fields.IntegerField(null=True, label=_ts("Maximum automatic retries"))
 
+    # Distinguishes WHY a task is in 'stopped'. Set TRUE only by the process
+    # shutdown path (SIGTERM → stop_workers / run_task CancelledError): a
+    # deploy or restart interrupted it and it must resume on the next boot. A
+    # deliberate per-task stop (QueuedTaskRef.stop) leaves it FALSE → 'stopped'
+    # stays a terminal voluntary state, restarted manually only. The reaper
+    # re-enqueues stopped+resume_requested rows once their owner is dead.
+    resume_requested: bool = fields.BooleanField(default=False, label=_ts("Resume requested after shutdown"))
+
     date_done: datetime | None = fields.DateTimeField(null=True, label=_ts("Success date"))
 
     date_cancelled: datetime | None = fields.DateTimeField(null=True, label=_ts("Cancellation date"))
@@ -236,6 +244,7 @@ class QueuedTaskMixin(BaseModel):
         self.exception_message = None
         self.exception_info = None
         self.retry_count = 0
+        self.resume_requested = False
 
     @property
     def is_finished(self) -> bool:

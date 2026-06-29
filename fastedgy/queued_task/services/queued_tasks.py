@@ -511,6 +511,9 @@ class QueuedTasks:
             task.exception_info = None
             # Manual retry grants a fresh auto-retry budget
             task.retry_count = 0
+            # Cleared so a manually-retried deploy-stop is not re-enqueued a
+            # second time by the reaper's resume path
+            task.resume_requested = False
 
             # Isolated transaction with serialization-conflict retry
             from fastedgy.orm import with_transaction

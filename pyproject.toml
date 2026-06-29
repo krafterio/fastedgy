@@ -73,8 +73,10 @@ fe = "fastedgy.cli:main"
 kt = "fastedgy.cli:main"
 
 [build-system]
-requires = ["setuptools>=42", "wheel"]
+requires = ["setuptools>=42", "wheel", "setuptools-scm>=8"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
 
 [tool.setuptools]
 include-package-data = true

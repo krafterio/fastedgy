@@ -24,6 +24,119 @@ from edgy.core.db.models.metaclasses import BaseModelMeta
 from sqlalchemy import MetaData, Selectable, Table
 
 
+def _optimize_edgy_field_extraction() -> None:
+    """Make Edgy's field/manager extraction visit each class only once.
+
+    Upstream ``extract_fields_and_managers`` recurses ``base.__mro__[1:]`` for
+    every base and, for meta-less classes, calls ``inspect.getmembers(base)``
+    (which itself walks the whole MRO). With several mixins sharing ancestors
+    the same classes get rescanned O(MRO²) times — tens of thousands of
+    ``getmembers`` calls across a real model set, about half of model-import
+    (and therefore CLI/app startup) time.
+
+    This drop-in replacement threads a ``seen`` set through the recursion so
+    each class is processed once. It does not change *what* is extracted:
+    under the upstream "first occurrence wins" rule the skipped revisits were
+    already no-ops, so the resulting attrs (and their order) are identical.
+    """
+    import inspect
+    from edgy.core.db.models import metaclasses as _mc
+
+    if getattr(_mc.extract_fields_and_managers, "_fastedgy_optimized", False):
+        return
+
+    base_field_type = getattr(_mc, "BaseFieldType")
+    base_manager = getattr(_mc, "BaseManager")
+    base_model_meta = _mc.BaseModelMeta
+    occluded = _mc._occluded_sentinel
+
+    def _extract(base: type, attrs: dict, seen: set) -> None:
+        if base in seen:
+            return
+        seen.add(base)
+
+        from edgy.core.db.fields.composite_field import CompositeField
+
+        meta = getattr(base, "meta", None)
+        if not meta:
+            for key, value in inspect.getmembers(base):
+                if key not in attrs:
+                    if isinstance(value, base_field_type):
+                        attrs[key] = value
+                    elif isinstance(value, base_manager):
+                        attrs[key] = value.__class__()
+                    elif isinstance(value, base_model_meta):
+                        attrs[key] = CompositeField(
+                            inner_fields=value,
+                            prefix_embedded=f"{key}_",
+                            inherit=value.meta.inherit,
+                            name=key,
+                            owner=value,
+                        )
+                elif attrs[key] is occluded:
+                    if isinstance(value, base_field_type) and value.inherit:
+                        attrs[key] = value
+                    elif isinstance(value, base_manager) and value.inherit:
+                        attrs[key] = value.__class__()
+                    elif isinstance(value, base_model_meta) and value.meta.inherit:
+                        attrs[key] = CompositeField(
+                            inner_fields=value,
+                            prefix_embedded=f"{key}_",
+                            inherit=value.meta.inherit,
+                            name=key,
+                            owner=value,
+                        )
+        else:
+            for key, value in meta.fields.items():
+                if key not in attrs:
+                    if meta.abstract or value.inherit:
+                        attrs[key] = value
+                        assert value.owner is not None
+                    else:
+                        attrs[key] = occluded
+                elif attrs[key] is occluded and value.inherit:
+                    attrs[key] = value
+                    assert value.owner is not None
+            for key, value in meta.managers.items():
+                if key not in attrs:
+                    if meta.abstract or value.inherit:
+                        attrs[key] = value
+                    else:
+                        attrs[key] = occluded
+                elif attrs[key] is occluded and value.inherit:
+                    attrs[key] = value
+
+        for parent in base.__mro__[1:]:
+            _extract(parent, attrs, seen)
+
+    def extract_fields_and_managers(bases, attrs=None):
+        from edgy.core.db.fields.composite_field import CompositeField
+
+        attrs = {} if attrs is None else {**attrs}
+        for key in list(attrs.keys()):
+            value = attrs[key]
+            if isinstance(value, base_model_meta):
+                attrs[key] = CompositeField(
+                    inner_fields=value,
+                    prefix_embedded=f"{key}_",
+                    inherit=value.meta.inherit,
+                    owner=value,
+                )
+        seen: set[type] = set()
+        for base in bases:
+            _extract(base, attrs, seen)
+        for key in list(attrs.keys()):
+            if attrs[key] is occluded:
+                attrs.pop(key)
+        return attrs
+
+    extract_fields_and_managers._fastedgy_optimized = True  # type: ignore[attr-defined]
+    _mc.extract_fields_and_managers = extract_fields_and_managers
+
+
+_optimize_edgy_field_extraction()
+
+
 class ModelMeta(BaseModelMeta):
     if TYPE_CHECKING:
 

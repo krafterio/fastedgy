@@ -5,7 +5,7 @@ from typing import Callable, TypeVar
 
 from fastedgy.models.base import BaseModel, BaseView
 from fastedgy.dependencies import get_service
-from fastedgy.metadata_model import MetadataModelRegistry
+from fastedgy.metadata_model.registry import MetadataModelRegistry
 
 
 M = TypeVar("M", bound=type[BaseModel | BaseView])

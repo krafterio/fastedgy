@@ -1047,8 +1047,8 @@
         "description": "Shared multipart body for every import endpoint.\n\nDeclared once so the OpenAPI schema references a single ``ImportItemsBody``\ninstead of generating an identical ``Body_import_items_*`` per model route.",
         "properties": {
           "file": {
+            "contentMediaType": "application/octet-stream",
             "description": "File to import (CSV, XLSX, ODS)",
-            "format": "binary",
             "title": "File",
             "type": "string"
           }
@@ -1983,7 +1983,7 @@
             "type": "integer"
           },
           "serialized_function": {
-            "format": "binary",
+            "contentMediaType": "application/octet-stream",
             "title": "Serialized Function",
             "type": "string"
           },
@@ -2324,7 +2324,7 @@
           "serialized_function": {
             "anyOf": [
               {
-                "format": "binary",
+                "contentMediaType": "application/octet-stream",
                 "type": "string"
               },
               {
@@ -3065,7 +3065,7 @@
           "serialized_function": {
             "anyOf": [
               {
-                "format": "binary",
+                "contentMediaType": "application/octet-stream",
                 "type": "string"
               },
               {
@@ -4243,6 +4243,13 @@
       },
       "ValidationError": {
         "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
           "loc": {
             "items": {
               "anyOf": [

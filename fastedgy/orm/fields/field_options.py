@@ -9,11 +9,40 @@ from edgy.core.db.fields.factories import (
     FieldFactoryMeta,
     ForeignKeyFieldFactory,
 )
+from pydantic_core import PydanticUndefined
 
 from ...i18n import TranslatableString
 
 
 _FACTORY_ROOTS = frozenset({FieldFactory, ForeignKeyFieldFactory})
+
+
+def _resolve_default_conflict(field: Any) -> None:
+    """Ensure a built field never carries both ``default`` and ``default_factory``.
+
+    Pydantic forbids a ``FieldInfo`` holding both, and FastAPI (>= 0.123.7)
+    enforces it: it rebuilds every model field as
+    ``Field(**asdict(field_info)["attributes"])`` while flattening models for the
+    OpenAPI schema, raising ``TypeError: cannot specify both default and
+    default_factory`` otherwise. Two FastEdgy patterns produce the conflict:
+
+    - ``auto_now`` / ``auto_now_add`` datetime/date fields: Edgy injects an
+      authoritative, timezone-aware ``default = partial(now)``; a redundant
+      explicit ``default_factory`` is dropped.
+    - any other field declared with an explicit ``default_factory``: Edgy stores
+      a spurious literal ``default`` (``None``) alongside it, so the literal
+      default is cleared and the factory stands alone.
+    """
+    default = getattr(field, "default", PydanticUndefined)
+    factory = getattr(field, "default_factory", None)
+
+    if default is PydanticUndefined or factory is None:
+        return
+
+    if getattr(field, "auto_now", False) or getattr(field, "auto_now_add", False):
+        field.default_factory = None
+    else:
+        field.default = PydanticUndefined
 
 
 class FieldOptions[T = Any]:
@@ -85,7 +114,10 @@ class FieldOptions[T = Any]:
         if sortable is not None:
             kwargs["sortable"] = sortable
 
-        return super().__new__(cls, *args, **kwargs)
+        field = super().__new__(cls, *args, **kwargs)
+        _resolve_default_conflict(field)
+
+        return field
 
 
 __all__ = [

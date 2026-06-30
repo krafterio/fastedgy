@@ -358,6 +358,11 @@ def generate_input_patch_model[M: BaseModel | BaseView](model_cls: type[M]) -> t
             setattr(py_field, "required", False)
             py_field.null = True
             py_field.default = None
+            # A PATCH body is fully optional (applied with exclude_unset), so a
+            # field's default_factory is irrelevant here; clearing it also avoids
+            # the default + default_factory pair that pydantic forbids and FastAPI
+            # rejects when building the OpenAPI schema.
+            setattr(py_field, "default_factory", None)
             py_field.field_type = optional_field_type(field.field_type)
             fields[field_name] = (py_field.field_type, py_field)
 

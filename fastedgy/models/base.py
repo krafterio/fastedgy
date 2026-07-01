@@ -205,39 +205,68 @@ def _is_exposed_relation_field(field: Any) -> bool:
     return not related_name.endswith("_set")
 
 
-def _with_partial_object(prop: dict[str, Any]) -> dict[str, Any]:
-    """Add a bare-object variant to a foreign-key property.
+def _related_model_name(field: Any) -> str | None:
+    """The ``__name__`` of the model on the other side of a relation (FK / O2M / M2M).
 
-    An X-Fields selection can return a foreign key as a partial ``{...}`` (only
-    the selected columns) instead of the full related model, so the response
-    schema documents ``related model | object`` (plus ``null`` when nullable)."""
-    variants = prop.get("anyOf")
-    if variants is not None:
-        if variants and variants[-1] == {"type": "null"}:
-            merged = [*variants[:-1], _PARTIAL_OBJECT, {"type": "null"}]
-        else:
-            merged = [*variants, _PARTIAL_OBJECT]
-        return {**prop, "anyOf": merged}
+    A reverse M2M's ``related_from`` is the auto-generated junction model, not the
+    target, so it is resolved through the junction's other foreign key."""
+    from edgy.core.db.relationships.related_field import RelatedField
 
-    keep = {k: v for k, v in prop.items() if k not in ("$ref", "allOf")}
-    ref = prop.get("$ref")
-    inner = {"$ref": ref} if ref is not None else {k: v for k, v in prop.items() if k in ("allOf",)} or prop
-    return {**keep, "anyOf": [inner, _PARTIAL_OBJECT]}
+    if not isinstance(field, RelatedField):
+        target = getattr(field, "target", None)
+        return getattr(target, "__name__", None)
+
+    related_from = field.related_from
+    multi_related = getattr(getattr(related_from, "meta", None), "multi_related", None)
+
+    if multi_related:
+        fk_name = getattr(field, "foreign_key_name", None)
+        target_fk = next((name for name in next(iter(multi_related)) if name != fk_name), None)
+        fields = getattr(related_from, "model_fields", {})
+        target = getattr(fields.get(target_fk), "target", None) if target_fk else None
+        return getattr(target, "__name__", None)
+
+    return getattr(related_from, "__name__", None)
 
 
-def _relation_json_schema(title: str) -> dict[str, Any]:
-    """The response schema of an exposed O2M/M2M relation: a list of records,
-    each returned as a partial ``{...}`` shaped by the X-Fields selection."""
+def _target_ref(field: Any) -> dict[str, Any]:
+    """A ``$ref`` to the related model's schema, or a bare object when it is unknown."""
+    name = _related_model_name(field)
+    return {"$ref": f"#/components/schemas/{name}"} if name else dict(_PARTIAL_OBJECT)
+
+
+def _foreign_key_json_schema(prop: dict[str, Any], target_ref: dict[str, Any], nullable: bool) -> dict[str, Any]:
+    """A foreign key renders as ``related model | object`` — the full related model
+    or a partial ``{...}`` from an X-Fields selection — plus ``null`` when nullable.
+    Built explicitly (not from the model's own rendering, which degrades to ``any``
+    for a cyclic relation)."""
+    variants: list[dict[str, Any]] = [target_ref, dict(_PARTIAL_OBJECT)]
+    if nullable:
+        variants.append({"type": "null"})
+
+    result: dict[str, Any] = {"anyOf": variants}
+    for key in ("title", "default"):
+        if key in prop:
+            result[key] = prop[key]
+    return result
+
+
+def _relation_json_schema(title: str, target_ref: dict[str, Any]) -> dict[str, Any]:
+    """An exposed O2M/M2M relation renders as a list of ``related model | object``
+    (each record full or a partial ``{...}`` from an X-Fields selection)."""
     return {
-        "anyOf": [{"type": "array", "items": dict(_PARTIAL_OBJECT)}, {"type": "null"}],
+        "anyOf": [
+            {"type": "array", "items": {"anyOf": [target_ref, dict(_PARTIAL_OBJECT)]}},
+            {"type": "null"},
+        ],
         "default": None,
         "title": title,
     }
 
 
 def _enrich_serialization_json_schema(model_cls: type, json_schema: dict[str, Any]) -> dict[str, Any]:
-    """Enrich a model's serialization JSON schema in place: render foreign keys
-    as ``related model | object`` and expose O2M/M2M relations as ``list[object]``.
+    """Enrich a model's serialization JSON schema in place: render foreign keys as
+    ``related model | object`` and expose O2M/M2M relations as ``list[related model | object]``.
 
     Keeps a single schema per model (the Edgy model itself, no generated output
     class), so no two same-named schemas force FastAPI to module-qualify them."""
@@ -248,9 +277,11 @@ def _enrich_serialization_json_schema(model_cls: type, json_schema: dict[str, An
     for field_name, field in model_cls.model_fields.items():
         if _is_foreign_key_field(field):
             if field_name in properties:
-                properties[field_name] = _with_partial_object(properties[field_name])
+                properties[field_name] = _foreign_key_json_schema(
+                    properties[field_name], _target_ref(field), bool(field.null)
+                )
         elif _is_exposed_relation_field(field):
-            properties[field_name] = _relation_json_schema(field_name.replace("_", " ").title())
+            properties[field_name] = _relation_json_schema(field_name.replace("_", " ").title(), _target_ref(field))
 
         # auto_now / auto_now_add fields are read-only but always present in a
         # response; Pydantic drops them from `required` because they carry a

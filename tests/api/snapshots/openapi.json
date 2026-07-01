@@ -7,8 +7,15 @@
             "anyOf": [
               {
                 "items": {
-                  "additionalProperties": true,
-                  "type": "object"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Attachment"
+                    },
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    }
+                  ]
                 },
                 "type": "array"
               },
@@ -626,8 +633,15 @@
             "anyOf": [
               {
                 "items": {
-                  "additionalProperties": true,
-                  "type": "object"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Product"
+                    },
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    }
+                  ]
                 },
                 "type": "array"
               },
@@ -1431,8 +1445,15 @@
             "anyOf": [
               {
                 "items": {
-                  "additionalProperties": true,
-                  "type": "object"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Tag"
+                    },
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    }
+                  ]
                 },
                 "type": "array"
               },
@@ -2101,8 +2122,15 @@
             "anyOf": [
               {
                 "items": {
-                  "additionalProperties": true,
-                  "type": "object"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/QueuedTaskLog"
+                    },
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    }
+                  ]
                 },
                 "type": "array"
               },
@@ -3866,8 +3894,15 @@
             "anyOf": [
               {
                 "items": {
-                  "additionalProperties": true,
-                  "type": "object"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Product"
+                    },
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    }
+                  ]
                 },
                 "type": "array"
               },
@@ -4227,8 +4262,15 @@
             "anyOf": [
               {
                 "items": {
-                  "additionalProperties": true,
-                  "type": "object"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/WorkspaceUser"
+                    },
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    }
+                  ]
                 },
                 "type": "array"
               },
@@ -4575,8 +4617,15 @@
             "anyOf": [
               {
                 "items": {
-                  "additionalProperties": true,
-                  "type": "object"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/WorkspaceUser"
+                    },
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    }
+                  ]
                 },
                 "type": "array"
               },
@@ -5031,200 +5080,26 @@
           "user": {
             "anyOf": [
               {
-                "properties": {
-                  "created_at": {
-                    "format": "date-time",
-                    "title": "Created At",
-                    "type": "string"
-                  },
-                  "email": {
-                    "format": "email",
-                    "maxLength": 255,
-                    "title": "Email",
-                    "type": "string"
-                  },
-                  "id": {
-                    "title": "Id",
-                    "type": "integer"
-                  },
-                  "name": {
-                    "anyOf": [
-                      {
-                        "maxLength": 255,
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ],
-                    "title": "Name"
-                  },
-                  "updated_at": {
-                    "format": "date-time",
-                    "title": "Updated At",
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "email"
-                ],
-                "title": "User",
-                "type": "object"
+                "$ref": "#/components/schemas/User"
               },
               {
                 "additionalProperties": true,
                 "type": "object"
               }
             ],
-            "properties": {
-              "created_at": {
-                "format": "date-time",
-                "title": "Created At",
-                "type": "string"
-              },
-              "email": {
-                "format": "email",
-                "maxLength": 255,
-                "title": "Email",
-                "type": "string"
-              },
-              "id": {
-                "title": "Id",
-                "type": "integer"
-              },
-              "name": {
-                "anyOf": [
-                  {
-                    "maxLength": 255,
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "title": "Name"
-              },
-              "updated_at": {
-                "format": "date-time",
-                "title": "Updated At",
-                "type": "string"
-              }
-            },
-            "required": [
-              "email"
-            ],
-            "title": "User",
-            "type": "object"
+            "title": "User"
           },
           "workspace": {
             "anyOf": [
               {
-                "properties": {
-                  "created_at": {
-                    "format": "date-time",
-                    "title": "Created At",
-                    "type": "string"
-                  },
-                  "id": {
-                    "title": "Id",
-                    "type": "integer"
-                  },
-                  "image_url": {
-                    "anyOf": [
-                      {
-                        "maxLength": 255,
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ],
-                    "title": "Image Url"
-                  },
-                  "name": {
-                    "anyOf": [
-                      {
-                        "maxLength": 255,
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ],
-                    "title": "Name"
-                  },
-                  "slug": {
-                    "maxLength": 32,
-                    "title": "Slug",
-                    "type": "string"
-                  },
-                  "updated_at": {
-                    "format": "date-time",
-                    "title": "Updated At",
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "slug"
-                ],
-                "title": "Workspace",
-                "type": "object"
+                "$ref": "#/components/schemas/Workspace"
               },
               {
                 "additionalProperties": true,
                 "type": "object"
               }
             ],
-            "properties": {
-              "created_at": {
-                "format": "date-time",
-                "title": "Created At",
-                "type": "string"
-              },
-              "id": {
-                "title": "Id",
-                "type": "integer"
-              },
-              "image_url": {
-                "anyOf": [
-                  {
-                    "maxLength": 255,
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "title": "Image Url"
-              },
-              "name": {
-                "anyOf": [
-                  {
-                    "maxLength": 255,
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "title": "Name"
-              },
-              "slug": {
-                "maxLength": 32,
-                "title": "Slug",
-                "type": "string"
-              },
-              "updated_at": {
-                "format": "date-time",
-                "title": "Updated At",
-                "type": "string"
-              }
-            },
-            "required": [
-              "slug"
-            ],
-            "title": "Workspace",
-            "type": "object"
+            "title": "Workspace"
           }
         },
         "required": [

@@ -14,16 +14,14 @@ from fastedgy.test.models.queued_task import QueuedTask
 from fastedgy.test.models.workspace import Workspace
 
 
-def _output_schema_props(model_cls) -> dict:
-    """The response shape a model exposes: the properties of its serialization
-    JSON schema, enriched by ``BaseModel.__get_pydantic_json_schema__``
-    (exposed relations included, ORM-internal reverse accessors hidden)."""
-    schema = model_cls.model_json_schema(mode="serialization")
+def _output_schema_props(app: FastEdgy, model_name: str) -> dict:
+    """The response shape a model exposes: the properties of its schema in the
+    generated OpenAPI, enriched by ``BaseModel.__get_pydantic_json_schema__``
+    (exposed relations included, ORM-internal reverse accessors hidden).
 
-    if "properties" in schema:
-        return schema["properties"]
-
-    return schema["$defs"][schema["$ref"].rsplit("/", 1)[-1]]["properties"]
+    Read from the app document (not a standalone ``model_json_schema``) because the
+    enrichment references related models through ``#/components/schemas`` refs."""
+    return app.openapi()["components"]["schemas"][model_name]["properties"]
 
 
 def _input_models(model_cls):
@@ -33,8 +31,8 @@ def _input_models(model_cls):
 def test_auto_generated_reverse_relation_is_hidden(setup_openapi_app: FastEdgy) -> None:
     # `queuedtasks_set` is Edgy's auto-generated reverse accessor for the self
     # foreign key; it is an ORM internal and must stay out of the API schemas.
-    assert "queuedtasks_set" not in _output_schema_props(QueuedTask)
-    assert "logs" in _output_schema_props(QueuedTask)
+    assert "queuedtasks_set" not in _output_schema_props(setup_openapi_app, "QueuedTask")
+    assert "logs" in _output_schema_props(setup_openapi_app, "QueuedTask")
 
     for generated in _input_models(QueuedTask):
         assert "queuedtasks_set" not in generated.model_fields
@@ -44,8 +42,8 @@ def test_auto_generated_reverse_relation_is_hidden(setup_openapi_app: FastEdgy) 
 def test_disabled_reverse_relation_is_hidden(setup_openapi_app: FastEdgy) -> None:
     # The workspace foreign key declares `related_name="+"` (no reverse relation),
     # so the `+` placeholder must never surface as an API field.
-    assert "+" not in _output_schema_props(Workspace)
-    assert "workspace_users" in _output_schema_props(Workspace)
+    assert "+" not in _output_schema_props(setup_openapi_app, "Workspace")
+    assert "workspace_users" in _output_schema_props(setup_openapi_app, "Workspace")
 
     for generated in _input_models(Workspace):
         assert "+" not in generated.model_fields
@@ -53,8 +51,8 @@ def test_disabled_reverse_relation_is_hidden(setup_openapi_app: FastEdgy) -> Non
 
 
 def test_explicit_and_m2m_relations_are_exposed(setup_openapi_app: FastEdgy) -> None:
-    assert "tags" in _output_schema_props(Product)
-    assert "products" in _output_schema_props(Category)
+    assert "tags" in _output_schema_props(setup_openapi_app, "Product")
+    assert "products" in _output_schema_props(setup_openapi_app, "Category")
 
     for generated in _input_models(Product):
         assert "tags" in generated.model_fields

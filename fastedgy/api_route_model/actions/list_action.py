@@ -60,7 +60,7 @@ class ListApiRouteAction(BaseApiRouteAction):
                 "summary": f"List {model_cls.__name__} items",
                 "description": f"Retrieve a paginated list of {model_cls.__name__} items",
                 "response_model": create_model(
-                    model_cls.__name__ + "List",
+                    model_cls.__name__ + "-List",
                     __base__=Pagination[generate_output_model(model_cls) | dict[str, Any]],
                 ),
                 **options,

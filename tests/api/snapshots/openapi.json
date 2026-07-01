@@ -101,7 +101,7 @@
         "title": "Attachment",
         "type": "object"
       },
-      "AttachmentCreate": {
+      "Attachment-Create": {
         "properties": {
           "children": {
             "anyOf": [
@@ -287,10 +287,10 @@
         "required": [
           "name"
         ],
-        "title": "AttachmentCreate",
+        "title": "Attachment-Create",
         "type": "object"
       },
-      "AttachmentList": {
+      "Attachment-List": {
         "properties": {
           "items": {
             "items": {
@@ -332,18 +332,10 @@
           "offset",
           "total_pages"
         ],
-        "title": "AttachmentList",
+        "title": "Attachment-List",
         "type": "object"
       },
-      "AttachmentType": {
-        "enum": [
-          "file",
-          "folder"
-        ],
-        "title": "AttachmentType",
-        "type": "string"
-      },
-      "AttachmentUpdate": {
+      "Attachment-Update": {
         "properties": {
           "children": {
             "anyOf": [
@@ -551,8 +543,16 @@
             "title": "Width"
           }
         },
-        "title": "AttachmentUpdate",
+        "title": "Attachment-Update",
         "type": "object"
+      },
+      "AttachmentType": {
+        "enum": [
+          "file",
+          "folder"
+        ],
+        "title": "AttachmentType",
+        "type": "string"
       },
       "Category": {
         "properties": {
@@ -603,7 +603,7 @@
         "title": "Category",
         "type": "object"
       },
-      "CategoryCreate": {
+      "Category-Create": {
         "properties": {
           "description": {
             "anyOf": [
@@ -678,10 +678,10 @@
         "required": [
           "name"
         ],
-        "title": "CategoryCreate",
+        "title": "Category-Create",
         "type": "object"
       },
-      "CategoryList": {
+      "Category-List": {
         "properties": {
           "items": {
             "items": {
@@ -723,10 +723,10 @@
           "offset",
           "total_pages"
         ],
-        "title": "CategoryList",
+        "title": "Category-List",
         "type": "object"
       },
-      "CategoryUpdate": {
+      "Category-Update": {
         "properties": {
           "description": {
             "anyOf": [
@@ -805,7 +805,7 @@
             "title": "Products"
           }
         },
-        "title": "CategoryUpdate",
+        "title": "Category-Update",
         "type": "object"
       },
       "ChangePasswordRequest": {
@@ -1367,7 +1367,7 @@
         "title": "Product",
         "type": "object"
       },
-      "ProductCreate": {
+      "Product-Create": {
         "properties": {
           "category": {
             "anyOf": [
@@ -1562,10 +1562,10 @@
           "name",
           "price"
         ],
-        "title": "ProductCreate",
+        "title": "Product-Create",
         "type": "object"
       },
-      "ProductList": {
+      "Product-List": {
         "properties": {
           "items": {
             "items": {
@@ -1607,10 +1607,10 @@
           "offset",
           "total_pages"
         ],
-        "title": "ProductList",
+        "title": "Product-List",
         "type": "object"
       },
-      "ProductUpdate": {
+      "Product-Update": {
         "properties": {
           "category": {
             "anyOf": [
@@ -1823,7 +1823,7 @@
             "title": "Tags"
           }
         },
-        "title": "ProductUpdate",
+        "title": "Product-Update",
         "type": "object"
       },
       "QueuedTask": {
@@ -2005,7 +2005,7 @@
         "title": "QueuedTask",
         "type": "object"
       },
-      "QueuedTaskCreate": {
+      "QueuedTask-Create": {
         "properties": {
           "args": {
             "default": [],
@@ -2339,10 +2339,10 @@
             "title": "State"
           }
         },
-        "title": "QueuedTaskCreate",
+        "title": "QueuedTask-Create",
         "type": "object"
       },
-      "QueuedTaskList": {
+      "QueuedTask-List": {
         "properties": {
           "items": {
             "items": {
@@ -2384,318 +2384,10 @@
           "offset",
           "total_pages"
         ],
-        "title": "QueuedTaskList",
+        "title": "QueuedTask-List",
         "type": "object"
       },
-      "QueuedTaskLog": {
-        "properties": {
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "id": {
-            "title": "Id",
-            "type": "integer"
-          },
-          "info": {
-            "title": "Info",
-            "type": "string"
-          },
-          "log_type": {
-            "$ref": "#/components/schemas/QueuedTaskLogType",
-            "title": "Log type"
-          },
-          "logged_at": {
-            "format": "date-time",
-            "title": "Logged At",
-            "type": "string"
-          },
-          "message": {
-            "title": "Message",
-            "type": "string"
-          },
-          "name": {
-            "maxLength": 255,
-            "title": "Name",
-            "type": "string"
-          },
-          "task": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/QueuedTask"
-              },
-              {
-                "additionalProperties": true,
-                "type": "object"
-              }
-            ],
-            "title": "Task"
-          },
-          "updated_at": {
-            "format": "date-time",
-            "title": "Updated At",
-            "type": "string"
-          }
-        },
-        "required": [
-          "task",
-          "log_type",
-          "logged_at",
-          "created_at",
-          "updated_at"
-        ],
-        "title": "QueuedTaskLog",
-        "type": "object"
-      },
-      "QueuedTaskLogCreate": {
-        "properties": {
-          "info": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Info"
-          },
-          "log_type": {
-            "$ref": "#/components/schemas/QueuedTaskLogType",
-            "title": "Log type"
-          },
-          "message": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Message"
-          },
-          "name": {
-            "anyOf": [
-              {
-                "maxLength": 255,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          },
-          "task": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "$ref": "#/components/schemas/ForeignKeyObject"
-              },
-              {
-                "$ref": "#/components/schemas/ForeignKeyOperation"
-              }
-            ],
-            "description": "Foreign key for task.\n\n**Link by id:** `5`\n\n**Link by object:** `{\"id\": 5}`\n\n**Link and update:** `{\"id\": 5, \"name\": \"New\"}`\n\n**Unlink:** `null`\n\n**Advanced mode:** a single operation `[\"action\", value]`\n\nAvailable actions:\n- `create` - Create a new record and link (value=object)\n- `update` - Update the record and link (value={id:X,...})\n- `link` - Link an existing record (value=id)\n- `unlink` - Remove the link (no value)\n- `delete` - Delete the record and remove the link (value=id)",
-            "examples": [
-              5,
-              {
-                "id": 5
-              },
-              {
-                "id": 5,
-                "name": "New"
-              },
-              [
-                "link",
-                5
-              ],
-              [
-                "create",
-                {
-                  "name": "New"
-                }
-              ],
-              [
-                "unlink"
-              ]
-            ],
-            "title": "Task"
-          }
-        },
-        "required": [
-          "task",
-          "log_type"
-        ],
-        "title": "QueuedTaskLogCreate",
-        "type": "object"
-      },
-      "QueuedTaskLogList": {
-        "properties": {
-          "items": {
-            "items": {
-              "anyOf": [
-                {
-                  "$ref": "#/components/schemas/QueuedTaskLog"
-                },
-                {
-                  "additionalProperties": true,
-                  "type": "object"
-                }
-              ]
-            },
-            "title": "Items",
-            "type": "array"
-          },
-          "limit": {
-            "title": "Limit",
-            "type": "integer"
-          },
-          "offset": {
-            "title": "Offset",
-            "type": "integer"
-          },
-          "total": {
-            "title": "Total",
-            "type": "integer"
-          },
-          "total_pages": {
-            "readOnly": true,
-            "title": "Total Pages",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "items",
-          "total",
-          "limit",
-          "offset",
-          "total_pages"
-        ],
-        "title": "QueuedTaskLogList",
-        "type": "object"
-      },
-      "QueuedTaskLogType": {
-        "enum": [
-          "critical",
-          "error",
-          "warning",
-          "info",
-          "debug"
-        ],
-        "title": "QueuedTaskLogType",
-        "type": "string"
-      },
-      "QueuedTaskLogUpdate": {
-        "properties": {
-          "info": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Info"
-          },
-          "log_type": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/QueuedTaskLogType"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Log type"
-          },
-          "message": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Message"
-          },
-          "name": {
-            "anyOf": [
-              {
-                "maxLength": 255,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          },
-          "task": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "$ref": "#/components/schemas/ForeignKeyObject"
-              },
-              {
-                "$ref": "#/components/schemas/ForeignKeyOperation"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Foreign key for task.\n\n**Link by id:** `5`\n\n**Link by object:** `{\"id\": 5}`\n\n**Link and update:** `{\"id\": 5, \"name\": \"New\"}`\n\n**Unlink:** `null`\n\n**Advanced mode:** a single operation `[\"action\", value]`\n\nAvailable actions:\n- `create` - Create a new record and link (value=object)\n- `update` - Update the record and link (value={id:X,...})\n- `link` - Link an existing record (value=id)\n- `unlink` - Remove the link (no value)\n- `delete` - Delete the record and remove the link (value=id)",
-            "examples": [
-              5,
-              {
-                "id": 5
-              },
-              {
-                "id": 5,
-                "name": "New"
-              },
-              [
-                "link",
-                5
-              ],
-              [
-                "create",
-                {
-                  "name": "New"
-                }
-              ],
-              [
-                "unlink"
-              ]
-            ],
-            "title": "Task"
-          }
-        },
-        "title": "QueuedTaskLogUpdate",
-        "type": "object"
-      },
-      "QueuedTaskState": {
-        "enum": [
-          "enqueued",
-          "waiting",
-          "doing",
-          "stopped",
-          "done",
-          "failed",
-          "cancelled"
-        ],
-        "title": "QueuedTaskState",
-        "type": "string"
-      },
-      "QueuedTaskUpdate": {
+      "QueuedTask-Update": {
         "properties": {
           "args": {
             "anyOf": [
@@ -3086,8 +2778,316 @@
             "title": "State"
           }
         },
-        "title": "QueuedTaskUpdate",
+        "title": "QueuedTask-Update",
         "type": "object"
+      },
+      "QueuedTaskLog": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "info": {
+            "title": "Info",
+            "type": "string"
+          },
+          "log_type": {
+            "$ref": "#/components/schemas/QueuedTaskLogType",
+            "title": "Log type"
+          },
+          "logged_at": {
+            "format": "date-time",
+            "title": "Logged At",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 255,
+            "title": "Name",
+            "type": "string"
+          },
+          "task": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QueuedTask"
+              },
+              {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            ],
+            "title": "Task"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "task",
+          "log_type",
+          "logged_at",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "QueuedTaskLog",
+        "type": "object"
+      },
+      "QueuedTaskLog-Create": {
+        "properties": {
+          "info": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Info"
+          },
+          "log_type": {
+            "$ref": "#/components/schemas/QueuedTaskLogType",
+            "title": "Log type"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "task": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyObject"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyOperation"
+              }
+            ],
+            "description": "Foreign key for task.\n\n**Link by id:** `5`\n\n**Link by object:** `{\"id\": 5}`\n\n**Link and update:** `{\"id\": 5, \"name\": \"New\"}`\n\n**Unlink:** `null`\n\n**Advanced mode:** a single operation `[\"action\", value]`\n\nAvailable actions:\n- `create` - Create a new record and link (value=object)\n- `update` - Update the record and link (value={id:X,...})\n- `link` - Link an existing record (value=id)\n- `unlink` - Remove the link (no value)\n- `delete` - Delete the record and remove the link (value=id)",
+            "examples": [
+              5,
+              {
+                "id": 5
+              },
+              {
+                "id": 5,
+                "name": "New"
+              },
+              [
+                "link",
+                5
+              ],
+              [
+                "create",
+                {
+                  "name": "New"
+                }
+              ],
+              [
+                "unlink"
+              ]
+            ],
+            "title": "Task"
+          }
+        },
+        "required": [
+          "task",
+          "log_type"
+        ],
+        "title": "QueuedTaskLog-Create",
+        "type": "object"
+      },
+      "QueuedTaskLog-List": {
+        "properties": {
+          "items": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/QueuedTaskLog"
+                },
+                {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              ]
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "total_pages": {
+            "readOnly": true,
+            "title": "Total Pages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset",
+          "total_pages"
+        ],
+        "title": "QueuedTaskLog-List",
+        "type": "object"
+      },
+      "QueuedTaskLog-Update": {
+        "properties": {
+          "info": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Info"
+          },
+          "log_type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QueuedTaskLogType"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Log type"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "task": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyObject"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyOperation"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Foreign key for task.\n\n**Link by id:** `5`\n\n**Link by object:** `{\"id\": 5}`\n\n**Link and update:** `{\"id\": 5, \"name\": \"New\"}`\n\n**Unlink:** `null`\n\n**Advanced mode:** a single operation `[\"action\", value]`\n\nAvailable actions:\n- `create` - Create a new record and link (value=object)\n- `update` - Update the record and link (value={id:X,...})\n- `link` - Link an existing record (value=id)\n- `unlink` - Remove the link (no value)\n- `delete` - Delete the record and remove the link (value=id)",
+            "examples": [
+              5,
+              {
+                "id": 5
+              },
+              {
+                "id": 5,
+                "name": "New"
+              },
+              [
+                "link",
+                5
+              ],
+              [
+                "create",
+                {
+                  "name": "New"
+                }
+              ],
+              [
+                "unlink"
+              ]
+            ],
+            "title": "Task"
+          }
+        },
+        "title": "QueuedTaskLog-Update",
+        "type": "object"
+      },
+      "QueuedTaskLogType": {
+        "enum": [
+          "critical",
+          "error",
+          "warning",
+          "info",
+          "debug"
+        ],
+        "title": "QueuedTaskLogType",
+        "type": "string"
+      },
+      "QueuedTaskState": {
+        "enum": [
+          "enqueued",
+          "waiting",
+          "doing",
+          "stopped",
+          "done",
+          "failed",
+          "cancelled"
+        ],
+        "title": "QueuedTaskState",
+        "type": "string"
       },
       "QueuedTaskWorker": {
         "properties": {
@@ -3155,7 +3155,7 @@
         "title": "QueuedTaskWorker",
         "type": "object"
       },
-      "QueuedTaskWorkerCreate": {
+      "QueuedTaskWorker-Create": {
         "properties": {
           "active_workers": {
             "default": 0,
@@ -3210,10 +3210,10 @@
         "required": [
           "server_name"
         ],
-        "title": "QueuedTaskWorkerCreate",
+        "title": "QueuedTaskWorker-Create",
         "type": "object"
       },
-      "QueuedTaskWorkerList": {
+      "QueuedTaskWorker-List": {
         "properties": {
           "items": {
             "items": {
@@ -3255,10 +3255,10 @@
           "offset",
           "total_pages"
         ],
-        "title": "QueuedTaskWorkerList",
+        "title": "QueuedTaskWorker-List",
         "type": "object"
       },
-      "QueuedTaskWorkerUpdate": {
+      "QueuedTaskWorker-Update": {
         "properties": {
           "active_workers": {
             "anyOf": [
@@ -3341,7 +3341,7 @@
             "title": "Version"
           }
         },
-        "title": "QueuedTaskWorkerUpdate",
+        "title": "QueuedTaskWorker-Update",
         "type": "object"
       },
       "RelationDelimiter": {
@@ -3653,7 +3653,7 @@
         "title": "Tag",
         "type": "object"
       },
-      "TagCreate": {
+      "Tag-Create": {
         "properties": {
           "name": {
             "maxLength": 100,
@@ -3717,10 +3717,10 @@
         "required": [
           "name"
         ],
-        "title": "TagCreate",
+        "title": "Tag-Create",
         "type": "object"
       },
-      "TagList": {
+      "Tag-List": {
         "properties": {
           "items": {
             "items": {
@@ -3762,10 +3762,10 @@
           "offset",
           "total_pages"
         ],
-        "title": "TagList",
+        "title": "Tag-List",
         "type": "object"
       },
-      "TagUpdate": {
+      "Tag-Update": {
         "properties": {
           "name": {
             "anyOf": [
@@ -3833,7 +3833,7 @@
             "title": "Products"
           }
         },
-        "title": "TagUpdate",
+        "title": "Tag-Update",
         "type": "object"
       },
       "Token": {
@@ -4002,7 +4002,7 @@
         "title": "User",
         "type": "object"
       },
-      "UserCreate": {
+      "User-Create": {
         "properties": {
           "email": {
             "format": "email",
@@ -4079,10 +4079,10 @@
         "required": [
           "email"
         ],
-        "title": "UserCreate",
+        "title": "User-Create",
         "type": "object"
       },
-      "UserList": {
+      "User-List": {
         "properties": {
           "items": {
             "items": {
@@ -4124,40 +4124,10 @@
           "offset",
           "total_pages"
         ],
-        "title": "UserList",
+        "title": "User-List",
         "type": "object"
       },
-      "UserRegisterRequest": {
-        "properties": {
-          "email": {
-            "format": "email",
-            "title": "Email",
-            "type": "string"
-          },
-          "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          },
-          "password": {
-            "title": "Password",
-            "type": "string"
-          }
-        },
-        "required": [
-          "email",
-          "password"
-        ],
-        "title": "UserRegisterRequest",
-        "type": "object"
-      },
-      "UserUpdate": {
+      "User-Update": {
         "properties": {
           "email": {
             "anyOf": [
@@ -4238,7 +4208,37 @@
             "title": "Workspace Memberships"
           }
         },
-        "title": "UserUpdate",
+        "title": "User-Update",
+        "type": "object"
+      },
+      "UserRegisterRequest": {
+        "properties": {
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "password": {
+            "title": "Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "UserRegisterRequest",
         "type": "object"
       },
       "ValidationError": {
@@ -4336,7 +4336,7 @@
         "title": "Workspace",
         "type": "object"
       },
-      "WorkspaceCreate": {
+      "Workspace-Create": {
         "properties": {
           "image_url": {
             "anyOf": [
@@ -4424,196 +4424,10 @@
         "required": [
           "slug"
         ],
-        "title": "WorkspaceCreate",
+        "title": "Workspace-Create",
         "type": "object"
       },
-      "WorkspaceExtraField": {
-        "properties": {
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "field_type": {
-            "$ref": "#/components/schemas/WorkspaceExtraFieldType",
-            "title": "Type"
-          },
-          "id": {
-            "title": "Id",
-            "type": "integer"
-          },
-          "label": {
-            "maxLength": 255,
-            "title": "Label",
-            "type": "string"
-          },
-          "name": {
-            "maxLength": 40,
-            "title": "Name",
-            "type": "string"
-          },
-          "required": {
-            "default": false,
-            "title": "Required",
-            "type": "boolean"
-          },
-          "updated_at": {
-            "format": "date-time",
-            "title": "Updated At",
-            "type": "string"
-          }
-        },
-        "required": [
-          "label",
-          "name",
-          "field_type",
-          "created_at",
-          "updated_at"
-        ],
-        "title": "WorkspaceExtraField",
-        "type": "object"
-      },
-      "WorkspaceExtraFieldCreate": {
-        "properties": {
-          "field_type": {
-            "$ref": "#/components/schemas/WorkspaceExtraFieldType",
-            "title": "Type"
-          },
-          "label": {
-            "maxLength": 255,
-            "title": "Label",
-            "type": "string"
-          },
-          "name": {
-            "maxLength": 40,
-            "title": "Name",
-            "type": "string"
-          },
-          "required": {
-            "default": false,
-            "title": "Required",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "label",
-          "name",
-          "field_type"
-        ],
-        "title": "WorkspaceExtraFieldCreate",
-        "type": "object"
-      },
-      "WorkspaceExtraFieldList": {
-        "properties": {
-          "items": {
-            "items": {
-              "anyOf": [
-                {
-                  "$ref": "#/components/schemas/WorkspaceExtraField"
-                },
-                {
-                  "additionalProperties": true,
-                  "type": "object"
-                }
-              ]
-            },
-            "title": "Items",
-            "type": "array"
-          },
-          "limit": {
-            "title": "Limit",
-            "type": "integer"
-          },
-          "offset": {
-            "title": "Offset",
-            "type": "integer"
-          },
-          "total": {
-            "title": "Total",
-            "type": "integer"
-          },
-          "total_pages": {
-            "readOnly": true,
-            "title": "Total Pages",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "items",
-          "total",
-          "limit",
-          "offset",
-          "total_pages"
-        ],
-        "title": "WorkspaceExtraFieldList",
-        "type": "object"
-      },
-      "WorkspaceExtraFieldType": {
-        "enum": [
-          "boolean",
-          "char",
-          "date",
-          "datetime",
-          "float",
-          "integer",
-          "text"
-        ],
-        "title": "WorkspaceExtraFieldType",
-        "type": "string"
-      },
-      "WorkspaceExtraFieldUpdate": {
-        "properties": {
-          "field_type": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/WorkspaceExtraFieldType"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Type"
-          },
-          "label": {
-            "anyOf": [
-              {
-                "maxLength": 255,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Label"
-          },
-          "name": {
-            "anyOf": [
-              {
-                "maxLength": 40,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          },
-          "required": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Required"
-          }
-        },
-        "title": "WorkspaceExtraFieldUpdate",
-        "type": "object"
-      },
-      "WorkspaceList": {
+      "Workspace-List": {
         "properties": {
           "items": {
             "items": {
@@ -4655,10 +4469,10 @@
           "offset",
           "total_pages"
         ],
-        "title": "WorkspaceList",
+        "title": "Workspace-List",
         "type": "object"
       },
-      "WorkspaceUpdate": {
+      "Workspace-Update": {
         "properties": {
           "image_url": {
             "anyOf": [
@@ -4750,8 +4564,194 @@
             "title": "Workspace Users"
           }
         },
-        "title": "WorkspaceUpdate",
+        "title": "Workspace-Update",
         "type": "object"
+      },
+      "WorkspaceExtraField": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "field_type": {
+            "$ref": "#/components/schemas/WorkspaceExtraFieldType",
+            "title": "Type"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "label": {
+            "maxLength": 255,
+            "title": "Label",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 40,
+            "title": "Name",
+            "type": "string"
+          },
+          "required": {
+            "default": false,
+            "title": "Required",
+            "type": "boolean"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "name",
+          "field_type",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "WorkspaceExtraField",
+        "type": "object"
+      },
+      "WorkspaceExtraField-Create": {
+        "properties": {
+          "field_type": {
+            "$ref": "#/components/schemas/WorkspaceExtraFieldType",
+            "title": "Type"
+          },
+          "label": {
+            "maxLength": 255,
+            "title": "Label",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 40,
+            "title": "Name",
+            "type": "string"
+          },
+          "required": {
+            "default": false,
+            "title": "Required",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "label",
+          "name",
+          "field_type"
+        ],
+        "title": "WorkspaceExtraField-Create",
+        "type": "object"
+      },
+      "WorkspaceExtraField-List": {
+        "properties": {
+          "items": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/WorkspaceExtraField"
+                },
+                {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              ]
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "total_pages": {
+            "readOnly": true,
+            "title": "Total Pages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset",
+          "total_pages"
+        ],
+        "title": "WorkspaceExtraField-List",
+        "type": "object"
+      },
+      "WorkspaceExtraField-Update": {
+        "properties": {
+          "field_type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceExtraFieldType"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "required": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Required"
+          }
+        },
+        "title": "WorkspaceExtraField-Update",
+        "type": "object"
+      },
+      "WorkspaceExtraFieldType": {
+        "enum": [
+          "boolean",
+          "char",
+          "date",
+          "datetime",
+          "float",
+          "integer",
+          "text"
+        ],
+        "title": "WorkspaceExtraFieldType",
+        "type": "string"
       },
       "WorkspaceUser": {
         "properties": {
@@ -4803,7 +4803,7 @@
         "title": "WorkspaceUser",
         "type": "object"
       },
-      "WorkspaceUserCreate": {
+      "WorkspaceUser-Create": {
         "properties": {
           "user": {
             "anyOf": [
@@ -4886,10 +4886,10 @@
           "workspace",
           "user"
         ],
-        "title": "WorkspaceUserCreate",
+        "title": "WorkspaceUser-Create",
         "type": "object"
       },
-      "WorkspaceUserList": {
+      "WorkspaceUser-List": {
         "properties": {
           "items": {
             "items": {
@@ -4931,10 +4931,10 @@
           "offset",
           "total_pages"
         ],
-        "title": "WorkspaceUserList",
+        "title": "WorkspaceUser-List",
         "type": "object"
       },
-      "WorkspaceUserUpdate": {
+      "WorkspaceUser-Update": {
         "properties": {
           "user": {
             "anyOf": [
@@ -5019,7 +5019,7 @@
             "title": "Workspace"
           }
         },
-        "title": "WorkspaceUserUpdate",
+        "title": "WorkspaceUser-Update",
         "type": "object"
       }
     },
@@ -5130,7 +5130,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AttachmentList"
+                  "$ref": "#/components/schemas/Attachment-List"
                 }
               }
             },
@@ -5184,7 +5184,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AttachmentCreate"
+                "$ref": "#/components/schemas/Attachment-Create"
               }
             }
           },
@@ -5689,7 +5689,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AttachmentUpdate"
+                "$ref": "#/components/schemas/Attachment-Update"
               }
             }
           },
@@ -6241,7 +6241,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/QueuedTaskLogList"
+                  "$ref": "#/components/schemas/QueuedTaskLog-List"
                 }
               }
             },
@@ -6295,7 +6295,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/QueuedTaskLogCreate"
+                "$ref": "#/components/schemas/QueuedTaskLog-Create"
               }
             }
           },
@@ -6800,7 +6800,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/QueuedTaskLogUpdate"
+                "$ref": "#/components/schemas/QueuedTaskLog-Update"
               }
             }
           },
@@ -6956,7 +6956,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/QueuedTaskWorkerList"
+                  "$ref": "#/components/schemas/QueuedTaskWorker-List"
                 }
               }
             },
@@ -7010,7 +7010,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/QueuedTaskWorkerCreate"
+                "$ref": "#/components/schemas/QueuedTaskWorker-Create"
               }
             }
           },
@@ -7515,7 +7515,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/QueuedTaskWorkerUpdate"
+                "$ref": "#/components/schemas/QueuedTaskWorker-Update"
               }
             }
           },
@@ -7671,7 +7671,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/QueuedTaskList"
+                  "$ref": "#/components/schemas/QueuedTask-List"
                 }
               }
             },
@@ -7725,7 +7725,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/QueuedTaskCreate"
+                "$ref": "#/components/schemas/QueuedTask-Create"
               }
             }
           },
@@ -8230,7 +8230,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/QueuedTaskUpdate"
+                "$ref": "#/components/schemas/QueuedTask-Update"
               }
             }
           },
@@ -8811,7 +8811,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CategoryList"
+                  "$ref": "#/components/schemas/Category-List"
                 }
               }
             },
@@ -8865,7 +8865,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CategoryCreate"
+                "$ref": "#/components/schemas/Category-Create"
               }
             }
           },
@@ -9370,7 +9370,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CategoryUpdate"
+                "$ref": "#/components/schemas/Category-Update"
               }
             }
           },
@@ -9526,7 +9526,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProductList"
+                  "$ref": "#/components/schemas/Product-List"
                 }
               }
             },
@@ -9580,7 +9580,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ProductCreate"
+                "$ref": "#/components/schemas/Product-Create"
               }
             }
           },
@@ -10085,7 +10085,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ProductUpdate"
+                "$ref": "#/components/schemas/Product-Update"
               }
             }
           },
@@ -10241,7 +10241,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TagList"
+                  "$ref": "#/components/schemas/Tag-List"
                 }
               }
             },
@@ -10295,7 +10295,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/TagCreate"
+                "$ref": "#/components/schemas/Tag-Create"
               }
             }
           },
@@ -10800,7 +10800,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/TagUpdate"
+                "$ref": "#/components/schemas/Tag-Update"
               }
             }
           },
@@ -10956,7 +10956,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/UserList"
+                  "$ref": "#/components/schemas/User-List"
                 }
               }
             },
@@ -11010,7 +11010,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UserCreate"
+                "$ref": "#/components/schemas/User-Create"
               }
             }
           },
@@ -11515,7 +11515,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UserUpdate"
+                "$ref": "#/components/schemas/User-Update"
               }
             }
           },
@@ -11671,7 +11671,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/WorkspaceExtraFieldList"
+                  "$ref": "#/components/schemas/WorkspaceExtraField-List"
                 }
               }
             },
@@ -11725,7 +11725,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/WorkspaceExtraFieldCreate"
+                "$ref": "#/components/schemas/WorkspaceExtraField-Create"
               }
             }
           },
@@ -12230,7 +12230,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/WorkspaceExtraFieldUpdate"
+                "$ref": "#/components/schemas/WorkspaceExtraField-Update"
               }
             }
           },
@@ -12386,7 +12386,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/WorkspaceUserList"
+                  "$ref": "#/components/schemas/WorkspaceUser-List"
                 }
               }
             },
@@ -12440,7 +12440,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/WorkspaceUserCreate"
+                "$ref": "#/components/schemas/WorkspaceUser-Create"
               }
             }
           },
@@ -12945,7 +12945,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/WorkspaceUserUpdate"
+                "$ref": "#/components/schemas/WorkspaceUser-Update"
               }
             }
           },
@@ -13101,7 +13101,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/WorkspaceList"
+                  "$ref": "#/components/schemas/Workspace-List"
                 }
               }
             },
@@ -13155,7 +13155,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/WorkspaceCreate"
+                "$ref": "#/components/schemas/Workspace-Create"
               }
             }
           },
@@ -13660,7 +13660,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/WorkspaceUpdate"
+                "$ref": "#/components/schemas/Workspace-Update"
               }
             }
           },

@@ -296,7 +296,7 @@ def generate_input_create_model[M: BaseModel | BaseView](model_cls: type[M]) -> 
 
             fields[field_name] = (field_type, field_to_use)
 
-    return cast(type[M], create_model(f"{model_cls.__name__}Create", **fields))
+    return cast(type[M], create_model(f"{model_cls.__name__}-Create", **fields))
 
 
 @cache
@@ -366,7 +366,7 @@ def generate_input_patch_model[M: BaseModel | BaseView](model_cls: type[M]) -> t
             py_field.field_type = optional_field_type(field.field_type)
             fields[field_name] = (py_field.field_type, py_field)
 
-    return cast(type[M], create_model(f"{model_cls.__name__}Update", **fields))
+    return cast(type[M], create_model(f"{model_cls.__name__}-Update", **fields))
 
 
 def optional_field_type(field_type):

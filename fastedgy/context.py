@@ -83,6 +83,11 @@ def get_user() -> Union["User", None]:
     return req.state.user if req and hasattr(req.state, "user") else None
 
 
+def get_user_id() -> Union[int, None]:
+    user = get_user()
+    return user.id if user else None
+
+
 def set_workspace(workspace: Union["Workspace", None]) -> None:
     req = get_request()
     if req:
@@ -93,6 +98,11 @@ def get_workspace() -> Union["Workspace", None]:
     req = get_request()
 
     return req.state.workspace if req and hasattr(req.state, "workspace") else None
+
+
+def get_workspace_id() -> Union[int, None]:
+    workspace = get_workspace()
+    return workspace.id if workspace else None
 
 
 def set_workspace_user(workspace_user: Union["WorkspaceUser", None]) -> None:

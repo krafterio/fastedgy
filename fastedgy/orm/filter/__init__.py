@@ -60,6 +60,16 @@ from fastedgy.orm.filter.builder import (
     filter_query,
 )
 
+# Global filters
+from fastedgy.orm.filter.global_filters import (
+    GlobalFilter,
+    GlobalFilterRegistry,
+    GlobalFilterGetter,
+    GlobalFilterApply,
+    global_filter,
+    apply_global_filters,
+)
+
 
 __all__ = [
     # Operators
@@ -103,4 +113,11 @@ __all__ = [
     # Builder
     "build_filter_expression",
     "filter_query",
+    # Global filters
+    "GlobalFilter",
+    "GlobalFilterRegistry",
+    "GlobalFilterGetter",
+    "GlobalFilterApply",
+    "global_filter",
+    "apply_global_filters",
 ]

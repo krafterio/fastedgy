@@ -12,8 +12,8 @@ from fastedgy.orm import Model, Meta, fields
 from fastedgy.orm.manager import (
     BaseManager,
     Manager,
-    WorkspaceableManager,
-    WorkspaceableRedirectManager,
+    AccessControlManager,
+    AccessControlRedirectManager,
 )
 from fastedgy.orm.view import create_view
 from fastedgy.orm.registry import lazy_register_model
@@ -384,9 +384,9 @@ class BaseModel(Model, metaclass=ModelMeta):
 
         return data
 
-    query = WorkspaceableManager()
+    query = AccessControlManager()
 
-    query_related = WorkspaceableRedirectManager(redirect_name="query")
+    query_related = AccessControlRedirectManager(redirect_name="query")
 
     global_query: ClassVar[BaseManager] = Manager()
 
@@ -506,9 +506,9 @@ class BaseView(Model, metaclass=ModelMeta):
 
         return data
 
-    query = WorkspaceableManager()
+    query = AccessControlManager()
 
-    query_related = WorkspaceableRedirectManager(redirect_name="query")
+    query_related = AccessControlRedirectManager(redirect_name="query")
 
     global_query: ClassVar[BaseManager] = Manager()
 

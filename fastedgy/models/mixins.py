@@ -5,10 +5,26 @@ from typing import Any
 
 from fastedgy import context
 from fastedgy.orm import fields, Model, Meta
+from fastedgy.orm.filter import R, global_filter
 from fastedgy.i18n import _ts
 from fastedgy.schemas import ConfigDict
 
 
+def _workspace_filter_applies(model_cls: type) -> bool:
+    from fastedgy.models.workspace import BaseWorkspace
+    from fastedgy.models.workspace_user import BaseWorkspaceUser
+
+    return (
+        model_cls.__name__ != "UserPresence"
+        and not issubclass(model_cls, BaseWorkspace)
+        and not issubclass(model_cls, BaseWorkspaceUser)
+    )
+
+
+@global_filter(
+    lambda: R("workspace", "=", context.get_workspace_id()) if context.get_workspace() else None,
+    apply=_workspace_filter_applies,
+)
 class WorkspaceableMixin(Model):
     """
     Mixin to automatically add a workspace relationship field.

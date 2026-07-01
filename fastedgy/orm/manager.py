@@ -3,53 +3,24 @@
 
 from edgy.core.db.models.managers import Manager, RedirectManager, BaseManager
 
-from fastedgy import context
 from fastedgy.orm.query import QuerySet
-from fastedgy.orm.fields import ForeignKey
+from fastedgy.orm.filter.global_filters import apply_global_filters
 
 
-class WorkspaceableManager(Manager):
+class AccessControlManager(Manager):
     def get_queryset(self) -> QuerySet:
-        return filter_by_workspace(super().get_queryset())
+        return apply_global_filters(super().get_queryset())
 
 
-class WorkspaceableRedirectManager(RedirectManager):
+class AccessControlRedirectManager(RedirectManager):
     def get_queryset(self) -> QuerySet:
-        return filter_by_workspace(super().get_queryset())
-
-
-def filter_by_workspace(queryset: QuerySet) -> QuerySet:
-    from fastedgy.models.workspace import BaseWorkspace
-    from fastedgy.models.workspace_user import BaseWorkspaceUser
-
-    workspace_field = queryset.model_class.meta.fields.get("workspace")
-
-    if (
-        workspace_field
-        and isinstance(workspace_field, ForeignKey)
-        and issubclass(workspace_field.target, BaseWorkspace)
-    ):
-        workspace = context.get_workspace()
-
-        if (
-            workspace
-            and queryset.model_class.__name__
-            not in [
-                "UserPresence",
-            ]
-            and not issubclass(queryset.model_class, BaseWorkspace)
-            and not issubclass(queryset.model_class, BaseWorkspaceUser)
-        ):
-            queryset = queryset.filter(workspace=workspace)
-
-    return queryset
+        return apply_global_filters(super().get_queryset())
 
 
 __all__ = [
     "BaseManager",
     "Manager",
     "RedirectManager",
-    "WorkspaceableManager",
-    "WorkspaceableRedirectManager",
-    "filter_by_workspace",
+    "AccessControlManager",
+    "AccessControlRedirectManager",
 ]

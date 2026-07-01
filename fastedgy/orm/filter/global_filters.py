@@ -3,7 +3,7 @@
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from fastedgy.dependencies import get_service, register_service
 
@@ -82,6 +82,63 @@ def apply_global_filters(queryset: "QuerySet") -> "QuerySet":
     return queryset
 
 
+def _reference_pk(value: Any) -> Any:
+    from fastedgy.orm.fields import BaseFieldType
+
+    # An unset foreign key on a fresh instance resolves to its class-level field
+    # descriptor (a BaseFieldType), not a value — nothing to validate there.
+    if value is None or isinstance(value, BaseFieldType):
+        return None
+
+    return getattr(value, "pk", value)
+
+
+async def validate_write_references(instance: Any) -> None:
+    from fastedgy import context
+
+    if context.get_user() is None:
+        return
+
+    from fastedgy.orm.fields import ForeignKey
+
+    registry = get_service(GlobalFilterRegistry)
+    model_cls = type(instance)
+
+    targets = {
+        name: field.target
+        for name, field in model_cls.meta.fields.items()
+        if isinstance(field, ForeignKey)
+        and isinstance(getattr(field, "target", None), type)
+        and registry.has_filters(field.target)
+    }
+
+    if not targets:
+        return
+
+    previous = None
+
+    if getattr(instance, "_db_loaded", False) and instance.pk is not None:
+        previous = await model_cls.global_query.filter(pk=instance.pk).first()
+
+    for name, target in targets.items():
+        pk = _reference_pk(getattr(instance, name, None))
+
+        if pk is None:
+            continue
+
+        if previous is not None and _reference_pk(getattr(previous, name, None)) == pk:
+            continue
+
+        if not await target.query.filter(pk=pk).exists():
+            from fastapi import HTTPException
+            from fastedgy.i18n import _t
+
+            raise HTTPException(
+                status_code=403,
+                detail=_t("You do not have access to the referenced resource."),
+            )
+
+
 __all__ = [
     "GlobalFilter",
     "GlobalFilterRegistry",
@@ -89,4 +146,5 @@ __all__ = [
     "GlobalFilterApply",
     "global_filter",
     "apply_global_filters",
+    "validate_write_references",
 ]

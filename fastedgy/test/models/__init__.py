@@ -17,6 +17,7 @@ from fastedgy.test.models.global_filter import (
     GfOwnedMixin,
     GfPrivateDoc,
     GfSharedDoc,
+    GfLink,
 )
 
 
@@ -56,6 +57,7 @@ __all__ = [
     "GfOwnedMixin",
     "GfPrivateDoc",
     "GfSharedDoc",
+    "GfLink",
     "STANDARD_MODELS",
     "DEMO_MODELS",
     "ALL_MODELS",

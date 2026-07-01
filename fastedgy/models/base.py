@@ -396,6 +396,9 @@ class BaseModel(Model, metaclass=ModelMeta):
         values: dict[str, Any] | set[str] | None = None,
         force_save: bool | None = None,
     ) -> Self:
+        from fastedgy.orm.filter.global_filters import validate_write_references
+
+        await validate_write_references(self)
         await super().save(force_insert=force_insert, values=values, force_save=force_save)
         return self
 

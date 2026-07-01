@@ -48,9 +48,18 @@ class GfSharedDoc(BaseModel, GfOwnedMixin):
         tablename = "test_gf_shared_docs"
 
 
+class GfLink(BaseModel, WorkspaceableMixin):
+    label = fields.CharField(max_length=200, null=True)
+    doc = fields.ForeignKey(GfPrivateDoc, null=True, related_name="links")
+
+    class Meta(BaseModel.Meta):
+        tablename = "test_gf_links"
+
+
 __all__ = [
     "GfArticle",
     "GfOwnedMixin",
     "GfPrivateDoc",
     "GfSharedDoc",
+    "GfLink",
 ]

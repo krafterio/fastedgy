@@ -4,13 +4,17 @@
 from collections.abc import Generator
 from contextlib import contextmanager
 
+import pytest
+
+from fastapi import HTTPException
+
 from fastedgy import context
 from fastedgy.app import FastEdgy
 from fastedgy.dependencies import get_service
 from fastedgy.models.mixins import WorkspaceableMixin
 from fastedgy.orm.filter import GlobalFilterRegistry
 from fastedgy.test.factories import create_user, create_workspace, use_request
-from fastedgy.test.models.global_filter import GfArticle, GfPrivateDoc, GfSharedDoc
+from fastedgy.test.models.global_filter import GfArticle, GfLink, GfPrivateDoc, GfSharedDoc
 
 
 @contextmanager
@@ -105,6 +109,59 @@ async def test_none_filter_is_a_noop_without_a_user(setup_db: FastEdgy) -> None:
         rows = await GfPrivateDoc.query.all()
 
     assert {row.name for row in rows} == {"owned_by_u1", "owned_by_u2"}
+
+
+async def test_save_rejects_reference_to_an_inaccessible_record(setup_db: FastEdgy) -> None:
+    ws1, _ws2, u1, u2 = await _seed_workspaces_and_users()
+
+    own_doc = GfPrivateDoc(name="own", owner=u1, workspace=ws1)
+    await own_doc.save()
+    other_doc = GfPrivateDoc(name="other", owner=u2, workspace=ws1)
+    await other_doc.save()
+
+    with acting_as(ws1, u1):
+        await GfLink(doc=own_doc, workspace=ws1).save()
+
+        with pytest.raises(HTTPException) as exc:
+            await GfLink(doc=other_doc, workspace=ws1).save()
+
+    assert exc.value.status_code == 403
+
+
+async def test_save_validates_only_changed_references(setup_db: FastEdgy) -> None:
+    ws1, _ws2, u1, u2 = await _seed_workspaces_and_users()
+
+    other_doc = GfPrivateDoc(name="other", owner=u2, workspace=ws1)
+    await other_doc.save()
+    other_doc2 = GfPrivateDoc(name="other2", owner=u2, workspace=ws1)
+    await other_doc2.save()
+    link = GfLink(label="x", doc=other_doc, workspace=ws1)
+    await link.save()
+
+    with acting_as(ws1, u1):
+        loaded = await GfLink.global_query.get(id=link.id)
+
+        loaded.label = "y"
+        await loaded.save()
+
+        loaded.doc = other_doc2
+
+        with pytest.raises(HTTPException) as exc:
+            await loaded.save()
+
+    assert exc.value.status_code == 403
+
+
+async def test_save_skips_reference_validation_without_a_user(setup_db: FastEdgy) -> None:
+    ws1, _ws2, _u1, u2 = await _seed_workspaces_and_users()
+
+    other_doc = GfPrivateDoc(name="other", owner=u2, workspace=ws1)
+    await other_doc.save()
+
+    link = GfLink(doc=other_doc, workspace=ws1)
+    await link.save()
+
+    assert link.id is not None
 
 
 async def test_registry_is_a_di_singleton_collecting_via_mro(setup_app: FastEdgy) -> None:

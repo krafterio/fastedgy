@@ -18,6 +18,7 @@ from fastedgy.orm.fields import (
     DateTimeField,
     DecimalField,
     FloatField,
+    ManyToMany,
 )
 from fastedgy.orm.query import QuerySet
 from fastedgy.orm.manager import BaseManager
@@ -160,7 +161,56 @@ def _build_exists_expression(model_cls: type[Model], filters: FilterRule) -> Any
     for i, part in enumerate(parts[:-1]):
         field_info = current_model.meta.fields[part]
 
-        if hasattr(field_info, "related_from"):
+        if isinstance(field_info, ManyToMany):
+            # Many-to-many: hop through the intermediate table, then to the target.
+            # A M2M field also exposes `target`, so it must be handled before the
+            # forward-FK branch or it would be mistaken for one (and lacks
+            # `related_columns`, which that branch relies on).
+            through_model = getattr(field_info, "through", None)
+            target_model = getattr(field_info, "target", None)
+            from_fk = getattr(field_info, "from_foreign_key", None)  # through -> current model
+            to_fk = getattr(field_info, "to_foreign_key", None)  # through -> target model
+
+            if (
+                through_model is None
+                or target_model is None
+                or not from_fk
+                or not to_fk
+                or not hasattr(through_model, "table")
+                or not hasattr(target_model, "table")
+            ):
+                return None
+
+            current_pk = find_primary_key_field(current_model)
+            target_pk = find_primary_key_field(target_model)
+
+            if current_pk is None or target_pk is None:
+                return None
+
+            through_table = through_model.table
+            target_table = target_model.table
+
+            if from_table is None:
+                from_table = through_table
+                root_link_condition = through_table.columns[from_fk] == model_cls.table.columns[current_pk]
+            else:
+                join_entries.append(
+                    (
+                        through_table,
+                        through_table.columns[from_fk] == current_model.table.columns[current_pk],
+                    )
+                )
+
+            join_entries.append(
+                (
+                    target_table,
+                    target_table.columns[target_pk] == through_table.columns[to_fk],
+                )
+            )
+
+            current_model = target_model
+
+        elif hasattr(field_info, "related_from"):
             # Reverse relation (OneToMany): related_model has FK pointing back
             related_model = getattr(field_info, "related_from")
 

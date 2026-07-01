@@ -164,6 +164,10 @@ def generate_output_model[M: BaseModel | BaseView](model_cls: type[M]) -> type[M
                 else:
                     field_type = Union[ref, dict[str, Any]]
                 _pending_fk_fields.append(field)
+            elif field.null:
+                # Preserve nullability so a null value serializes/validates instead
+                # of tripping the response validation (``str`` vs ``str | None``).
+                field_type = optional_field_type(field_type)
 
             # Drop non-JSON-serializable defaults (auto_now/auto_now_add render as
             # functools.partial, default_factory callables, ...) from the output schema

@@ -29,22 +29,43 @@
             "type": "integer"
           },
           "extension": {
-            "maxLength": 20,
-            "title": "Extension",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 20,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extension"
           },
           "height": {
-            "title": "Height",
-            "type": "integer"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height"
           },
           "id": {
             "title": "Id",
             "type": "integer"
           },
           "mime_type": {
-            "maxLength": 150,
-            "title": "Mime Type",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 150,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mime Type"
           },
           "name": {
             "maxLength": 255,
@@ -67,6 +88,12 @@
             "title": "Parent"
           },
           "parent_ids": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
             "title": "Parent Ids"
           },
           "path": {
@@ -76,8 +103,15 @@
             "type": "string"
           },
           "size_bytes": {
-            "title": "Size Bytes",
-            "type": "integer"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size Bytes"
           },
           "type": {
             "$ref": "#/components/schemas/AttachmentType",
@@ -89,8 +123,15 @@
             "type": "string"
           },
           "width": {
-            "title": "Width",
-            "type": "integer"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Width"
           }
         },
         "required": [
@@ -562,8 +603,15 @@
             "type": "string"
           },
           "description": {
-            "title": "Description",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
           },
           "id": {
             "title": "Id",
@@ -1288,10 +1336,23 @@
             "type": "string"
           },
           "description": {
-            "title": "Description",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
           },
           "details": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
             "title": "Details"
           },
           "id": {
@@ -1314,9 +1375,16 @@
             "type": "string"
           },
           "published_at": {
-            "format": "date-time",
-            "title": "Published At",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
           },
           "quantity": {
             "default": 0,
@@ -1324,18 +1392,39 @@
             "type": "integer"
           },
           "rating": {
-            "title": "Rating",
-            "type": "number"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rating"
           },
           "reference": {
-            "format": "uuid",
-            "title": "Reference",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference"
           },
           "released_on": {
-            "format": "date",
-            "title": "Released On",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Released On"
           },
           "tags": {
             "anyOf": [
@@ -1844,9 +1933,16 @@
             "type": "string"
           },
           "claimed_by": {
-            "maxLength": 255,
-            "title": "Claimed By",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Claimed By"
           },
           "context": {
             "default": {},
@@ -1858,52 +1954,122 @@
             "type": "string"
           },
           "date_cancelled": {
-            "format": "date-time",
-            "title": "Date Cancelled",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date Cancelled"
           },
           "date_done": {
-            "format": "date-time",
-            "title": "Date Done",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date Done"
           },
           "date_ended": {
-            "format": "date-time",
-            "title": "Date Ended",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date Ended"
           },
           "date_enqueued": {
-            "format": "date-time",
-            "title": "Date Enqueued",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date Enqueued"
           },
           "date_failed": {
-            "format": "date-time",
-            "title": "Date Failed",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date Failed"
           },
           "date_started": {
-            "format": "date-time",
-            "title": "Date Started",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date Started"
           },
           "date_stopped": {
-            "format": "date-time",
-            "title": "Date Stopped",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date Stopped"
           },
           "exception_info": {
-            "title": "Exception Info",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exception Info"
           },
           "exception_message": {
-            "title": "Exception Message",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exception Message"
           },
           "exception_name": {
-            "maxLength": 255,
-            "title": "Exception Name",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exception Name"
           },
           "execution_time": {
             "default": 0.0,
@@ -1911,9 +2077,16 @@
             "type": "number"
           },
           "function_name": {
-            "maxLength": 255,
-            "title": "Function Name",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Function Name"
           },
           "id": {
             "title": "Id",
@@ -1939,18 +2112,39 @@
             "title": "Logs"
           },
           "max_retries": {
-            "title": "Max Retries",
-            "type": "integer"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Retries"
           },
           "module_name": {
-            "maxLength": 255,
-            "title": "Module Name",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Module Name"
           },
           "name": {
-            "maxLength": 255,
-            "title": "Name",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
           },
           "parent_task": {
             "anyOf": [
@@ -1983,9 +2177,16 @@
             "type": "integer"
           },
           "serialized_function": {
-            "contentMediaType": "application/octet-stream",
-            "title": "Serialized Function",
-            "type": "string"
+            "anyOf": [
+              {
+                "contentMediaType": "application/octet-stream",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Serialized Function"
           },
           "state": {
             "$ref": "#/components/schemas/QueuedTaskState",
@@ -2793,8 +2994,15 @@
             "type": "integer"
           },
           "info": {
-            "title": "Info",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Info"
           },
           "log_type": {
             "$ref": "#/components/schemas/QueuedTaskLogType",
@@ -2806,13 +3014,27 @@
             "type": "string"
           },
           "message": {
-            "title": "Message",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
           },
           "name": {
-            "maxLength": 255,
-            "title": "Name",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
           },
           "task": {
             "anyOf": [
@@ -3131,9 +3353,16 @@
             "type": "string"
           },
           "started_at": {
-            "format": "date-time",
-            "title": "Started At",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
           },
           "updated_at": {
             "format": "date-time",
@@ -3141,9 +3370,16 @@
             "type": "string"
           },
           "version": {
-            "maxLength": 50,
-            "title": "Version",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
           }
         },
         "required": [
@@ -3969,9 +4205,16 @@
             "type": "integer"
           },
           "name": {
-            "maxLength": 255,
-            "title": "Name",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
           },
           "updated_at": {
             "format": "date-time",
@@ -4293,14 +4536,28 @@
             "type": "integer"
           },
           "image_url": {
-            "maxLength": 255,
-            "title": "Image Url",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Url"
           },
           "name": {
-            "maxLength": 255,
-            "title": "Name",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
           },
           "slug": {
             "maxLength": 32,

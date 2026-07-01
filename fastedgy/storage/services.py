@@ -15,6 +15,7 @@ from starlette.datastructures import UploadFile
 from fastedgy import context
 from fastedgy.config import BaseSettings
 from fastedgy.dependencies import Inject, get_service
+from fastedgy.http_client import create_http_client, request_with_retry
 from fastedgy.i18n import _t
 from fastedgy.orm import Registry
 from fastedgy.storage.adapters.base import StorageAdapter
@@ -476,10 +477,8 @@ class Storage:
         create_attachment: bool = False,
     ) -> str:
         try:
-            import httpx
-
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.get(file_url)
+            async with create_http_client() as client:
+                response = await request_with_retry(client, "GET", file_url)
                 response.raise_for_status()
 
                 content_type = response.headers.get("content-type", "")

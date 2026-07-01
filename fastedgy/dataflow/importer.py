@@ -364,9 +364,9 @@ async def parse_ods_file(file: "UploadFile") -> list[list[str]]:
     from fastapi import HTTPException
 
     try:
-        from pyexcel_ods3 import get_data
+        from pyexcel_ods import get_data
     except ImportError:
-        raise HTTPException(status_code=500, detail=_t("pyexcel-ods3 library is not installed"))
+        raise HTTPException(status_code=500, detail=_t("pyexcel-ods library is not installed"))
 
     content = await file.read()
     data = get_data(io.BytesIO(content))

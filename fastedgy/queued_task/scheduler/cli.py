@@ -1,7 +1,7 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-import asyncio
+import inspect
 import logging
 from typing import Any
 
@@ -107,7 +107,7 @@ def _build_command_for_task(task_def: ScheduledTaskDef) -> click.Command:
 
     async def command_callback(ctx: CliContext, **kwargs: Any):
         async with ctx.lifespan():
-            if asyncio.iscoroutinefunction(func):
+            if inspect.iscoroutinefunction(func):
                 await func(**kwargs)
             else:
                 func(**kwargs)

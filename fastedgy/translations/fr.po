@@ -513,8 +513,8 @@ msgstr "group_field est requis"
 msgid "openpyxl library is not installed"
 msgstr "La bibliothèque openpyxl n'est pas installée"
 
-msgid "pyexcel-ods3 library is not installed"
-msgstr "La bibliothèque pyexcel-ods3 n'est pas installée"
+msgid "pyexcel-ods library is not installed"
+msgstr "La bibliothèque pyexcel-ods n'est pas installée"
 
 #, python-brace-format
 msgid "{model} not found"

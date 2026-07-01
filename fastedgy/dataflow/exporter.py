@@ -277,14 +277,14 @@ def generate_xlsx_export(field_names: list[str], data_rows: list[list[str]], fil
 def generate_ods_export(field_names: list[str], data_rows: list[list[str]], filename: str) -> StreamingResponse:
     """Generate an ODS export file."""
     try:
-        from pyexcel_ods3 import save_data
+        from pyexcel_ods import save_data
     except ImportError:
-        raise HTTPException(status_code=500, detail=_t("pyexcel-ods3 library is not installed"))
+        raise HTTPException(status_code=500, detail=_t("pyexcel-ods library is not installed"))
 
-    # Prepare data for pyexcel-ods3
+    # Prepare data for pyexcel-ods
     sheet_data = [field_names]  # Header row
 
-    # Convert None values to empty strings to avoid KeyError with pyexcel_ods3
+    # Convert None values to empty strings to avoid KeyError with pyexcel_ods
     processed_rows = []
     for row in data_rows:
         processed_row = []

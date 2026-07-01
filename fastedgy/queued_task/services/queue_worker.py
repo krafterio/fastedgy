@@ -7,6 +7,8 @@ import dill
 
 import importlib
 
+import inspect
+
 import logging
 
 import traceback
@@ -458,7 +460,7 @@ class QueueWorker:
             logger.debug(f"Deserializing local function for task {task.id}")
             try:
                 func = dill.loads(task.serialized_function)
-                logger.debug(f"Function deserialized: {func}, is_coroutine: {asyncio.iscoroutinefunction(func)}")
+                logger.debug(f"Function deserialized: {func}, is_coroutine: {inspect.iscoroutinefunction(func)}")
             except Exception as e:
                 raise RuntimeError(f"Failed to deserialize function: {e}")
         else:
@@ -468,7 +470,7 @@ class QueueWorker:
                 module = importlib.import_module(str(task.module_name))
                 logger.debug(f"Module loaded: {module}")
                 func = getattr(module, str(task.function_name))
-                logger.debug(f"Function loaded: {func}, is_coroutine: {asyncio.iscoroutinefunction(func)}")
+                logger.debug(f"Function loaded: {func}, is_coroutine: {inspect.iscoroutinefunction(func)}")
             except ImportError as e:
                 raise ImportError(f"Cannot import module '{task.module_name}': {e}")
             except AttributeError as e:
@@ -493,7 +495,7 @@ class QueueWorker:
                 # Execute function (sync or async), bounded by task_timeout so
                 # a hung execution can never occupy its worker forever.
                 sync_finished: Optional[asyncio.Event] = None
-                if asyncio.iscoroutinefunction(func):
+                if inspect.iscoroutinefunction(func):
                     logger.debug("Executing async function")
                     awaitable = func(*args, **kwargs)
                 else:

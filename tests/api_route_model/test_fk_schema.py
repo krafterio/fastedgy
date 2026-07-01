@@ -1,13 +1,12 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import Union, get_args, get_origin
+from typing import get_args
 
 from fastedgy.app import FastEdgy
 from fastedgy.api_route_model.action import (
     generate_input_create_model,
     generate_input_patch_model,
-    generate_output_model,
 )
 from fastedgy.api_route_model.action.generators import (
     ForeignKeyInput,
@@ -15,37 +14,8 @@ from fastedgy.api_route_model.action.generators import (
     ForeignKeyOperation,
 )
 
-from fastedgy.test.models.category import Category
 from fastedgy.test.models.product import Product
-from fastedgy.test.models.queued_task import QueuedTask
 from fastedgy.test.models.queued_task_log import QueuedTaskLog
-
-
-def test_output_nullable_fk_is_model_or_object_or_null(setup_openapi_app: FastEdgy) -> None:
-    annotation = generate_output_model(Product).model_fields["category"].annotation
-    args = get_args(annotation)
-
-    assert get_origin(annotation) is Union
-    assert generate_output_model(Category) in args
-    assert any(get_origin(arg) is dict for arg in args)
-    assert type(None) in args
-
-
-def test_output_required_fk_has_no_null(setup_openapi_app: FastEdgy) -> None:
-    annotation = generate_output_model(QueuedTaskLog).model_fields["task"].annotation
-    args = get_args(annotation)
-
-    assert generate_output_model(QueuedTask) in args
-    assert type(None) not in args
-
-
-def test_output_self_referential_fk_does_not_recurse(setup_openapi_app: FastEdgy) -> None:
-    # parent_task points back to QueuedTask: the model must reference itself.
-    output = generate_output_model(QueuedTask)
-    args = get_args(output.model_fields["parent_task"].annotation)
-
-    assert output in args
-    assert type(None) in args
 
 
 def test_input_nullable_fk_accepts_id_object_operation_or_null(setup_openapi_app: FastEdgy) -> None:

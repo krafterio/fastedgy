@@ -176,6 +176,121 @@ def _fix_inherited_abstract(cls: type) -> None:
             model_fields_on_class["pk"] = pk_field
 
 
+_PARTIAL_OBJECT: dict[str, Any] = {"type": "object", "additionalProperties": True}
+
+
+# Local copies of api_route_model.action.relations, inlined so the schema hooks
+# can run at model-build time without importing that package (which imports back
+# into models.base, a circular import).
+def _is_foreign_key_field(field: Any) -> bool:
+    from edgy.core.db.fields.foreign_keys import ForeignKey
+
+    return isinstance(field, ForeignKey)
+
+
+def _is_exposed_relation_field(field: Any) -> bool:
+    from edgy.core.db.relationships.related_field import RelatedField
+
+    is_m2m = getattr(field, "is_m2m", False) is True
+    if not (is_m2m or isinstance(field, RelatedField)):
+        return False
+
+    if is_m2m:
+        return True
+
+    related_name = getattr(field, "related_name", None) or getattr(field, "name", None)
+    if not related_name or related_name == "+":
+        return False
+
+    return not related_name.endswith("_set")
+
+
+def _with_partial_object(prop: dict[str, Any]) -> dict[str, Any]:
+    """Add a bare-object variant to a foreign-key property.
+
+    An X-Fields selection can return a foreign key as a partial ``{...}`` (only
+    the selected columns) instead of the full related model, so the response
+    schema documents ``related model | object`` (plus ``null`` when nullable)."""
+    variants = prop.get("anyOf")
+    if variants is not None:
+        if variants and variants[-1] == {"type": "null"}:
+            merged = [*variants[:-1], _PARTIAL_OBJECT, {"type": "null"}]
+        else:
+            merged = [*variants, _PARTIAL_OBJECT]
+        return {**prop, "anyOf": merged}
+
+    keep = {k: v for k, v in prop.items() if k not in ("$ref", "allOf")}
+    ref = prop.get("$ref")
+    inner = {"$ref": ref} if ref is not None else {k: v for k, v in prop.items() if k in ("allOf",)} or prop
+    return {**keep, "anyOf": [inner, _PARTIAL_OBJECT]}
+
+
+def _relation_json_schema(title: str) -> dict[str, Any]:
+    """The response schema of an exposed O2M/M2M relation: a list of records,
+    each returned as a partial ``{...}`` shaped by the X-Fields selection."""
+    return {
+        "anyOf": [{"type": "array", "items": dict(_PARTIAL_OBJECT)}, {"type": "null"}],
+        "default": None,
+        "title": title,
+    }
+
+
+def _enrich_serialization_json_schema(model_cls: type, json_schema: dict[str, Any]) -> dict[str, Any]:
+    """Enrich a model's serialization JSON schema in place: render foreign keys
+    as ``related model | object`` and expose O2M/M2M relations as ``list[object]``.
+
+    Keeps a single schema per model (the Edgy model itself, no generated output
+    class), so no two same-named schemas force FastAPI to module-qualify them."""
+    properties = json_schema.get("properties")
+    if properties is None:
+        return json_schema
+
+    for field_name, field in model_cls.model_fields.items():
+        if _is_foreign_key_field(field):
+            if field_name in properties:
+                properties[field_name] = _with_partial_object(properties[field_name])
+        elif _is_exposed_relation_field(field):
+            properties[field_name] = _relation_json_schema(field_name.replace("_", " ").title())
+
+        # auto_now / auto_now_add fields are read-only but always present in a
+        # response; Pydantic drops them from `required` because they carry a
+        # default_factory (for the ORM), so restore them here for the READ schema.
+        if field_name in properties and (getattr(field, "auto_now", False) or getattr(field, "auto_now_add", False)):
+            required = json_schema.setdefault("required", [])
+            if field_name not in required:
+                required.append(field_name)
+
+    return json_schema
+
+
+def _factoryize_callable_defaults(core_schema: Any, seen: set[int]) -> None:
+    """Turn a callable literal ``default`` in a core schema into a ``default_factory``.
+
+    Edgy stores auto_now / auto_now_add as ``default=partial(datetime.now, tz)`` — a
+    callable, i.e. a factory rather than a literal value. Pydantic warns when it tries
+    to JSON-encode such a default into the schema; moving it to a ``default_factory``
+    (which Pydantic calls, never encodes) drops the warning while the ORM keeps reading
+    ``field.default`` for its own value computation."""
+    if id(core_schema) in seen:
+        return
+
+    seen.add(id(core_schema))
+
+    if isinstance(core_schema, dict):
+        if (
+            core_schema.get("type") == "default"
+            and "default_factory" not in core_schema
+            and callable(core_schema.get("default"))
+        ):
+            core_schema["default_factory"] = core_schema.pop("default")
+
+        for value in core_schema.values():
+            _factoryize_callable_defaults(value, seen)
+    elif isinstance(core_schema, (list, tuple)):
+        for value in core_schema:
+            _factoryize_callable_defaults(value, seen)
+
+
 class BaseModel(Model, metaclass=ModelMeta):
     id: int | None = fields.IntegerField(primary_key=True, autoincrement=True, label=_ts("ID"))
 
@@ -199,6 +314,20 @@ class BaseModel(Model, metaclass=ModelMeta):
     model_config = ConfigDict(
         extra="ignore",
     )
+
+    @classmethod
+    def __get_pydantic_core_schema__(cls, source: Any, handler: Any) -> Any:
+        schema = handler(source)
+        _factoryize_callable_defaults(schema, set())
+        return schema
+
+    @classmethod
+    def __get_pydantic_json_schema__(cls, core_schema: Any, handler: Any) -> Any:
+        json_schema = handler(core_schema)
+        if getattr(handler, "mode", None) != "serialization":
+            return json_schema
+        json_schema = handler.resolve_ref_schema(json_schema)
+        return _enrich_serialization_json_schema(cls, json_schema)
 
     def model_dump(self, show_pk: bool | None = None, **kwargs: Any) -> dict[str, Any]:
         """Override model_dump to serialize datetime with timezone.
@@ -307,6 +436,20 @@ class BaseView(Model, metaclass=ModelMeta):
     model_config = ConfigDict(
         extra="ignore",
     )
+
+    @classmethod
+    def __get_pydantic_core_schema__(cls, source: Any, handler: Any) -> Any:
+        schema = handler(source)
+        _factoryize_callable_defaults(schema, set())
+        return schema
+
+    @classmethod
+    def __get_pydantic_json_schema__(cls, core_schema: Any, handler: Any) -> Any:
+        json_schema = handler(core_schema)
+        if getattr(handler, "mode", None) != "serialization":
+            return json_schema
+        json_schema = handler.resolve_ref_schema(json_schema)
+        return _enrich_serialization_json_schema(cls, json_schema)
 
     def model_dump(self, show_pk: bool | None = None, **kwargs: Any) -> dict[str, Any]:
         """Override model_dump to serialize datetime with timezone.

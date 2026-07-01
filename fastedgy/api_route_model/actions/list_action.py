@@ -8,7 +8,8 @@ from typing import Callable, Any, cast
 from fastapi import APIRouter, Query, HTTPException
 
 from fastedgy.models.base import BaseModel, BaseView
-from fastedgy.api_route_model.action import BaseApiRouteAction, generate_output_model
+from fastedgy.api_route_model.action import BaseApiRouteAction
+from fastedgy.api_route_model.types import ModelList
 from fastedgy.api_route_model.params import (
     OrderByQuery,
     FieldSelectorHeader,
@@ -41,8 +42,6 @@ from fastedgy.orm.query import QuerySet
 from fastedgy.orm.manager import BaseManager
 from fastedgy.schemas.base import Pagination
 
-from fastedgy.schemas import create_model
-
 
 class ListApiRouteAction(BaseApiRouteAction):
     """Action for listing model instances."""
@@ -59,10 +58,7 @@ class ListApiRouteAction(BaseApiRouteAction):
                 "methods": ["GET"],
                 "summary": f"List {model_cls.__name__} items",
                 "description": f"Retrieve a paginated list of {model_cls.__name__} items",
-                "response_model": create_model(
-                    model_cls.__name__ + "-List",
-                    __base__=Pagination[generate_output_model(model_cls) | dict[str, Any]],
-                ),
+                "response_model": ModelList[model_cls],
                 **options,
             }
         )

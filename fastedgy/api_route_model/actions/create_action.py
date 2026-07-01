@@ -13,11 +13,9 @@ from fastedgy.models.base import BaseModel, BaseView
 from fastedgy.timezone import ensure_aware
 from fastedgy.api_route_model.action import (
     BaseApiRouteAction,
-    generate_input_create_model,
-    generate_output_model,
     clean_empty_strings,
-    route_body_model,
 )
+from fastedgy.api_route_model.types import ModelItem, ModelCreate
 from fastedgy.api_route_model.exception import handle_action_exception
 from fastedgy.api_route_model.params import FieldSelectorHeader
 from fastedgy.orm.field_selector import filter_selected_fields
@@ -50,7 +48,7 @@ class CreateApiRouteAction(BaseApiRouteAction):
                 "methods": ["POST"],
                 "summary": f"Create {model_cls.__name__}",
                 "description": f"Create a new {model_cls.__name__} item",
-                "response_model": generate_output_model(model_cls) | dict[str, Any],
+                "response_model": ModelItem[model_cls],
                 "responses": {400: {"model": ErrorMessage, "description": "Invalid relation operation"}},
                 **options,
             }
@@ -60,7 +58,6 @@ class CreateApiRouteAction(BaseApiRouteAction):
 def generate_create_item[M: BaseModel | BaseView](
     model_cls: type[M],
 ) -> Callable[..., Any]:
-    @route_body_model(generate_input_create_model(model_cls))
     async def create_item(
         request: Request,
         item_data: Any = Body(...),
@@ -72,6 +69,8 @@ def generate_create_item[M: BaseModel | BaseView](
             item_data,
             fields=fields,
         )
+
+    create_item.__annotations__["item_data"] = ModelCreate[model_cls]
 
     return create_item
 

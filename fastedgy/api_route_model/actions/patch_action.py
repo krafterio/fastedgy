@@ -16,11 +16,9 @@ from fastedgy.orm.query import QuerySet
 from fastedgy.orm.manager import BaseManager
 from fastedgy.api_route_model.action import (
     BaseApiRouteAction,
-    generate_input_patch_model,
-    generate_output_model,
     clean_empty_strings,
-    route_body_model,
 )
+from fastedgy.api_route_model.types import ModelItem, ModelUpdate
 from fastedgy.api_route_model.exception import handle_action_exception
 from fastedgy.api_route_model.params import FieldSelectorHeader
 from fastedgy.orm.field_selector import (
@@ -56,7 +54,7 @@ class PatchApiRouteAction(BaseApiRouteAction):
                 "methods": ["PATCH"],
                 "summary": f"Update {model_cls.__name__}",
                 "description": f"Update an existing {model_cls.__name__} by its ID",
-                "response_model": generate_output_model(model_cls) | dict[str, Any],
+                "response_model": ModelItem[model_cls],
                 "responses": {
                     400: {"model": ErrorMessage, "description": "Invalid relation operation"},
                     404: {"model": ErrorMessage, "description": "Item not found"},
@@ -69,7 +67,6 @@ class PatchApiRouteAction(BaseApiRouteAction):
 def generate_patch_item[M: BaseModel | BaseView](
     model_cls: type[M],
 ) -> Callable[..., Any]:
-    @route_body_model(generate_input_patch_model(model_cls))
     async def patch_item(
         request: Request,
         item_id: int = Path(..., description="Item ID"),
@@ -83,6 +80,8 @@ def generate_patch_item[M: BaseModel | BaseView](
             item_data,
             fields=fields,
         )
+
+    patch_item.__annotations__["item_data"] = ModelUpdate[model_cls]
 
     return patch_item
 

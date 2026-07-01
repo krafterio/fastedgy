@@ -4,7 +4,7 @@
 import json
 from copy import copy
 from functools import cache
-from typing import Callable, get_origin, Literal, Union, get_args, Any, cast
+from typing import get_origin, Literal, Union, get_args, Any, cast
 
 from pydantic import BaseModel as PydanticBaseModel, ConfigDict, RootModel
 from pydantic_core import PydanticUndefined
@@ -106,117 +106,6 @@ def _is_json_serializable(value: Any) -> bool:
         return True
     except (TypeError, ValueError):
         return False
-
-
-def _has_unserializable_default(field: BaseFieldType) -> bool:
-    factory = getattr(field, "default_factory", None)
-
-    if factory is not None and not _is_json_serializable(factory):
-        return True
-
-    default = getattr(field, "default", PydanticUndefined)
-
-    return default is not PydanticUndefined and not _is_json_serializable(default)
-
-
-_output_model_cache: dict[type, type] = {}
-_pending_fk_fields: list[Any] = []
-
-
-def _foreign_key_target_name(field: Any) -> str:
-    """The related model's name, used as a forward reference. ``field.to`` is
-    available at declaration time, so it does not require the ORM registry."""
-    to = field.to
-
-    return to if isinstance(to, str) else to.__name__
-
-
-def generate_output_model[M: BaseModel | BaseView](model_cls: type[M]) -> type[M]:
-    from fastedgy.schemas import Field as PydanticField
-    from fastedgy.api_route_model.action.relations import is_exposed_relation_field
-    from edgy.core.db.fields.foreign_keys import ForeignKey
-
-    cached = _output_model_cache.get(model_cls)
-    if cached is not None:
-        return cast(type[M], cached)
-
-    fields = {}
-
-    for field_name, field_info in model_cls.model_fields.items():
-        field = cast(BaseFieldType, field_info)
-
-        if not field.exclude:
-            field_type = field.field_type
-            field_to_use = field
-
-            # A ForeignKey is serialized either as the related model (when its
-            # fields are expanded) or as a partial object ({"id": ...} by default,
-            # or the selected fields with X-Fields), and as null when the relation
-            # is optional. The related model is referenced through a forward
-            # reference resolved by finalize_output_models() once the ORM registry
-            # is ready, so generating the output model at import time (before
-            # init_models, e.g. response_model=generate_output_model(...)) never
-            # fails.
-            if isinstance(field, ForeignKey):
-                ref = _foreign_key_target_name(field)
-                if field.null:
-                    field_type = Union[ref, dict[str, Any], None]
-                else:
-                    field_type = Union[ref, dict[str, Any]]
-                _pending_fk_fields.append(field)
-            elif field.null:
-                # Preserve nullability so a null value serializes/validates instead
-                # of tripping the response validation (``str`` vs ``str | None``).
-                field_type = optional_field_type(field_type)
-
-            # Drop non-JSON-serializable defaults (auto_now/auto_now_add render as
-            # functools.partial, default_factory callables, ...) from the output schema
-            if _has_unserializable_default(field):
-                field_to_use = copy(field)
-                field_to_use.default = None
-                setattr(field_to_use, "default_factory", None)
-
-            fields[field_name] = (field_type, field_to_use)
-        elif is_exposed_relation_field(field):
-            fields[field_name] = (
-                list[dict[str, Any]] | None,
-                PydanticField(default=None, exclude=False),
-            )
-
-    # defer_build so the unresolved foreign-key forward references do not fail at
-    # creation time; finalize_output_models() rebuilds the model afterwards.
-    model = cast(
-        type[M],
-        create_model(f"{model_cls.__name__}", __config__=ConfigDict(defer_build=True), **fields),
-    )
-    _output_model_cache[model_cls] = model
-
-    return model
-
-
-def finalize_output_models() -> None:
-    """Resolve the foreign-key forward references of the generated output models.
-
-    Must run once the ORM registry is ready (before the OpenAPI schema is built
-    and before responses are validated): it generates the output model of every
-    foreign-key target, then rebuilds each output model with the full namespace
-    so every reference resolves. It is a no-op when there is nothing pending.
-    """
-    if not _pending_fk_fields:
-        return
-
-    index = 0
-    while index < len(_pending_fk_fields):
-        field = _pending_fk_fields[index]
-        index += 1
-        generate_output_model(field.target)
-
-    _pending_fk_fields.clear()
-
-    namespace = {model.__name__: model for model in _output_model_cache.values()}
-
-    for model in _output_model_cache.values():
-        model.model_rebuild(_types_namespace=namespace, force=True)
 
 
 @cache
@@ -393,35 +282,14 @@ def clean_empty_strings(item_data: BaseModel) -> None:
             setattr(item_data, field_name, None)
 
 
-def route_body_model[F: Callable[..., Any]](model: type[BaseModel], param: str = "item_data") -> Callable[[F], F]:
-    """Attach a dynamically generated request body model to a route endpoint.
-
-    FastAPI derives the request body schema from the parameter annotation, but a
-    runtime-generated model (``generate_input_create_model`` / ``generate_input_patch_model``)
-    cannot live in annotation position. This decorator sets it on ``__annotations__``
-    so FastAPI reads it, while the static annotation stays a plain type.
-
-    It is the request-body counterpart of FastAPI's native ``response_model=``.
-    """
-
-    def decorator(func: F) -> F:
-        func.__annotations__[param] = model
-        return func
-
-    return decorator
-
-
 __all__ = [
     "RelationOperation",
     "RelationInput",
     "ForeignKeyObject",
     "ForeignKeyOperation",
     "ForeignKeyInput",
-    "generate_output_model",
-    "finalize_output_models",
     "generate_input_create_model",
     "generate_input_patch_model",
     "optional_field_type",
     "clean_empty_strings",
-    "route_body_model",
 ]

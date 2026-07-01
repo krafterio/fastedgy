@@ -1314,6 +1314,7 @@
         "type": "object"
       },
       "Product": {
+        "additionalProperties": true,
         "properties": {
           "category": {
             "anyOf": [
@@ -2179,6 +2180,7 @@
           "serialized_function": {
             "anyOf": [
               {
+                "contentEncoding": "base64",
                 "contentMediaType": "application/octet-stream",
                 "type": "string"
               },
@@ -5029,26 +5031,200 @@
           "user": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/User"
+                "properties": {
+                  "created_at": {
+                    "format": "date-time",
+                    "title": "Created At",
+                    "type": "string"
+                  },
+                  "email": {
+                    "format": "email",
+                    "maxLength": 255,
+                    "title": "Email",
+                    "type": "string"
+                  },
+                  "id": {
+                    "title": "Id",
+                    "type": "integer"
+                  },
+                  "name": {
+                    "anyOf": [
+                      {
+                        "maxLength": 255,
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Name"
+                  },
+                  "updated_at": {
+                    "format": "date-time",
+                    "title": "Updated At",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "email"
+                ],
+                "title": "User",
+                "type": "object"
               },
               {
                 "additionalProperties": true,
                 "type": "object"
               }
             ],
-            "title": "User"
+            "properties": {
+              "created_at": {
+                "format": "date-time",
+                "title": "Created At",
+                "type": "string"
+              },
+              "email": {
+                "format": "email",
+                "maxLength": 255,
+                "title": "Email",
+                "type": "string"
+              },
+              "id": {
+                "title": "Id",
+                "type": "integer"
+              },
+              "name": {
+                "anyOf": [
+                  {
+                    "maxLength": 255,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Name"
+              },
+              "updated_at": {
+                "format": "date-time",
+                "title": "Updated At",
+                "type": "string"
+              }
+            },
+            "required": [
+              "email"
+            ],
+            "title": "User",
+            "type": "object"
           },
           "workspace": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/Workspace"
+                "properties": {
+                  "created_at": {
+                    "format": "date-time",
+                    "title": "Created At",
+                    "type": "string"
+                  },
+                  "id": {
+                    "title": "Id",
+                    "type": "integer"
+                  },
+                  "image_url": {
+                    "anyOf": [
+                      {
+                        "maxLength": 255,
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Image Url"
+                  },
+                  "name": {
+                    "anyOf": [
+                      {
+                        "maxLength": 255,
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Name"
+                  },
+                  "slug": {
+                    "maxLength": 32,
+                    "title": "Slug",
+                    "type": "string"
+                  },
+                  "updated_at": {
+                    "format": "date-time",
+                    "title": "Updated At",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "slug"
+                ],
+                "title": "Workspace",
+                "type": "object"
               },
               {
                 "additionalProperties": true,
                 "type": "object"
               }
             ],
-            "title": "Workspace"
+            "properties": {
+              "created_at": {
+                "format": "date-time",
+                "title": "Created At",
+                "type": "string"
+              },
+              "id": {
+                "title": "Id",
+                "type": "integer"
+              },
+              "image_url": {
+                "anyOf": [
+                  {
+                    "maxLength": 255,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Image Url"
+              },
+              "name": {
+                "anyOf": [
+                  {
+                    "maxLength": 255,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Name"
+              },
+              "slug": {
+                "maxLength": 32,
+                "title": "Slug",
+                "type": "string"
+              },
+              "updated_at": {
+                "format": "date-time",
+                "title": "Updated At",
+                "type": "string"
+              }
+            },
+            "required": [
+              "slug"
+            ],
+            "title": "Workspace",
+            "type": "object"
           }
         },
         "required": [

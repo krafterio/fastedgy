@@ -900,12 +900,6 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
     @asynccontextmanager
     async def _native_lifespan(self, app):
         """FastEdgy native lifespan: DB + services"""
-        from fastedgy.api_route_model.action import finalize_output_models
-
-        # Resolve the foreign-key references of the generated output models now
-        # that the ORM registry is ready, so responses validate correctly.
-        finalize_output_models()
-
         db = get_service(Database)
         await db.connect()
         try:
@@ -929,29 +923,11 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
             pass  # Don't break lifespan for this
 
     def openapi(self) -> dict[str, Any]:
-        # Resolve foreign-key references of the generated output models before the
-        # schema is built (covers `app.openapi()` outside the request lifecycle,
-        # e.g. snapshot generation).
-        import warnings
+        from fastedgy.api_route_model.openapi import prune_orphan_schemas
 
-        from pydantic.json_schema import PydanticJsonSchemaWarning
-
-        from fastedgy.api_route_model.action import finalize_output_models
-
-        finalize_output_models()
-
-        # Auto-managed ORM fields (auto_now/auto_now_add) carry a functools.partial
-        # default that is not JSON-serializable; Pydantic correctly excludes it from
-        # the schema but warns for every such field. The exclusion is the desired
-        # behaviour, so silence that specific (benign) warning during schema build.
-        with warnings.catch_warnings():
-            warnings.filterwarnings(
-                "ignore",
-                message=".*is not JSON serializable.*",
-                category=PydanticJsonSchemaWarning,
-            )
-
-            return super().openapi()
+        spec = super().openapi()
+        prune_orphan_schemas(spec)
+        return spec
 
     def initialize(self) -> None:
         pass

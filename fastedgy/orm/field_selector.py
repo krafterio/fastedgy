@@ -6,7 +6,7 @@ from typing import Any
 from fastedgy.orm import Model, BaseModelType
 from fastedgy.orm.fields import BaseFieldType
 from fastedgy.orm.query import QuerySet
-from fastedgy.orm.utils import extract_field_names
+from fastedgy.orm.utils import extract_field_names, find_primary_key_field
 
 
 def parse_field_selector_input(
@@ -26,6 +26,8 @@ def parse_field_selector_input(
     """
     if not fields_expr or (isinstance(fields_expr, str) and not fields_expr.strip()):
         return None
+
+    model_cls = _real_model_cls(model_cls)
 
     # Convert string to list
     if isinstance(fields_expr, str):
@@ -137,60 +139,255 @@ def clean_field_names_from_input(model_cls: type[BaseModelType], fields: str | l
     return extract_field_names(parsed)
 
 
-def optimize_query_filter_fields(query: QuerySet, fields_expr: str | list[str] | None) -> QuerySet:
+def optimize_query_filter_fields(
+    query: QuerySet, fields_expr: str | list[str] | None, prune_columns: bool = True
+) -> QuerySet:
     """
-    Optimize query by preloading requested relationships.
+    Optimize query by preloading requested relationships and pruning unselected columns.
 
     Args:
         query: The QuerySet to optimize
         fields_expr: Field paths expression
+        prune_columns: Restrict the SELECT to the requested columns via only()
 
     Returns:
-        Optimized QuerySet with select_related() applied
+        Optimized QuerySet with select_related() and only() applied
     """
     if not fields_expr:
         return query
 
-    model_cls = query.model_class
-    map_fields = parse_field_selector_input(model_cls, fields_expr)
+    map_fields = parse_field_selector_input(query.model_class, fields_expr)
 
     if not map_fields:
         return query
 
-    direct_relations = []
-    has_list_relations = False
+    return apply_field_map_optimizations(query, map_fields, prune_columns=prune_columns)
 
-    def collect_relations(fields_map: dict) -> None:
-        nonlocal has_list_relations
-        for field_name, field_value in fields_map.items():
-            if isinstance(field_value, dict) or isinstance(field_value, list):
-                field = model_cls.meta.fields.get(field_name)
 
-                if field:
-                    if hasattr(field, "target"):
-                        direct_relations.append(field_name)
-                        if getattr(field, "is_m2m", False):
-                            has_list_relations = True
-                    elif hasattr(field, "related_from"):
-                        direct_relations.append(field_name)
-                        has_list_relations = True
+def apply_field_map_optimizations(query: QuerySet, map_fields: dict[str, Any], prune_columns: bool = True) -> QuerySet:
+    """
+    Apply select_related() and defer() to a query from a parsed fields map.
 
-    collect_relations(map_fields)
+    Relation paths are collected recursively for to-one relations. To-many relations
+    are excluded: they are loaded by dedicated sub-queries at serialization time,
+    which are themselves optimized with their sub-map.
 
-    for relation in direct_relations:
+    Column pruning uses defer() rather than only() because the defer flag is the
+    only one propagated by Edgy to the nested instances built from joined rows:
+    they must be proxy models (no pydantic validation on partial data, lazy load
+    allowed on missing attributes).
+
+    Relation querysets (m2m through models) embed their target at the
+    embed_parent path: the map is then applied at that prefix.
+    """
+    model_cls = query.model_class
+    base_prefix = ""
+    embed_parent = getattr(query, "embed_parent", None)
+
+    if embed_parent and embed_parent[0]:
+        embedded_model = _resolve_relation_path(model_cls, embed_parent[0])
+
+        if embedded_model is None:
+            return query
+
+        model_cls = embedded_model
+        base_prefix = embed_parent[0]
+
+    select_paths: set[str] = set()
+    levels: dict[str, tuple[type[BaseModelType], set[str] | None]] = {}
+
+    _collect_query_optimizations(model_cls, map_fields, base_prefix, select_paths, levels)
+
+    for path in sorted(select_paths):
         try:
-            query = query.select_related(relation)
+            query = query.select_related(path)
         except Exception:
             pass
 
-    if has_list_relations and query.distinct_on is None:
-        from fastedgy.orm.utils import find_primary_key_field
+    if prune_columns:
+        defer_paths = _build_defer_paths(select_paths, levels)
 
-        primary_key = find_primary_key_field(model_cls)
-        if primary_key:
-            query = query.distinct(primary_key)
+        if defer_paths:
+            try:
+                query = query.defer(*sorted(defer_paths))
+            except Exception:
+                pass
 
     return query
+
+
+def get_computed_field_deps(model_cls: type, field_name: str) -> tuple[str, ...] | None:
+    info = getattr(_real_model_cls(model_cls), "model_computed_fields", {}).get(field_name)
+
+    if info is None:
+        return None
+
+    prop = getattr(info, "wrapped_property", None)
+    fget = getattr(prop, "fget", None) or prop
+
+    return getattr(fget, "__computed_field_deps__", None)
+
+
+def _collect_query_optimizations(
+    model_cls: type[BaseModelType],
+    fields_map: dict[str, Any],
+    prefix: str,
+    select_paths: set[str],
+    levels: dict[str, tuple[type[BaseModelType], set[str] | None]],
+) -> None:
+    _keep_field(levels, model_cls, prefix, find_primary_key_field(model_cls))
+
+    for field_name, field_value in fields_map.items():
+        if isinstance(field_value, list):
+            continue
+
+        if isinstance(field_value, dict):
+            field = model_cls.meta.fields.get(field_name)
+            target = getattr(field, "target", None)
+
+            if field is None or target is None or getattr(field, "is_m2m", False):
+                continue
+
+            _keep_field(levels, model_cls, prefix, field_name)
+            target_pk = find_primary_key_field(target)
+
+            if target_pk and set(field_value.keys()) <= {target_pk}:
+                continue
+
+            path = f"{prefix}__{field_name}" if prefix else field_name
+            select_paths.add(path)
+            _collect_query_optimizations(target, field_value, path, select_paths, levels)
+            continue
+
+        if field_name in getattr(model_cls, "model_computed_fields", {}):
+            deps = get_computed_field_deps(model_cls, field_name)
+
+            if deps is None:
+                _opt_out_column_pruning(levels, model_cls, prefix)
+            else:
+                for dep in deps:
+                    _merge_computed_dep(model_cls, dep, prefix, select_paths, levels)
+            continue
+
+        if field_name.startswith("extra_") and "extra" in model_cls.meta.fields:
+            _keep_field(levels, model_cls, prefix, "extra")
+            continue
+
+        if field_name in model_cls.meta.fields:
+            _keep_field(levels, model_cls, prefix, field_name)
+        else:
+            _opt_out_column_pruning(levels, model_cls, prefix)
+
+
+def _merge_computed_dep(
+    model_cls: type[BaseModelType],
+    dep: str,
+    prefix: str,
+    select_paths: set[str],
+    levels: dict[str, tuple[type[BaseModelType], set[str] | None]],
+    depth: int = 0,
+) -> None:
+    if depth > 10:
+        _opt_out_column_pruning(levels, model_cls, prefix)
+        return
+
+    parts = [part for part in dep.split(".") if part]
+    current_model = model_cls
+    current_prefix = prefix
+
+    for i, part in enumerate(parts):
+        is_last = i == len(parts) - 1
+
+        if part in getattr(current_model, "model_computed_fields", {}):
+            sub_deps = get_computed_field_deps(current_model, part)
+
+            if sub_deps is None:
+                _opt_out_column_pruning(levels, current_model, current_prefix)
+            else:
+                for sub_dep in sub_deps:
+                    _merge_computed_dep(current_model, sub_dep, current_prefix, select_paths, levels, depth + 1)
+            return
+
+        if part.startswith("extra_") and "extra" in current_model.meta.fields:
+            _keep_field(levels, current_model, current_prefix, "extra")
+            return
+
+        field = current_model.meta.fields.get(part)
+
+        if field is None:
+            _opt_out_column_pruning(levels, current_model, current_prefix)
+            return
+
+        if is_last:
+            _keep_field(levels, current_model, current_prefix, part)
+            return
+
+        target = getattr(field, "target", None)
+
+        if target is None or getattr(field, "is_m2m", False):
+            _opt_out_column_pruning(levels, current_model, current_prefix)
+            return
+
+        _keep_field(levels, current_model, current_prefix, part)
+        current_prefix = f"{current_prefix}__{part}" if current_prefix else part
+        select_paths.add(current_prefix)
+        current_model = target
+        _keep_field(levels, current_model, current_prefix, find_primary_key_field(current_model))
+
+
+def _keep_field(
+    levels: dict[str, tuple[type[BaseModelType], set[str] | None]],
+    model_cls: type[BaseModelType],
+    prefix: str,
+    field_name: str | None,
+) -> None:
+    level = levels.get(prefix)
+
+    if level is None:
+        level = (model_cls, set())
+        levels[prefix] = level
+
+    kept_fields = level[1]
+
+    if field_name is not None and kept_fields is not None:
+        kept_fields.add(field_name)
+
+
+def _opt_out_column_pruning(
+    levels: dict[str, tuple[type[BaseModelType], set[str] | None]],
+    model_cls: type[BaseModelType],
+    prefix: str,
+) -> None:
+    levels[prefix] = (model_cls, None)
+
+
+def _build_defer_paths(
+    select_paths: set[str],
+    levels: dict[str, tuple[type[BaseModelType], set[str] | None]],
+) -> set[str]:
+    defer_paths: set[str] = set()
+
+    for prefix, (model_cls, kept_fields) in levels.items():
+        if kept_fields is None:
+            continue
+
+        columns_map = getattr(model_cls.meta, "field_to_column_names", {})
+
+        for field_name in model_cls.meta.fields:
+            if field_name in kept_fields:
+                continue
+
+            if not columns_map.get(field_name):
+                continue
+
+            field_path = f"{prefix}__{field_name}" if prefix else field_name
+
+            if field_path in select_paths:
+                continue
+
+            defer_paths.add(field_path)
+
+    return defer_paths
 
 
 async def filter_selected_fields(item: Model, fields_expr: str | list[str] | None) -> dict:
@@ -209,14 +406,14 @@ async def filter_selected_fields(item: Model, fields_expr: str | list[str] | Non
     before executing first(), get(), or all().
     """
     map_fields = parse_field_selector_input(type(item), fields_expr)
-    item_dump = item.model_dump()
 
-    if map_fields is not None:
-        filtered_item = {}
-        await filter_fields(item_dump, item, map_fields, filtered_item)
-        item_dump = filtered_item
+    if map_fields is None:
+        return item.model_dump()
 
-    return item_dump
+    filtered_item: dict = {}
+    await filter_fields(_dump_selected(item, map_fields), item, map_fields, filtered_item)
+
+    return filtered_item
 
 
 async def filter_fields(data: dict, data_obj: Model | None, fields: dict, target: dict) -> None:
@@ -229,17 +426,16 @@ async def filter_fields(data: dict, data_obj: Model | None, fields: dict, target
         fields: Fields selector dict
         target: Target dict to populate
     """
-    from fastedgy.orm.order_by import inject_order_by
-
     for field_name, field_value in fields.items():
         if isinstance(field_value, dict):
-            if data_obj and hasattr(data_obj, field_name):
-                nested_obj = getattr(data_obj, field_name, None)
+            if data_obj is not None:
+                nested_obj = _get_loaded_relation(data_obj, field_name)
 
                 if nested_obj is not None:
-                    nested_data = nested_obj.model_dump()
                     target[field_name] = {}
-                    await filter_fields(nested_data, nested_obj, field_value, target[field_name])
+                    await filter_fields(
+                        _dump_selected(nested_obj, field_value), nested_obj, field_value, target[field_name]
+                    )
                 else:
                     target[field_name] = None
         elif isinstance(field_value, list):
@@ -249,17 +445,13 @@ async def filter_fields(data: dict, data_obj: Model | None, fields: dict, target
                 if nested_obj is not None:
                     target[field_name] = []
                     queryset = nested_obj.limit(1000).all()
-
-                    if hasattr(nested_obj, "Meta"):
-                        order_by_input = getattr(nested_obj.Meta, "default_order_by", None)
-
-                        if order_by_input:
-                            queryset = inject_order_by(queryset, order_by_input)
+                    queryset = apply_field_map_optimizations(queryset, field_value[0])
+                    queryset = _inject_relation_default_order(queryset, data_obj, field_name, nested_obj)
 
                     items = [item async for item in queryset]
 
                     for obj_item in items:
-                        item_data = obj_item.model_dump()
+                        item_data = _dump_selected(obj_item, field_value[0])
                         target[field_name].append({})
                         await filter_fields(item_data, obj_item, field_value[0], target[field_name][-1])
                 else:
@@ -269,6 +461,89 @@ async def filter_fields(data: dict, data_obj: Model | None, fields: dict, target
                 target[field_name] = data[field_name]
             elif data_obj and hasattr(data_obj, field_name):
                 target[field_name] = getattr(data_obj, field_name)
+
+
+def _inject_relation_default_order(queryset: Any, data_obj: Model, field_name: str, nested_obj: Any) -> Any:
+    from fastedgy.orm.order_by import inject_order_by, parse_order_by
+
+    field = _real_model_cls(type(data_obj)).meta.fields.get(field_name)
+    target_model = None
+
+    if field is not None:
+        target_model = getattr(field, "target", None) or getattr(field, "related_from", None)
+
+    if target_model is None or not hasattr(target_model, "Meta"):
+        if hasattr(nested_obj, "Meta"):
+            order_by_input = getattr(nested_obj.Meta, "default_order_by", None)
+
+            if order_by_input:
+                return inject_order_by(queryset, order_by_input)
+
+        return queryset
+
+    order_by_input = getattr(target_model.Meta, "default_order_by", None)
+
+    if not order_by_input:
+        return queryset
+
+    return inject_order_by(queryset, parse_order_by(target_model, order_by_input))
+
+
+def _real_model_cls(model_cls: type[BaseModelType]) -> type[BaseModelType]:
+    if getattr(model_cls, "__is_proxy_model__", False):
+        return getattr(model_cls, "__parent__", None) or model_cls
+
+    return model_cls
+
+
+def _resolve_relation_path(model_cls: type[BaseModelType], path: str) -> type[BaseModelType] | None:
+    current_model = model_cls
+
+    for part in path.split("__"):
+        field = current_model.meta.fields.get(part)
+        target = getattr(field, "target", None)
+
+        if target is None:
+            return None
+
+        current_model = target
+
+    return current_model
+
+
+def _dump_selected(item: Model, fields_map: dict[str, Any]) -> dict:
+    model_cls = _real_model_cls(type(item))
+    computed_fields = getattr(model_cls, "model_computed_fields", {})
+    include: set[str] = set()
+
+    for field_name, field_value in fields_map.items():
+        if field_value is not True:
+            continue
+
+        if field_name.startswith("extra_") and "extra" in model_cls.meta.fields:
+            include.add("extra")
+        elif field_name in model_cls.meta.fields or field_name in computed_fields:
+            include.add(field_name)
+
+    pk_name = find_primary_key_field(model_cls)
+
+    if pk_name:
+        include.add(pk_name)
+
+    return item.model_dump(include=include)
+
+
+def _get_loaded_relation(data_obj: Model, field_name: str) -> Any:
+    from edgy.core.db.context_vars import MODEL_GETATTR_BEHAVIOR
+
+    token = MODEL_GETATTR_BEHAVIOR.set("passdown")
+
+    try:
+        return getattr(data_obj, field_name)
+    except AttributeError:
+        return None
+    finally:
+        MODEL_GETATTR_BEHAVIOR.reset(token)
 
 
 def _add_field_selector(fields: dict[str, Any], field: BaseFieldType, force: bool = False):
@@ -297,6 +572,8 @@ __all__ = [
     "parse_field_selector_input",
     "clean_field_names_from_input",
     "optimize_query_filter_fields",
+    "apply_field_map_optimizations",
+    "get_computed_field_deps",
     "filter_selected_fields",
     "filter_fields",
 ]

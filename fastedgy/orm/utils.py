@@ -6,14 +6,14 @@ from typing import Any
 import sqlalchemy as sa
 from inspect import isclass
 
-from fastedgy.orm import fields, Model
+from fastedgy.orm import fields, BaseModelType, Model
 from sqlalchemy.orm import ColumnProperty, Mapper
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 from sqlalchemy.orm.util import AliasedClass
 from sqlalchemy.sql.selectable import SelectBase
 
 
-def find_primary_key_field(model_cls: type[Model] | Model) -> str | None:
+def find_primary_key_field(model_cls: type[BaseModelType] | BaseModelType) -> str | None:
     for field_name, field_info in model_cls.meta.fields.items():
         if hasattr(field_info, "primary_key") and field_info.primary_key:
             return field_name

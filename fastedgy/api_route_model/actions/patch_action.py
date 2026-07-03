@@ -105,7 +105,7 @@ async def patch_item_action[M: BaseModel | BaseView](
     )
 
     query = cast(QuerySet, query or model_cls.query)
-    query = optimize_query_filter_fields(query, fields)
+    query = optimize_query_filter_fields(query, fields, prune_columns=False)
     transformers_ctx = transformers_ctx or {}
     vtr = get_service(ViewTransformerRegistry)
 

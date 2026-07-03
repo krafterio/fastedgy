@@ -141,7 +141,7 @@ from pydantic_core import (
     ErrorDetails,
     PydanticUndefined,
 )
-from .base import BaseModel, Pagination, List, SimpleMessage, ErrorMessage
+from .base import BaseModel, Pagination, List, SimpleMessage, ErrorMessage, computed_field_deps
 
 
 __all__ = [
@@ -182,6 +182,7 @@ __all__ = [
     # fields
     "Field",
     "computed_field",
+    "computed_field_deps",
     "PrivateAttr",
     # alias
     "AliasChoices",

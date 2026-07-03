@@ -19,6 +19,12 @@ from fastedgy.test.models.global_filter import (
     GfSharedDoc,
     GfLink,
 )
+from fastedgy.test.models.fs_optimize import (
+    FsoBrand,
+    FsoCategory,
+    FsoTag,
+    FsoProduct,
+)
 
 
 STANDARD_MODELS = [
@@ -58,6 +64,10 @@ __all__ = [
     "GfPrivateDoc",
     "GfSharedDoc",
     "GfLink",
+    "FsoBrand",
+    "FsoCategory",
+    "FsoTag",
+    "FsoProduct",
     "STANDARD_MODELS",
     "DEMO_MODELS",
     "ALL_MODELS",

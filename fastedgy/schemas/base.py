@@ -1,10 +1,20 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+from collections.abc import Callable
 from typing import Any, TypeVar
 from datetime import datetime
 
 from pydantic import BaseModel as PydanticBaseModel, computed_field, field_serializer
+
+
+def computed_field_deps[F: property | Callable[..., object]](*deps: str) -> Callable[[F], F]:
+    def decorator(func: F) -> F:
+        target = getattr(func, "fget", None) or func
+        setattr(target, "__computed_field_deps__", tuple(deps))
+        return func
+
+    return decorator
 
 
 class BaseModel(PydanticBaseModel):

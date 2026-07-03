@@ -1,9 +1,10 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+from contextlib import contextmanager
 from contextvars import ContextVar, Token
 from enum import Enum
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Any, Generator, Union
 from zoneinfo import ZoneInfo
 
 from fastedgy.timezone import get_timezone_info
@@ -164,6 +165,36 @@ def get_map_workspace_extra_fields(model_name: str) -> dict[str, "WorkspaceExtra
     return {str(field.name): field for field in fields}
 
 
+_params: ContextVar[dict[str, Any]] = ContextVar("context_params", default={})
+
+
+@contextmanager
+def params(**values: Any) -> Generator[None, None, None]:
+    """Scope extra context parameters to a `with` block.
+
+    Available anywhere via `get_param(...)` for the duration of the block
+    (request, queue task or plain call), then automatically restored. Lets a
+    trusted flow toggle a global filter from its `apply` predicate:
+
+        with context.params(skip_access_control=True):
+            await membership.save()
+    """
+    token = _params.set({**_params.get(), **values})
+
+    try:
+        yield
+    finally:
+        _params.reset(token)
+
+
+def get_param(name: str, default: Any = None) -> Any:
+    return _params.get().get(name, default)
+
+
+def get_params() -> dict[str, Any]:
+    return dict(_params.get())
+
+
 __all__ = [
     "set_request",
     "get_request",
@@ -181,4 +212,7 @@ __all__ = [
     "set_workspace_extra_fields",
     "get_workspace_extra_fields",
     "get_map_workspace_extra_fields",
+    "params",
+    "get_param",
+    "get_params",
 ]

@@ -4,17 +4,22 @@
 from edgy.core.db.models.managers import Manager, RedirectManager, BaseManager
 
 from fastedgy.orm.query import QuerySet
+from fastedgy.orm.access_guard import ModelAction, check_access
 from fastedgy.orm.filter.global_filters import apply_global_filters
 
 
 class AccessControlManager(Manager):
     def get_queryset(self) -> QuerySet:
-        return apply_global_filters(super().get_queryset())
+        queryset = super().get_queryset()
+        check_access(queryset.model_class, ModelAction.read)
+        return apply_global_filters(queryset)
 
 
 class AccessControlRedirectManager(RedirectManager):
     def get_queryset(self) -> QuerySet:
-        return apply_global_filters(super().get_queryset())
+        queryset = super().get_queryset()
+        check_access(queryset.model_class, ModelAction.read)
+        return apply_global_filters(queryset)
 
 
 __all__ = [

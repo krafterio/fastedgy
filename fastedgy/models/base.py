@@ -396,11 +396,20 @@ class BaseModel(Model, metaclass=ModelMeta):
         values: dict[str, Any] | set[str] | None = None,
         force_save: bool | None = None,
     ) -> Self:
+        from fastedgy.orm.access_guard import ModelAction, acheck_access
         from fastedgy.orm.filter.global_filters import validate_write_references
 
+        is_update = bool(getattr(self, "_db_loaded", False) and self.pk is not None)
+        await acheck_access(type(self), ModelAction.update if is_update else ModelAction.create, self)
         await validate_write_references(self)
         await super().save(force_insert=force_insert, values=values, force_save=force_save)
         return self
+
+    async def delete(self, skip_post_delete_hooks: bool = False) -> int:
+        from fastedgy.orm.access_guard import ModelAction, acheck_access
+
+        await acheck_access(type(self), ModelAction.delete, self)
+        return await super().delete(skip_post_delete_hooks=skip_post_delete_hooks)
 
 
 class BaseView(Model, metaclass=ModelMeta):

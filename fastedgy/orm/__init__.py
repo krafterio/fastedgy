@@ -13,7 +13,7 @@ from edgy import (
     ReflectModel,
 )
 from edgy.core.db.models.types import BaseModelType
-from fastedgy.orm import field_selector, filter, order_by
+from fastedgy.orm import access_guard, field_selector, filter, order_by
 from fastedgy.orm.meta import Meta
 from fastedgy.orm.relations.many import Many
 from fastedgy.orm.transaction import (
@@ -47,6 +47,7 @@ __all__ = [
     "ReflectModel",
     "BaseModelType",
     "migration",
+    "access_guard",
     "field_selector",
     "filter",
     "order_by",

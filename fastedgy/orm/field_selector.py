@@ -148,10 +148,10 @@ def optimize_query_filter_fields(
     Args:
         query: The QuerySet to optimize
         fields_expr: Field paths expression
-        prune_columns: Restrict the SELECT to the requested columns via only()
+        prune_columns: Restrict the SELECT to the requested columns via defer()
 
     Returns:
-        Optimized QuerySet with select_related() and only() applied
+        Optimized QuerySet with select_related() and defer() applied
     """
     if not fields_expr:
         return query
@@ -208,8 +208,11 @@ def apply_field_map_optimizations(query: QuerySet, map_fields: dict[str, Any], p
         defer_paths = _build_defer_paths(select_paths, levels)
 
         if defer_paths:
+            from fastedgy.orm.deferred_batch import enable_deferred_batch_loading
+
             try:
                 query = query.defer(*sorted(defer_paths))
+                query = enable_deferred_batch_loading(query)
             except Exception:
                 pass
 

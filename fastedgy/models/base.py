@@ -384,6 +384,16 @@ class BaseModel(Model, metaclass=ModelMeta):
 
         return data
 
+    async def load(self, only_needed: bool = False) -> None:
+        from fastedgy.orm.deferred_batch import consume_batch_load
+
+        # Instances materialized by a column-pruned queryset reload their
+        # deferred columns for the whole batch in one query (no N+1).
+        if await consume_batch_load(self):
+            return
+
+        await super().load(only_needed)
+
     query = AccessControlManager()
 
     query_related = AccessControlRedirectManager(redirect_name="query")

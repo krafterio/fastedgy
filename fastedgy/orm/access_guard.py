@@ -48,6 +48,7 @@ class ModelAccessGuardRegistry:
 
     def __init__(self):
         self._guards: dict[type, list[AccessGuard]] = {}
+        self._resolved: dict[type, tuple[AccessGuard, ...]] = {}
 
     def register(
         self,
@@ -56,17 +57,19 @@ class ModelAccessGuardRegistry:
         apply: AccessGuardApply = None,
     ) -> None:
         self._guards.setdefault(model_cls, []).append(AccessGuard(listener, apply))
+        self._resolved.clear()
 
-    def get_guards(self, model_cls: type) -> list[AccessGuard]:
-        guards: list[AccessGuard] = []
+    def get_guards(self, model_cls: type) -> tuple[AccessGuard, ...]:
+        guards = self._resolved.get(model_cls)
 
-        for klass in model_cls.__mro__:
-            guards.extend(self._guards.get(klass, []))
+        if guards is None:
+            guards = tuple(guard for klass in model_cls.__mro__ for guard in self._guards.get(klass, ()))
+            self._resolved[model_cls] = guards
 
         return guards
 
     def has_guards(self, model_cls: type) -> bool:
-        return any(klass in self._guards for klass in model_cls.__mro__)
+        return bool(self.get_guards(model_cls))
 
     def check_access(self, model_cls: type, action: ModelAction, instance: Any = None) -> None:
         for guard in self.get_guards(model_cls):

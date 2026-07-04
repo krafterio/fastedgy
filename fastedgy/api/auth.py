@@ -111,20 +111,25 @@ async def refresh_access_token(
             settings.auth_secret_key,
             algorithms=[settings.auth_algorithm],
         )
-        email: str = str(payload.get("sub"))
+        sub: str = str(payload.get("sub"))
         token_type: str = str(payload.get("type"))
-        if email is None or token_type != "refresh":
+        if sub is None or token_type != "refresh":
             raise credentials_exception
     except JWTError:
         raise credentials_exception
 
-    user = await User.query.filter(email=email).first()
+    if hasattr(User, "username") or "username" in User.model_fields:
+        user = await User.query.filter((User.columns.email == sub) | (User.columns.username == sub)).first()
+    else:
+        user = await User.query.filter(email=sub).first()
+
     if user is None:
         raise credentials_exception
 
+    new_sub = user.email or user.username
     access_token_expires = timedelta(minutes=settings.auth_access_token_expire_minutes)
-    new_access_token = create_access_token(data={"sub": user.email}, expires_delta=access_token_expires)
-    new_refresh_token = create_refresh_token(data={"sub": user.email})
+    new_access_token = create_access_token(data={"sub": new_sub}, expires_delta=access_token_expires)
+    new_refresh_token = create_refresh_token(data={"sub": new_sub})
 
     await bus.dispatch(
         OnAuthRefreshTokenEvent(user=user, access_token=new_access_token, refresh_token=new_refresh_token)

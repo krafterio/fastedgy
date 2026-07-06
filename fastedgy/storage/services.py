@@ -307,11 +307,16 @@ class Storage:
         mode: str = "contain",
         out_ext: str | None = None,
         global_storage: bool = False,
+        regenerate: bool = False,
     ) -> tuple[str, str]:
         """Return (relative_path, mime_type) for serving.
 
         The returned path is either the original or a cached optimized version.
         Use stream_download() to actually stream the content.
+
+        With `regenerate=True` the cache lookup is skipped and the optimized
+        variant is rebuilt from the source (recovery path when a cached file
+        was evicted between resolution and read).
         """
         source_name = source_relative_path.rsplit("/", 1)[-1] if "/" in source_relative_path else source_relative_path
         full_source = self._resolve_path(source_relative_path, global_storage)
@@ -340,7 +345,7 @@ class Storage:
         cache_path = f"{cache_rel}/{mode_name}_w{req_w}_h{req_h}.{out_ext_final}"
 
         # Check cache
-        if await self.cache_adapter.exists(cache_path):
+        if not regenerate and await self.cache_adapter.exists(cache_path):
             await self.cache_adapter.touch(cache_path)
             return f"__cache__:{cache_path}", mime_type
 

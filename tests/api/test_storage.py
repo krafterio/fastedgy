@@ -117,3 +117,43 @@ async def test_upload_requires_authentication(setup_http: httpx.AsyncClient) -> 
     )
 
     assert response.status_code == 401
+
+
+async def test_download_optimized_image_regenerates_evicted_cache(auth_http: httpx.AsyncClient, monkeypatch) -> None:
+    import io
+
+    from PIL import Image
+
+    from fastedgy.dependencies import get_service
+    from fastedgy.storage import Storage
+
+    buf = io.BytesIO()
+    Image.new("RGB", (64, 64), "red").save(buf, format="PNG")
+
+    upload = await auth_http.post(
+        "/api/storage/upload/attachments",
+        files={"img.png": ("img.png", buf.getvalue(), "image/png")},
+    )
+    attachment = upload.json()["attachments"][0]
+    url = f"/api/storage/download/attachments/{attachment['id']}?w=32&e=webp"
+
+    first = await auth_http.get(url)
+    assert first.status_code == 200
+    assert first.headers["content-type"] == "image/webp"
+
+    storage = get_service(Storage)
+    real_file_size = storage.cache_adapter.file_size
+    evicted = {"done": False}
+
+    async def evicting_file_size(cache_path: str) -> int:
+        if not evicted["done"]:
+            evicted["done"] = True
+            await storage.cache_adapter.delete(cache_path)
+            raise FileNotFoundError(cache_path)
+        return await real_file_size(cache_path)
+
+    monkeypatch.setattr(storage.cache_adapter, "file_size", evicting_file_size)
+
+    second = await auth_http.get(url)
+    assert second.status_code == 200
+    assert second.content == first.content

@@ -2,6 +2,7 @@
 # MIT License (see LICENSE file).
 
 import re as _re
+from collections.abc import Awaitable, Callable
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, cast
 from pathlib import Path
@@ -272,9 +273,22 @@ async def _serve_download(
     filename: str,
     force_download: bool,
     global_storage: bool,
+    re_resolve: Callable[[], Awaitable[tuple[str, str]]] | None = None,
 ) -> Response:
     """Serve a file download with Range request support."""
-    total_size = await storage.get_file_size_for_download(resolved_path, global_storage=global_storage)
+    try:
+        total_size = await storage.get_file_size_for_download(resolved_path, global_storage=global_storage)
+    except FileNotFoundError:
+        # The cached optimized variant was evicted between resolution and
+        # read (age-based cleanup or source overwrite): rebuild it once.
+        if re_resolve is None or not resolved_path.startswith("__cache__:"):
+            raise
+        resolved_path, content_type = await re_resolve()
+        if not resolved_path.startswith("__cache__:") and not await storage.file_exists(
+            resolved_path, global_storage=global_storage
+        ):
+            raise HTTPException(status_code=404, detail=_t("File not found"))
+        total_size = await storage.get_file_size_for_download(resolved_path, global_storage=global_storage)
 
     range_header = request.headers.get("range")
     byte_range = _parse_range(range_header, total_size)
@@ -359,6 +373,15 @@ async def download_attachment(
             filename,
             force_download,
             global_storage,
+            re_resolve=lambda: storage.get_optimized_or_original(
+                record.storage_path,
+                w=w,
+                h=h,
+                mode=m,
+                out_ext=e,
+                global_storage=global_storage,
+                regenerate=True,
+            ),
         )
     except ObjectNotFound:
         raise HTTPException(status_code=404, detail=_t("Attachment not found"))
@@ -408,6 +431,15 @@ async def download_file(
         filename,
         force_download,
         global_storage,
+        re_resolve=lambda: storage.get_optimized_or_original(
+            path,
+            w=w,
+            h=h,
+            mode=m,
+            out_ext=e,
+            global_storage=global_storage,
+            regenerate=True,
+        ),
     )
 
 

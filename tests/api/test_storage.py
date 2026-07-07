@@ -157,3 +157,33 @@ async def test_download_optimized_image_regenerates_evicted_cache(auth_http: htt
     second = await auth_http.get(url)
     assert second.status_code == 200
     assert second.content == first.content
+
+
+async def test_download_optimized_passthrough_image_is_served(auth_http: httpx.AsyncClient) -> None:
+    import io
+
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGB", (64, 64), "blue").save(buf, format="WEBP")
+
+    upload = await auth_http.post(
+        "/api/storage/upload/attachments",
+        files={"img.webp": ("img.webp", buf.getvalue(), "image/webp")},
+    )
+    attachment = upload.json()["attachments"][0]
+
+    # Same output format and dimensions clamped to the original size: the
+    # generator takes its passthrough path, which used to return a cache
+    # path without ever writing the file (FileNotFoundError on every hit).
+    response = await auth_http.get(
+        f"/api/storage/download/attachments/{attachment['id']}?w=1080&h=1080&m=cover&e=webp"
+    )
+
+    assert response.status_code == 200
+    assert response.content == buf.getvalue()
+
+    second = await auth_http.get(
+        f"/api/storage/download/attachments/{attachment['id']}?w=1080&h=1080&m=cover&e=webp"
+    )
+    assert second.status_code == 200

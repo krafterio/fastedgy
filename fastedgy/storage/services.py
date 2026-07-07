@@ -255,15 +255,16 @@ class Storage:
         h: int | None,
         mode: str,
         out_ext: str | None,
-    ) -> tuple[str, bytes, str]:
+    ) -> tuple[str | None, bytes, str]:
         """Generate optimized image and save to cache.
 
-        Returns (cache_path, image_bytes, mime_type).
-        If no optimization needed, returns original data.
+        Returns (cache_path, image_bytes, mime_type). A None cache_path means
+        no transformation was needed: nothing is written and the caller must
+        serve the original file directly.
         """
         if Image is None:
             mime = mimetypes.guess_type(source_name)[0] or "application/octet-stream"
-            return cache_path, source_data, mime
+            return None, source_data, mime
 
         with Image.open(io.BytesIO(source_data)) as img:
             ow, oh = img.size
@@ -275,7 +276,7 @@ class Storage:
 
             if (tw, th) == (ow, oh) and out_format.lower() == src_ext.lower():
                 mime = mimetypes.guess_type(source_name)[0] or mime_type
-                return cache_path, source_data, mime
+                return None, source_data, mime
 
             if mode == "contain":
                 resized = img.resize((tw, th), Image.Resampling.LANCZOS)
@@ -351,7 +352,7 @@ class Storage:
 
         # Read source from adapter, generate cache
         source_data = await self.adapter.read(full_source)
-        cache_path, _, mime_type = await self._generate_cache_image(
+        generated_path, _, mime_type = await self._generate_cache_image(
             source_data,
             source_name,
             cache_path,
@@ -361,7 +362,13 @@ class Storage:
             out_ext=out_ext if out_ext else src_ext,
         )
 
-        return f"__cache__:{cache_path}", mime_type
+        if generated_path is None:
+            # Already at the requested size and format: serve the original,
+            # nothing to cache (a __cache__ path without a file behind it
+            # made every download of such an image die on FileNotFoundError).
+            return source_relative_path, mime_type
+
+        return f"__cache__:{generated_path}", mime_type
 
     async def stream_download(
         self,

@@ -55,3 +55,13 @@ __all__ = [
     "transaction",
     "with_transaction",
 ]
+
+# A handler that dies on a SQL error dooms the caller's transaction: the bus
+# must surface it (instead of its per-handler isolation) so the @transaction
+# serialization replay can do its job. Registered here so any process using
+# the ORM gets the wiring, without coupling the bus package to SQLAlchemy.
+from sqlalchemy.exc import SQLAlchemyError
+
+from fastedgy.bus.service import Bus
+
+Bus.register_critical_exception(SQLAlchemyError)

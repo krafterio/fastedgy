@@ -28,6 +28,17 @@ EventKey = Union[Type[BaseEvent], "TokenType[BaseEvent]"]
 
 class Bus:
     """Event bus for dispatching typed events with priority-based listeners"""
+    # Exception types that must not be isolated per-handler: they invalidate
+    # the caller's ambient state, so swallowing them would corrupt everything
+    # running after the dispatch. Owning layers register their types via
+    # register_critical_exception().
+    critical_exceptions: tuple[type[BaseException], ...] = ()
+
+    @classmethod
+    def register_critical_exception(cls, exc_type: type[BaseException]) -> None:
+        if exc_type not in cls.critical_exceptions:
+            cls.critical_exceptions = (*cls.critical_exceptions, exc_type)
+
 
     def __init__(self):
         self._listeners: Dict[Token, List[Tuple[int, Callable]]] = {}
@@ -86,6 +97,8 @@ class Bus:
                     await handler(event)
                 else:
                     handler(event)
+            except self.critical_exceptions:
+                raise
             except Exception as e:
                 logger.error(
                     f"Error in event handler {handler.__name__} (priority {priority}) for {normalized_key}: {e}",

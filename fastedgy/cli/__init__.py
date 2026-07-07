@@ -130,12 +130,11 @@ def getCliLogger(suffix: str) -> logging.Logger:
 
 
 def cli_json_log(name: str, message: str, **fields) -> None:
-    """Emit a single JSON log record on stdout, bypassing Rich.
+    """Emit a CLI startup banner as a structured log record.
 
-    Used by long-running CLI commands (e.g. ``serve``, ``queue start``)
-    to render their startup banner as a one-line JSON record when
-    ``LOG_FORMAT=json`` — so log shippers that split on newlines (OVH
-    LDP, Fluent Bit, …) ingest one record per banner.
+    Logging is configured at CLI bootstrap (see :func:`cli`), so this is a
+    plain INFO record: level filtering and JSON formatting both come from the
+    standard logging configuration.
 
     Extra keyword arguments are passed through ``logging.extra`` and
     serialized as top-level JSON fields by :class:`JsonFormatter`.
@@ -144,20 +143,10 @@ def cli_json_log(name: str, message: str, **fields) -> None:
     suffixed with ``_`` to avoid the ``KeyError`` that Python's logging
     raises on overwrite.
     """
-    import sys
-    from fastedgy.logger import JsonFormatter, _LOG_RECORD_RESERVED_ATTRS
-
-    json_logger = logging.getLogger(name)
-    json_logger.setLevel(logging.INFO)
-    json_logger.propagate = False
-
-    if not json_logger.handlers:
-        handler = logging.StreamHandler(sys.stdout)
-        handler.setFormatter(JsonFormatter())
-        json_logger.addHandler(handler)
+    from fastedgy.logger import _LOG_RECORD_RESERVED_ATTRS
 
     safe_fields = {(f"{k}_" if k in _LOG_RECORD_RESERVED_ATTRS else k): v for k, v in fields.items()}
-    json_logger.info(message, extra=safe_fields)
+    logging.getLogger(name).info(message, extra=safe_fields)
 
 
 def register_commands_in_group(
@@ -614,8 +603,20 @@ class CliContext[S: BaseSettings = BaseSettings, A: FastEdgy = FastEdgy]:
 def cli(ctx, env_file: str):
     """FastEdgy CLI"""
     from fastedgy.config import init_settings
+    from fastedgy.logger import setup_logging
 
-    ctx.obj = CliContext(init_settings(env_file))
+    settings = init_settings(env_file)
+    # The app configures logging in its constructor, but the CLI creates it
+    # lazily at lifespan entry: configure logging here so everything a command
+    # logs before that — startup banners included — honors LOG_LEVEL and
+    # LOG_FORMAT instead of Python's unconfigured-root defaults.
+    setup_logging(
+        level=settings.log_level,
+        output=settings.log_output,
+        format=settings.log_format,
+        log_file=settings.log_path,
+    )
+    ctx.obj = CliContext(settings)
 
 
 def main():

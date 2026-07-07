@@ -17,6 +17,7 @@ from fastedgy.orm import access_guard, field_selector, filter, order_by
 from fastedgy.orm.meta import Meta
 from fastedgy.orm.relations.many import Many
 from fastedgy.orm.transaction import (
+    defer_after_commit,
     retry_on_serialization,
     transaction,
     with_transaction,
@@ -51,6 +52,7 @@ __all__ = [
     "field_selector",
     "filter",
     "order_by",
+    "defer_after_commit",
     "retry_on_serialization",
     "transaction",
     "with_transaction",

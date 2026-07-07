@@ -29,6 +29,37 @@ _RETRYABLE_SQLSTATES = frozenset({"40001", "40P01"})
 # ones run once and let the root replay the entire unit. Task-local (ContextVar)
 # so concurrent requests/workers never see each other's flag.
 _in_retrying_transaction: ContextVar[bool] = ContextVar("fastedgy_in_retrying_transaction", default=False)
+_after_commit_callbacks: ContextVar[list[Callable[[], Any]] | None] = ContextVar(
+    "after_commit_callbacks", default=None
+)
+
+
+def defer_after_commit(callback: Callable[[], Any]) -> None:
+    """Run ``callback`` once the enclosing retried transaction has committed.
+
+    Inside :func:`with_transaction` / :func:`transaction`, the callback is
+    queued on the current attempt and executed only after the outermost
+    transaction commits; a rollback or a serialization replay discards the
+    attempt's queue, so side effects never fire for attempts that did not
+    commit. Outside any retried transaction it runs immediately.
+
+    The callback must be synchronous — typically it schedules background work
+    (push, notifications). Its exceptions are logged, never propagated.
+    """
+    queue = _after_commit_callbacks.get()
+    if queue is None:
+        _run_after_commit_callback(callback)
+        return
+    queue.append(callback)
+
+
+def _run_after_commit_callback(callback: Callable[[], Any]) -> None:
+    try:
+        callback()
+    except Exception:
+        logger.exception("after-commit callback failed")
+
+
 
 
 # Driver/dialect message fragments identifying a dead or dropped connection.
@@ -141,8 +172,15 @@ async def with_transaction(
                 tx = (
                     db.transaction(isolation_level=isolation_level) if isolation_level is not None else db.transaction()
                 )
-                async with tx:
-                    return await factory()
+                callbacks_token = _after_commit_callbacks.set([])
+                try:
+                    async with tx:
+                        result = await factory()
+                    for callback in _after_commit_callbacks.get() or []:
+                        _run_after_commit_callback(callback)
+                    return result
+                finally:
+                    _after_commit_callbacks.reset(callbacks_token)
             except DBAPIError as e:
                 if attempt == retries or not is_serialization_error(e):
                     raise

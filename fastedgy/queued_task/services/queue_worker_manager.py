@@ -1221,6 +1221,10 @@ class QueueWorkerManager:
             if result["status"] == "success":
                 self.stats["tasks_processed"] += 1
                 logger.info(f"Task {task.id} completed by worker {worker.worker_id}")
+            elif result["status"] == "retry":
+                # Attempt handled, not failed: run_task already re-enqueued the
+                # task and logged the auto-retry warning with the backoff delay.
+                self.stats["tasks_retried"] = self.stats.get("tasks_retried", 0) + 1
             else:
                 self.stats["tasks_failed"] += 1
                 logger.error(f"Task {task.id} failed in worker {worker.worker_id}: {result.get('error')}")

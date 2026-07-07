@@ -204,9 +204,19 @@ def _resolve_dependencies(service_class: Type[T]) -> Dict[str, Any]:
                 kwargs[param_name] = param.default
             continue
 
-        # A parameter with a default is configuration, not a dependency: inject it
-        # only when its type is an explicitly registered service, otherwise keep the
-        # default (resolving e.g. a builtin would auto-instantiate a zero-value).
+        # An Inject(...)/Depends default is an explicit dependency request that
+        # carries its own provider: resolve it through that provider, whether or
+        # not the type is registered yet — handing the raw marker to the
+        # constructor breaks it at first attribute access.
+        default_dependency = getattr(param.default, "dependency", None) if has_default else None
+        if callable(default_dependency):
+            kwargs[param_name] = default_dependency()
+            continue
+
+        # A parameter with a plain default is configuration, not a dependency:
+        # inject it only when its type is an explicitly registered service,
+        # otherwise keep the default (resolving e.g. a builtin would
+        # auto-instantiate a zero-value).
         if has_default and not _has_service(_normalize_key(param_type)):
             kwargs[param_name] = param.default
             continue

@@ -1,6 +1,7 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+import logging
 from os import cpu_count
 from typing import cast
 
@@ -93,14 +94,14 @@ async def start(ctx: CliContext, workers: int | None, no_scheduler: bool = False
             await worker_service.start_workers(resolved_workers, no_scheduler=no_scheduler)
 
         except Exception as e:
-            if ctx.settings.log_format == LogFormat.JSON:
-                cli_json_log(
-                    "fastedgy.cli.queue",
-                    "Error starting workers",
-                    error=str(e),
-                )
-            else:
+            # A queue that cannot start is a hard failure: log it at error
+            # level (an info banner is filtered in error-level deployments and
+            # the crash becomes invisible) and exit non-zero so the
+            # orchestrator sees a failed task instead of a clean completion.
+            logging.getLogger("fastedgy.cli.queue").error(f"Error starting workers: {e}", exc_info=True)
+            if ctx.settings.log_format != LogFormat.JSON:
                 console.print(f"[red]Error starting workers: {str(e)}[/red]")
+            raise SystemExit(1)
 
 
 async def stats(ctx: CliContext):

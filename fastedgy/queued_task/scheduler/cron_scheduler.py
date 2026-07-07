@@ -143,6 +143,10 @@ class CronScheduler:
                     # advisory lock already serializes, so the default level is
                     # enough.
                     async with database.transaction():
+                        # The advisory xact lock already serializes concurrent
+                        # creators; SERIALIZABLE adds nothing here but 40001
+                        # noise against the busy worker traffic on the table.
+                        await database.execute(text("SET TRANSACTION ISOLATION LEVEL READ COMMITTED"))
                         await database.execute(
                             text("SELECT pg_advisory_xact_lock(hashtext(:name))").bindparams(name=task_def.name)
                         )

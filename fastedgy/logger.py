@@ -180,8 +180,10 @@ def setup_logging(
 ):
     logging.captureWarnings(True)
 
+    min_levelno = getattr(logging, level.value.upper())
+
     root_logger = logging.getLogger()
-    root_logger.setLevel(getattr(logging, level.value.upper()))
+    root_logger.setLevel(min_levelno)
 
     if root_logger.hasHandlers():
         root_logger.handlers.clear()
@@ -197,15 +199,22 @@ def setup_logging(
 
     db_connection_filter = DatabaseConnectionFilter()
 
+    # The configured level is enforced on the HANDLERS, not only on the root
+    # logger: a root-only level is bypassed by any library that pins an
+    # explicit level on its own logger at import time (caldav sets WARNING),
+    # because the isEnabledFor() walk stops at the first explicit level and
+    # never consults the root. The handler level is the process-wide output
+    # floor an operator sets via LOG_LEVEL — nothing below it may leave the
+    # process, whatever per-logger levels libraries choose.
     if output in [LogOutput.CONSOLE, LogOutput.BOTH]:
         stdout_handler = logging.StreamHandler(sys.stdout)
-        stdout_handler.setLevel(logging.DEBUG)
+        stdout_handler.setLevel(min_levelno)
         stdout_handler.addFilter(StdoutFilter())
         stdout_handler.addFilter(db_connection_filter)
         stdout_handler.setFormatter(formatter)
 
         stderr_handler = logging.StreamHandler(sys.stderr)
-        stderr_handler.setLevel(logging.ERROR)
+        stderr_handler.setLevel(max(min_levelno, logging.ERROR))
         stderr_handler.addFilter(StderrFilter())
         stderr_handler.setFormatter(formatter)
 
@@ -218,7 +227,7 @@ def setup_logging(
 
         file_handler = logging.FileHandler(log_file)
         file_handler.setFormatter(formatter)
-        file_handler.setLevel(logging.NOTSET)
+        file_handler.setLevel(min_levelno)
         file_handler.addFilter(db_connection_filter)
         root_logger.addHandler(file_handler)
 

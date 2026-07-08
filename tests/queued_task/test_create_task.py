@@ -45,3 +45,18 @@ async def test_create_task_keeps_an_explicit_name(setup_db: FastEdgy) -> None:
     task = await queue().create_task(module_name="module", function_name="func", name="custom-name")
 
     assert task.name == "custom-name"
+
+
+async def test_create_task_with_vanished_parent_enqueues_unchained(setup_db: FastEdgy) -> None:
+    parent = await queue().create_task(module_name="fastedgy.test.tasks", function_name="add_numbers")
+    await parent.delete()
+
+    task = await queue().create_task(
+        module_name="fastedgy.test.tasks",
+        function_name="add_numbers",
+        parent_task=parent,
+    )
+
+    assert task.id
+    assert task.parent_task is None
+    assert task.state == QueuedTaskState.enqueued

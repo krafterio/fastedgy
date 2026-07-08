@@ -386,8 +386,19 @@ class QueuedTasks:
         # defaults to SERIALIZABLE): a transient 40001 must neither bubble up
         # to the producer nor lose a cron fire.
         from fastedgy.orm import with_transaction
+        from sqlalchemy.exc import IntegrityError
 
-        await with_transaction(task.save)
+        try:
+            await with_transaction(task.save)
+        except IntegrityError as e:
+            # A chained parent can complete and be auto-removed between the
+            # producer's lookup and this insert. The chain is then moot (the
+            # parent already ran), so enqueue unchained instead of bubbling
+            # the FK violation up to the producer.
+            if parent_task is None or "parent_task" not in str(e):
+                raise
+            task.parent_task = None
+            await with_transaction(task.save)
 
         await self.hook_registry.trigger_post_create(task)
 

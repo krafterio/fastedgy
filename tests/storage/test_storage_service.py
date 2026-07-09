@@ -37,3 +37,21 @@ async def test_delete_removes_file(setup_db: FastEdgy) -> None:
 
     assert await storage.file_exists("temp.txt", global_storage=True) is False
     assert not os.path.exists(stored_file_path("temp.txt"))
+
+
+async def test_undecodable_image_falls_back_to_the_original(setup_db: FastEdgy, caplog) -> None:
+    import logging
+
+    storage = get_service(Storage)
+
+    await storage.adapter.write("global/photos/broken.jpg", b"definitely not a jpeg")
+
+    with caplog.at_level(logging.WARNING, logger="fastedgy.storage"):
+        resolved, mime = await storage.get_optimized_or_original(
+            "photos/broken.jpg", w=100, h=100, global_storage=True
+        )
+
+    assert resolved == "photos/broken.jpg"
+    assert mime == "image/jpeg"
+    assert any("serving the original" in r.getMessage() for r in caplog.records)
+    assert not any(r.levelno >= logging.ERROR for r in caplog.records)

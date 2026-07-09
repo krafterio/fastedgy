@@ -3,6 +3,7 @@
 
 import os
 import io
+import logging
 import uuid
 import mimetypes
 import base64
@@ -25,6 +26,8 @@ try:
     from PIL import Image
 except Exception:
     Image = None
+
+logger = logging.getLogger("fastedgy.storage")
 
 if TYPE_CHECKING:
     from PIL.Image import Image as PILImage
@@ -352,15 +355,25 @@ class Storage:
 
         # Read source from adapter, generate cache
         source_data = await self.adapter.read(full_source)
-        generated_path, _, mime_type = await self._generate_cache_image(
-            source_data,
-            source_name,
-            cache_path,
-            w=w,
-            h=h,
-            mode=mode,
-            out_ext=out_ext if out_ext else src_ext,
-        )
+        try:
+            generated_path, _, mime_type = await self._generate_cache_image(
+                source_data,
+                source_name,
+                cache_path,
+                w=w,
+                h=h,
+                mode=mode,
+                out_ext=out_ext if out_ext else src_ext,
+            )
+        except OSError as e:
+            # The stored bytes cannot be decoded as an image (corrupt upload,
+            # exotic format, truncated file — UnidentifiedImageError is an
+            # OSError). Serving the original is this method's contract and
+            # the client may still render it; a warning on the fallback beats
+            # a 500 on every display of that file.
+            logger.warning(f"Cannot optimize image {source_relative_path}, serving the original: {e!r}")
+            mime = mimetypes.guess_type(source_name)[0] or "application/octet-stream"
+            return source_relative_path, mime
 
         if generated_path is None:
             # Already at the requested size and format: serve the original,

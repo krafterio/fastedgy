@@ -102,3 +102,30 @@ async def test_save_computes_execution_time(setup_db: FastEdgy) -> None:
 
     assert task.date_ended == task.date_done
     assert 4 <= task.execution_time <= 8
+
+
+async def test_drain_pending_db_logs_waits_then_cancels(setup_db) -> None:
+    import asyncio
+
+    from fastedgy.queued_task.logging import QueuedTaskLogger
+
+    done: list[str] = []
+
+    async def short() -> None:
+        await asyncio.sleep(0.05)
+        done.append("short")
+
+    async def hung() -> None:
+        await asyncio.sleep(3600)
+
+    short_task = asyncio.get_running_loop().create_task(short())
+    hung_task = asyncio.get_running_loop().create_task(hung())
+    QueuedTaskLogger._pending_db_logs.add(short_task)
+    QueuedTaskLogger._pending_db_logs.add(hung_task)
+    short_task.add_done_callback(QueuedTaskLogger._pending_db_logs.discard)
+    hung_task.add_done_callback(QueuedTaskLogger._pending_db_logs.discard)
+
+    await QueuedTaskLogger.drain_pending_db_logs(timeout=0.5)
+
+    assert done == ["short"]
+    assert hung_task.cancelled()

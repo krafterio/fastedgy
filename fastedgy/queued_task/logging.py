@@ -68,6 +68,32 @@ class QueuedTaskLogger(logging.Logger):
         cls._pending_db_logs.add(t)
         t.add_done_callback(cls._pending_db_logs.discard)
 
+    @classmethod
+    async def drain_pending_db_logs(cls, timeout: float = 5.0) -> None:
+        """Let in-flight DB log writes finish before the engines dispose.
+
+        They are free-floating asyncio tasks holding pooled connections: torn
+        down with the process, SQLAlchemy's GC reports non-checked-in
+        connections during shutdown. Short inserts get a grace to complete;
+        stragglers are cancelled.
+        """
+        import logging as std_logging
+
+        tasks = [t for t in cls._pending_db_logs if not t.done()]
+        if not tasks:
+            return
+
+        _, pending = await asyncio.wait(tasks, timeout=timeout)
+        if not pending:
+            return
+
+        for task in pending:
+            task.cancel()
+        await asyncio.wait(pending, timeout=2)
+        std_logging.getLogger("queued_task.logging").warning(
+            f"Cancelled {len(pending)} pending DB log write(s) at shutdown"
+        )
+
     async def _log_to_db_async(self, level: str, message: str, *args, **kwargs) -> None:
         """Asynchronous database logging"""
         if not self.config.enable_db_logging:

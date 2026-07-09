@@ -312,6 +312,16 @@ class QueueWorkerManager:
         # Mark server as stopped in database
         await self._unregister_server()
 
+        # Pending DB log writes are free-floating tasks holding pooled
+        # connections: drain them before the registries close, or SQLAlchemy's
+        # GC reports non-checked-in connections at every stop.
+        from fastedgy.queued_task.logging import QueuedTaskLogger
+
+        try:
+            await QueuedTaskLogger.drain_pending_db_logs()
+        except Exception as e:
+            logger.error(f"Error draining pending DB logs: {e}")
+
         # Close manager registry database connection (bounded: the config's
         # try/finally resets its refs even when the disconnect is abandoned)
         try:
@@ -323,9 +333,13 @@ class QueueWorkerManager:
         self.manager_tasks.clear()
         logger.info("QueueWorkerManager stopped")
 
-        # Reduce noisy SQLAlchemy termination logs during engine dispose
+        # Reduce noisy SQLAlchemy termination logs during engine dispose —
+        # the deliberately-abandoned case only (a task body swallowing
+        # cancellation past the shutdown grace). "sqlalchemy.pool" is the
+        # parent of the pool.impl.* loggers that actually emit the GC and
+        # termination messages ("sqlalchemy.pool.base" was a sibling miss).
         try:
-            logging.getLogger("sqlalchemy.pool.base").setLevel(logging.CRITICAL)
+            logging.getLogger("sqlalchemy.pool").setLevel(logging.CRITICAL)
             logging.getLogger("sqlalchemy.dialects.postgresql.asyncpg").setLevel(logging.CRITICAL)
         except Exception:
             pass

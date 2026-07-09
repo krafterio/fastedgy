@@ -10,6 +10,7 @@ from fastedgy.context import set_request, reset_request, set_timezone
 from fastedgy.timezone import get_timezone
 
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import ClientDisconnect
 from starlette.responses import Response
 from starlette.types import ASGIApp
 
@@ -32,6 +33,13 @@ class ContextRequestMiddleware(BaseHTTPMiddleware):
 
         try:
             return await call_next(request)
+        except ClientDisconnect:
+            # The client hung up while its request body was being read
+            # (mobile network drop, app closed mid-upload): nothing failed
+            # server-side and there is nobody left to answer. An empty 499
+            # (nginx's "client closed request") ends the ASGI cycle cleanly
+            # instead of letting uvicorn log an error traceback.
+            return Response(status_code=499)
         finally:
             reset_request(token)
 

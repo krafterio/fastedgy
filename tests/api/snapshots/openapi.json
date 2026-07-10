@@ -1527,18 +1527,6 @@
             "title": "Id",
             "type": "integer"
           },
-          "pinned_model": {
-            "anyOf": [
-              {
-                "maxLength": 100,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pinned Model"
-          },
           "pinned_on": {
             "anyOf": [
               {
@@ -1546,24 +1534,23 @@
               },
               {
                 "additionalProperties": true,
+                "properties": {
+                  "$model": {
+                    "description": "Generic target model name, present when selected through X-Fields",
+                    "enum": [
+                      "product"
+                    ],
+                    "type": "string"
+                  }
+                },
                 "type": "object"
               },
               {
                 "type": "null"
               }
             ],
+            "description": "Polymorphic reference to the serialized target record. Allowed models: `product`.",
             "title": "Pinned On"
-          },
-          "pinned_ref": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pinned Ref"
           },
           "subject": {
             "anyOf": [
@@ -1575,36 +1562,24 @@
               },
               {
                 "additionalProperties": true,
+                "properties": {
+                  "$model": {
+                    "description": "Generic target model name, present when selected through X-Fields",
+                    "enum": [
+                      "category",
+                      "product"
+                    ],
+                    "type": "string"
+                  }
+                },
                 "type": "object"
               },
               {
                 "type": "null"
               }
             ],
+            "description": "Polymorphic reference to the serialized target record. Allowed models: `category`, `product`.",
             "title": "Subject"
-          },
-          "subject_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Subject Id"
-          },
-          "subject_model": {
-            "anyOf": [
-              {
-                "maxLength": 100,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Subject Model"
           },
           "updated_at": {
             "format": "date-time",
@@ -1627,18 +1602,6 @@
             "title": "Content",
             "type": "string"
           },
-          "pinned_model": {
-            "anyOf": [
-              {
-                "maxLength": 100,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pinned Model"
-          },
           "pinned_on": {
             "anyOf": [
               {
@@ -1656,17 +1619,6 @@
               }
             ]
           },
-          "pinned_ref": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pinned Ref"
-          },
           "subject": {
             "anyOf": [
               {
@@ -1683,29 +1635,6 @@
                 "model": "task"
               }
             ]
-          },
-          "subject_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Subject Id"
-          },
-          "subject_model": {
-            "anyOf": [
-              {
-                "maxLength": 100,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Subject Model"
           }
         },
         "required": [
@@ -1773,18 +1702,6 @@
             ],
             "title": "Content"
           },
-          "pinned_model": {
-            "anyOf": [
-              {
-                "maxLength": 100,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pinned Model"
-          },
           "pinned_on": {
             "anyOf": [
               {
@@ -1802,17 +1719,6 @@
               }
             ]
           },
-          "pinned_ref": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pinned Ref"
-          },
           "subject": {
             "anyOf": [
               {
@@ -1829,29 +1735,6 @@
                 "model": "task"
               }
             ]
-          },
-          "subject_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Subject Id"
-          },
-          "subject_model": {
-            "anyOf": [
-              {
-                "maxLength": 100,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Subject Model"
           }
         },
         "title": "Note-Update",

@@ -6,6 +6,8 @@ from typing import Any, cast
 from sqlalchemy import (
     and_ as sa_and,
     exists,
+    not_ as sa_not,
+    or_ as sa_or,
     select as sa_select,
     literal_column,
     text,
@@ -21,6 +23,7 @@ from fastedgy.orm.fields import (
     FloatField,
     ManyToMany,
     generic_target_name,
+    resolve_generic_pair,
 )
 from fastedgy.orm.query import QuerySet
 from fastedgy.orm.manager import BaseManager
@@ -80,8 +83,11 @@ def build_filter_expression(model_cls: type[Model], filters: FilterRule | Filter
                 raise InvalidFilterError(f"Cannot filter through the generic relation path '{field}'")
             return expression
 
-        use_col = field.startswith("extra_")
+        use_col = field.startswith("extra_") or resolve_generic_pair(model_cls, field) is not None
         field_type = _find_field_type_in_model(model_cls, field)
+
+        if "." not in field and getattr(field_type, "is_generic_foreign_key", False):
+            return _build_generic_reference_expression(model_cls, cast(Any, field_type), filters)
 
         related_columns = getattr(field_type, "related_columns", None)
         if related_columns:
@@ -625,6 +631,57 @@ def _add_fulltext_rank_extra_select(query: QuerySet, filters: Filter | None) -> 
     return query
 
 
+def _build_generic_reference_expression(model_cls: type[Model], generic_field: Any, filters: FilterRule) -> Any:
+    """Filter on a GenericForeignKey field itself: references are ``[model, id]``
+    pairs (or ``{model, id}`` objects), compiled onto the underlying column pair
+    (``in`` groups the ids per target model)."""
+    model_col = model_cls.table.columns[generic_field.model_column]
+    id_col = model_cls.table.columns[generic_field.id_column]
+    operator = filters.operator
+    value = filters.value
+
+    def _pair(reference: Any) -> tuple[Any, Any]:
+        if not isinstance(reference, (list, tuple)) or len(reference) != 2:
+            raise InvalidFilterError(
+                f"Filter value for '{filters.field}' must be a [model, id] pair, got {reference!r}"
+            )
+        try:
+            decomposed = generic_field._decompose({"model": reference[0], "id": reference[1]})
+        except ValueError as e:
+            raise InvalidFilterError(str(e))
+        return decomposed[generic_field.model_column], decomposed[generic_field.id_column]
+
+    if operator in ("=", "!="):
+        model_name, record_id = _pair(value)
+        expression = sa_and(model_col == model_name, id_col == record_id)
+        return expression if operator == "=" else sa_not(expression)
+
+    if operator in ("in", "not in"):
+        if not isinstance(value, (list, tuple)):
+            raise InvalidFilterError(f"Operator '{operator}' on '{filters.field}' requires a list of references")
+
+        ids_by_model: dict[Any, list[Any]] = {}
+        for reference in value:
+            model_name, record_id = _pair(reference)
+            ids_by_model.setdefault(model_name, []).append(record_id)
+
+        if not ids_by_model:
+            raise InvalidFilterError(f"Operator '{operator}' on '{filters.field}' requires at least one reference")
+
+        expression = sa_or(
+            *(sa_and(model_col == model_name, id_col.in_(ids)) for model_name, ids in ids_by_model.items())
+        )
+        return expression if operator == "in" else sa_not(expression)
+
+    if operator == "is empty":
+        return id_col.is_(None)
+
+    if operator == "is not empty":
+        return id_col.is_not(None)
+
+    raise InvalidFilterError(f"Operator '{operator}' is not supported on the reference field '{filters.field}'")
+
+
 def _path_crosses_generic_relation(model_cls: type[Model], field_path: str) -> bool:
     current_model = model_cls
 
@@ -646,9 +703,21 @@ def _path_crosses_generic_relation(model_cls: type[Model], field_path: str) -> b
     return False
 
 
+def _resolve_generic_pair_column(model_cls: type[Model], field_path: str) -> Any | None:
+    pair = resolve_generic_pair(model_cls, field_path)
+    if pair is None:
+        return None
+
+    generic_field, side = pair
+    column_name = generic_field.model_column if side == "model" else generic_field.id_column
+    return model_cls.table.columns[column_name]
+
+
 def _find_field_type_in_model(model_cls: type[Model], field_path: str) -> type[BaseFieldType]:
     """
     Recursively find a field type in a model by its field path.
+    Virtual generic pair paths (``<field>.$model`` / ``<field>.id``) resolve to
+    the underlying column field.
 
     Args:
         model_cls: The model class to search in
@@ -660,6 +729,12 @@ def _find_field_type_in_model(model_cls: type[Model], field_path: str) -> type[B
     Raises:
         InvalidFilterError: If the field path is invalid
     """
+    generic_pair = resolve_generic_pair(model_cls, field_path)
+    if generic_pair is not None:
+        generic_field, side = generic_pair
+        column_name = generic_field.model_column if side == "model" else generic_field.id_column
+        return cast(Any, model_cls.meta.fields[column_name])
+
     field_parts = field_path.split(".")
     current_model = model_cls
 
@@ -722,6 +797,10 @@ def _find_column_in_model(model_cls: type[Model], field_path: str) -> Any:
     Raises:
         InvalidFilterError: If the field path is invalid
     """
+    generic_column = _resolve_generic_pair_column(model_cls, field_path)
+    if generic_column is not None:
+        return generic_column
+
     field_parts = field_path.split(".")
     current_model = model_cls
 

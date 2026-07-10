@@ -2,7 +2,7 @@
 # MIT License (see LICENSE file).
 
 import logging
-from typing import Type
+from typing import Any, Type, cast
 
 from fastapi import APIRouter
 from fastedgy.api_route_model.generator import get_all_generated_routers
@@ -34,6 +34,8 @@ def register_api_route_models(
         A function that registers routes for the given registry
     """
 
+    _resolve_generic_references(registry)
+
     routers = get_all_generated_routers(registry, tags=tags)
 
     for prefix, sub_router in routers.items():
@@ -45,6 +47,21 @@ def register_api_route_models(
 
     for model_cls in list(registry_instance.get_registered_models()):
         mmr.register_model(model_cls)
+
+
+def _resolve_generic_references(registry: Type[RouteModelRegistry] | Token[RouteModelRegistry]) -> None:
+    """Resolve every GenericForeignKey of the registered models before any route
+    or input schema is generated (they are cached): all target models are
+    imported by now, so the reverse relations get installed on every target."""
+    registry_instance = get_service(registry)
+
+    for model_cls in list(registry_instance.get_registered_models()):
+        for field in model_cls.meta.fields.values():
+            if getattr(field, "is_generic_foreign_key", False):
+                try:
+                    cast(Any, field).targets()
+                except ValueError as e:
+                    logger.warning(f"Could not resolve generic reference targets on {model_cls.__name__}: {e}")
 
 
 def register_admin_api_route_models(router: APIRouter) -> None:

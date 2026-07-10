@@ -61,7 +61,9 @@ async def test_patch_reference_retargets_and_clears(auth_http: httpx.AsyncClient
     assert note.subject_id is None
 
 
-async def test_reference_flat_columns_still_accepted(auth_http: httpx.AsyncClient) -> None:
+async def test_reference_columns_are_hidden_from_the_api(auth_http: httpx.AsyncClient) -> None:
+    import json
+
     product = await _make_product(auth_http)
 
     response = await auth_http.post(
@@ -71,8 +73,13 @@ async def test_reference_flat_columns_still_accepted(auth_http: httpx.AsyncClien
     assert response.status_code == 200, response.text
 
     note = await Note.query.get(id=response.json()["id"])
-    assert note.subject_model == "product"
-    assert note.subject_id == product["id"]
+    assert note.subject_model is None
+    assert note.subject_id is None
+    assert "subject_model" not in response.json()
+
+    flat_filter = ["subject_model", "=", "product"]
+    filtered = await auth_http.get("/api/test_notes", headers={"X-Filter": json.dumps(flat_filter)})
+    assert filtered.status_code == 422, filtered.text
 
 
 async def test_create_parent_with_inline_generic_children(auth_http: httpx.AsyncClient) -> None:
@@ -114,13 +121,14 @@ async def test_fields_selector_serializes_reference_target(auth_http: httpx.Asyn
 
     response = await auth_http.get(
         f"/api/test_notes/{note_id}",
-        headers={"X-Fields": "content,subject_model,subject.name"},
+        headers={"X-Fields": "content,subject.$model,subject.name"},
     )
     assert response.status_code == 200, response.text
 
     item = response.json()
     assert item["content"] == "with subject"
-    assert item["subject_model"] == "product"
+    assert "subject_model" not in item
+    assert item["subject"]["$model"] == "product"
     assert item["subject"]["name"] == "Selected"
     assert item["subject"]["id"] == product["id"]
 
@@ -176,6 +184,78 @@ async def test_reference_with_unknown_model_is_rejected(auth_http: httpx.AsyncCl
         "/api/test_notes",
         json={"content": "bad", "subject": {"model": "tag", "id": 1}},
     )
+    assert response.status_code == 422, response.text
+
+
+async def test_inverse_relation_exposed_on_every_target(auth_http: httpx.AsyncClient) -> None:
+    import json
+
+    category = await auth_http.post("/api/test_categories", json={"name": "Bikes"})
+    category_id = category.json()["id"]
+
+    response = await auth_http.patch(
+        f"/api/test_categories/{category_id}",
+        json={"notes": [{"content": "on category"}]},
+    )
+    assert response.status_code == 200, response.text
+
+    fetched = await auth_http.get(f"/api/test_categories/{category_id}", headers={"X-Fields": "name,notes.content"})
+    assert fetched.status_code == 200, fetched.text
+    assert [note["content"] for note in fetched.json()["notes"]] == ["on category"]
+
+    reference_filter = ["subject", "=", ["category", category_id]]
+    filtered = await auth_http.get("/api/test_notes", headers={"X-Filter": json.dumps(reference_filter)})
+    assert filtered.status_code == 200, filtered.text
+    assert [item["content"] for item in filtered.json()["items"]] == ["on category"]
+
+
+async def test_filter_by_reference_in_and_empty(auth_http: httpx.AsyncClient) -> None:
+    import json
+
+    products = []
+    for name in ("A", "B", "C"):
+        products.append(await _make_product(auth_http, name))
+
+    for index, product in enumerate(products):
+        await auth_http.post(
+            "/api/test_notes",
+            json={"content": f"ref-{index}", "subject": {"model": "product", "id": product["id"]}},
+        )
+    await auth_http.post("/api/test_notes", json={"content": "ref-free"})
+
+    in_filter = ["subject", "in", [["product", products[0]["id"]], ["product", products[2]["id"]]]]
+    response = await auth_http.get("/api/test_notes", headers={"X-Filter": json.dumps(in_filter)})
+    assert response.status_code == 200, response.text
+    assert sorted(item["content"] for item in response.json()["items"]) == ["ref-0", "ref-2"]
+
+    pair_paths = [
+        "&",
+        [["subject.$model", "=", "product"], ["subject.id", "in", [products[0]["id"], products[2]["id"]]]],
+    ]
+    response = await auth_http.get("/api/test_notes", headers={"X-Filter": json.dumps(pair_paths)})
+    assert response.status_code == 200, response.text
+    assert sorted(item["content"] for item in response.json()["items"]) == ["ref-0", "ref-2"]
+
+    empty_filter = ["subject", "is empty"]
+    response = await auth_http.get("/api/test_notes", headers={"X-Filter": json.dumps(empty_filter)})
+    assert response.status_code == 200, response.text
+    assert [item["content"] for item in response.json()["items"]] == ["ref-free"]
+
+    not_empty_filter = ["subject", "is not empty"]
+    response = await auth_http.get("/api/test_notes", headers={"X-Filter": json.dumps(not_empty_filter)})
+    assert response.status_code == 200, response.text
+    assert sorted(item["content"] for item in response.json()["items"]) == ["ref-0", "ref-1", "ref-2"]
+
+
+async def test_filter_by_reference_unknown_model_rejected(auth_http: httpx.AsyncClient) -> None:
+    import json
+
+    bad_filter = ["subject", "=", ["tag", 1]]
+    response = await auth_http.get("/api/test_notes", headers={"X-Filter": json.dumps(bad_filter)})
+    assert response.status_code == 422, response.text
+
+    object_value = ["subject", "=", {"model": "product", "id": 1}]
+    response = await auth_http.get("/api/test_notes", headers={"X-Filter": json.dumps(object_value)})
     assert response.status_code == 422, response.text
 
 

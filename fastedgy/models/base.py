@@ -339,7 +339,9 @@ def _relation_json_schema(title: str, target_ref: dict[str, Any]) -> dict[str, A
 
 def _generic_reference_json_schema(title: str, field: Any) -> dict[str, Any]:
     """A generic reference renders as ``one of the target models | object`` (full
-    record or a partial ``{...}`` from an X-Fields selection), plus ``null``."""
+    record or a partial ``{...}`` from an X-Fields selection), plus ``null``.
+    The partial object documents ``$model``, injected when selected through
+    X-Fields (``<field>.$model``) to discriminate the serialized target."""
     variants: list[dict[str, Any]] = []
 
     try:
@@ -347,15 +349,29 @@ def _generic_reference_json_schema(title: str, field: Any) -> dict[str, Any]:
     except ValueError:
         targets = {}
 
+    target_names = sorted(name for name in targets)
+
     for target_cls in targets.values():
         name = getattr(target_cls, "__name__", None)
         if name:
             variants.append({"$ref": f"#/components/schemas/{name}"})
 
-    variants.append(dict(_PARTIAL_OBJECT))
+    partial_object = dict(_PARTIAL_OBJECT)
+    partial_object["properties"] = {
+        "$model": {
+            "type": "string",
+            "description": "Generic target model name, present when selected through X-Fields",
+            **({"enum": target_names} if target_names else {}),
+        }
+    }
+    variants.append(partial_object)
     variants.append({"type": "null"})
 
-    return {"anyOf": variants, "default": None, "title": title}
+    description = "Polymorphic reference to the serialized target record."
+    if target_names:
+        description += " Allowed models: " + ", ".join(f"`{name}`" for name in target_names) + "."
+
+    return {"anyOf": variants, "default": None, "title": title, "description": description}
 
 
 def _enrich_serialization_json_schema(model_cls: type, json_schema: dict[str, Any]) -> dict[str, Any]:

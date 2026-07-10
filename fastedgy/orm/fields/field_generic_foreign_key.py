@@ -22,6 +22,22 @@ def generic_target_name(model_cls: type) -> str:
     return re.sub(r"(?<!^)(?=[A-Z])", "_", model_cls.__name__).lower()
 
 
+def resolve_generic_pair(model_cls: Any, field_path: str) -> tuple[Any, str] | None:
+    """Resolve a virtual pair path on a GenericForeignKey: ``<field>.$model``
+    (the target model name column) or ``<field>.id`` (the target id column).
+    Returns ``(field, "model" | "id")`` or None when the path is not one."""
+    parts = field_path.split(".")
+    if len(parts) != 2 or parts[1] not in ("$model", "id"):
+        return None
+
+    fields = getattr(getattr(model_cls, "meta", None), "fields", None)
+    field = fields.get(parts[0]) if fields else None
+    if not getattr(field, "is_generic_foreign_key", False):
+        return None
+
+    return field, "model" if parts[1] == "$model" else "id"
+
+
 class GenericRelation:
     """Runtime accessor of a generic reverse relation: a filtered queryset over
     the owning model plus ``add``/``remove`` helpers. Unknown attributes are
@@ -160,7 +176,7 @@ class GenericForeignKey(BaseField):
         return self._id_column_option or f"{self.name}_id"
 
     def targets(self) -> dict[str, type]:
-        if self._targets_cache is not None:
+        if self._targets_cache is not None and not callable(self.to):
             return self._targets_cache
 
         source = self.to() if callable(self.to) else self.to
@@ -173,8 +189,12 @@ class GenericForeignKey(BaseField):
         if not resolved:
             raise ValueError(f"GenericForeignKey '{self.name}' resolved no target model")
 
+        # A callable source is a living registry: never freeze it, so targets
+        # registered after the first resolution still join the relation.
+        if self._targets_cache is None or set(resolved) != set(self._targets_cache):
+            self._install_inverse_relations(resolved)
+
         self._targets_cache = resolved
-        self._install_inverse_relations(resolved)
         return resolved
 
     def _install_inverse_relations(self, targets: dict[str, type]) -> None:
@@ -229,6 +249,12 @@ class GenericForeignKey(BaseField):
 
             extra_kwargs.setdefault("null", self.relation_nullable)
             extra_kwargs.setdefault("searchable", False)
+            # Storage detail by default: hidden from schemas, inputs, metadata
+            # and public filters — the generic field is the API surface
+            # (`<name>.$model` / `<name>.id` paths, reference values). Override
+            # per column through model_field_kwargs / id_field_kwargs.
+            extra_kwargs.setdefault("exclude", True)
+            extra_kwargs.setdefault("filterable", False)
             sub_field = cast(Any, factory(**extra_kwargs))
             sub_field.owner = self.owner
             sub_field.inherit = False
@@ -320,4 +346,5 @@ __all__ = [
     "GenericRelation",
     "GenericTargets",
     "generic_target_name",
+    "resolve_generic_pair",
 ]

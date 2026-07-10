@@ -54,6 +54,11 @@ def validate_filter_field(model_cls: type[Model], field_path: str, allow_exclude
     if not field_path:
         return False
 
+    from fastedgy.orm.fields import resolve_generic_pair
+
+    if resolve_generic_pair(model_cls, field_path) is not None:
+        return True
+
     if field_path.startswith("extra_"):
         from fastedgy.metadata_model.generator import generate_metadata_name
         from fastedgy import context
@@ -102,6 +107,14 @@ def validate_filter_field(model_cls: type[Model], field_path: str, allow_exclude
 def validate_filter_operator(model_cls: type[Model], field_path: str, operator: str) -> bool:
     if not field_path or not operator:
         return False
+
+    from fastedgy.orm.fields import resolve_generic_pair
+
+    generic_pair = resolve_generic_pair(model_cls, field_path)
+    if generic_pair is not None:
+        generic_field, side = generic_pair
+        column_name = generic_field.model_column if side == "model" else generic_field.id_column
+        return operator in get_filter_operators(model_cls.meta.fields[column_name])
 
     if field_path.startswith("extra_"):
         from fastedgy.models.workspace_extra_field import (

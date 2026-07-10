@@ -508,8 +508,9 @@ async def filter_fields(data: dict, data_obj: Model | None, fields: dict, target
         if isinstance(field_value, dict):
             if data_obj is not None:
                 model_field = _real_model_cls(type(data_obj)).meta.fields.get(field_name)
+                is_generic = getattr(model_field, "is_generic_foreign_key", False)
 
-                if getattr(model_field, "is_generic_foreign_key", False):
+                if is_generic:
                     nested_obj = await getattr(data_obj, field_name)
                 else:
                     nested_obj = _get_loaded_relation(data_obj, field_name)
@@ -519,6 +520,9 @@ async def filter_fields(data: dict, data_obj: Model | None, fields: dict, target
                     await filter_fields(
                         _dump_selected(nested_obj, field_value), nested_obj, field_value, target[field_name]
                     )
+                    if is_generic and "$model" in field_value:
+                        generic_field: Any = model_field
+                        target[field_name]["$model"] = getattr(data_obj, generic_field.model_column, None)
                 else:
                     target[field_name] = None
         elif isinstance(field_value, list):

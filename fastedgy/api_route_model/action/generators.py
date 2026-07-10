@@ -183,9 +183,10 @@ def generate_input_create_model[M: BaseModel | BaseView](model_cls: type[M]) -> 
             )
         elif getattr(field, "is_generic_foreign_key", False):
             # Polymorphic reference: a {model, id} object (nullable when the
-            # relation is nullable).
+            # relation is nullable, optional when the exposed column pair is
+            # writable — the action then requires one of the two forms).
             options = _reference_field_options(field_name, field)
-            if getattr(field, "relation_nullable", True):
+            if getattr(field, "relation_nullable", True) or getattr(field, "expose_columns", "none") == "write":
                 fields[field_name] = (
                     Union[ReferenceObject, None],
                     PydanticField(default=None, **options),
@@ -210,6 +211,17 @@ def generate_input_create_model[M: BaseModel | BaseView](model_cls: type[M]) -> 
                 field_type = optional_field_type(field.field_type)
 
             field_to_use = field
+
+            # An exposed generic column stays optional even when non-nullable:
+            # the pair may come through the reference object instead, and the
+            # action cross-validates the two forms.
+            if getattr(field, "is_generic_column", False) and not field.null:
+                field_to_use = copy(field)
+                setattr(field_to_use, "required", False)
+                field_to_use.null = True
+                field_to_use.default = None
+                setattr(field_to_use, "default_factory", None)
+                field_type = optional_field_type(field.field_type)
 
             # A non-JSON-serializable literal default (auto_now/auto_now_add on a
             # writable field renders as functools.partial) would leak into the

@@ -144,6 +144,38 @@ async def test_loaded_target_is_cached_per_instance(setup_db: FastEdgy) -> None:
     assert first is second
 
 
+async def test_denied_target_loads_as_none(setup_db: FastEdgy) -> None:
+    from fastedgy.dependencies import get_service
+    from fastedgy.orm.access_guard import AccessDeniedError, ModelAccessGuardRegistry, ModelAction
+    from fastedgy.orm.field_selector import prefetch_generic_references
+
+    product = await _create_product()
+    note = Note(content="guarded", subject=product)
+    await note.save()
+
+    def deny_reads(model_cls: type, action: ModelAction, instance: object = None) -> None:
+        if action == ModelAction.read:
+            raise AccessDeniedError("denied")
+
+    registry = get_service(ModelAccessGuardRegistry)
+    registry.register(Product, deny_reads)
+
+    try:
+        fresh = await Note.query.get(id=note.id)
+        assert await fresh.subject is None
+
+        items = await Note.query.filter(id=note.id).all()
+        await prefetch_generic_references(items, "subject.name")
+        assert items[0].__dict__["_gfk_cache_subject"] is None
+    finally:
+        registry._guards.pop(Product, None)
+        registry._resolved.clear()
+
+    fresh = await Note.query.get(id=note.id)
+    loaded = await fresh.subject
+    assert loaded is not None and loaded.id == product.id
+
+
 async def test_inverse_relation_lists_only_owned_rows(setup_db: FastEdgy) -> None:
     product = await _create_product()
     category = await Category.query.create(name="Bikes")

@@ -259,6 +259,81 @@ async def test_filter_by_reference_unknown_model_rejected(auth_http: httpx.Async
     assert response.status_code == 422, response.text
 
 
+async def test_exposed_columns_accept_flat_writes_and_reads(auth_http: httpx.AsyncClient) -> None:
+    import json
+
+    product = await _make_product(auth_http, "Pinned")
+
+    response = await auth_http.post(
+        "/api/test_notes",
+        json={"content": "flat pair", "pinned_model": "product", "pinned_ref": product["id"]},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["pinned_model"] == "product"
+    assert response.json()["pinned_ref"] == product["id"]
+
+    note = await Note.query.get(id=response.json()["id"])
+    assert note.pinned_model == "product"
+    assert note.pinned_ref == product["id"]
+
+    flat_filter = ["pinned_model", "=", "product"]
+    filtered = await auth_http.get("/api/test_notes", headers={"X-Filter": json.dumps(flat_filter)})
+    assert filtered.status_code == 200, filtered.text
+    assert [item["content"] for item in filtered.json()["items"]] == ["flat pair"]
+
+
+async def test_exposed_columns_validate_the_pair(auth_http: httpx.AsyncClient) -> None:
+    product = await _make_product(auth_http, "Half")
+
+    half = await auth_http.post("/api/test_notes", json={"content": "half", "pinned_model": "product"})
+    assert half.status_code == 422, half.text
+
+    mixed = await auth_http.post(
+        "/api/test_notes",
+        json={
+            "content": "mixed",
+            "pinned_on": {"model": "product", "id": product["id"]},
+            "pinned_model": "product",
+            "pinned_ref": product["id"],
+        },
+    )
+    assert mixed.status_code == 422, mixed.text
+
+    unknown = await auth_http.post(
+        "/api/test_notes",
+        json={"content": "unknown", "pinned_model": "category", "pinned_ref": 1},
+    )
+    assert unknown.status_code == 422, unknown.text
+
+    both_null = await auth_http.post(
+        "/api/test_notes",
+        json={"content": "cleared", "pinned_model": None, "pinned_ref": None},
+    )
+    assert both_null.status_code == 200, both_null.text
+
+
+async def test_exposed_columns_patch_pair_and_clear(auth_http: httpx.AsyncClient) -> None:
+    product = await _make_product(auth_http, "Repin")
+    created = await auth_http.post(
+        "/api/test_notes",
+        json={"content": "movable", "pinned_model": "product", "pinned_ref": product["id"]},
+    )
+    note_id = created.json()["id"]
+
+    lone = await auth_http.patch(f"/api/test_notes/{note_id}", json={"pinned_ref": 42})
+    assert lone.status_code == 422, lone.text
+
+    cleared = await auth_http.patch(
+        f"/api/test_notes/{note_id}",
+        json={"pinned_model": None, "pinned_ref": None},
+    )
+    assert cleared.status_code == 200, cleared.text
+
+    note = await Note.query.get(id=note_id)
+    assert note.pinned_model is None
+    assert note.pinned_ref is None
+
+
 async def test_patch_parent_set_and_clear_generic_children(auth_http: httpx.AsyncClient) -> None:
     product = await Product.query.create(name="Holder", price="9.99")
     kept = await Note.query.create(content="kept")

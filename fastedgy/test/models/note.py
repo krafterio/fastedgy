@@ -21,6 +21,7 @@ class Note(BaseModel):
         to=["Product"],
         model_column="pinned_model",
         id_column="pinned_ref",
+        expose_columns="write",
         null=True,
     )
 

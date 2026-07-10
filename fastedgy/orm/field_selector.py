@@ -4,6 +4,7 @@
 from typing import Any
 
 from fastedgy.orm import Model, BaseModelType
+from fastedgy.orm.access_guard import AccessDeniedError
 from fastedgy.orm.fields import BaseFieldType
 from fastedgy.orm.query import QuerySet
 from fastedgy.orm.utils import extract_field_names, find_primary_key_field
@@ -458,7 +459,10 @@ async def prefetch_generic_references(items: list[Model], fields_expr: str | lis
                 records: dict[Any, Any] = {}
             else:
                 pk_name = find_primary_key_field(target_cls) or "id"
-                rows = await target_cls.query.filter(**{f"{pk_name}__in": list(id_map.keys())}).all()
+                try:
+                    rows = await target_cls.query.filter(**{f"{pk_name}__in": list(id_map.keys())}).all()
+                except AccessDeniedError:
+                    rows = []
                 records = {getattr(row, pk_name, None): row for row in rows}
 
             for record_id, instances in id_map.items():

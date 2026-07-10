@@ -93,15 +93,20 @@ async def create_item_action[M: BaseModel | BaseView](
 
     transformers_ctx = transformers_ctx or {}
 
+    from fastedgy.orm.fields import validate_generic_reference_payload
+
     try:
         clean_empty_strings(item_data)
+
+        dumped = item_data.model_dump(exclude_unset=True, warnings=False)
+        validate_generic_reference_payload(model_cls, dumped)
 
         # Separate relational, foreign key and scalar fields
         relational_data = {}
         foreign_key_data = {}
         scalar_data = {}
 
-        for key, value in item_data.model_dump(exclude_unset=True, warnings=False).items():
+        for key, value in dumped.items():
             field = model_cls.model_fields.get(key)
 
             if isinstance(value, datetime):

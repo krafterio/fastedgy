@@ -1527,6 +1527,18 @@
             "title": "Id",
             "type": "integer"
           },
+          "pinned_model": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pinned Model"
+          },
           "pinned_on": {
             "anyOf": [
               {
@@ -1551,6 +1563,17 @@
             ],
             "description": "Polymorphic reference to the serialized target record. Allowed models: `product`.",
             "title": "Pinned On"
+          },
+          "pinned_ref": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pinned Ref"
           },
           "subject": {
             "anyOf": [
@@ -1602,6 +1625,18 @@
             "title": "Content",
             "type": "string"
           },
+          "pinned_model": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pinned Model"
+          },
           "pinned_on": {
             "anyOf": [
               {
@@ -1618,6 +1653,17 @@
                 "model": "task"
               }
             ]
+          },
+          "pinned_ref": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pinned Ref"
           },
           "subject": {
             "anyOf": [
@@ -1702,6 +1748,18 @@
             ],
             "title": "Content"
           },
+          "pinned_model": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pinned Model"
+          },
           "pinned_on": {
             "anyOf": [
               {
@@ -1718,6 +1776,17 @@
                 "model": "task"
               }
             ]
+          },
+          "pinned_ref": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pinned Ref"
           },
           "subject": {
             "anyOf": [

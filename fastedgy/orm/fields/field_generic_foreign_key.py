@@ -11,6 +11,8 @@ import sqlalchemy
 from edgy.core.db.fields.base import BaseField
 from edgy.core.db.fields.types import BaseFieldType
 
+from fastedgy.orm.access_guard import AccessDeniedError
+
 from .field_char import CharField
 from .field_integer import IntegerField
 
@@ -36,6 +38,66 @@ def resolve_generic_pair(model_cls: Any, field_path: str) -> tuple[Any, str] | N
         return None
 
     return field, "model" if parts[1] == "$model" else "id"
+
+
+def validate_generic_reference_payload(model_cls: Any, data: dict[str, Any], partial: bool = False) -> None:
+    """Cross-validate the generic reference forms of an input payload: the
+    reference object and the exposed column pair are exclusive, columns always
+    come as a full pair (both set, or both null when the relation is nullable)
+    pointing to an allowed target, and a non-nullable relation must be provided
+    on create through one of the two forms."""
+    from fastapi import HTTPException
+
+    fields = getattr(getattr(model_cls, "meta", None), "fields", None)
+    if not fields:
+        return
+
+    for field in list(fields.values()):
+        if not getattr(field, "is_generic_foreign_key", False):
+            continue
+
+        reference_in = field.name in data
+        model_in = field.model_column in data
+        id_in = field.id_column in data
+
+        if reference_in and (model_in or id_in):
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"'{field.name}' accepts either the reference object or the "
+                    f"'{field.model_column}'/'{field.id_column}' pair, not both"
+                ),
+            )
+
+        if model_in != id_in:
+            raise HTTPException(
+                status_code=422,
+                detail=f"'{field.model_column}' and '{field.id_column}' must be provided together",
+            )
+
+        if model_in:
+            model_value = data[field.model_column]
+            id_value = data[field.id_column]
+
+            if (model_value is None) != (id_value is None):
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"'{field.model_column}' and '{field.id_column}' must be both set or both null",
+                )
+
+            if model_value is None:
+                if not field.relation_nullable:
+                    raise HTTPException(status_code=422, detail=f"'{field.name}' is required")
+            elif model_value not in field.targets():
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"'{field.name}': model '{model_value}' is not an allowed target",
+                )
+        elif reference_in:
+            if data[field.name] is None and not field.relation_nullable:
+                raise HTTPException(status_code=422, detail=f"'{field.name}' is required")
+        elif not partial and not field.relation_nullable:
+            raise HTTPException(status_code=422, detail=f"'{field.name}' is required")
 
 
 class GenericRelation:
@@ -128,6 +190,17 @@ class GenericForeignKey(BaseField):
     Writing accepts a target instance, a ``{"model": ..., "id": ...}`` mapping
     or ``None``; both sibling columns stay directly addressable and filterable.
 
+    Target records load through ``target_cls.query``, so global filters and
+    access guards fully apply: a target the current context is denied to read
+    resolves to ``None`` instead of propagating the denial.
+
+    ``expose_columns`` keeps the sibling columns on the API surface for
+    backward compatibility: ``"none"`` (default) hides them entirely,
+    ``"read"`` serializes and filters them but rejects writes, ``"write"``
+    additionally accepts them in input payloads — always as a full pair
+    (both set, or both null when the relation is nullable), exclusive with
+    the reference object, and validated against the allowed targets.
+
     Usage:
         class Reminder(BaseModel):
             record = fields.GenericForeignKey(
@@ -148,10 +221,15 @@ class GenericForeignKey(BaseField):
         id_column: str | None = None,
         model_field_kwargs: dict[str, Any] | None = None,
         id_field_kwargs: dict[str, Any] | None = None,
+        expose_columns: str = "none",
         **kwargs: Any,
     ) -> None:
+        if expose_columns not in ("none", "read", "write"):
+            raise ValueError(f"GenericForeignKey: invalid expose_columns '{expose_columns}'")
+
         self.to = to
         self.related_name = related_name
+        self.expose_columns = expose_columns
         self._model_column_option = model_column
         self._id_column_option = id_column
         self._model_field_kwargs = model_field_kwargs or {}
@@ -251,13 +329,21 @@ class GenericForeignKey(BaseField):
             extra_kwargs.setdefault("searchable", False)
             # Storage detail by default: hidden from schemas, inputs, metadata
             # and public filters — the generic field is the API surface
-            # (`<name>.$model` / `<name>.id` paths, reference values). Override
-            # per column through model_field_kwargs / id_field_kwargs.
-            extra_kwargs.setdefault("exclude", True)
-            extra_kwargs.setdefault("filterable", False)
+            # (`<name>.$model` / `<name>.id` paths, reference values). The
+            # expose_columns option keeps them public for backward compat;
+            # override per column through model_field_kwargs / id_field_kwargs.
+            if self.expose_columns == "none":
+                extra_kwargs.setdefault("exclude", True)
+                extra_kwargs.setdefault("filterable", False)
+            else:
+                extra_kwargs.setdefault("exclude", False)
+                extra_kwargs.setdefault("filterable", True)
+                if self.expose_columns == "read":
+                    extra_kwargs.setdefault("read_only", True)
             sub_field = cast(Any, factory(**extra_kwargs))
             sub_field.owner = self.owner
             sub_field.inherit = False
+            sub_field.is_generic_column = True
             sub_field.annotation = (None | sub_field.field_type) if sub_field.null else sub_field.field_type
             embedded[column_name] = sub_field
 
@@ -324,7 +410,11 @@ class GenericForeignKey(BaseField):
         if target_cls is None:
             return None
 
-        record = await target_cls.query.get_or_none(pk=record_id)
+        try:
+            record = await target_cls.query.get_or_none(pk=record_id)
+        except AccessDeniedError:
+            record = None
+
         instance.__dict__[cache_key] = record
         return record
 
@@ -347,4 +437,5 @@ __all__ = [
     "GenericTargets",
     "generic_target_name",
     "resolve_generic_pair",
+    "validate_generic_reference_payload",
 ]

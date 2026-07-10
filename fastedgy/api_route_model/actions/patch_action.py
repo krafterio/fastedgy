@@ -117,12 +117,19 @@ async def patch_item_action[M: BaseModel | BaseView](
         resolved_id = transformers_ctx.get("item_id", item_id)
         item = await query.filter(id=resolved_id).get()
 
+        from fastedgy.orm.fields import validate_generic_reference_payload
+
         # Separate relational, foreign key and scalar fields
         relational_data = {}
         foreign_key_data = {}
         scalar_data = {}
 
         clean_empty_strings(item_data)
+        validate_generic_reference_payload(
+            model_cls,
+            {key: getattr(item_data, key) for key in item_data.model_fields_set},
+            partial=True,
+        )
         for key in item_data.model_fields_set:
             value = getattr(item_data, key)
             field = model_cls.model_fields.get(key)

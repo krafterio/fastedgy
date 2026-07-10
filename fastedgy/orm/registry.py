@@ -28,9 +28,15 @@ def register_lazy_models(registry: Registry) -> None:
     if FALLBACK_TARGET_REGISTRY.get() is None:
         FALLBACK_TARGET_REGISTRY.set(registry)
 
-    for model_class in _lazy_models:
-        if not model_class.meta.abstract:
-            model_class.add_to_registry(registry)
+    registered = [model_class for model_class in _lazy_models if not model_class.meta.abstract]
+
+    for model_class in registered:
+        model_class.add_to_registry(registry)
+
+    for model_class in registered:
+        fields = getattr(model_class.meta, "fields", {})
+        if any(getattr(field, "is_generic_foreign_key", False) for field in fields.values()):
+            model_class.model_rebuild(force=True)
 
     _lazy_models = set()
 

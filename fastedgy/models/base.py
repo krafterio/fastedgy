@@ -138,9 +138,48 @@ _optimize_edgy_field_extraction()
 
 
 class ModelMeta(BaseModelMeta):
+    def __new__(mcs, name: str, bases: tuple[type, ...], attrs: dict[str, Any], **kwargs: Any) -> type:
+        _fix_meta_abstract_before_build(attrs)
+        new_class = super().__new__(mcs, name, bases, attrs, **kwargs)
+        _rebuild_for_embedded_fields(new_class)
+        return new_class
+
     if TYPE_CHECKING:
 
         def __hash__(self) -> int: ...
+
+
+def _rebuild_for_embedded_fields(cls: type) -> None:
+    """Fields injected through ``get_embedded_fields`` (e.g. the columns of a
+    ``GenericForeignKey``) miss the annotation pass run for class-namespace
+    fields, so the pydantic-core schema compiled during the build treats them
+    as non-nullable. Their ``FieldInfo.annotation`` is correct by the end of
+    the build — one forced rebuild realigns the compiled validator."""
+    meta = getattr(cls, "meta", None)
+    fields = getattr(meta, "fields", None)
+    if fields and any(getattr(field, "is_generic_foreign_key", False) for field in fields.values()):
+        cls.model_rebuild(force=True)
+
+
+def _fix_meta_abstract_before_build(attrs: dict[str, Any]) -> None:
+    """A ``Meta`` extending ``BaseModel.Meta`` silently inherits ``abstract = True``,
+    which makes Edgy's metaclass skip its whole non-abstract block (implicit pk,
+    ``get_embedded_fields`` injection) before ``_fix_inherited_abstract`` can flip
+    the flag back. When the class declares its own fields and did not explicitly
+    opt into abstract, correct the flag before the build so the native path runs."""
+    from edgy.core.db.fields.types import BaseFieldType
+
+    meta_class = attrs.get("Meta")
+    if (
+        meta_class is None
+        or not isinstance(meta_class, type)
+        or "abstract" in meta_class.__dict__
+        or not getattr(meta_class, "abstract", False)
+    ):
+        return
+
+    if any(isinstance(value, BaseFieldType) for value in attrs.values()):
+        meta_class.abstract = False
 
 
 def _fix_inherited_abstract(cls: type) -> None:
@@ -149,6 +188,11 @@ def _fix_inherited_abstract(cls: type) -> None:
     ``BaseView.Meta`` therefore silently inherit ``abstract = True`` and are
     excluded from registration. Reset it for concrete subclasses that have
     their own fields but did not explicitly opt into abstract.
+
+    The metaclass also skips its whole non-abstract block for these classes,
+    so the two side effects it would have produced are replayed here: the
+    implicit ``pk`` field and the fields contributed by ``get_embedded_fields``
+    (e.g. the columns of a ``GenericForeignKey``).
     """
     own_meta = cls.__dict__.get("Meta")
     if (
@@ -163,17 +207,31 @@ def _fix_inherited_abstract(cls: type) -> None:
 
     cls.meta.abstract = False
 
+    model_fields_on_class = getattr(cls, "__pydantic_fields__", None)
+    if model_fields_on_class is None:
+        model_fields_on_class = getattr(cls, "model_fields", None)
+
     if "pk" not in cls.meta.fields:
         from edgy.core.db.fields.base import PKField
 
         pk_field = PKField(exclude=True, name="pk", inherit=False, no_copy=True)
         pk_field.owner = cls
         cls.meta.fields["pk"] = pk_field
-        model_fields_on_class = getattr(cls, "__pydantic_fields__", None)
-        if model_fields_on_class is None:
-            model_fields_on_class = getattr(cls, "model_fields", None)
         if model_fields_on_class is not None:
             model_fields_on_class["pk"] = pk_field
+
+    for field_name, field in list(cls.meta.fields.items()):
+        embedded_fields = field.get_embedded_fields(field_name, cls.meta.fields)
+        if not embedded_fields:
+            continue
+        for sub_field_name, sub_field in embedded_fields.items():
+            if sub_field_name == "pk" or sub_field_name in cls.meta.fields:
+                continue
+            sub_field.name = sub_field_name
+            sub_field.owner = cls
+            cls.meta.fields[sub_field_name] = sub_field
+            if model_fields_on_class is not None:
+                model_fields_on_class[sub_field_name] = sub_field
 
 
 _PARTIAL_OBJECT: dict[str, Any] = {"type": "object", "additionalProperties": True}

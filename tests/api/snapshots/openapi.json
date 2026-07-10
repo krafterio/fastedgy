@@ -1327,6 +1327,251 @@
         "title": "MetadataModel",
         "type": "object"
       },
+      "Note": {
+        "properties": {
+          "content": {
+            "maxLength": 255,
+            "title": "Content",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "pinned_model": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pinned Model"
+          },
+          "pinned_ref": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pinned Ref"
+          },
+          "subject_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Id"
+          },
+          "subject_model": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Model"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "Note",
+        "type": "object"
+      },
+      "Note-Create": {
+        "properties": {
+          "content": {
+            "maxLength": 255,
+            "title": "Content",
+            "type": "string"
+          },
+          "pinned_model": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pinned Model"
+          },
+          "pinned_ref": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pinned Ref"
+          },
+          "subject_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Id"
+          },
+          "subject_model": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Model"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "title": "Note-Create",
+        "type": "object"
+      },
+      "Note-List": {
+        "properties": {
+          "items": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Note"
+                },
+                {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              ]
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "total_pages": {
+            "readOnly": true,
+            "title": "Total Pages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset",
+          "total_pages"
+        ],
+        "title": "Note-List",
+        "type": "object"
+      },
+      "Note-Update": {
+        "properties": {
+          "content": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          },
+          "pinned_model": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pinned Model"
+          },
+          "pinned_ref": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pinned Ref"
+          },
+          "subject_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Id"
+          },
+          "subject_model": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Model"
+          }
+        },
+        "title": "Note-Update",
+        "type": "object"
+      },
       "Product": {
         "additionalProperties": true,
         "properties": {
@@ -9738,6 +9983,721 @@
         "summary": "Update Category",
         "tags": [
           "test_categories"
+        ]
+      }
+    },
+    "/api/test_notes": {
+      "get": {
+        "description": "Retrieve a paginated list of Note items",
+        "operationId": "list_items_api_test_notes_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 1000,
+              "minimum": 0,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Order the list of items by field(s) separated by commas (ex. 'created_at:desc,name:asc')",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Order the list of items by field(s) separated by commas (ex. 'created_at:desc,name:asc')",
+              "title": "Order by"
+            }
+          },
+          {
+            "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+            "in": "header",
+            "name": "X-Fields",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+              "title": "Fields Selector"
+            }
+          },
+          {
+            "description": "Filter the list of items with the filter expression build with rules and conditions",
+            "in": "header",
+            "name": "X-Filter",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter the list of items with the filter expression build with rules and conditions",
+              "title": "Filter"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Note-List"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "List Note items",
+        "tags": [
+          "test_notes"
+        ]
+      },
+      "post": {
+        "description": "Create a new Note item",
+        "operationId": "create_item_api_test_notes_post",
+        "parameters": [
+          {
+            "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+            "in": "header",
+            "name": "X-Fields",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+              "title": "Fields Selector"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Note-Create"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Note"
+                    },
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    }
+                  ],
+                  "title": "Response Create Item Api Test Notes Post"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            },
+            "description": "Invalid relation operation"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Create Note",
+        "tags": [
+          "test_notes"
+        ]
+      }
+    },
+    "/api/test_notes/export": {
+      "get": {
+        "description": "Retrieve a export of Note items",
+        "operationId": "export_items_api_test_notes_export_get",
+        "parameters": [
+          {
+            "description": "Export format (csv, xlsx, ods)",
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "schema": {
+              "default": "csv",
+              "description": "Export format (csv, xlsx, ods)",
+              "title": "Format",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Limit"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Order the list of items by field(s) separated by commas (ex. 'created_at:desc,name:asc')",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Order the list of items by field(s) separated by commas (ex. 'created_at:desc,name:asc')",
+              "title": "Order by"
+            }
+          },
+          {
+            "description": "Delimiter for relation values (one2many, many2many) in export cells",
+            "in": "query",
+            "name": "relation_delimiter",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/RelationDelimiter",
+              "default": "newline",
+              "description": "Delimiter for relation values (one2many, many2many) in export cells",
+              "title": "Relation delimiter"
+            }
+          },
+          {
+            "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+            "in": "header",
+            "name": "X-Fields",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+              "title": "Fields Selector"
+            }
+          },
+          {
+            "description": "Filter the list of items with the filter expression build with rules and conditions",
+            "in": "header",
+            "name": "X-Filter",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter the list of items with the filter expression build with rules and conditions",
+              "title": "Filter"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Export Note items",
+        "tags": [
+          "test_notes"
+        ]
+      }
+    },
+    "/api/test_notes/import": {
+      "post": {
+        "description": "Import Note items from a file (CSV, XLSX, ODS)",
+        "operationId": "import_items_api_test_notes_import_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportItemsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Import Note items",
+        "tags": [
+          "test_notes"
+        ]
+      }
+    },
+    "/api/test_notes/import/template": {
+      "get": {
+        "description": "Retrieve a import template of Note",
+        "operationId": "import_template_api_test_notes_import_template_get",
+        "parameters": [
+          {
+            "description": "Export format (csv, xlsx, ods)",
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "schema": {
+              "default": "csv",
+              "description": "Export format (csv, xlsx, ods)",
+              "title": "Format",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+            "in": "header",
+            "name": "X-Fields",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+              "title": "Fields Selector"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Import template of Note",
+        "tags": [
+          "test_notes"
+        ]
+      }
+    },
+    "/api/test_notes/{item_id}": {
+      "delete": {
+        "description": "Delete a Note by its ID",
+        "operationId": "delete_item_api_test_notes__item_id__delete",
+        "parameters": [
+          {
+            "description": "Item ID",
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "description": "Item ID",
+              "title": "Item Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            },
+            "description": "Item not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Delete Note",
+        "tags": [
+          "test_notes"
+        ]
+      },
+      "get": {
+        "description": "Retrieve a single Note by its ID",
+        "operationId": "get_item_api_test_notes__item_id__get",
+        "parameters": [
+          {
+            "description": "Item ID",
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "description": "Item ID",
+              "title": "Item Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+            "in": "header",
+            "name": "X-Fields",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+              "title": "Fields Selector"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Note"
+                    },
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    }
+                  ],
+                  "title": "Response Get Item Api Test Notes  Item Id  Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            },
+            "description": "Item not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Get Note",
+        "tags": [
+          "test_notes"
+        ]
+      },
+      "patch": {
+        "description": "Update an existing Note by its ID",
+        "operationId": "patch_item_api_test_notes__item_id__patch",
+        "parameters": [
+          {
+            "description": "Item ID",
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "description": "Item ID",
+              "title": "Item Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+            "in": "header",
+            "name": "X-Fields",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+              "title": "Fields Selector"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Note-Update"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Note"
+                    },
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    }
+                  ],
+                  "title": "Response Patch Item Api Test Notes  Item Id  Patch"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            },
+            "description": "Invalid relation operation"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            },
+            "description": "Item not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Update Note",
+        "tags": [
+          "test_notes"
         ]
       }
     },

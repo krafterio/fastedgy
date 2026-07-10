@@ -12,6 +12,7 @@ from fastedgy.test.models.queued_task_worker import QueuedTaskWorker
 from fastedgy.test.models.tag import Tag
 from fastedgy.test.models.category import Category
 from fastedgy.test.models.product import Product
+from fastedgy.test.models.note import Note
 from fastedgy.test.models.global_filter import (
     GfArticle,
     GfOwnedMixin,
@@ -42,6 +43,7 @@ DEMO_MODELS = [
     Tag,
     Category,
     Product,
+    Note,
 ]
 
 ALL_MODELS = STANDARD_MODELS + DEMO_MODELS
@@ -59,6 +61,7 @@ __all__ = [
     "Tag",
     "Category",
     "Product",
+    "Note",
     "GfArticle",
     "GfOwnedMixin",
     "GfPrivateDoc",

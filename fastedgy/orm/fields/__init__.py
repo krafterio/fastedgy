@@ -22,6 +22,11 @@ from .field_exclude import ExcludeField
 from .field_file import FileField
 from .field_float import FloatField
 from .field_foreign_key import ForeignKey
+from .field_generic_foreign_key import (
+    GenericForeignKey,
+    GenericTargets,
+    generic_target_name,
+)
 from .field_image import ImageField
 from .field_integer import IntegerField
 from .field_ip_address import IPAddressField
@@ -91,6 +96,9 @@ __all__ = [
     "FieldExportConverter",
     "FileField",
     "ForeignKey",
+    "GenericForeignKey",
+    "GenericTargets",
+    "generic_target_name",
     "ImageField",
     "ManyToMany",
     "ManyToManyField",

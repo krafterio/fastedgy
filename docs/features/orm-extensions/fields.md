@@ -220,6 +220,22 @@ class Product(BaseModel):
     category = fields.ForeignKey("Category", on_delete="CASCADE", label=_t('Category'))
 ```
 
+## Generic Foreign Key
+
+Polymorphic many-to-one relationship stored as a pair of sibling columns (target model name + target id). See the dedicated [Generic Foreign Key](generic-foreign-key.md) page for the full API surface (reverse relations, payloads, filtering, fields selector).
+
+```python
+class Reminder(BaseModel):
+    class Meta:
+        tablename = "reminders"
+
+    record = fields.GenericForeignKey(
+        to=["Task", "CalendarEvent"],
+        related_name="reminders",
+        label=_t('Record'),
+    )
+```
+
 ## HTML
 
 HTML content field with specialized handling for HTML markup.

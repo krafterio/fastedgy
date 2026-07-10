@@ -132,8 +132,9 @@ class BaseSettings(PydanticBaseSettings):
     shutdown_drain_seconds: int = 15
     # Name of the deploy advisory lock held by the deployment orchestrator
     # for the exact duration of a deploy (see Health.deploy_lock_key for the
-    # derived Postgres key). Empty = no orchestrator-driven deploy window.
-    deploy_lock_name: str = ""
+    # derived Postgres key); advisory locks are per-database, so the default
+    # cannot clash across apps. Empty = no orchestrator-driven deploy window.
+    deploy_lock_name: str = "fastedgy-deploy"
 
     # Logging
     log_level: LogLevel = LogLevel.INFO

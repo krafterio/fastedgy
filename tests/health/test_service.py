@@ -43,6 +43,12 @@ async def test_deploy_lock_key_derives_from_the_configured_name(health: Health, 
     assert health.deploy_lock_key is None
 
 
+async def test_deploy_lock_name_defaults_to_the_framework_constant() -> None:
+    from fastedgy.config import BaseSettings
+
+    assert BaseSettings.model_fields["deploy_lock_name"].default == "fastedgy-deploy"
+
+
 async def test_no_lock_name_means_no_orchestrator_window(health: Health, monkeypatch) -> None:
     monkeypatch.setattr(health._settings, "deploy_lock_name", "")
     health._shutting_down = False

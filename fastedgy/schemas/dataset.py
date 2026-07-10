@@ -53,6 +53,7 @@ class MetadataField(BaseModel):
     extra: bool
     filter_operators: list[str]
     target: str | None = None
+    targets: list[str] | None = None
     choices: dict[str, str] | None = None
 
 

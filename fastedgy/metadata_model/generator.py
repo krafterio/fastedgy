@@ -3,6 +3,8 @@
 
 import re
 
+from typing import Any, cast
+
 from fastedgy import context
 from fastedgy.models.base import BaseModel, BaseView
 from fastedgy.orm import Model, BaseModelType
@@ -185,6 +187,13 @@ def generate_metadata_field(model_cls: type[Model], field: BaseFieldType) -> Met
         readonly = True
 
     target_model = getattr(field, "target", None)
+    targets: list[str] | None = None
+
+    if getattr(field, "is_generic_foreign_key", False):
+        targets = sorted(cast(Any, field).targets().keys())
+    elif getattr(field, "is_generic_related", False):
+        target_model = cast(Any, field).related_from
+
     label = getattr(field, "label", label)
     filter_operators = get_filter_operators(field)
     searchable = getattr(field, "searchable", len(filter_operators) > 0)
@@ -202,6 +211,7 @@ def generate_metadata_field(model_cls: type[Model], field: BaseFieldType) -> Met
         extra=False,
         filter_operators=filter_operators,
         target=generate_metadata_name(target_model) if target_model else None,
+        targets=targets,
         choices=get_field_choices(field),
     )
 

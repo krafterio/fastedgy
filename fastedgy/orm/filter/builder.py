@@ -4,6 +4,7 @@
 from typing import Any, cast
 
 from sqlalchemy import (
+    and_ as sa_and,
     exists,
     select as sa_select,
     literal_column,
@@ -19,6 +20,7 @@ from fastedgy.orm.fields import (
     DecimalField,
     FloatField,
     ManyToMany,
+    generic_target_name,
 )
 from fastedgy.orm.query import QuerySet
 from fastedgy.orm.manager import BaseManager
@@ -68,6 +70,15 @@ def build_filter_expression(model_cls: type[Model], filters: FilterRule | Filter
 
         if not operator_method or not operator_dict_method:
             raise InvalidFilterError(f"Operator '{filters.operator}' is not supported")
+
+        # Paths crossing a generic reverse relation cannot be delegated to the
+        # ORM lookup joins: route them through the EXISTS builder, which knows
+        # how to join on the (model, id) column pair.
+        if "." in field and _path_crosses_generic_relation(model_cls, field):
+            expression = _build_exists_expression(model_cls, filters)
+            if expression is None:
+                raise InvalidFilterError(f"Cannot filter through the generic relation path '{field}'")
+            return expression
 
         use_col = field.startswith("extra_")
         field_type = _find_field_type_in_model(model_cls, field)
@@ -216,9 +227,11 @@ def _build_exists_expression(model_cls: type[Model], filters: FilterRule) -> Any
 
             # Find the FK field on related_model whose related_name == part
             fk_field_name = None
+            fk_field = None
             for fname, finfo in related_model.meta.fields.items():
                 if getattr(finfo, "related_name", None) == part:
                     fk_field_name = fname
+                    fk_field = finfo
                     break
 
             if fk_field_name is None:
@@ -229,7 +242,23 @@ def _build_exists_expression(model_cls: type[Model], filters: FilterRule) -> Any
             if current_pk is None:
                 return None
 
-            if from_table is None:
+            if getattr(fk_field, "is_generic_foreign_key", False):
+                # Generic reverse relation: join on the id column AND pin the
+                # model column to the current model's generic target name.
+                generic_field = cast(Any, fk_field)
+                target_name = generic_target_name(current_model)
+                source_table = model_cls.table if from_table is None else current_model.table
+                link_condition = sa_and(
+                    related_model.table.columns[generic_field.id_column] == source_table.columns[current_pk],
+                    related_model.table.columns[generic_field.model_column] == target_name,
+                )
+
+                if from_table is None:
+                    from_table = related_model.table
+                    root_link_condition = link_condition
+                else:
+                    join_entries.append((related_model.table, link_condition))
+            elif from_table is None:
                 from_table = related_model.table
                 root_link_condition = related_model.table.columns[fk_field_name] == model_cls.table.columns[current_pk]
             else:
@@ -594,6 +623,27 @@ def _add_fulltext_rank_extra_select(query: QuerySet, filters: Filter | None) -> 
         query = cast(QuerySet, query.extra_select(cast(Any, rank_expr)))
 
     return query
+
+
+def _path_crosses_generic_relation(model_cls: type[Model], field_path: str) -> bool:
+    current_model = model_cls
+
+    for part in field_path.split(".")[:-1]:
+        field_info = current_model.meta.fields.get(part)
+        if field_info is None:
+            return False
+        if getattr(field_info, "is_generic_related", False):
+            return True
+        if hasattr(field_info, "related_model"):
+            current_model = getattr(field_info, "related_model")
+        elif hasattr(field_info, "target"):
+            current_model = getattr(field_info, "target")
+        elif hasattr(field_info, "related_from"):
+            current_model = getattr(field_info, "related_from")
+        else:
+            return False
+
+    return False
 
 
 def _find_field_type_in_model(model_cls: type[Model], field_path: str) -> type[BaseFieldType]:

@@ -16,7 +16,7 @@ def note_targets() -> list[type]:
 @api_route_model()
 class Note(BaseModel):
     content = fields.CharField(max_length=255)
-    subject = fields.GenericForeignKey(to=note_targets, null=True)
+    subject = fields.GenericForeignKey(to=note_targets, related_name="notes", null=True)
     pinned_on = fields.GenericForeignKey(
         to=["Product"],
         model_column="pinned_model",

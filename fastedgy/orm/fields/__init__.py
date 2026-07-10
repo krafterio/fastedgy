@@ -24,6 +24,8 @@ from .field_float import FloatField
 from .field_foreign_key import ForeignKey
 from .field_generic_foreign_key import (
     GenericForeignKey,
+    GenericRelatedField,
+    GenericRelation,
     GenericTargets,
     generic_target_name,
 )
@@ -97,6 +99,8 @@ __all__ = [
     "FileField",
     "ForeignKey",
     "GenericForeignKey",
+    "GenericRelatedField",
+    "GenericRelation",
     "GenericTargets",
     "generic_target_name",
     "ImageField",

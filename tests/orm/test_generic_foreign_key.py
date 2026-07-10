@@ -142,3 +142,95 @@ async def test_loaded_target_is_cached_per_instance(setup_db: FastEdgy) -> None:
     second = await fresh.subject
 
     assert first is second
+
+
+async def test_inverse_relation_lists_only_owned_rows(setup_db: FastEdgy) -> None:
+    product = await _create_product()
+    category = await Category.query.create(name="Bikes")
+    await Note.query.create(content="on product", subject=product)
+    await Note.query.create(content="on category", subject=category)
+
+    product_notes = await product.notes.all()
+    category_notes = await category.notes.all()
+
+    assert [note.content for note in product_notes] == ["on product"]
+    assert [note.content for note in category_notes] == ["on category"]
+
+
+async def test_inverse_relation_ignores_same_id_on_other_model(setup_db: FastEdgy) -> None:
+    product = await _create_product()
+    category = await Category.query.create(name="Bikes")
+    assert product.id == category.id
+
+    await Note.query.create(content="only category", subject=category)
+
+    assert await product.notes.all() == []
+    assert len(await category.notes.all()) == 1
+
+
+async def test_inverse_relation_add_and_remove(setup_db: FastEdgy) -> None:
+    product = await _create_product()
+    note = await Note.query.create(content="orphan")
+
+    await product.notes.add(note)
+    fresh = await Note.query.get(id=note.id)
+    assert fresh.subject_model == "product"
+    assert fresh.subject_id == product.id
+
+    await product.notes.remove(fresh)
+    cleared = await Note.query.get(id=note.id)
+    assert cleared.subject_model is None
+    assert cleared.subject_id is None
+
+
+async def test_no_inverse_without_related_name(setup_db: FastEdgy) -> None:
+    from typing import Any, cast
+
+    cast(Any, Note.meta.fields["pinned_on"]).targets()
+
+    assert "notes" in Product.meta.fields
+    assert not any(getattr(field, "generic_field_name", None) == "pinned_on" for field in Product.meta.fields.values())
+
+
+async def test_filter_through_generic_reverse_relation(setup_db: FastEdgy) -> None:
+    from fastedgy.orm.filter import R, filter_query
+
+    product = await _create_product()
+    other = await _create_product("Other")
+    category = await Category.query.create(name="Bikes")
+    await Note.query.create(content="hit", subject=product)
+    await Note.query.create(content="hit", subject=category)
+    await Note.query.create(content="miss", subject=other)
+
+    products = await filter_query(Product.query, R("notes.content", "=", "hit")).all()
+
+    assert [item.id for item in products] == [product.id]
+
+
+async def test_filter_through_generic_reverse_relation_in_or_condition(setup_db: FastEdgy) -> None:
+    from fastedgy.orm.filter import Or, R, filter_query
+
+    product = await _create_product()
+    other = await _create_product("Other")
+    await Note.query.create(content="hit", subject=product)
+
+    products = await filter_query(
+        Product.query,
+        Or(R("notes.content", "=", "hit"), R("name", "=", "Other")),
+    ).all()
+
+    assert {item.id for item in products} == {product.id, other.id}
+
+
+async def test_metadata_exposes_reference_and_inverse(setup_db: FastEdgy) -> None:
+    from fastedgy.metadata_model.generator import generate_metadata_model
+
+    note_metadata = await generate_metadata_model(Note)
+    subject_field = note_metadata.fields["subject"]
+    assert subject_field.type == "reference"
+    assert subject_field.targets == ["category", "product"]
+
+    product_metadata = await generate_metadata_model(Product)
+    notes_field = product_metadata.fields["notes"]
+    assert notes_field.type == "one2many"
+    assert notes_field.target == "note"

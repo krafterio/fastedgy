@@ -157,8 +157,20 @@ def _rebuild_for_embedded_fields(cls: type) -> None:
     the build — one forced rebuild realigns the compiled validator."""
     meta = getattr(cls, "meta", None)
     fields = getattr(meta, "fields", None)
-    if fields and any(getattr(field, "is_generic_foreign_key", False) for field in fields.values()):
-        cls.model_rebuild(force=True)
+    if not fields:
+        return
+
+    generic_fields = [field for field in fields.values() if getattr(field, "is_generic_foreign_key", False)]
+    if not generic_fields:
+        return
+
+    cls.model_rebuild(force=True)
+
+    for field in generic_fields:
+        try:
+            field.targets()
+        except ValueError:
+            continue
 
 
 def _fix_meta_abstract_before_build(attrs: dict[str, Any]) -> None:

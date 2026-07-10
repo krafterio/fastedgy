@@ -22,6 +22,81 @@ def generic_target_name(model_cls: type) -> str:
     return re.sub(r"(?<!^)(?=[A-Z])", "_", model_cls.__name__).lower()
 
 
+class GenericRelation:
+    """Runtime accessor of a generic reverse relation: a filtered queryset over
+    the owning model plus ``add``/``remove`` helpers. Unknown attributes are
+    delegated to the queryset (``all``, ``filter``, ``count``, ``limit``, ...)."""
+
+    def __init__(self, instance: Any, field: "GenericRelatedField") -> None:
+        self.__dict__["instance"] = instance
+        self.__dict__["field"] = field
+
+    def _link_values(self) -> dict[str, Any]:
+        generic_field = self.field.generic_field
+        return {
+            generic_field.model_column: generic_target_name(type(self.instance)),
+            generic_field.id_column: getattr(self.instance, "id", None),
+        }
+
+    @property
+    def queryset(self) -> Any:
+        return self.field.related_from.query.filter(**self._link_values())
+
+    def __getattr__(self, item: str) -> Any:
+        return getattr(self.queryset, item)
+
+    async def add(self, child: Any) -> Any:
+        for column_name, column_value in self._link_values().items():
+            setattr(child, column_name, column_value)
+        await child.save()
+        return child
+
+    async def remove(self, child: Any) -> Any:
+        generic_field = self.field.generic_field
+        setattr(child, generic_field.model_column, None)
+        setattr(child, generic_field.id_column, None)
+        await child.save()
+        return child
+
+
+class GenericRelatedField(BaseField):
+    """Reverse side of a GenericForeignKey, installed on each target model under
+    the ``related_name``: a virtual to-many field (no columns) resolving to the
+    owning model rows whose generic columns point back to the instance."""
+
+    is_generic_related = True
+
+    def __init__(self, *, generic_field_name: str, related_from: type, **kwargs: Any) -> None:
+        self.generic_field_name = generic_field_name
+        self.related_from = related_from
+
+        kwargs.setdefault("exclude", True)
+        kwargs.setdefault("filterable", True)
+        kwargs.setdefault("searchable", False)
+        kwargs["null"] = True
+        kwargs["primary_key"] = False
+        kwargs["field_type"] = kwargs["annotation"] = Any
+        super().__init__(**kwargs)
+
+    @property
+    def generic_field(self) -> "GenericForeignKey":
+        return cast("GenericForeignKey", self.related_from.meta.fields[self.generic_field_name])
+
+    def get_columns(self, name: str) -> Sequence[sqlalchemy.Column]:
+        return []
+
+    def to_model(self, field_name: str, value: Any) -> dict[str, Any]:
+        return {}
+
+    def clean(self, field_name: str, value: Any, for_query: bool = False) -> dict[str, Any]:
+        return {}
+
+    def __get__(self, instance: Any, owner: Any = None) -> Any:
+        if instance is None:
+            return self
+        return GenericRelation(instance, self)
+
+
 class GenericForeignKey(BaseField):
     """
     Polymorphic many-to-one relation stored as two sibling columns injected on
@@ -69,7 +144,7 @@ class GenericForeignKey(BaseField):
         self.relation_nullable = bool(kwargs.get("null", False))
 
         kwargs.setdefault("exclude", True)
-        kwargs.setdefault("filterable", False)
+        kwargs.setdefault("filterable", True)
         kwargs.setdefault("searchable", False)
         kwargs["null"] = True
         kwargs["primary_key"] = False
@@ -99,7 +174,27 @@ class GenericForeignKey(BaseField):
             raise ValueError(f"GenericForeignKey '{self.name}' resolved no target model")
 
         self._targets_cache = resolved
+        self._install_inverse_relations(resolved)
         return resolved
+
+    def _install_inverse_relations(self, targets: dict[str, type]) -> None:
+        if not self.related_name or self.owner is None:
+            return
+
+        for target_cls in targets.values():
+            existing = target_cls.meta.fields.get(self.related_name)
+            if existing is not None:
+                if getattr(existing, "is_generic_related", False):
+                    continue
+                raise ValueError(
+                    f"GenericForeignKey '{self.name}': related_name '{self.related_name}' "
+                    f"collides with an existing field on {target_cls.__name__}"
+                )
+
+            inverse = GenericRelatedField(generic_field_name=self.name, related_from=self.owner)
+            inverse.name = self.related_name
+            inverse.owner = target_cls
+            target_cls.meta.fields[self.related_name] = inverse
 
     def _resolve_target_class(self, target: Any) -> type:
         if isinstance(target, str):
@@ -214,6 +309,8 @@ class GenericForeignKey(BaseField):
 
 __all__ = [
     "GenericForeignKey",
+    "GenericRelatedField",
+    "GenericRelation",
     "GenericTargets",
     "generic_target_name",
 ]

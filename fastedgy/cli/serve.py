@@ -83,10 +83,14 @@ def serve(
     reload: bool,
 ):
     """Start the development server."""
+    import logging
     import os
     import uvicorn
     from fastedgy.cli import console, Table, Panel, cli_json_log
     from fastedgy.logger import LogFormat
+
+    # watchfiles logs raw pre-filter events at INFO; the reload signal comes from uvicorn.error
+    logging.getLogger("watchfiles").setLevel(logging.WARNING)
 
     http_workers = ctx.settings.http_workers or http_workers
     http_workers = int(http_workers) if http_workers and not reload else None
@@ -155,6 +159,8 @@ def serve(
         host=host,
         port=port,
         reload=reload,
+        # uvicorn watches the cwd by default — the monorepo root, .git included
+        reload_dirs=[ctx.settings.server_path] if reload else None,
         workers=http_workers,
         limit_concurrency=http_limit_concurrency,
         log_level=ctx.settings.log_level,

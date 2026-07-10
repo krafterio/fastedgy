@@ -29,6 +29,7 @@ from .field_generic_foreign_key import (
     GenericTargets,
     generic_target_name,
     resolve_generic_pair,
+    resolve_registry_generic_references,
     validate_generic_reference_payload,
 )
 from .field_image import ImageField
@@ -106,6 +107,7 @@ __all__ = [
     "GenericTargets",
     "generic_target_name",
     "resolve_generic_pair",
+    "resolve_registry_generic_references",
     "validate_generic_reference_payload",
     "ImageField",
     "ManyToMany",

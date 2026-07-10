@@ -40,6 +40,26 @@ def resolve_generic_pair(model_cls: Any, field_path: str) -> tuple[Any, str] | N
     return field, "model" if parts[1] == "$model" else "id"
 
 
+def resolve_registry_generic_references(model_cls: Any) -> None:
+    """Resolve every GenericForeignKey of the model's Edgy registry so the
+    reverse relations are installed on their targets. Input model generators
+    call it before building (their result is cached): an input generated ahead
+    of the resolution would silently drop the relation's payload key."""
+    registry = getattr(getattr(model_cls, "meta", None), "registry", None)
+    models = getattr(registry, "models", None)
+    if not models:
+        return
+
+    for model in list(models.values()):
+        fields = getattr(getattr(model, "meta", None), "fields", None) or {}
+        for field in fields.values():
+            if getattr(field, "is_generic_foreign_key", False):
+                try:
+                    cast(Any, field).targets()
+                except ValueError:
+                    continue
+
+
 def validate_generic_reference_payload(model_cls: Any, data: dict[str, Any], partial: bool = False) -> None:
     """Cross-validate the generic reference forms of an input payload: the
     reference object and the exposed column pair are exclusive, columns always
@@ -130,7 +150,12 @@ class GenericRelation:
         return child
 
     async def remove(self, child: Any) -> Any:
+        from fastedgy.orm.relations.utils import RelationOperationError
+
         generic_field = self.field.generic_field
+        if not generic_field.relation_nullable:
+            raise RelationOperationError(f"Generic reference '{generic_field.name}' is required and cannot be unlinked")
+
         setattr(child, generic_field.model_column, None)
         setattr(child, generic_field.id_column, None)
         await child.save()
@@ -437,5 +462,6 @@ __all__ = [
     "GenericTargets",
     "generic_target_name",
     "resolve_generic_pair",
+    "resolve_registry_generic_references",
     "validate_generic_reference_payload",
 ]

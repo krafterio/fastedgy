@@ -85,16 +85,17 @@ class ReferenceObject(PydanticBaseModel):
 
 def _reference_field_options(field_name: str, field: Any) -> dict[str, Any]:
     try:
-        targets = ", ".join(f"`{name}`" for name in sorted(field.targets().keys()))
+        target_names = sorted(field.targets().keys())
     except ValueError:
-        targets = ""
+        target_names = []
 
+    targets = ", ".join(f"`{name}`" for name in target_names)
     description = f'Polymorphic reference for {field_name}: `{{"model": ..., "id": ...}}`.' + (
         f"\n\nAllowed models: {targets}" if targets else ""
     )
     return {
         "description": description,
-        "examples": [{"model": "task", "id": 5}],
+        "examples": [{"model": target_names[0] if target_names else "task", "id": 5}],
     }
 
 
@@ -138,7 +139,12 @@ def generate_input_create_model[M: BaseModel | BaseView](model_cls: type[M]) -> 
     """Generate Pydantic input model for POST with M2M/O2M support."""
     from fastedgy.schemas import Field as PydanticField
     from fastedgy.api_route_model.action.relations import is_exposed_relation_field
+    from fastedgy.orm.fields import resolve_registry_generic_references
     from edgy.core.db.fields.foreign_keys import ForeignKey
+
+    # The result is cached: generic reverse relations must be installed first,
+    # whichever consumer (route registration, AI tools, admin) comes first.
+    resolve_registry_generic_references(model_cls)
 
     fields = {}
 
@@ -245,7 +251,12 @@ def generate_input_patch_model[M: BaseModel | BaseView](model_cls: type[M]) -> t
     """Generate Pydantic input model for PATCH with M2M/O2M support."""
     from fastedgy.schemas import Field as PydanticField
     from fastedgy.api_route_model.action.relations import is_exposed_relation_field
+    from fastedgy.orm.fields import resolve_registry_generic_references
     from edgy.core.db.fields.foreign_keys import ForeignKey
+
+    # The result is cached: generic reverse relations must be installed first,
+    # whichever consumer (route registration, AI tools, admin) comes first.
+    resolve_registry_generic_references(model_cls)
 
     fields = {}
 

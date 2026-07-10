@@ -235,7 +235,12 @@ async def process_relation_operations(
                     if fk_field_name and fk_field_name not in values:
                         values[fk_field_name] = instance.id
 
-                new_record = await related_model.query.create(**values)
+                # Instantiate + save instead of queryset.create: the queryset
+                # path sends ORM signals with the queryset as `instance` and
+                # only persists the passed columns, dropping any field a
+                # pre_save signal sets on the record.
+                new_record = related_model(**values)
+                await new_record.save()
                 await relation_manager.add(new_record)
 
             elif action == "update":
@@ -283,7 +288,10 @@ async def process_relation_operations(
                 if not record:
                     raise RelationOperationError(f"Record with id={record_id} not found in {related_model.__name__}")
 
-                await relation_manager.remove(record)
+                # The record is deleted anyway: unlinking first would write NULL
+                # into the generic columns, which a required reference forbids.
+                if generic_field is None:
+                    await relation_manager.remove(record)
                 await record.delete()
 
             elif action == "clear":

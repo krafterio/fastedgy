@@ -144,6 +144,38 @@ async def test_loaded_target_is_cached_per_instance(setup_db: FastEdgy) -> None:
     assert first is second
 
 
+async def test_retarget_on_update_moves_the_reference(setup_db: FastEdgy) -> None:
+    product = await _create_product()
+    category = await Category.query.create(name="Retarget")
+    note = Note(content="mobile", subject=product)
+    await note.save()
+
+    fresh = await Note.query.get(id=note.id)
+    fresh.subject = category
+    await fresh.save()
+
+    reloaded = await Note.query.get(id=note.id)
+    assert reloaded.subject_model == "category"
+    assert reloaded.subject_id == category.id
+    loaded = await reloaded.subject
+    assert isinstance(loaded, Category)
+
+
+async def test_inverse_remove_required_reference_raises(setup_db: FastEdgy) -> None:
+    from fastedgy.orm.relations.utils import RelationOperationError
+    from fastedgy.test.models.annotation import Annotation
+
+    product = await _create_product()
+    annotation = await Annotation.query.create(body="stuck", anchor=product)
+
+    with pytest.raises(RelationOperationError):
+        await product.annotations.remove(annotation)
+
+    fresh = await Annotation.query.get(id=annotation.id)
+    assert fresh.anchor_model == "product"
+    assert fresh.anchor_id == product.id
+
+
 async def test_denied_target_loads_as_none(setup_db: FastEdgy) -> None:
     from fastedgy.dependencies import get_service
     from fastedgy.orm.access_guard import AccessDeniedError, ModelAccessGuardRegistry, ModelAction

@@ -3,6 +3,7 @@
 
 import httpx
 
+from fastedgy.test.models.annotation import Annotation
 from fastedgy.test.models.note import Note
 from fastedgy.test.models.product import Product
 
@@ -332,6 +333,149 @@ async def test_exposed_columns_patch_pair_and_clear(auth_http: httpx.AsyncClient
     note = await Note.query.get(id=note_id)
     assert note.pinned_model is None
     assert note.pinned_ref is None
+
+
+async def test_link_and_unlink_ops_on_generic_children(auth_http: httpx.AsyncClient) -> None:
+    product = await Product.query.create(name="Linkable", price="9.99")
+    note = await Note.query.create(content="free")
+
+    assert product.id and note.id
+
+    linked = await auth_http.patch(f"/api/test_products/{product.id}", json={"notes": [["link", note.id]]})
+    assert linked.status_code == 200, linked.text
+
+    fresh = await Note.query.get(id=note.id)
+    assert fresh.subject_model == "product"
+    assert fresh.subject_id == product.id
+
+    unlinked = await auth_http.patch(f"/api/test_products/{product.id}", json={"notes": [["unlink", note.id]]})
+    assert unlinked.status_code == 200, unlinked.text
+
+    fresh = await Note.query.get(id=note.id)
+    assert fresh.subject_model is None
+    assert fresh.subject_id is None
+
+
+async def test_update_op_updates_and_links_generic_child(auth_http: httpx.AsyncClient) -> None:
+    product = await Product.query.create(name="Updater", price="9.99")
+    other = await Product.query.create(name="Elsewhere", price="9.99")
+    note = await Note.query.create(content="before", subject=other)
+
+    assert product.id and note.id
+
+    response = await auth_http.patch(
+        f"/api/test_products/{product.id}",
+        json={"notes": [["update", {"id": note.id, "content": "after"}]]},
+    )
+    assert response.status_code == 200, response.text
+
+    fresh = await Note.query.get(id=note.id)
+    assert fresh.content == "after"
+    assert fresh.subject_model == "product"
+    assert fresh.subject_id == product.id
+
+
+async def test_required_reference_create_and_retarget(auth_http: httpx.AsyncClient) -> None:
+    product = await _make_product(auth_http, "Anchored")
+    category = await auth_http.post("/api/test_categories", json={"name": "Anchors"})
+    category_id = category.json()["id"]
+
+    missing = await auth_http.post("/api/test_annotations", json={"body": "orphan"})
+    assert missing.status_code == 422, missing.text
+
+    nulled = await auth_http.post("/api/test_annotations", json={"body": "null anchor", "anchor": None})
+    assert nulled.status_code == 422, nulled.text
+
+    created = await auth_http.post(
+        "/api/test_annotations",
+        json={"body": "pinned", "anchor": {"model": "product", "id": product["id"]}},
+    )
+    assert created.status_code == 200, created.text
+    annotation_id = created.json()["id"]
+
+    annotation = await Annotation.query.get(id=annotation_id)
+    assert annotation.anchor_model == "product"
+    assert annotation.anchor_id == product["id"]
+
+    retargeted = await auth_http.patch(
+        f"/api/test_annotations/{annotation_id}",
+        json={"anchor": {"model": "category", "id": category_id}},
+    )
+    assert retargeted.status_code == 200, retargeted.text
+
+    annotation = await Annotation.query.get(id=annotation_id)
+    assert annotation.anchor_model == "category"
+    assert annotation.anchor_id == category_id
+
+    cleared = await auth_http.patch(f"/api/test_annotations/{annotation_id}", json={"anchor": None})
+    assert cleared.status_code == 422, cleared.text
+
+
+async def test_required_children_delete_op_skips_the_unlink(auth_http: httpx.AsyncClient) -> None:
+    product = await Product.query.create(name="Holder", price="9.99")
+    assert product.id
+    doomed = await Annotation.query.create(body="doomed", anchor=product)
+    kept = await Annotation.query.create(body="kept", anchor=product)
+
+    response = await auth_http.patch(
+        f"/api/test_products/{product.id}",
+        json={"annotations": [["delete", doomed.id]]},
+    )
+    assert response.status_code == 200, response.text
+
+    assert await Annotation.query.get_or_none(id=doomed.id) is None
+    assert await Annotation.query.get_or_none(id=kept.id) is not None
+
+
+async def test_required_children_unlink_op_is_rejected(auth_http: httpx.AsyncClient) -> None:
+    product = await Product.query.create(name="Sticky", price="9.99")
+    assert product.id
+    annotation = await Annotation.query.create(body="stuck", anchor=product)
+
+    response = await auth_http.patch(
+        f"/api/test_products/{product.id}",
+        json={"annotations": [["unlink", annotation.id]]},
+    )
+    assert response.status_code == 400, response.text
+
+    fresh = await Annotation.query.get(id=annotation.id)
+    assert fresh.anchor_model == "product"
+
+
+async def test_required_children_clear_and_set_delete_the_dropped(auth_http: httpx.AsyncClient) -> None:
+    product = await Product.query.create(name="Cleaner", price="9.99")
+    assert product.id
+    kept = await Annotation.query.create(body="kept", anchor=product)
+    dropped = await Annotation.query.create(body="dropped", anchor=product)
+
+    response = await auth_http.patch(
+        f"/api/test_products/{product.id}",
+        json={"annotations": [["set", [kept.id]]]},
+    )
+    assert response.status_code == 200, response.text
+    assert await Annotation.query.get_or_none(id=dropped.id) is None
+    assert await Annotation.query.get_or_none(id=kept.id) is not None
+
+    response = await auth_http.patch(f"/api/test_products/{product.id}", json={"annotations": [["clear"]]})
+    assert response.status_code == 200, response.text
+    assert await Annotation.query.filter(anchor_model="product", anchor_id=product.id).all() == []
+
+
+async def test_patch_parent_create_and_delete_generic_children(auth_http: httpx.AsyncClient) -> None:
+    product = await Product.query.create(name="Ops", price="9.99")
+    doomed = await Note.query.create(content="doomed", subject=product)
+
+    assert product.id and doomed.id
+
+    response = await auth_http.patch(
+        f"/api/test_products/{product.id}",
+        json={"notes": [["create", {"content": "born"}], ["delete", doomed.id]]},
+    )
+    assert response.status_code == 200, response.text
+
+    remaining = await Note.query.filter(subject_model="product", subject_id=product.id).all()
+    assert [note.content for note in remaining] == ["born"]
+    assert await Note.query.get_or_none(id=doomed.id) is None
 
 
 async def test_patch_parent_set_and_clear_generic_children(auth_http: httpx.AsyncClient) -> None:

@@ -196,6 +196,11 @@ class GenericForeignKey(BaseField):
             inverse.owner = target_cls
             target_cls.meta.fields[self.related_name] = inverse
 
+            pydantic_fields = getattr(target_cls, "__pydantic_fields__", None)
+            if pydantic_fields is not None and self.related_name not in pydantic_fields:
+                pydantic_fields[self.related_name] = inverse
+                target_cls.model_rebuild(force=True)
+
     def _resolve_target_class(self, target: Any) -> type:
         if isinstance(target, str):
             registry: Any = self.owner.meta.registry if self.owner is not None else None
@@ -260,6 +265,8 @@ class GenericForeignKey(BaseField):
         model_name = generic_target_name(value_cls)
         target_cls = self.targets().get(model_name)
         if target_cls is None or not isinstance(value, target_cls):
+            if hasattr(value, "model_dump"):
+                return self._decompose(value.model_dump())
             raise ValueError(f"GenericForeignKey '{self.name}': {value_cls.__name__} is not an allowed target")
 
         record_id = getattr(value, "id", None)

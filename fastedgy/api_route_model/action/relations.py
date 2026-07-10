@@ -21,7 +21,12 @@ def is_relation_field(field) -> bool:
 
     # M2M fields have is_m2m attribute (direct M2M declaration)
     # RelatedField covers both M2M and O2M reverse relations (via related_name)
-    return getattr(field, "is_m2m", False) is True or isinstance(field, RelatedField)
+    # GenericRelatedField is the reverse side of a GenericForeignKey
+    return (
+        getattr(field, "is_m2m", False) is True
+        or getattr(field, "is_generic_related", False) is True
+        or isinstance(field, RelatedField)
+    )
 
 
 def is_exposed_relation_field(field) -> bool:
@@ -70,8 +75,9 @@ def get_related_model(field) -> type:
     """
     from edgy.core.db.relationships.related_field import RelatedField
 
-    # For RelatedField (O2M via related_name), use related_from
-    if isinstance(field, RelatedField):
+    # For RelatedField (O2M via related_name) and generic reverse relations,
+    # use related_from
+    if isinstance(field, RelatedField) or getattr(field, "is_generic_related", False):
         return field.related_from
 
     # For M2M and FK fields, the 'target' property resolves the related model
@@ -198,6 +204,9 @@ async def process_relational_fields(
         elif operations and isinstance(operations[0], int):
             # Convert simple list[int] to [["set", [ids]]]
             operations = [["set", operations]]
+        elif operations and isinstance(operations[0], dict):
+            # Convert a plain list of objects to inline create operations
+            operations = [["create", dict(op)] for op in operations]
 
         # Process all relational fields (M2M and O2M) with the same operations
         if is_relation_field(field):

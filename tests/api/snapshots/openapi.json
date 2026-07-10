@@ -166,6 +166,13 @@
                 "type": "array"
               },
               {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
                 "type": "null"
               }
             ],
@@ -396,6 +403,13 @@
               {
                 "items": {
                   "$ref": "#/components/schemas/RelationOperation"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
                 },
                 "type": "array"
               },
@@ -683,6 +697,66 @@
             "title": "Name",
             "type": "string"
           },
+          "notes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "$ref": "#/components/schemas/RelationOperation"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Relations for notes.\n\n**Simple mode:** Array of IDs: `[1, 2, 3]`\n\n**Advanced mode:** Array of operations `[[\"action\", value], ...]`\n\nAvailable actions:\n- `create` - Create new record and link (value=object)\n- `update` - Update record and ensure link (value={id:X,...})\n- `link` - Link existing record (value=id)\n- `unlink` - Remove link without deleting (value=id)\n- `delete` - Delete record and remove link (value=id)\n- `set` - Replace all links (value=[ids])\n- `clear` - Remove all links (no value)",
+            "examples": [
+              [
+                1,
+                2,
+                3
+              ],
+              [
+                [
+                  "link",
+                  1
+                ],
+                [
+                  "create",
+                  {
+                    "name": "New"
+                  }
+                ]
+              ],
+              [
+                [
+                  "clear"
+                ],
+                [
+                  "set",
+                  [
+                    1,
+                    2,
+                    3
+                  ]
+                ]
+              ]
+            ],
+            "title": "Notes"
+          },
           "products": {
             "anyOf": [
               {
@@ -694,6 +768,13 @@
               {
                 "items": {
                   "$ref": "#/components/schemas/RelationOperation"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
                 },
                 "type": "array"
               },
@@ -813,6 +894,66 @@
             ],
             "title": "Name"
           },
+          "notes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "$ref": "#/components/schemas/RelationOperation"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Relations for notes.\n\n**Simple mode:** Array of IDs: `[1, 2, 3]`\n\n**Advanced mode:** Array of operations `[[\"action\", value], ...]`\n\nAvailable actions:\n- `create` - Create new record and link (value=object)\n- `update` - Update record and ensure link (value={id:X,...})\n- `link` - Link existing record (value=id)\n- `unlink` - Remove link without deleting (value=id)\n- `delete` - Delete record and remove link (value=id)\n- `set` - Replace all links (value=[ids])\n- `clear` - Remove all links (no value)",
+            "examples": [
+              [
+                1,
+                2,
+                3
+              ],
+              [
+                [
+                  "link",
+                  1
+                ],
+                [
+                  "create",
+                  {
+                    "name": "New"
+                  }
+                ]
+              ],
+              [
+                [
+                  "clear"
+                ],
+                [
+                  "set",
+                  [
+                    1,
+                    2,
+                    3
+                  ]
+                ]
+              ]
+            ],
+            "title": "Notes"
+          },
           "products": {
             "anyOf": [
               {
@@ -824,6 +965,13 @@
               {
                 "items": {
                   "$ref": "#/components/schemas/RelationOperation"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
                 },
                 "type": "array"
               },
@@ -1436,6 +1584,23 @@
             ],
             "title": "Pinned Model"
           },
+          "pinned_on": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReferenceObject"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Polymorphic reference for pinned_on: `{\"model\": ..., \"id\": ...}`.\n\nAllowed models: `product`",
+            "examples": [
+              {
+                "id": 5,
+                "model": "task"
+              }
+            ]
+          },
           "pinned_ref": {
             "anyOf": [
               {
@@ -1446,6 +1611,23 @@
               }
             ],
             "title": "Pinned Ref"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReferenceObject"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Polymorphic reference for subject: `{\"model\": ..., \"id\": ...}`.\n\nAllowed models: `category`, `product`",
+            "examples": [
+              {
+                "id": 5,
+                "model": "task"
+              }
+            ]
           },
           "subject_id": {
             "anyOf": [
@@ -1548,6 +1730,23 @@
             ],
             "title": "Pinned Model"
           },
+          "pinned_on": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReferenceObject"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Polymorphic reference for pinned_on: `{\"model\": ..., \"id\": ...}`.\n\nAllowed models: `product`",
+            "examples": [
+              {
+                "id": 5,
+                "model": "task"
+              }
+            ]
+          },
           "pinned_ref": {
             "anyOf": [
               {
@@ -1558,6 +1757,23 @@
               }
             ],
             "title": "Pinned Ref"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReferenceObject"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Polymorphic reference for subject: `{\"model\": ..., \"id\": ...}`.\n\nAllowed models: `category`, `product`",
+            "examples": [
+              {
+                "id": 5,
+                "model": "task"
+              }
+            ]
           },
           "subject_id": {
             "anyOf": [
@@ -1810,6 +2026,66 @@
             "title": "Name",
             "type": "string"
           },
+          "notes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "$ref": "#/components/schemas/RelationOperation"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Relations for notes.\n\n**Simple mode:** Array of IDs: `[1, 2, 3]`\n\n**Advanced mode:** Array of operations `[[\"action\", value], ...]`\n\nAvailable actions:\n- `create` - Create new record and link (value=object)\n- `update` - Update record and ensure link (value={id:X,...})\n- `link` - Link existing record (value=id)\n- `unlink` - Remove link without deleting (value=id)\n- `delete` - Delete record and remove link (value=id)\n- `set` - Replace all links (value=[ids])\n- `clear` - Remove all links (no value)",
+            "examples": [
+              [
+                1,
+                2,
+                3
+              ],
+              [
+                [
+                  "link",
+                  1
+                ],
+                [
+                  "create",
+                  {
+                    "name": "New"
+                  }
+                ]
+              ],
+              [
+                [
+                  "clear"
+                ],
+                [
+                  "set",
+                  [
+                    1,
+                    2,
+                    3
+                  ]
+                ]
+              ]
+            ],
+            "title": "Notes"
+          },
           "price": {
             "anyOf": [
               {
@@ -1885,6 +2161,13 @@
               {
                 "items": {
                   "$ref": "#/components/schemas/RelationOperation"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
                 },
                 "type": "array"
               },
@@ -2066,6 +2349,66 @@
             ],
             "title": "Name"
           },
+          "notes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "$ref": "#/components/schemas/RelationOperation"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Relations for notes.\n\n**Simple mode:** Array of IDs: `[1, 2, 3]`\n\n**Advanced mode:** Array of operations `[[\"action\", value], ...]`\n\nAvailable actions:\n- `create` - Create new record and link (value=object)\n- `update` - Update record and ensure link (value={id:X,...})\n- `link` - Link existing record (value=id)\n- `unlink` - Remove link without deleting (value=id)\n- `delete` - Delete record and remove link (value=id)\n- `set` - Replace all links (value=[ids])\n- `clear` - Remove all links (no value)",
+            "examples": [
+              [
+                1,
+                2,
+                3
+              ],
+              [
+                [
+                  "link",
+                  1
+                ],
+                [
+                  "create",
+                  {
+                    "name": "New"
+                  }
+                ]
+              ],
+              [
+                [
+                  "clear"
+                ],
+                [
+                  "set",
+                  [
+                    1,
+                    2,
+                    3
+                  ]
+                ]
+              ]
+            ],
+            "title": "Notes"
+          },
           "price": {
             "anyOf": [
               {
@@ -2150,6 +2493,13 @@
               {
                 "items": {
                   "$ref": "#/components/schemas/RelationOperation"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
                 },
                 "type": "array"
               },
@@ -2682,6 +3032,13 @@
                 "type": "array"
               },
               {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
                 "type": "null"
               }
             ],
@@ -3093,6 +3450,13 @@
               {
                 "items": {
                   "$ref": "#/components/schemas/RelationOperation"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
                 },
                 "type": "array"
               },
@@ -3869,6 +4233,25 @@
         "title": "QueuedTaskWorker-Update",
         "type": "object"
       },
+      "ReferenceObject": {
+        "description": "Polymorphic reference input: the target model metadata name and the\nrecord id. Declared as a shared model so the OpenAPI schema documents it\nonce instead of inlining it on every generic reference field.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          }
+        },
+        "required": [
+          "model",
+          "id"
+        ],
+        "title": "ReferenceObject",
+        "type": "object"
+      },
       "RelationDelimiter": {
         "description": "Delimiter for relation values in export.",
         "enum": [
@@ -4207,6 +4590,13 @@
                 "type": "array"
               },
               {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
                 "type": "null"
               }
             ],
@@ -4322,6 +4712,13 @@
               {
                 "items": {
                   "$ref": "#/components/schemas/RelationOperation"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
                 },
                 "type": "array"
               },
@@ -4583,6 +4980,13 @@
                 "type": "array"
               },
               {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
                 "type": "null"
               }
             ],
@@ -4711,6 +5115,13 @@
               {
                 "items": {
                   "$ref": "#/components/schemas/RelationOperation"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
                 },
                 "type": "array"
               },
@@ -4949,6 +5360,13 @@
                 "type": "array"
               },
               {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
                 "type": "null"
               }
             ],
@@ -5088,6 +5506,13 @@
               {
                 "items": {
                   "$ref": "#/components/schemas/RelationOperation"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
                 },
                 "type": "array"
               },

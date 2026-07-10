@@ -20,6 +20,24 @@ def _require_nullable(nullable: bool, field_name: str) -> None:
         raise RelationOperationError(f"Foreign key '{field_name}' is required and cannot be unlinked")
 
 
+def _generic_parent_field(instance: "BaseModel | BaseView", field_name: str) -> Any | None:
+    """The GenericForeignKey behind a generic reverse relation, or None when the
+    field is a regular relation."""
+    inverse = instance.meta.fields.get(field_name)
+    if getattr(inverse, "is_generic_related", False):
+        return inverse.generic_field
+    return None
+
+
+def _generic_parent_values(instance: "BaseModel | BaseView", generic_field: Any) -> dict[str, Any]:
+    from fastedgy.orm.fields import generic_target_name
+
+    return {
+        generic_field.model_column: generic_target_name(instance.__class__),
+        generic_field.id_column: instance.id,
+    }
+
+
 async def _get_related_or_raise(related_model: type["BaseModel"], record_id: int) -> "BaseModel":
     from edgy.exceptions import ObjectNotFound
 
@@ -170,6 +188,7 @@ async def process_relation_operations(
         ... )
     """
     relation_manager = getattr(instance, field_name)
+    generic_field = _generic_parent_field(instance, field_name)
 
     for op in operations:
         # Convert list to tuple if needed and validate structure
@@ -193,23 +212,28 @@ async def process_relation_operations(
                 parent_model = instance.__class__
                 fk_field_name = None
 
-                for (
-                    candidate_name,
-                    candidate_field,
-                ) in related_model.model_fields.items():
-                    # Check if this field is a FK pointing to the parent model
-                    target = getattr(candidate_field, "target", None)
-                    if target is not None:
-                        try:
-                            if target == parent_model:
-                                fk_field_name = candidate_name
-                                break
-                        except Exception:
-                            pass
+                if generic_field is not None:
+                    # Generic reverse relation: fill both generic columns
+                    for column_name, column_value in _generic_parent_values(instance, generic_field).items():
+                        values.setdefault(column_name, column_value)
+                else:
+                    for (
+                        candidate_name,
+                        candidate_field,
+                    ) in related_model.model_fields.items():
+                        # Check if this field is a FK pointing to the parent model
+                        target = getattr(candidate_field, "target", None)
+                        if target is not None:
+                            try:
+                                if target == parent_model:
+                                    fk_field_name = candidate_name
+                                    break
+                            except Exception:
+                                pass
 
-                # Add parent FK to values if not already present
-                if fk_field_name and fk_field_name not in values:
-                    values[fk_field_name] = instance.id
+                    # Add parent FK to values if not already present
+                    if fk_field_name and fk_field_name not in values:
+                        values[fk_field_name] = instance.id
 
                 new_record = await related_model.query.create(**values)
                 await relation_manager.add(new_record)
@@ -271,20 +295,24 @@ async def process_relation_operations(
                 fk_field_name = None
                 is_fk_nullable = True
 
-                # Find the FK field pointing to parent
-                for (
-                    candidate_name,
-                    candidate_field,
-                ) in related_model.model_fields.items():
-                    target = getattr(candidate_field, "target", None)
-                    if target is not None:
-                        try:
-                            if target == parent_model:
-                                fk_field_name = candidate_name
-                                is_fk_nullable = getattr(candidate_field, "null", True)
-                                break
-                        except Exception:
-                            pass
+                if generic_field is not None:
+                    fk_field_name = generic_field.name
+                    is_fk_nullable = getattr(generic_field, "relation_nullable", True)
+                else:
+                    # Find the FK field pointing to parent
+                    for (
+                        candidate_name,
+                        candidate_field,
+                    ) in related_model.model_fields.items():
+                        target = getattr(candidate_field, "target", None)
+                        if target is not None:
+                            try:
+                                if target == parent_model:
+                                    fk_field_name = candidate_name
+                                    is_fk_nullable = getattr(candidate_field, "null", True)
+                                    break
+                            except Exception:
+                                pass
 
                 # If FK is NOT NULL, we must delete records; otherwise just remove the link
                 if fk_field_name and not is_fk_nullable:
@@ -323,18 +351,21 @@ async def process_relation_operations(
                 parent_model = instance.__class__
                 is_fk_nullable = True
 
-                for (
-                    candidate_name,
-                    candidate_field,
-                ) in related_model.model_fields.items():
-                    target = getattr(candidate_field, "target", None)
-                    if target is not None:
-                        try:
-                            if target == parent_model:
-                                is_fk_nullable = getattr(candidate_field, "null", True)
-                                break
-                        except Exception:
-                            pass
+                if generic_field is not None:
+                    is_fk_nullable = getattr(generic_field, "relation_nullable", True)
+                else:
+                    for (
+                        candidate_name,
+                        candidate_field,
+                    ) in related_model.model_fields.items():
+                        target = getattr(candidate_field, "target", None)
+                        if target is not None:
+                            try:
+                                if target == parent_model:
+                                    is_fk_nullable = getattr(candidate_field, "null", True)
+                                    break
+                            except Exception:
+                                pass
 
                 # Unlink removed IDs
                 to_unlink = current_ids - target_ids

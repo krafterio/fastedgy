@@ -35,8 +35,9 @@ class RelationOperation(
     """
 
 
-# Relation input: simple mode (list of ids) or advanced mode (list of operations).
-RelationInput = Union[list[int], list[RelationOperation]]
+# Relation input: simple mode (list of ids), advanced mode (list of operations)
+# or inline mode (list of objects, each treated as a create operation).
+RelationInput = Union[list[int], list[RelationOperation], list[dict[str, Any]]]
 
 
 class ForeignKeyObject(PydanticBaseModel):
@@ -71,6 +72,30 @@ class ForeignKeyOperation(
 # Foreign key input: an id (link), an object (link, plus update with extra
 # properties), or a single advanced-mode operation.
 ForeignKeyInput = Union[int, ForeignKeyObject, ForeignKeyOperation]
+
+
+class ReferenceObject(PydanticBaseModel):
+    """Polymorphic reference input: the target model metadata name and the
+    record id. Declared as a shared model so the OpenAPI schema documents it
+    once instead of inlining it on every generic reference field."""
+
+    model: str
+    id: int
+
+
+def _reference_field_options(field_name: str, field: Any) -> dict[str, Any]:
+    try:
+        targets = ", ".join(f"`{name}`" for name in sorted(field.targets().keys()))
+    except ValueError:
+        targets = ""
+
+    description = f'Polymorphic reference for {field_name}: `{{"model": ..., "id": ...}}`.' + (
+        f"\n\nAllowed models: {targets}" if targets else ""
+    )
+    return {
+        "description": description,
+        "examples": [{"model": "task", "id": 5}],
+    }
 
 
 def _foreign_key_field_options(field_name: str) -> dict[str, Any]:
@@ -156,6 +181,17 @@ def generate_input_create_model[M: BaseModel | BaseView](model_cls: type[M]) -> 
                     ],
                 ),
             )
+        elif getattr(field, "is_generic_foreign_key", False):
+            # Polymorphic reference: a {model, id} object (nullable when the
+            # relation is nullable).
+            options = _reference_field_options(field_name, field)
+            if getattr(field, "relation_nullable", True):
+                fields[field_name] = (
+                    Union[ReferenceObject, None],
+                    PydanticField(default=None, **options),
+                )
+            else:
+                fields[field_name] = (ReferenceObject, PydanticField(**options))
         elif isinstance(field, ForeignKey) and not field.exclude:
             # ForeignKey accepts an id, an object ({"id": ...} with optional
             # updates) or a single advanced-mode operation.
@@ -237,6 +273,12 @@ def generate_input_patch_model[M: BaseModel | BaseView](model_cls: type[M]) -> t
                         [["clear"], ["set", [1, 2, 3]]],
                     ],
                 ),
+            )
+        elif getattr(field, "is_generic_foreign_key", False):
+            # Polymorphic reference: a {model, id} object or null to unlink.
+            fields[field_name] = (
+                Union[ReferenceObject, None],
+                PydanticField(default=None, **_reference_field_options(field_name, field)),
             )
         elif isinstance(field, ForeignKey) and not field.exclude:
             # ForeignKey accepts an id, an object ({"id": ...} with optional

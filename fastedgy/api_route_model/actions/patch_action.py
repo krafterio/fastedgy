@@ -4,7 +4,7 @@
 from datetime import datetime
 from typing import Callable, Any, cast
 
-from fastapi import APIRouter, Path, Body
+from fastapi import APIRouter, Path, Body, HTTPException
 
 from fastedgy.dependencies import get_service
 from fastedgy.http import Request
@@ -141,9 +141,14 @@ async def patch_item_action[M: BaseModel | BaseView](
         resolved_fk, deferred_fk_deletes = await process_foreign_key_fields(model_cls, foreign_key_data)
         scalar_data.update(resolved_fk)
 
-        # Update scalar fields
-        for key, value in scalar_data.items():
-            setattr(item, key, value)
+        # Update scalar fields. A ValueError raised by a field's input
+        # transformation (e.g. a generic reference pointing to a model outside
+        # its allowed targets) is invalid client data, not a server error.
+        try:
+            for key, value in scalar_data.items():
+                setattr(item, key, value)
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
 
         for transformer in vtr.get_transformers(PreSaveTransformer, model_cls, transformers):
             await transformer.pre_save(request, item, item_data, transformers_ctx, False)

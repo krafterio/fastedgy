@@ -4,7 +4,7 @@
 from datetime import datetime
 from typing import Callable, Any
 
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, Body, HTTPException
 
 from fastedgy.dependencies import get_service
 from fastedgy.http import Request
@@ -118,8 +118,14 @@ async def create_item_action[M: BaseModel | BaseView](
         resolved_fk, deferred_fk_deletes = await process_foreign_key_fields(model_cls, foreign_key_data)
         scalar_data.update(resolved_fk)
 
-        # Create instance with scalar fields only
-        item = model_cls(**scalar_data)
+        # Create instance with scalar fields only. A ValueError raised by a
+        # field's input transformation (e.g. a generic reference pointing to a
+        # model outside its allowed targets) is invalid client data, not a
+        # server error.
+        try:
+            item = model_cls(**scalar_data)
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
         vtr = get_service(ViewTransformerRegistry)
 
         for transformer in vtr.get_transformers(PreSaveTransformer, model_cls, transformers):

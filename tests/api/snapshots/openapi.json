@@ -643,6 +643,28 @@
             "title": "Name",
             "type": "string"
           },
+          "notes": {
+            "anyOf": [
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Note"
+                    },
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
           "products": {
             "anyOf": [
               {
@@ -1517,6 +1539,21 @@
             ],
             "title": "Pinned Model"
           },
+          "pinned_on": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Product"
+              },
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pinned On"
+          },
           "pinned_ref": {
             "anyOf": [
               {
@@ -1527,6 +1564,24 @@
               }
             ],
             "title": "Pinned Ref"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Product"
+              },
+              {
+                "$ref": "#/components/schemas/Category"
+              },
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject"
           },
           "subject_id": {
             "anyOf": [
@@ -1858,6 +1913,28 @@
             "maxLength": 200,
             "title": "Name",
             "type": "string"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Note"
+                    },
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
           },
           "price": {
             "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,8}|(?=[\\d.]{1,11}0*$)\\d{0,8}\\.\\d{0,2}0*$)",

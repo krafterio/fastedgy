@@ -75,10 +75,11 @@ def parse_field_selector_input(
         else:
             parent_path = field_path[:-1]
             last_field = field_path[-1]
+            generic_tail = False
 
             for i, field_name in enumerate(parent_path):
-                if current and current_model:
-                    field = current_model.meta.fields.get(field_name)
+                if current and (current_model or generic_tail):
+                    field = current_model.meta.fields.get(field_name) if current_model else None
 
                     if field_name not in current:
                         _add_field_selector(current, field, True)
@@ -91,12 +92,20 @@ def parse_field_selector_input(
                         current[field_name] = {"id": True}
                         current = current[field_name]
 
-                    if field and hasattr(field, "target"):
+                    if field and getattr(field, "is_generic_foreign_key", False):
+                        # Polymorphic target: sub-fields cannot be validated
+                        # against a single model, accept them as-is.
+                        current_model = None
+                        generic_tail = True
+                    elif field and hasattr(field, "target"):
                         current_model = field.target
+                        generic_tail = False
                     elif field and hasattr(field, "related_from"):
                         current_model = field.related_from
+                        generic_tail = False
                     else:
                         current_model = None
+                        generic_tail = False
 
             if current and current_model:
                 field = current_model.meta.fields.get(last_field)
@@ -107,6 +116,11 @@ def parse_field_selector_input(
                         current[0][last_field] = True
                     else:
                         current[last_field] = True
+            elif current is not None and generic_tail:
+                if isinstance(current, list):
+                    current[0][last_field] = True
+                else:
+                    current[last_field] = True
 
     return result
 
@@ -247,6 +261,13 @@ def _collect_query_optimizations(
         if isinstance(field_value, dict):
             field = model_cls.meta.fields.get(field_name)
             target = getattr(field, "target", None)
+
+            if field is not None and getattr(field, "is_generic_foreign_key", False):
+                # No static join possible: keep the pair of generic columns so
+                # the batched prefetch can resolve the target per row.
+                _keep_field(levels, model_cls, prefix, field.model_column)
+                _keep_field(levels, model_cls, prefix, field.id_column)
+                continue
 
             if field is None or target is None or getattr(field, "is_m2m", False):
                 continue
@@ -393,6 +414,60 @@ def _build_defer_paths(
     return defer_paths
 
 
+async def prefetch_generic_references(items: list[Model], fields_expr: str | list[str] | None) -> None:
+    """Batch-load the generic references requested by the field selector: one
+    query per (field, target model) over the whole item list, priming each
+    instance's cache so the per-item serialization does no extra query."""
+    if not items:
+        return
+
+    model_cls = _real_model_cls(type(items[0]))
+    map_fields = parse_field_selector_input(model_cls, fields_expr)
+
+    if not map_fields:
+        return
+
+    for field_name, field in model_cls.meta.fields.items():
+        if not getattr(field, "is_generic_foreign_key", False) or not isinstance(map_fields.get(field_name), dict):
+            continue
+
+        generic_field: Any = field
+        cache_key = f"_gfk_cache_{field_name}"
+        by_model: dict[str, dict[Any, list[Model]]] = {}
+
+        for item in items:
+            instance_dict: Any = item.__dict__
+            if cache_key in instance_dict:
+                continue
+
+            model_name = instance_dict.get(generic_field.model_column)
+            record_id = instance_dict.get(generic_field.id_column)
+
+            if not model_name or record_id is None:
+                instance_dict[cache_key] = None
+                continue
+
+            by_model.setdefault(model_name, {}).setdefault(record_id, []).append(item)
+
+        targets = generic_field.targets()
+
+        for model_name, id_map in by_model.items():
+            target_cls = targets.get(model_name)
+
+            if target_cls is None:
+                records: dict[Any, Any] = {}
+            else:
+                pk_name = find_primary_key_field(target_cls) or "id"
+                rows = await target_cls.query.filter(**{f"{pk_name}__in": list(id_map.keys())}).all()
+                records = {getattr(row, pk_name, None): row for row in rows}
+
+            for record_id, instances in id_map.items():
+                record = records.get(record_id)
+                for instance in instances:
+                    instance_dict = instance.__dict__
+                    instance_dict[cache_key] = record
+
+
 async def filter_selected_fields(item: Model, fields_expr: str | list[str] | None) -> dict:
     """
     Filter fields of a model instance based on field paths.
@@ -432,7 +507,12 @@ async def filter_fields(data: dict, data_obj: Model | None, fields: dict, target
     for field_name, field_value in fields.items():
         if isinstance(field_value, dict):
             if data_obj is not None:
-                nested_obj = _get_loaded_relation(data_obj, field_name)
+                model_field = _real_model_cls(type(data_obj)).meta.fields.get(field_name)
+
+                if getattr(model_field, "is_generic_foreign_key", False):
+                    nested_obj = await getattr(data_obj, field_name)
+                else:
+                    nested_obj = _get_loaded_relation(data_obj, field_name)
 
                 if nested_obj is not None:
                     target[field_name] = {}
@@ -549,7 +629,7 @@ def _get_loaded_relation(data_obj: Model, field_name: str) -> Any:
         MODEL_GETATTR_BEHAVIOR.reset(token)
 
 
-def _add_field_selector(fields: dict[str, Any], field: BaseFieldType, force: bool = False):
+def _add_field_selector(fields: dict[str, Any], field: BaseFieldType | None, force: bool = False):
     """
     Add a field to the selector dict with appropriate structure.
 
@@ -563,6 +643,8 @@ def _add_field_selector(fields: dict[str, Any], field: BaseFieldType, force: boo
             field_val = [{"id": True}]
         elif hasattr(field, "related_from"):
             field_val = [{"id": True}]
+        elif getattr(field, "is_generic_foreign_key", False):
+            field_val = {"id": True}
         elif hasattr(field, "target"):
             field_val = {"id": True}
         else:
@@ -578,5 +660,6 @@ __all__ = [
     "apply_field_map_optimizations",
     "get_computed_field_deps",
     "filter_selected_fields",
+    "prefetch_generic_references",
     "filter_fields",
 ]

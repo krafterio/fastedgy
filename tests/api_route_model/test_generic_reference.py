@@ -103,6 +103,82 @@ async def test_create_parent_with_plain_dict_children(auth_http: httpx.AsyncClie
     assert [note.content for note in notes] == ["inline"]
 
 
+async def test_fields_selector_serializes_reference_target(auth_http: httpx.AsyncClient) -> None:
+    product = await _make_product(auth_http, "Selected")
+
+    created = await auth_http.post(
+        "/api/test_notes",
+        json={"content": "with subject", "subject": {"model": "product", "id": product["id"]}},
+    )
+    note_id = created.json()["id"]
+
+    response = await auth_http.get(
+        f"/api/test_notes/{note_id}",
+        headers={"X-Fields": "content,subject_model,subject.name"},
+    )
+    assert response.status_code == 200, response.text
+
+    item = response.json()
+    assert item["content"] == "with subject"
+    assert item["subject_model"] == "product"
+    assert item["subject"]["name"] == "Selected"
+    assert item["subject"]["id"] == product["id"]
+
+
+async def test_fields_selector_reference_null_when_unset(auth_http: httpx.AsyncClient) -> None:
+    created = await auth_http.post("/api/test_notes", json={"content": "bare"})
+    note_id = created.json()["id"]
+
+    response = await auth_http.get(f"/api/test_notes/{note_id}", headers={"X-Fields": "content,subject.name"})
+    assert response.status_code == 200, response.text
+    assert response.json()["subject"] is None
+
+
+async def test_fields_selector_list_batches_reference_loading(auth_http: httpx.AsyncClient) -> None:
+    product = await _make_product(auth_http, "Batched")
+    other = await _make_product(auth_http, "Other")
+
+    for index in range(3):
+        target = product if index % 2 == 0 else other
+        await auth_http.post(
+            "/api/test_notes",
+            json={"content": f"n{index}", "subject": {"model": "product", "id": target["id"]}},
+        )
+
+    response = await auth_http.get("/api/test_notes", headers={"X-Fields": "content,subject.name"})
+    assert response.status_code == 200, response.text
+
+    items = response.json()["items"]
+    by_content = {item["content"]: item["subject"]["name"] for item in items if item["content"].startswith("n")}
+    assert by_content == {"n0": "Batched", "n1": "Other", "n2": "Batched"}
+
+
+async def test_fields_selector_inverse_relation(auth_http: httpx.AsyncClient) -> None:
+    response = await auth_http.post(
+        "/api/test_products",
+        json={"name": "Parent", "price": "9.99", "notes": [{"content": "child one"}, {"content": "child two"}]},
+    )
+    product_id = response.json()["id"]
+
+    fetched = await auth_http.get(
+        f"/api/test_products/{product_id}",
+        headers={"X-Fields": "name,notes.content"},
+    )
+    assert fetched.status_code == 200, fetched.text
+
+    item = fetched.json()
+    assert item["name"] == "Parent"
+    assert [note["content"] for note in item["notes"]] == ["child one", "child two"]
+
+
+async def test_reference_with_unknown_model_is_rejected(auth_http: httpx.AsyncClient) -> None:
+    response = await auth_http.post(
+        "/api/test_notes",
+        json={"content": "bad", "subject": {"model": "tag", "id": 1}},
+    )
+    assert response.status_code == 422, response.text
+
+
 async def test_patch_parent_set_and_clear_generic_children(auth_http: httpx.AsyncClient) -> None:
     product = await Product.query.create(name="Holder", price="9.99")
     kept = await Note.query.create(content="kept")

@@ -262,7 +262,7 @@ def _is_exposed_relation_field(field: Any) -> bool:
     from edgy.core.db.relationships.related_field import RelatedField
 
     is_m2m = getattr(field, "is_m2m", False) is True
-    if not (is_m2m or isinstance(field, RelatedField)):
+    if not (is_m2m or getattr(field, "is_generic_related", False) or isinstance(field, RelatedField)):
         return False
 
     if is_m2m:
@@ -281,6 +281,9 @@ def _related_model_name(field: Any) -> str | None:
     A reverse M2M's ``related_from`` is the auto-generated junction model, not the
     target, so it is resolved through the junction's other foreign key."""
     from edgy.core.db.relationships.related_field import RelatedField
+
+    if getattr(field, "is_generic_related", False):
+        return getattr(field.related_from, "__name__", None)
 
     if not isinstance(field, RelatedField):
         target = getattr(field, "target", None)
@@ -334,6 +337,27 @@ def _relation_json_schema(title: str, target_ref: dict[str, Any]) -> dict[str, A
     }
 
 
+def _generic_reference_json_schema(title: str, field: Any) -> dict[str, Any]:
+    """A generic reference renders as ``one of the target models | object`` (full
+    record or a partial ``{...}`` from an X-Fields selection), plus ``null``."""
+    variants: list[dict[str, Any]] = []
+
+    try:
+        targets = field.targets()
+    except ValueError:
+        targets = {}
+
+    for target_cls in targets.values():
+        name = getattr(target_cls, "__name__", None)
+        if name:
+            variants.append({"$ref": f"#/components/schemas/{name}"})
+
+    variants.append(dict(_PARTIAL_OBJECT))
+    variants.append({"type": "null"})
+
+    return {"anyOf": variants, "default": None, "title": title}
+
+
 def _enrich_serialization_json_schema(model_cls: type, json_schema: dict[str, Any]) -> dict[str, Any]:
     """Enrich a model's serialization JSON schema in place: render foreign keys as
     ``related model | object`` and expose O2M/M2M relations as ``list[related model | object]``.
@@ -350,6 +374,8 @@ def _enrich_serialization_json_schema(model_cls: type, json_schema: dict[str, An
                 properties[field_name] = _foreign_key_json_schema(
                     properties[field_name], _target_ref(field), bool(field.null)
                 )
+        elif getattr(field, "is_generic_foreign_key", False):
+            properties[field_name] = _generic_reference_json_schema(field_name.replace("_", " ").title(), field)
         elif _is_exposed_relation_field(field):
             properties[field_name] = _relation_json_schema(field_name.replace("_", " ").title(), _target_ref(field))
 

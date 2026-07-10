@@ -125,6 +125,16 @@ class BaseSettings(PydanticBaseSettings):
     http_workers: int | None = None
     http_limit_concurrency: int | None = None
 
+    # Health / graceful shutdown
+    # Seconds a worker keeps serving after SIGTERM before the real shutdown:
+    # /health answers 503 during the drain so the orchestrator stops routing
+    # to this replica before its sockets close. 0 disables the drain.
+    shutdown_drain_seconds: int = 15
+    # Name of the deploy advisory lock held by the deployment orchestrator
+    # for the exact duration of a deploy (see Health.deploy_lock_key for the
+    # derived Postgres key). Empty = no orchestrator-driven deploy window.
+    deploy_lock_name: str = ""
+
     # Logging
     log_level: LogLevel = LogLevel.INFO
     log_output: LogOutput = LogOutput.CONSOLE

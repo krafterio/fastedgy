@@ -16,7 +16,13 @@ from fastedgy.dependencies import (
     register_service,
 )
 from fastedgy.logger import setup_logging
-from fastedgy.http import ContextRequestMiddleware, DatabaseUnavailableMiddleware, TimezoneMiddleware
+from fastedgy.health import Health
+from fastedgy.http import (
+    ContextRequestMiddleware,
+    DatabaseUnavailableMiddleware,
+    DeployAwareSerializationMiddleware,
+    TimezoneMiddleware,
+)
 from fastedgy.i18n import LocaleMiddleware
 from fastedgy.orm import Registry, Database
 from fastedgy.orm.registry import register_lazy_models
@@ -882,6 +888,7 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
         self.add_middleware(TimezoneMiddleware)
         self.add_middleware(LocaleMiddleware)
         self.add_middleware(DatabaseUnavailableMiddleware)
+        self.add_middleware(DeployAwareSerializationMiddleware)
         self.add_middleware(ContextRequestMiddleware)
 
     def _compose_lifespan(self, user_lifespan):
@@ -890,11 +897,27 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
         @asynccontextmanager
         async def composed_lifespan(app):
             async with self._native_lifespan(app):
+                # Readiness flips ON only once the app's own startup
+                # completed, and OFF before the app tears its services down —
+                # the ASGI server has already closed its listeners and drained
+                # in-flight traffic by then, so this is a state flip, not a
+                # pause (the SIGTERM handler owns the actual serving drain).
+                health = get_service(Health)
                 if user_lifespan:
                     async with user_lifespan(app):
-                        yield
+                        health.install_graceful_shutdown()
+                        health.mark_ready()
+                        try:
+                            yield
+                        finally:
+                            health.mark_shutting_down()
                 else:
-                    yield
+                    health.install_graceful_shutdown()
+                    health.mark_ready()
+                    try:
+                        yield
+                    finally:
+                        health.mark_shutting_down()
 
         return composed_lifespan
 
@@ -907,6 +930,17 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
             yield
         finally:
             await app._flush_pending_services()
+
+            # Deferred signal side effects are free-floating tasks holding
+            # pooled connections: drained before the engine disposes, or
+            # SQLAlchemy's GC reports non-checked-in connections at every
+            # shutdown.
+            from fastedgy.orm import drain_signal_side_effects
+
+            try:
+                await drain_signal_side_effects()
+            except Exception:
+                pass
 
             try:
                 await db.disconnect()

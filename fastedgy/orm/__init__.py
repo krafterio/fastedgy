@@ -18,10 +18,16 @@ from fastedgy.orm.meta import Meta
 from fastedgy.orm.relations.many import Many
 from fastedgy.orm.transaction import (
     defer_after_commit,
+    drain_signal_side_effects,
     retry_on_serialization,
+    run_signal_side_effect,
     transaction,
     with_transaction,
 )
+
+from sqlalchemy.exc import SQLAlchemyError
+
+from fastedgy.bus.service import Bus
 
 # ``migration`` pulls Alembic, which is only needed by the ``db`` CLI commands.
 # Loading it lazily keeps it out of the app/serve/runtime import path.
@@ -53,7 +59,9 @@ __all__ = [
     "filter",
     "order_by",
     "defer_after_commit",
+    "drain_signal_side_effects",
     "retry_on_serialization",
+    "run_signal_side_effect",
     "transaction",
     "with_transaction",
 ]
@@ -62,8 +70,4 @@ __all__ = [
 # must surface it (instead of its per-handler isolation) so the @transaction
 # serialization replay can do its job. Registered here so any process using
 # the ORM gets the wiring, without coupling the bus package to SQLAlchemy.
-from sqlalchemy.exc import SQLAlchemyError
-
-from fastedgy.bus.service import Bus
-
 Bus.register_critical_exception(SQLAlchemyError)

@@ -47,9 +47,7 @@ async def test_undecodable_image_falls_back_to_the_original(setup_db: FastEdgy, 
     await storage.adapter.write("global/photos/broken.jpg", b"definitely not a jpeg")
 
     with caplog.at_level(logging.WARNING, logger="fastedgy.storage"):
-        resolved, mime = await storage.get_optimized_or_original(
-            "photos/broken.jpg", w=100, h=100, global_storage=True
-        )
+        resolved, mime = await storage.get_optimized_or_original("photos/broken.jpg", w=100, h=100, global_storage=True)
 
     assert resolved == "photos/broken.jpg"
     assert mime == "image/jpeg"

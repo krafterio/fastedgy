@@ -176,14 +176,10 @@ async def test_download_optimized_passthrough_image_is_served(auth_http: httpx.A
     # Same output format and dimensions clamped to the original size: the
     # generator takes its passthrough path, which used to return a cache
     # path without ever writing the file (FileNotFoundError on every hit).
-    response = await auth_http.get(
-        f"/api/storage/download/attachments/{attachment['id']}?w=1080&h=1080&m=cover&e=webp"
-    )
+    response = await auth_http.get(f"/api/storage/download/attachments/{attachment['id']}?w=1080&h=1080&m=cover&e=webp")
 
     assert response.status_code == 200
     assert response.content == buf.getvalue()
 
-    second = await auth_http.get(
-        f"/api/storage/download/attachments/{attachment['id']}?w=1080&h=1080&m=cover&e=webp"
-    )
+    second = await auth_http.get(f"/api/storage/download/attachments/{attachment['id']}?w=1080&h=1080&m=cover&e=webp")
     assert second.status_code == 200

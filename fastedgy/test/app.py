@@ -64,9 +64,9 @@ def build_app() -> FastEdgy:
     # Authenticated routes: everything below requires a valid access token,
     # mirroring how a real FastEdgy application is wired.
     router = APIRouter(prefix=API_PREFIX, dependencies=[Depends(get_current_user)])
+    public_router.include_router(health.router)
     router.include_router(auth.router)
     router.include_router(dataset.router)
-    router.include_router(health.router)
     router.include_router(storage.attachments_router)
     router.include_router(storage.manage_attachments_router)
     router.include_router(storage.router)

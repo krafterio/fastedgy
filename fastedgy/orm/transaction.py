@@ -29,9 +29,7 @@ _RETRYABLE_SQLSTATES = frozenset({"40001", "40P01"})
 # ones run once and let the root replay the entire unit. Task-local (ContextVar)
 # so concurrent requests/workers never see each other's flag.
 _in_retrying_transaction: ContextVar[bool] = ContextVar("fastedgy_in_retrying_transaction", default=False)
-_after_commit_callbacks: ContextVar[list[Callable[[], Any]] | None] = ContextVar(
-    "after_commit_callbacks", default=None
-)
+_after_commit_callbacks: ContextVar[list[Callable[[], Any]] | None] = ContextVar("after_commit_callbacks", default=None)
 
 
 def defer_after_commit(callback: Callable[[], Any]) -> None:
@@ -58,8 +56,6 @@ def _run_after_commit_callback(callback: Callable[[], Any]) -> None:
         callback()
     except Exception:
         logger.exception("after-commit callback failed")
-
-
 
 
 # Driver/dialect message fragments identifying a dead or dropped connection.
@@ -323,3 +319,60 @@ __all__ = [
     "is_serialization_error",
     "is_disconnect_error",
 ]
+
+_side_effect_tasks: set["asyncio.Task"] = set()
+
+
+def run_signal_side_effect(op: Callable[[], Awaitable[Any]], label: str) -> None:
+    """Schedule a non-critical signal side effect after the enclosing
+    transaction commits.
+
+    Running it inside the transaction poisons it on failure and puts the side
+    effect's tables in the request's serialization footprint; post-commit it
+    runs in its own context: serialization conflicts are replayed, an entity
+    deleted in the meantime is an expected skip (the deletion signals own the
+    remote cleanup), and real failures are logged without breaking the
+    request. Nothing fires for an attempt that rolled back.
+    """
+    from fastedgy.orm.exceptions import ObjectNotFound
+
+    def _spawn() -> None:
+        async def _run() -> None:
+            try:
+                await retry_on_serialization(op)
+            except ObjectNotFound:
+                logger.info(f"{label}: entity deleted before the side effect ran, skipping")
+            except asyncio.CancelledError:
+                # The shutdown drain cancelled us mid-flight: nothing to log
+                # beyond the drain's own summary.
+                raise
+            except Exception as e:
+                logger.error(f"{label}: {e}")
+
+        task = asyncio.get_running_loop().create_task(_run())
+        _side_effect_tasks.add(task)
+        task.add_done_callback(_side_effect_tasks.discard)
+
+    defer_after_commit(_spawn)
+
+
+async def drain_signal_side_effects(timeout: float = 5.0) -> None:
+    """Let in-flight deferred side effects finish before the engines dispose.
+
+    They are free-floating asyncio tasks holding pooled connections: torn
+    down with the process, SQLAlchemy's GC logs "non-checked-in connection"
+    errors during shutdown. Short writes get a grace to complete; stragglers
+    are cancelled.
+    """
+    tasks = [t for t in _side_effect_tasks if not t.done()]
+    if not tasks:
+        return
+
+    _, pending = await asyncio.wait(tasks, timeout=timeout)
+    if not pending:
+        return
+
+    for task in pending:
+        task.cancel()
+    await asyncio.wait(pending, timeout=2)
+    logger.warning(f"Cancelled {len(pending)} signal side effect(s) still running at shutdown")

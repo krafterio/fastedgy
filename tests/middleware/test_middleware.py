@@ -24,9 +24,7 @@ async def test_client_disconnect_ends_the_request_quietly(
     assert not any(r.levelno >= 40 for r in caplog.records)
 
 
-async def test_database_unavailable_answers_503_maintenance(
-    setup_db: FastEdgy, setup_http: httpx.AsyncClient
-) -> None:
+async def test_database_unavailable_answers_503_maintenance(setup_db: FastEdgy, setup_http: httpx.AsyncClient) -> None:
     from asyncpg.exceptions import ConnectionDoesNotExistError
     from sqlalchemy.exc import OperationalError
 
@@ -43,9 +41,7 @@ async def test_database_unavailable_answers_503_maintenance(
     assert response.headers["Retry-After"] == "5"
 
 
-async def test_connection_refused_answers_503_maintenance(
-    setup_db: FastEdgy, setup_http: httpx.AsyncClient
-) -> None:
+async def test_connection_refused_answers_503_maintenance(setup_db: FastEdgy, setup_http: httpx.AsyncClient) -> None:
     from sqlalchemy.exc import OperationalError
 
     async def refused_database() -> None:

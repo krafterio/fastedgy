@@ -103,6 +103,49 @@ class DatabaseUnavailableMiddleware(BaseHTTPMiddleware):
             return Response(status_code=503, headers={"Retry-After": "5"})
 
 
+class DeployAwareSerializationMiddleware:
+    """Turn serialization losses into 503 maintenance — but ONLY while a
+    deploy is actually running.
+
+    During a rollout, the replica handover and the resumed queue tasks
+    briefly compete with in-flight requests on the same rows: a
+    serialization conflict that survives the @transaction replay budget
+    there is deploy noise, and the client must see the same 503-maintenance
+    contract as the rest of the window. Outside the window the exception
+    keeps propagating as an error: a conflict beating its replay budget in
+    steady state is a real contention problem (hot rows, too-wide
+    transaction footprint, missing replay wrapper) that must stay visible
+    and get fixed at the root.
+
+    Only exceptions are intercepted — normal traffic is untouched, the
+    zero-downtime contract of a rolling deploy is preserved. Pure ASGI (not
+    BaseHTTPMiddleware) so it adds no task-group overhead.
+    """
+
+    def __init__(self, app: ASGIApp):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        try:
+            await self.app(scope, receive, send)
+        except Exception as e:
+            from fastedgy.dependencies import get_service
+            from fastedgy.health import Health
+            from fastedgy.orm.transaction import is_serialization_error
+
+            if not is_serialization_error(e) or not await get_service(Health).in_deploy_window():
+                raise
+            logger.warning(
+                f"Serialization conflict during the deploy window on "
+                f"{scope.get('method')} {scope.get('path')}, answering 503 maintenance: {e!r}"
+            )
+            await Response(status_code=503, headers={"Retry-After": "5"})(scope, receive, send)
+
+
 class ContextRequestMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         token = set_request(cast(Request, request))
@@ -150,6 +193,7 @@ __all__ = [
     "Request",
     "ContextRequestMiddleware",
     "DatabaseUnavailableMiddleware",
+    "DeployAwareSerializationMiddleware",
     "TimezoneMiddleware",
     "is_database_unavailable",
 ]

@@ -23,6 +23,10 @@ from fastedgy.queued_task.context import (
     get_full_context,
     set_full_context,
 )
+from fastedgy.queued_task.batching import (
+    enqueue_id_range_tasks,
+    iter_with_cursor,
+)
 from fastedgy.queued_task.config import QueuedTaskConfig
 from fastedgy.queued_task.services.queue_hooks import (
     on_pre_create,
@@ -52,6 +56,8 @@ __all__ = [
     "get_full_context",
     "set_full_context",
     "QueuedTaskConfig",
+    "enqueue_id_range_tasks",
+    "iter_with_cursor",
     "on_pre_create",
     "on_post_create",
     "on_pre_run",

@@ -85,6 +85,43 @@ async def test_defer_after_commit_fires_only_for_the_committed_attempt(setup_db:
     assert fired == [2]
 
 
+async def test_with_transaction_restores_request_context_on_replay(setup_db: FastEdgy) -> None:
+    from typing import Any, cast
+
+    from sqlalchemy.exc import DBAPIError
+
+    from fastedgy import context
+    from fastedgy.http import Request
+
+    class _SerializationOrig(Exception):
+        sqlstate = "40001"
+
+    token = context.set_request(
+        Request({"type": "http", "method": "GET", "path": "/", "query_string": b"", "headers": []})
+    )
+    try:
+        initial = cast(Any, object())
+        mutated = cast(Any, object())
+        context.set_workspace(initial)
+
+        seen: list[Any] = []
+
+        async def op() -> None:
+            seen.append(context.get_workspace())
+            context.set_workspace(mutated)
+            if len(seen) == 1:
+                raise DBAPIError("INSERT", None, _SerializationOrig())
+
+        await with_transaction(op)
+
+        # The replay starts from the pre-transaction context, not the
+        # rolled-back attempt's mutation; the committed attempt's one is kept.
+        assert seen == [initial, initial]
+        assert context.get_workspace() is mutated
+    finally:
+        context.reset_request(token)
+
+
 async def test_defer_after_commit_runs_immediately_without_transaction(setup_db: FastEdgy) -> None:
     from fastedgy.orm import defer_after_commit
 

@@ -384,12 +384,24 @@ class QueuedTasks:
 
         # Isolated transaction with serialization-conflict retry (databasez
         # defaults to SERIALIZABLE): a transient 40001 must neither bubble up
-        # to the producer nor lose a cron fire.
+        # to the producer nor lose a cron fire. A rolled-back INSERT leaves its
+        # pk and column defaults on the instance, turning the replay into an
+        # UPDATE of a nonexistent row (silently lost task) and any bookkeeping
+        # read into a lazy-load of it (ObjectNotFound) — so every attempt
+        # restarts from the pristine pre-insert state.
         from fastedgy.orm import with_transaction
         from sqlalchemy.exc import IntegrityError
 
+        pristine_state = dict(vars(task))
+
+        async def _persist() -> None:
+            state = vars(task)
+            state.clear()
+            state.update(pristine_state)
+            await task.save()
+
         try:
-            await with_transaction(task.save)
+            await with_transaction(_persist)
         except IntegrityError as e:
             # A chained parent can complete and be auto-removed between the
             # producer's lookup and this insert. The chain is then moot (the
@@ -397,8 +409,12 @@ class QueuedTasks:
             # the FK violation up to the producer.
             if parent_task is None or "parent_task" not in str(e):
                 raise
+            state = vars(task)
+            state.clear()
+            state.update(pristine_state)
             task.parent_task = None
-            await with_transaction(task.save)
+            pristine_state = dict(vars(task))
+            await with_transaction(_persist)
 
         await self.hook_registry.trigger_post_create(task)
 

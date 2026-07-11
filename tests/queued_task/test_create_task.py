@@ -47,6 +47,42 @@ async def test_create_task_keeps_an_explicit_name(setup_db: FastEdgy) -> None:
     assert task.name == "custom-name"
 
 
+async def test_create_task_replays_serialization_conflict_from_pristine_state(
+    setup_db: FastEdgy, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from typing import Any
+
+    from sqlalchemy.exc import DBAPIError
+
+    from fastedgy.dependencies import get_service
+    from fastedgy.orm import Registry
+
+    class _SerializationOrig(Exception):
+        sqlstate = "40001"
+
+    QueuedTask = get_service(Registry).get_model("QueuedTask")
+    real_save = QueuedTask.save
+    attempts = {"n": 0}
+
+    # The rolled-back INSERT leaves pk + defaults on the instance: without the
+    # pristine restore, the replay lazy-loads / UPDATEs the vanished row.
+    async def flaky_save(self: Any, *args: Any, **kwargs: Any) -> Any:
+        result = await real_save(self, *args, **kwargs)
+        attempts["n"] += 1
+        if attempts["n"] == 1:
+            raise DBAPIError("INSERT", None, _SerializationOrig())
+        return result
+
+    monkeypatch.setattr(QueuedTask, "save", flaky_save)
+
+    task = await queue().create_task(module_name="fastedgy.test.tasks", function_name="add_numbers")
+
+    assert attempts["n"] == 2
+    assert task.id
+    assert task.state == QueuedTaskState.enqueued
+    assert await QueuedTask.query.filter(QueuedTask.columns.id == task.id).count() == 1
+
+
 async def test_create_task_with_vanished_parent_enqueues_unchained(setup_db: FastEdgy) -> None:
     parent = await queue().create_task(module_name="fastedgy.test.tasks", function_name="add_numbers")
     await parent.delete()

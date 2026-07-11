@@ -109,6 +109,31 @@ def is_serialization_error(exc: BaseException) -> bool:
     return "could not serialize access" in text or "deadlock detected" in text
 
 
+# The fastedgy context (user, workspace, workspace_user, ...) lives on
+# request.state and is NOT rolled back with the transaction: a workspace set
+# during an attempt leaks into its replay, where the workspaceable save hook
+# forces it — pointing new rows at a workspace whose INSERT was rolled back
+# (FK violation). Each replay therefore restarts from the pre-transaction
+# context state.
+def _snapshot_request_state() -> dict[str, Any] | None:
+    from fastedgy import context
+
+    request = context.get_request()
+    return dict(request.state._state) if request is not None else None
+
+
+def _restore_request_state(snapshot: dict[str, Any] | None) -> None:
+    from fastedgy import context
+
+    if snapshot is None:
+        return
+    request = context.get_request()
+    if request is None:
+        return
+    request.state._state.clear()
+    request.state._state.update(snapshot)
+
+
 async def with_transaction(
     factory: Callable[[], Awaitable[T]],
     *,
@@ -125,6 +150,13 @@ async def with_transaction(
     read it performs is re-executed against fresh data, so the retry boundary is
     the full read-modify-write unit, the only place a serialization failure can
     be retried without reintroducing lost updates.
+
+    The fastedgy request context (``request.state``: user, workspace,
+    workspace_user, ...) is restored to its pre-transaction snapshot before
+    each replay, so context mutations made by a rolled-back attempt never leak
+    into the next one. Mutations of the committed attempt are kept. Python
+    objects mutated by the factory are NOT restored — rebuild them inside the
+    factory, like the data it reads.
 
     This is the callable form shared by the :func:`transaction` decorator; use
     it to scope the retry precisely around a block — typically the DB
@@ -162,6 +194,7 @@ async def with_transaction(
             return await factory()
 
     token = _in_retrying_transaction.set(True)
+    request_state = _snapshot_request_state()
     try:
         for attempt in range(retries + 1):
             try:
@@ -180,6 +213,7 @@ async def with_transaction(
             except DBAPIError as e:
                 if attempt == retries or not is_serialization_error(e):
                     raise
+                _restore_request_state(request_state)
                 delay = base_delay * (2**attempt) + random.uniform(0, base_delay)
                 logger.debug(
                     "Serialization conflict in %s, retry %d/%d in %.3fs",

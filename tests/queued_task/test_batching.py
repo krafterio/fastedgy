@@ -20,6 +20,14 @@ async def test_enqueue_id_range_tasks_chunks_sorted_ids(setup_db: FastEdgy) -> N
     assert ranges == [(1, 2), (3, 5), (8, 9)]
     assert all(task.channel == "notifications" for task in created)
     assert all(task.kwargs["date"] == "2026-07-11" for task in created)
+    assert all(task.auto_remove for task in created)
+
+
+async def test_enqueue_id_range_tasks_auto_remove_opt_out(setup_db: FastEdgy) -> None:
+    created = await enqueue_id_range_tasks(tasks.add_numbers, [1, 2], auto_remove=False)
+
+    assert all(not task.auto_remove for task in created)
+    assert all("auto_remove" not in task.kwargs for task in created)
 
 
 async def test_enqueue_id_range_tasks_empty(setup_db: FastEdgy) -> None:

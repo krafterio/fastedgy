@@ -254,6 +254,7 @@ class QueuedTasks:
         max_retries: int | None = None,
         channel: str | None = None,
         priority: int | None = None,
+        auto_remove: bool = False,
         **kwargs: Any,
     ) -> "QueuedTask":
         """
@@ -283,6 +284,7 @@ class QueuedTasks:
             max_retries=max_retries,
             channel=channel,
             priority=priority,
+            auto_remove=auto_remove,
         )
 
     async def _create_queued_task(
@@ -293,6 +295,7 @@ class QueuedTasks:
         max_retries: Optional[int] = None,
         channel: Optional[str] = None,
         priority: Optional[int] = None,
+        auto_remove: bool = False,
     ):
         """Create queued task - supports both regular and local functions"""
         try:
@@ -333,6 +336,7 @@ class QueuedTasks:
                 max_retries=max_retries,
                 channel=channel,
                 priority=priority,
+                auto_remove=auto_remove,
             )
 
             return task

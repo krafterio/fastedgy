@@ -38,6 +38,15 @@ async def test_add_task_async_honours_channel_priority_and_retries(setup_db: Fas
     assert task.max_retries == 7
 
 
+async def test_add_task_async_honours_auto_remove(setup_db: FastEdgy) -> None:
+    default = await queue().add_task_async(tasks.add_numbers, 1, 2)
+    removable = await queue().add_task_async(tasks.add_numbers, 1, 2, auto_remove=True)
+
+    assert not default.auto_remove
+    assert removable.auto_remove
+    assert "auto_remove" not in removable.kwargs
+
+
 async def test_add_task_async_serializes_local_function(setup_db: FastEdgy) -> None:
     def local_add(a: int, b: int) -> int:
         return a + b

@@ -15,6 +15,7 @@ async def enqueue_id_range_tasks(
     channel: str | None = None,
     priority: int | None = None,
     max_retries: int | None = None,
+    auto_remove: bool = True,
     **kwargs: Any,
 ) -> list[Any]:
     """Fan id-driven work out into queued tasks by contiguous id ranges.
@@ -24,6 +25,10 @@ async def enqueue_id_range_tasks(
     expected to re-resolve its own ids within ``[min_id, max_id]`` (fresh
     data, compact arguments) and to iterate them under
     :func:`iter_with_cursor` for an exact resume after a crash or retry.
+
+    Range tasks default to ``auto_remove=True``, matching the scheduled tasks
+    that fan them out: a successful run leaves no row behind, only failures
+    are kept for inspection.
     """
     from fastedgy.queued_task.services.queued_tasks import QueuedTasks
 
@@ -40,6 +45,7 @@ async def enqueue_id_range_tasks(
             channel=channel,
             priority=priority,
             max_retries=max_retries,
+            auto_remove=auto_remove,
             **kwargs,
         )
         tasks.append(task)

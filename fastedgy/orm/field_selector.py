@@ -112,7 +112,7 @@ def parse_field_selector_input(
                 field = current_model.meta.fields.get(last_field)
                 is_computed = last_field in getattr(current_model, "model_computed_fields", {})
 
-                if field or is_computed:
+                if (field is not None and _is_selectable_leaf(field)) or is_computed:
                     if isinstance(current, list):
                         current[0][last_field] = True
                     else:
@@ -551,7 +551,12 @@ async def filter_fields(data: dict, data_obj: Model | None, fields: dict, target
             if field_name in data:
                 target[field_name] = data[field_name]
             elif data_obj and hasattr(data_obj, field_name):
-                target[field_name] = getattr(data_obj, field_name)
+                # Reached for a leaf not resolved by _dump_selected (e.g. a
+                # sub-field of a polymorphic generic target). Re-check exclusion
+                # here so an excluded scalar can never leak through the fallback.
+                leaf_field = _real_model_cls(type(data_obj)).meta.fields.get(field_name)
+                if leaf_field is None or _is_selectable_leaf(leaf_field):
+                    target[field_name] = getattr(data_obj, field_name)
 
 
 def _inject_relation_default_order(queryset: Any, data_obj: Model, field_name: str, nested_obj: Any) -> Any:
@@ -602,6 +607,15 @@ def _resolve_relation_path(model_cls: type[BaseModelType], path: str) -> type[Ba
     return current_model
 
 
+def _is_selectable_leaf(field: Any) -> bool:
+    """A field kept off the API surface — ``exclude=True`` or ``secret=True``
+    (Edgy/Pydantic), e.g. a password — is never selectable through X-Fields,
+    even by an explicit path. Relations are unaffected: they are dict/list
+    entries in the selector, never a scalar leaf, and their sub-fields are
+    filtered recursively."""
+    return not getattr(field, "exclude", False) and not getattr(field, "secret", False)
+
+
 def _dump_selected(item: Model, fields_map: dict[str, Any]) -> dict:
     model_cls = _real_model_cls(type(item))
     computed_fields = getattr(model_cls, "model_computed_fields", {})
@@ -613,7 +627,10 @@ def _dump_selected(item: Model, fields_map: dict[str, Any]) -> dict:
 
         if field_name.startswith("extra_") and "extra" in model_cls.meta.fields:
             include.add("extra")
-        elif field_name in model_cls.meta.fields or field_name in computed_fields:
+        elif field_name in model_cls.meta.fields:
+            if _is_selectable_leaf(model_cls.meta.fields[field_name]):
+                include.add(field_name)
+        elif field_name in computed_fields:
             include.add(field_name)
 
     pk_name = find_primary_key_field(model_cls)

@@ -10,6 +10,7 @@ from fastedgy.dependencies import Inject
 from fastedgy.metadata_model import MetadataModelRegistry, TypeMapMetadataModels
 from fastedgy.metadata_model.generator import generate_class_name
 from fastedgy.orm import Model, Registry
+from fastedgy.orm.transaction import with_transaction
 from fastedgy.schemas.dataset import ResequenceRequest, Resequence
 
 router = APIRouter(prefix="/dataset", tags=["dataset"])
@@ -46,13 +47,14 @@ async def resequence(
                 detail=_t("No action requested. Please provide group_field or sequence_field for resequencing"),
             )
 
-        existing_records = await model_class.query.filter(model_class.columns.id.in_(data.ids)).all()
+        async def _apply_resequence() -> list[dict[str, Any]]:
+            existing_records = await model_class.query.filter(model_class.columns.id.in_(data.ids)).all()
 
-        if len(existing_records) != len(data.ids):
-            raise HTTPException(status_code=400, detail=_t("Some IDs in the target list do not exist"))
+            if len(existing_records) != len(data.ids):
+                raise HTTPException(status_code=400, detail=_t("Some IDs in the target list do not exist"))
 
-        async with model_class.query.database.transaction():
             records_by_id = {record.id: record for record in existing_records}
+            updated_records: list[dict[str, Any]] = []
             sequence_index = 0
 
             for record_id in data.ids:
@@ -75,7 +77,11 @@ async def resequence(
                 if group_update or sequence_update:
                     await record.save()
 
-                records.append(updated_fields)
+                updated_records.append(updated_fields)
+
+            return updated_records
+
+        records = await with_transaction(_apply_resequence)
 
     return Resequence(
         model_name=data.model_name,

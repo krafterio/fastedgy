@@ -183,3 +183,42 @@ async def test_download_optimized_passthrough_image_is_served(auth_http: httpx.A
 
     second = await auth_http.get(f"/api/storage/download/attachments/{attachment['id']}?w=1080&h=1080&m=cover&e=webp")
     assert second.status_code == 200
+
+async def test_attachment_download_revalidates_with_etag(auth_http: httpx.AsyncClient) -> None:
+    upload = await auth_http.post(
+        "/api/storage/upload/attachments",
+        files={"doc.txt": ("doc.txt", b"hello world", "text/plain")},
+    )
+    attachment = upload.json()["attachments"][0]
+
+    download = await auth_http.get(f"/api/storage/download/attachments/{attachment['id']}")
+
+    assert download.status_code == 200
+    assert download.headers["cache-control"] == "private, no-cache"
+    etag = download.headers["etag"]
+    assert etag.startswith('"attachments/')
+
+    revalidation = await auth_http.get(
+        f"/api/storage/download/attachments/{attachment['id']}",
+        headers={"If-None-Match": etag},
+    )
+
+    assert revalidation.status_code == 304
+    assert revalidation.content == b""
+    assert revalidation.headers["etag"] == etag
+    assert revalidation.headers["cache-control"] == "private, no-cache"
+
+
+async def test_path_download_is_served_immutable(auth_http: httpx.AsyncClient) -> None:
+    from fastedgy.dependencies import get_service
+    from fastedgy.storage import Storage
+
+    storage = get_service(Storage)
+    await storage.adapter.write("global/cache_headers/pic.txt", b"immutable content")
+
+    download = await auth_http.get("/api/storage/download/cache_headers/pic.txt")
+
+    assert download.status_code == 200
+    assert download.content == b"immutable content"
+    assert download.headers["cache-control"] == "private, max-age=31536000, immutable"
+    assert "etag" not in download.headers

@@ -56,6 +56,12 @@ manage_attachments_router = APIRouter(prefix="/storage", tags=["storage"])
 router = APIRouter(prefix="/storage", tags=["storage"])
 manage_router = APIRouter(prefix="/storage", tags=["storage"])
 
+# Stored files are addressed by generated UUID names (never overwritten in
+# place), so path-addressed downloads are immutable. Attachments are addressed
+# by record id, so they revalidate against the storage path as cache key.
+DOWNLOAD_CACHE_CONTROL = "private, max-age=31536000, immutable"
+ATTACHMENT_CACHE_CONTROL = "private, no-cache"
+
 
 @manage_attachments_router.post(
     "/upload/attachments",
@@ -282,8 +288,18 @@ async def _serve_download(
     force_download: bool,
     global_storage: bool,
     re_resolve: Callable[[], Awaitable[tuple[str, str]]] | None = None,
+    cache_control: str | None = None,
+    etag: str | None = None,
 ) -> Response:
     """Serve a file download with Range request support."""
+    if etag and request.headers.get("if-none-match") == etag:
+        headers = {"ETag": etag}
+
+        if cache_control:
+            headers["Cache-Control"] = cache_control
+
+        return Response(status_code=304, headers=headers)
+
     try:
         total_size = await storage.get_file_size_for_download(resolved_path, global_storage=global_storage)
     except FileNotFoundError:
@@ -303,6 +319,12 @@ async def _serve_download(
 
     headers = _build_download_headers(filename, force_download)
     headers["Accept-Ranges"] = "bytes"
+
+    if cache_control:
+        headers["Cache-Control"] = cache_control
+
+    if etag:
+        headers["ETag"] = etag
 
     if byte_range:
         start, end = byte_range
@@ -390,6 +412,8 @@ async def download_attachment(
                 global_storage=global_storage,
                 regenerate=True,
             ),
+            cache_control=ATTACHMENT_CACHE_CONTROL,
+            etag=f'"{record.storage_path}"',
         )
     except ObjectNotFound:
         raise HTTPException(status_code=404, detail=_t("Attachment not found"))
@@ -460,6 +484,7 @@ async def download_file(
             global_storage=global_storage,
             regenerate=True,
         ),
+        cache_control=DOWNLOAD_CACHE_CONTROL,
     )
 
 

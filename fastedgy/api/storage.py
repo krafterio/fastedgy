@@ -20,6 +20,7 @@ from starlette.datastructures import UploadFile as StarletteUploadFile
 
 from fastedgy.orm.exceptions import ObjectNotFound
 from fastedgy.storage import Storage
+from fastedgy.storage.routing import is_global_storage_model, is_global_storage_path
 from fastedgy.orm import Registry
 from fastedgy import context
 from fastedgy.schemas.storage import UploadedAttachments, UploadedModelField
@@ -170,16 +171,17 @@ async def upload_model_field_file(
         record = await _get_record(model, field, model_id)
         vtr = get_service(ViewTransformerRegistry)
         transformers_ctx: dict[str, Any] = {}
-        global_storage = False
 
         meta_registry = get_service(MetadataModelRegistry)
         meta_model = await meta_registry.get_metadata(model)
         model_cls = await meta_registry.get_model_from_metadata(meta_model)
+        global_storage = is_global_storage_model(model_cls)
 
         for transformer in vtr.get_transformers(PreUploadTransformer, model_cls, None):
-            global_storage = await transformer.pre_upload(
-                request, record, field, cast(UploadFile, file), transformers_ctx
-            )
+            result = await transformer.pre_upload(request, record, field, cast(UploadFile, file), transformers_ctx)
+
+            if result is not None:
+                global_storage = result
 
         if getattr(record, field):
             await storage.delete(getattr(record, field), global_storage=global_storage)
@@ -217,12 +219,13 @@ async def delete_file(
         model_cls = await meta_registry.get_model_from_metadata(meta_model)
         vtr = get_service(ViewTransformerRegistry)
         transformers_ctx: dict[str, Any] = {}
-        global_storage = False
+        global_storage = is_global_storage_model(model_cls)
 
         for transformer in vtr.get_transformers(PreDeleteFileTransformer, model_cls, None):
-            global_storage = await transformer.pre_delete_file(
-                request, model, model_id, field, record, transformers_ctx
-            )
+            result = await transformer.pre_delete_file(request, model, model_id, field, record, transformers_ctx)
+
+            if result is not None:
+                global_storage = result
 
         if getattr(record, field):
             await storage.delete(getattr(record, field), global_storage=global_storage)
@@ -400,10 +403,13 @@ async def download_file(
 ) -> Response:
     vtr = get_service(ViewTransformerRegistry)
     transformers_ctx: dict[str, Any] = {}
-    global_storage = False
+    global_storage = await is_global_storage_path(path)
 
     for transformer in vtr.get_transformers(PreDownloadTransformer, None, None):
-        global_storage = await transformer.pre_download(request, path, transformers_ctx)
+        result = await transformer.pre_download(request, path, transformers_ctx)
+
+        if result is not None:
+            global_storage = result
 
     resolved_path, content_type = await storage.get_optimized_or_original(
         path, w=w, h=h, mode=m, out_ext=e, global_storage=global_storage

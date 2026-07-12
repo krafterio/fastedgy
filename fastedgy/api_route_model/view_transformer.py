@@ -90,12 +90,14 @@ class PreUploadTransformer(BaseViewTransformer):
         field: str,
         file: "UploadFile",
         ctx: dict[str, Any],
-    ) -> bool:
+    ) -> bool | None:
         """
         Pre-upload transformer.
 
         Returns:
-            bool: Whether to use global storage (True) or workspace storage (False)
+            bool | None: Whether to use global storage (True) or workspace storage
+                (False), or None to keep the current routing decision (the default
+                derived from the model, or a previous transformer's choice)
         """
         ...
 
@@ -119,12 +121,14 @@ class PreDownloadTransformer(BaseViewTransformer):
         request: Request,
         path: str,
         ctx: dict[str, Any],
-    ) -> bool:
+    ) -> bool | None:
         """
         Pre-download transformer.
 
         Returns:
-            bool: Whether to use global storage (True) or workspace storage (False)
+            bool | None: Whether to use global storage (True) or workspace storage
+                (False), or None to keep the current routing decision (the default
+                derived from the path, or a previous transformer's choice)
         """
         ...
 
@@ -150,12 +154,14 @@ class PreDeleteFileTransformer(BaseViewTransformer):
         field: str,
         record: "BaseModel",
         ctx: dict[str, Any],
-    ) -> bool:
+    ) -> bool | None:
         """
         Pre-delete file transformer.
 
         Returns:
-            bool: Whether to use global storage (True) or workspace storage (False)
+            bool | None: Whether to use global storage (True) or workspace storage
+                (False), or None to keep the current routing decision (the default
+                derived from the model, or a previous transformer's choice)
         """
         ...
 

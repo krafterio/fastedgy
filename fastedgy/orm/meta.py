@@ -15,6 +15,7 @@ class Meta(Model.Meta):
     sortable_field: str | None
     search_field: str | None
     workspace_preserve_explicit: bool
+    global_storage: bool
     is_view: bool
 
 

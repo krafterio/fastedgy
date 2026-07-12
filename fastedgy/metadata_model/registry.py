@@ -27,6 +27,7 @@ class MetadataModelRegistry:
             self._map_names[str(model_cls.meta.tablename)] = model_cls
             self._map_names[self._models[model_cls].name] = model_cls
 
+        self._lazy_models = []
         add_inverse_relations(self._models)
 
     def register_model(self, model_cls: type[BaseModel | BaseView]):
@@ -77,11 +78,22 @@ class MetadataModelRegistry:
 
         raise ValueError(f"Model {str(model_cls)} not found in metadata registry")
 
+    async def get_model_from_name(self, name: str) -> type[BaseModel | BaseView] | None:
+        """Resolve a model class from its metadata name or tablename."""
+        await self.load_models()
+
+        return self._map_names.get(name)
+
     async def get_model_from_metadata(self, metadata: MetadataModel | str) -> type[BaseModel | BaseView]:
         await self.load_models()
 
         if isinstance(metadata, str):
             metadata = await self.get_metadata(metadata)
+
+        model = self._map_names.get(metadata.name)
+
+        if model is not None and self._models.get(model) is metadata:
+            return model
 
         for model, model_metadata in self._models.items():
             if metadata == model_metadata:

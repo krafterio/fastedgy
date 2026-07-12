@@ -29,11 +29,12 @@ async def is_global_storage_path(path: str) -> bool:
     """
     segment = path.split("/", 1)[0]
     meta_registry = get_service(MetadataModelRegistry)
+    model_cls = await meta_registry.get_model_from_name(segment)
 
-    if not await meta_registry.is_registered(segment):
+    if model_cls is None:
         return False
 
-    return is_global_storage_model(await meta_registry.get_model_from_metadata(segment))
+    return is_global_storage_model(model_cls)
 
 
 async def resolve_workspace_for_path(path: str) -> Any | None:
@@ -50,13 +51,9 @@ async def resolve_workspace_for_path(path: str) -> Any | None:
 
     segment = path.split("/", 1)[0]
     meta_registry = get_service(MetadataModelRegistry)
+    model_cls = await meta_registry.get_model_from_name(segment)
 
-    if not await meta_registry.is_registered(segment):
-        return None
-
-    model_cls = await meta_registry.get_model_from_metadata(segment)
-
-    if "workspace" not in model_cls.meta.fields:
+    if model_cls is None or "workspace" not in model_cls.meta.fields:
         return None
 
     candidates = [name for name, field in model_cls.meta.fields.items() if isinstance(field, CharField)]

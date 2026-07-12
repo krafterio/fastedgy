@@ -106,7 +106,13 @@ async def _handle_fulltext_save(instance: Any, **kwargs: dict[str, Any]) -> None
                 continue
 
             tsvector_expr = " || ".join(tsvector_parts)
-            sql = text(f"UPDATE {tablename} SET {column_name} = {tsvector_expr} WHERE {pk_field} = :pk_value")
+            # Skip the write entirely when the recomputed tsvector is unchanged:
+            # a no-op UPDATE would still create a new row version (heap + every
+            # index incl. the GIN) and generate WAL on every save of the record.
+            sql = text(
+                f"UPDATE {tablename} SET {column_name} = {tsvector_expr} "
+                f"WHERE {pk_field} = :pk_value AND {column_name} IS DISTINCT FROM ({tsvector_expr})"
+            )
 
             await model_cls.meta.registry.database.execute(sql, bind_params)
 

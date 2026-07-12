@@ -184,6 +184,7 @@ async def test_download_optimized_passthrough_image_is_served(auth_http: httpx.A
     second = await auth_http.get(f"/api/storage/download/attachments/{attachment['id']}?w=1080&h=1080&m=cover&e=webp")
     assert second.status_code == 200
 
+
 async def test_attachment_download_revalidates_with_etag(auth_http: httpx.AsyncClient) -> None:
     upload = await auth_http.post(
         "/api/storage/upload/attachments",

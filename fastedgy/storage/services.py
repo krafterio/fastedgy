@@ -8,7 +8,10 @@ import uuid
 import mimetypes
 import base64
 
+from functools import partial
 from pathlib import Path
+
+from anyio import to_thread
 from typing import TYPE_CHECKING, Any, AsyncIterator
 
 from starlette.datastructures import UploadFile
@@ -269,6 +272,33 @@ class Storage:
             mime = mimetypes.guess_type(source_name)[0] or "application/octet-stream"
             return None, source_data, mime
 
+        # PIL decode/resize/encode is CPU-bound: run it in a thread so a burst
+        # of first-time generations does not block the event loop.
+        data, mime_type = await to_thread.run_sync(
+            partial(self._render_cache_image, source_data, source_name, w=w, h=h, mode=mode, out_ext=out_ext)
+        )
+
+        if data is None:
+            return None, source_data, mime_type
+
+        await self.cache_adapter.write(cache_path, data, mime_type)
+
+        return cache_path, data, mime_type
+
+    def _render_cache_image(
+        self,
+        source_data: bytes,
+        source_name: str,
+        *,
+        w: int | None,
+        h: int | None,
+        mode: str,
+        out_ext: str | None,
+    ) -> tuple[bytes | None, str]:
+        """Render the optimized variant. A None payload means no transformation
+        is needed and the original must be served directly."""
+        assert Image is not None
+
         with Image.open(io.BytesIO(source_data)) as img:
             ow, oh = img.size
             w, h = self._clamp_dimensions(ow, oh, w, h)
@@ -279,11 +309,10 @@ class Storage:
 
             if (tw, th) == (ow, oh) and out_format.lower() == src_ext.lower():
                 mime = mimetypes.guess_type(source_name)[0] or mime_type
-                return None, source_data, mime
+                return None, mime
 
             if mode == "contain":
-                resized = img.resize((tw, th), Image.Resampling.LANCZOS)
-                final_img = resized
+                final_img = img.resize((tw, th), Image.Resampling.LANCZOS)
             else:
                 resized = img.resize((tw, th), Image.Resampling.LANCZOS)
                 cw = w or tw
@@ -295,12 +324,8 @@ class Storage:
                 final_img = resized.crop((left, top, right, bottom))
 
             quality = self._get_image_quality()
-            data = self._save_image_to_bytes(final_img, out_format, quality)
 
-            # Save to cache adapter
-            await self.cache_adapter.write(cache_path, data, mime_type)
-
-            return cache_path, data, mime_type
+            return self._save_image_to_bytes(final_img, out_format, quality), mime_type
 
     async def get_optimized_or_original(
         self,

@@ -20,7 +20,12 @@ from starlette.datastructures import UploadFile as StarletteUploadFile
 
 from fastedgy.orm.exceptions import ObjectNotFound
 from fastedgy.storage import Storage
-from fastedgy.storage.routing import is_global_storage_model, is_global_storage_path
+from fastedgy.storage.routing import (
+    is_global_storage_model,
+    is_global_storage_path,
+    resolve_workspace_for_path,
+)
+from fastedgy.sudo import SudoChecker
 from fastedgy.orm import Registry
 from fastedgy import context
 from fastedgy.schemas.storage import UploadedAttachments, UploadedModelField
@@ -410,6 +415,15 @@ async def download_file(
 
         if result is not None:
             global_storage = result
+
+    if not global_storage:
+        sudo = get_service(SudoChecker)
+
+        if await sudo.is_sudo() and not await storage.file_exists(path, global_storage=False):
+            workspace = await resolve_workspace_for_path(path)
+
+            if workspace is not None:
+                context.set_workspace(workspace)
 
     resolved_path, content_type = await storage.get_optimized_or_original(
         path, w=w, h=h, mode=m, out_ext=e, global_storage=global_storage

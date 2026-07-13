@@ -125,6 +125,9 @@ class BaseSettings(PydanticBaseSettings):
     http_workers: int | None = None
     http_limit_concurrency: int | None = None
 
+    # Workspace Shareable
+    workspace_shared_record_header: str = "X-Workspace-Shared-Record"
+
     # Health / graceful shutdown
     # Seconds a worker keeps serving after SIGTERM before the real shutdown:
     # /health answers 503 during the drain so the orchestrator stops routing

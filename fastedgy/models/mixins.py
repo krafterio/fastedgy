@@ -1,18 +1,33 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fastedgy import context
+from fastedgy.dependencies import get_service
 from fastedgy.orm import fields, Model, Meta
 from fastedgy.orm.filter import R, global_filter
+from fastedgy.orm.workspace_shareable import (
+    WorkspaceShareableRegistry,
+    enforce_shared_record_write,
+    shared_record_cascade_filter,
+    shared_record_confinement_filter,
+    shared_record_filter_applies,
+    snake_case as _snake_case,
+)
 from fastedgy.i18n import _ts
 from fastedgy.schemas import ConfigDict
+
+if TYPE_CHECKING:
+    from fastedgy.orm.filter.types import Filter
 
 
 def _workspace_filter_applies(model_cls: type) -> bool:
     from fastedgy.models.workspace import BaseWorkspace
     from fastedgy.models.workspace_user import BaseWorkspaceUser
+
+    if not getattr(getattr(model_cls, "Meta", None), "workspace_filter", True):
+        return False
 
     return (
         model_cls.__name__ != "UserPresence"
@@ -21,6 +36,8 @@ def _workspace_filter_applies(model_cls: type) -> bool:
     )
 
 
+@global_filter(shared_record_confinement_filter, apply=shared_record_filter_applies)
+@global_filter(shared_record_cascade_filter, apply=shared_record_filter_applies)
 @global_filter(
     lambda: R("workspace", "=", context.get_workspace_id()) if context.get_workspace() else None,
     apply=_workspace_filter_applies,
@@ -90,6 +107,11 @@ class WorkspaceableMixin(Model):
             if workspace and (not hasattr(self, "workspace") or self.workspace != workspace):
                 self.workspace = workspace
 
+        scope = context.get_param("workspace_shared_record")
+
+        if scope and not context.get_param("skip_access_control"):
+            enforce_shared_record_write(self, scope)
+
         return await super().save(force_insert, values, force_save)
 
 
@@ -139,6 +161,90 @@ class BlameableMixin(Model):
         return await super().save(force_insert, values, force_save)
 
 
+class WorkspaceShareableMixin(Model):
+    """
+    Mixin declaring a workspaceable model as a shareable root record.
+
+    A shareable root defines its own members (see ``WorkspaceShareableMemberMixin``)
+    and can be entered per request through the ``X-Workspace-Shared-Record`` header
+    (run-as into the record's workspace, confinement to the declared subtree).
+
+    The scope key is derived from the class name (snake_case — ``Project`` →
+    ``project:<id>`` in the header).
+
+    Usage:
+        class Project(BaseModel, WorkspaceableMixin, WorkspaceShareableMixin):
+            @classmethod
+            async def workspace_shareable_authorize(cls, record, user, member) -> bool:
+                ...  # business access rules (visibility, workspace membership, …)
+
+            @classmethod
+            def workspace_shareable_visibility_filter(cls, path):
+                ...  # optional out-of-context cascade for children (see docs)
+    """
+
+    class Meta(Meta):
+        abstract = True
+
+    model_config = ConfigDict(
+        extra="ignore",
+    )
+
+    @classmethod
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+
+        if getattr(getattr(cls, "Meta", None), "abstract", False) or getattr(cls, "__is_proxy_model__", False):
+            return
+
+        if not issubclass(cls, WorkspaceableMixin):
+            raise TypeError(f"{cls.__name__} must inherit WorkspaceableMixin to be workspace shareable")
+
+        key = _snake_case(cls.__name__)
+
+        get_service(WorkspaceShareableRegistry).register_root(cls, key)
+
+    @classmethod
+    async def workspace_shareable_authorize(cls, record: Any, user: Any, member: Any) -> bool:
+        return member is not None
+
+    @classmethod
+    def workspace_shareable_visibility_filter(cls, path: str) -> "Filter | None":
+        return None
+
+
+class WorkspaceShareableMemberMixin(Model):
+    """
+    Mixin declaring the membership model of a workspace shareable root.
+
+    The FK pointing to the root record is auto-detected (the field whose target
+    is a shareable root); the user FK defaults to ``"user"``. Both are
+    overridable through ``Meta.workspace_shareable_record_field`` /
+    ``workspace_shareable_user_field`` when the detection is ambiguous.
+
+    Usage:
+        class ProjectMember(BaseModel, WorkspaceShareableMemberMixin):
+            project = fields.ForeignKey("Project", related_name="members")
+            user = fields.ForeignKey("User")
+    """
+
+    class Meta(Meta):
+        abstract = True
+
+    model_config = ConfigDict(
+        extra="ignore",
+    )
+
+    @classmethod
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+
+        if getattr(getattr(cls, "Meta", None), "abstract", False) or getattr(cls, "__is_proxy_model__", False):
+            return
+
+        get_service(WorkspaceShareableRegistry).register_member(cls)
+
+
 class SearchableMixin(Model):
     """
     Mixin to automatically add a FulltextField for full-text search.
@@ -162,6 +268,8 @@ class SearchableMixin(Model):
 
 __all__ = [
     "WorkspaceableMixin",
+    "WorkspaceShareableMixin",
+    "WorkspaceShareableMemberMixin",
     "BlameableMixin",
     "SearchableMixin",
 ]

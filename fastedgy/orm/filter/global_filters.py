@@ -1,6 +1,8 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+import inspect
+
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, TypeVar
@@ -12,7 +14,7 @@ if TYPE_CHECKING:
     from fastedgy.orm.query import QuerySet
 
 
-GlobalFilterGetter = Callable[[], "Filter | None"]
+GlobalFilterGetter = Callable[[], "Filter | None"] | Callable[[type], "Filter | None"]
 GlobalFilterApply = Callable[[type], bool] | None
 
 _C = TypeVar("_C", bound=type)
@@ -22,6 +24,18 @@ _C = TypeVar("_C", bound=type)
 class GlobalFilter:
     get_filter: GlobalFilterGetter
     apply: GlobalFilterApply = None
+    takes_model: bool = False
+
+
+def _getter_takes_model(get_filter: GlobalFilterGetter) -> bool:
+    """A getter may declare a single positional parameter to receive the queried
+    model class (needed by filters whose shape depends on the model, e.g. the
+    workspace-shareable confinement paths). Zero-argument getters keep the
+    historical contract."""
+    try:
+        return len(inspect.signature(get_filter).parameters) >= 1
+    except (TypeError, ValueError):
+        return False
 
 
 class GlobalFilterRegistry:
@@ -36,7 +50,7 @@ class GlobalFilterRegistry:
         get_filter: GlobalFilterGetter,
         apply: GlobalFilterApply = None,
     ) -> None:
-        self._filters.setdefault(model_cls, []).append(GlobalFilter(get_filter, apply))
+        self._filters.setdefault(model_cls, []).append(GlobalFilter(get_filter, apply, _getter_takes_model(get_filter)))
 
     def get_filters(self, model_cls: type) -> list[GlobalFilter]:
         filters: list[GlobalFilter] = []
@@ -74,7 +88,7 @@ def apply_global_filters(queryset: "QuerySet") -> "QuerySet":
         if gf.apply is not None and not gf.apply(model_class):
             continue
 
-        filters = gf.get_filter()
+        filters = gf.get_filter(model_class) if gf.takes_model else gf.get_filter()  # type: ignore[call-arg]
 
         if filters is not None:
             queryset = filter_query(queryset, filters, allow_excluded=True)

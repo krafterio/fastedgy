@@ -187,6 +187,7 @@ nav:
       - Multi Tenant:
         - Overview: features/multi-tenant/overview.md
         - Usage Guide: features/multi-tenant/guide.md
+        - Workspace Shareable: features/multi-tenant/workspace-shareable.md
     - Services:
       - Email:
         - Overview: features/email/overview.md

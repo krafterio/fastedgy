@@ -32,6 +32,10 @@ FastEdgy includes a built-in workspace system for tenant management:
 - **WorkspaceableMixin**: Easy multi-tenant model inheritance
 - **Context integration**: Seamless integration with FastEdgy's context system
 
+### Workspace Shareable
+Share a single record — and its whole subtree — with users from other workspaces, through a
+strictly confined per-request context. See [Workspace Shareable](workspace-shareable.md).
+
 ## Use cases
 
 - **SaaS applications**: Isolate customer data by workspace/organization

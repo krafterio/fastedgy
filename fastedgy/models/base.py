@@ -6,7 +6,7 @@ from fastedgy.i18n import _ts
 from abc import abstractmethod
 from typing import TYPE_CHECKING, Any, ClassVar, Optional, Self
 
-from datetime import datetime
+from datetime import date, datetime, time
 
 from fastedgy.orm import Model, Meta, fields
 from fastedgy.orm.manager import (
@@ -473,7 +473,7 @@ class BaseModel(Model, metaclass=ModelMeta):
         return _enrich_serialization_json_schema(cls, json_schema)
 
     def model_dump(self, show_pk: bool | None = None, **kwargs: Any) -> dict[str, Any]:
-        """Override model_dump to serialize datetime with timezone.
+        """Override model_dump to serialize datetime with timezone, and date/time to ISO strings.
 
         `warnings=False` is set by default to silence Pydantic's
         `PydanticSerializationUnexpectedValue` for ForeignKey fields. Edgy
@@ -493,6 +493,8 @@ class BaseModel(Model, metaclass=ModelMeta):
             for key, value in data.items():
                 if isinstance(value, datetime):
                     data[key] = datetime_serializer(value)
+                elif isinstance(value, (date, time)):
+                    data[key] = value.isoformat()
 
         return data
 
@@ -617,7 +619,7 @@ class BaseView(Model, metaclass=ModelMeta):
         return _enrich_serialization_json_schema(cls, json_schema)
 
     def model_dump(self, show_pk: bool | None = None, **kwargs: Any) -> dict[str, Any]:
-        """Override model_dump to serialize datetime with timezone.
+        """Override model_dump to serialize datetime with timezone, and date/time to ISO strings.
 
         `warnings=False` is set by default to silence Pydantic's
         `PydanticSerializationUnexpectedValue` for ForeignKey fields. Edgy
@@ -637,6 +639,8 @@ class BaseView(Model, metaclass=ModelMeta):
             for key, value in data.items():
                 if isinstance(value, datetime):
                     data[key] = datetime_serializer(value)
+                elif isinstance(value, (date, time)):
+                    data[key] = value.isoformat()
 
         return data
 

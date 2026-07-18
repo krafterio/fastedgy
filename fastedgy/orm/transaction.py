@@ -24,6 +24,10 @@ logger = logging.getLogger("fastedgy.transaction")
 #   40P01 = deadlock_detected
 _RETRYABLE_SQLSTATES = frozenset({"40001", "40P01"})
 
+# Valid arguments for SET TRANSACTION ISOLATION LEVEL (also guards the f-string
+# below against SQL injection through `isolation_level`).
+_ISOLATION_LEVELS = frozenset({"READ UNCOMMITTED", "READ COMMITTED", "REPEATABLE READ", "SERIALIZABLE"})
+
 # A serialization failure aborts the *whole* Postgres transaction, not just a
 # savepoint. Only the outermost call can therefore retry meaningfully; nested
 # ones run once and let the root replay the entire unit. Task-local (ContextVar)
@@ -173,7 +177,11 @@ async def with_transaction(
         isolation_level: Optional Postgres isolation level for the transaction
             (e.g. ``"READ COMMITTED"`` to avoid the conflict instead of retrying
             it). Defaults to the databasez default (``SERIALIZABLE``). Ignored
-            for a nested call — a savepoint inherits the outer level.
+            for a nested call — a savepoint inherits the outer level. Applied
+            via ``SET TRANSACTION`` as the first statement of the transaction:
+            databasez's own ``transaction(isolation_level=...)`` yields a
+            phantom transaction with the asyncpg dialect (statements autocommit
+            individually and nested savepoints fail) — never use it.
 
     Example:
         async def _persist():
@@ -187,6 +195,11 @@ async def with_transaction(
     """
     db = get_service(Registry).database
 
+    if isolation_level is not None:
+        isolation_level = isolation_level.upper()
+        if isolation_level not in _ISOLATION_LEVELS:
+            raise ValueError(f"Invalid isolation level: {isolation_level!r}")
+
     # Nested call → savepoint only. A serialization failure poisons the whole
     # transaction, so retrying here is futile; let the outermost call replay.
     if _in_retrying_transaction.get():
@@ -198,12 +211,12 @@ async def with_transaction(
     try:
         for attempt in range(retries + 1):
             try:
-                tx = (
-                    db.transaction(isolation_level=isolation_level) if isolation_level is not None else db.transaction()
-                )
+                tx = db.transaction()
                 callbacks_token = _after_commit_callbacks.set([])
                 try:
                     async with tx:
+                        if isolation_level is not None:
+                            await db.execute(f"SET TRANSACTION ISOLATION LEVEL {isolation_level}")
                         result = await factory()
                     for callback in _after_commit_callbacks.get() or []:
                         _run_after_commit_callback(callback)

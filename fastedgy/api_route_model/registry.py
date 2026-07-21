@@ -148,10 +148,13 @@ class ViewTransformerRegistry:
         return final_transformers
 
 
-ADMIN_ROUTE_MODEL_REGISTRY_TOKEN = Token[RouteModelRegistry]("admin_route_model_registry")
+CONSOLE_ROUTE_MODEL_REGISTRY_TOKEN = Token[RouteModelRegistry]("console_route_model_registry")
+
+# Deprecated alias — use `CONSOLE_ROUTE_MODEL_REGISTRY_TOKEN`. Kept for backward compatibility.
+ADMIN_ROUTE_MODEL_REGISTRY_TOKEN = CONSOLE_ROUTE_MODEL_REGISTRY_TOKEN
 
 
-register_service(RouteModelRegistry, ADMIN_ROUTE_MODEL_REGISTRY_TOKEN)
+register_service(RouteModelRegistry, CONSOLE_ROUTE_MODEL_REGISTRY_TOKEN)
 
 
 __all__ = [
@@ -160,6 +163,7 @@ __all__ = [
     "RouteModelOptions",
     "TypeModel",
     "TypeModels",
+    "CONSOLE_ROUTE_MODEL_REGISTRY_TOKEN",
     "ADMIN_ROUTE_MODEL_REGISTRY_TOKEN",
     "DEFAULT_ROUTE_MODEL_OPTIONS",
     "RouteModelRegistry",

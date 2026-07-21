@@ -12,7 +12,7 @@ from fastapi.params import Depends
 from fastedgy.dependencies import get_service, Token
 from fastedgy.models.base import BaseModel, BaseView
 from fastedgy.api_route_model.registry import (
-    ADMIN_ROUTE_MODEL_REGISTRY_TOKEN,
+    CONSOLE_ROUTE_MODEL_REGISTRY_TOKEN,
     RouteModelActionOptions,
     RouteModelOptions,
     RouteModelRegistry,
@@ -107,17 +107,22 @@ def get_all_generated_routers(
     return routers
 
 
-def get_all_generated_admin_routers() -> dict[str, APIRouter]:
+def get_all_generated_console_routers() -> dict[str, APIRouter]:
     """
-    Get all auto-generated routers for registered admin models.
+    Get all auto-generated routers for registered console models.
 
     Returns:
         A dictionary mapping route prefixes to routers
     """
-    return get_all_generated_routers(ADMIN_ROUTE_MODEL_REGISTRY_TOKEN, tags=False)
+    return get_all_generated_routers(CONSOLE_ROUTE_MODEL_REGISTRY_TOKEN, tags=False)
+
+
+# Deprecated alias — use `get_all_generated_console_routers`. Kept for backward compatibility.
+get_all_generated_admin_routers = get_all_generated_console_routers
 
 
 __all__ = [
     "get_all_generated_routers",
+    "get_all_generated_console_routers",
     "get_all_generated_admin_routers",
 ]

@@ -7,7 +7,7 @@ from typing import Any, Type, cast
 from fastapi import APIRouter
 from fastedgy.api_route_model.generator import get_all_generated_routers
 from fastedgy.api_route_model.registry import (
-    ADMIN_ROUTE_MODEL_REGISTRY_TOKEN,
+    CONSOLE_ROUTE_MODEL_REGISTRY_TOKEN,
     RouteModelRegistry,
 )
 from fastedgy.dependencies import get_service, Token
@@ -64,18 +64,23 @@ def _resolve_generic_references(registry: Type[RouteModelRegistry] | Token[Route
                     logger.warning(f"Could not resolve generic reference targets on {model_cls.__name__}: {e}")
 
 
-def register_admin_api_route_models(router: APIRouter) -> None:
+def register_console_api_route_models(router: APIRouter) -> None:
     """
-    Register all generated routes in the given FastAPI router for admin-users.
+    Register all generated routes in the given FastAPI router for the console.
 
     Args:
         router: The FastAPI router to register the routes in
     """
 
-    register_api_route_models(router, ADMIN_ROUTE_MODEL_REGISTRY_TOKEN, tags=False)
+    register_api_route_models(router, CONSOLE_ROUTE_MODEL_REGISTRY_TOKEN, tags=False)
+
+
+# Deprecated alias — use `register_console_api_route_models`. Kept for backward compatibility.
+register_admin_api_route_models = register_console_api_route_models
 
 
 __all__ = [
     "register_api_route_models",
+    "register_console_api_route_models",
     "register_admin_api_route_models",
 ]

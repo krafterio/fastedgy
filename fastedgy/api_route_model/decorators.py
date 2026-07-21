@@ -6,7 +6,7 @@ from enum import Enum
 
 from fastapi.params import Depends
 from fastedgy.api_route_model.registry import (
-    ADMIN_ROUTE_MODEL_REGISTRY_TOKEN,
+    CONSOLE_ROUTE_MODEL_REGISTRY_TOKEN,
     RouteModelRegistry,
     RouteModelOptions,
     RouteModelOptionsValue,
@@ -88,16 +88,16 @@ Args:
     tags: Custom tags for OpenAPI documentation
     dependencies: Route-level dependencies
     actions: Dictionary of actions (useful for reserved Python keywords like "import")
-    registry: Specific registry to use (e.g., ADMIN_ROUTE_MODEL_REGISTRY_TOKEN)
+    registry: Specific registry to use (e.g., CONSOLE_ROUTE_MODEL_REGISTRY_TOKEN)
     **kwargs: Map of standard endpoint types to be enabled or disabled
 
 Returns:
     The decorated model class
 """
 
-admin_api_route_model = build_api_route_model_decorator(ADMIN_ROUTE_MODEL_REGISTRY_TOKEN)
-admin_api_route_model.__doc__ = """
-Decorator to mark a model for auto-generating API routes for admin-users.
+console_api_route_model = build_api_route_model_decorator(CONSOLE_ROUTE_MODEL_REGISTRY_TOKEN)
+console_api_route_model.__doc__ = """
+Decorator to mark a model for auto-generating API routes for the console.
 
 Args:
     prefix: Custom route prefix (default: /{tablename})
@@ -110,9 +110,13 @@ Returns:
     The decorated model class
 """
 
+# Deprecated alias — use `console_api_route_model`. Kept for backward compatibility.
+admin_api_route_model = console_api_route_model
+
 
 __all__ = [
     "build_api_route_model_decorator",
     "api_route_model",
+    "console_api_route_model",
     "admin_api_route_model",
 ]

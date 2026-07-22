@@ -42,10 +42,14 @@ class BaseWorkspaceUser(BaseModel):
             f"Multiple workspace user models detected: {BaseWorkspaceUser.Meta.model_name} and {cls.__name__}"
         )
 
+    # Immutable through the API and regular saves: a membership is never
+    # re-pointed to another workspace/user. Code sets them at creation time
+    # via ``apply_readonly_values`` (see BaseModel).
     workspace: Union["Workspace", None] = fields.ForeignKey(
         "Workspace",
         on_delete="CASCADE",
         related_name="workspace_users",
+        read_only=True,
         label=_ts("Workspace"),
     )
 
@@ -53,6 +57,7 @@ class BaseWorkspaceUser(BaseModel):
         "User",
         on_delete="CASCADE",
         related_name="workspace_memberships",
+        read_only=True,
         label=_ts("User"),
     )
 

@@ -111,17 +111,17 @@ async def test_advanced_update_modifies_and_links(auth_http: httpx.AsyncClient) 
     assert (await auth_http.get(f"/api/test_tags/{tag['id']}")).json()["name"] == "Updated"
 
 
-async def test_advanced_delete_removes_record(auth_http: httpx.AsyncClient) -> None:
+async def test_advanced_delete_respects_target_actions(auth_http: httpx.AsyncClient) -> None:
+    # Tag disables the delete action: a relation input cannot delete a tag.
     t1 = await make_tag(auth_http, "a")
     t2 = await make_tag(auth_http, "b")
     product = await make_product(auth_http, tags=[t1["id"], t2["id"]])
 
-    await auth_http.patch(f"/api/test_products/{product['id']}", json={"tags": [["delete", t1["id"]]]})
+    response = await auth_http.patch(f"/api/test_products/{product['id']}", json={"tags": [["delete", t1["id"]]]})
 
-    fetched = await get_product(auth_http, product["id"])
-
-    assert tag_ids(fetched) == {t2["id"]}
-    assert (await auth_http.get(f"/api/test_tags/{t1['id']}")).status_code == 404
+    assert response.status_code == 403
+    assert tag_ids(await get_product(auth_http, product["id"])) == {t1["id"], t2["id"]}
+    assert (await auth_http.get(f"/api/test_tags/{t1['id']}")).status_code == 200
 
 
 async def test_advanced_operations_run_in_order(auth_http: httpx.AsyncClient) -> None:

@@ -99,6 +99,82 @@ def is_foreign_key_field(field) -> bool:
     return isinstance(field, ForeignKey)
 
 
+_RECORD_OPS = {"create", "update", "delete"}
+
+
+def ensure_relation_write_allowed(related_model: "TypeModel", ops: set[str], field_name: str) -> None:
+    """Reject payload record-operations the related model's API does not allow.
+
+    A relation input cannot do to a related model what the API forbids on it
+    directly: when the related model is registered in the public
+    ``api_route_model`` registry, its action configuration governs the
+    record-mutating operations (``create`` requires the ``create`` action,
+    ``update`` the ``patch`` action, ``delete`` the ``delete`` action). An
+    unregistered model keeps the historical behavior (child records managed
+    through their parent). Link-level operations (link/unlink/set/clear) are
+    part of the owning side and stay untouched."""
+    if not ops:
+        return
+
+    from fastapi import HTTPException
+
+    from fastedgy.api_route_model.actions.create_action import CreateApiRouteAction
+    from fastedgy.api_route_model.actions.delete_action import DeleteApiRouteAction
+    from fastedgy.api_route_model.actions.patch_action import PatchApiRouteAction
+    from fastedgy.api_route_model.registry import RouteModelRegistry
+    from fastedgy.dependencies import get_service
+    from fastedgy.i18n import _t
+
+    registry = get_service(RouteModelRegistry)
+
+    if not registry.is_model_registered(related_model):
+        return
+
+    actions_options = registry.get_model_options(related_model).get("actions", {})
+    gates = {
+        "create": CreateApiRouteAction,
+        "update": PatchApiRouteAction,
+        "delete": DeleteApiRouteAction,
+    }
+
+    for op in sorted(ops & _RECORD_OPS):
+        if not gates[op].should_register(actions_options):
+            raise HTTPException(
+                status_code=403,
+                detail=_t(
+                    "Relation operation '{op}' is not allowed on {model} for field '{field}'",
+                    op=op,
+                    model=related_model.__name__,
+                    field=field_name,
+                ),
+            )
+
+
+def _foreign_key_record_ops(value: Any) -> set[str]:
+    """The record-mutating operations a plain foreign key input implies."""
+    if isinstance(value, dict):
+        if value.get("id") is None:
+            return {"create"}
+
+        return {"update"} if len(value) > 1 else set()
+
+    if isinstance(value, (list, tuple)) and value and isinstance(value[0], str):
+        return {value[0]} & _RECORD_OPS
+
+    return set()
+
+
+def _relational_record_ops(operations: Any) -> set[str]:
+    """The record-mutating operations a normalized operation list implies."""
+    ops: set[str] = set()
+
+    for operation in operations:
+        if isinstance(operation, (list, tuple)) and operation and isinstance(operation[0], str):
+            ops.add(operation[0])
+
+    return ops & _RECORD_OPS
+
+
 def _plain_foreign_key_value(value: Any) -> Any:
     """Normalize a validated foreign key input to plain Python data.
 
@@ -150,11 +226,15 @@ async def process_foreign_key_fields(
 
     for field_name, value in foreign_key_data.items():
         field = model_cls.model_fields[field_name]
+        related_model = get_related_model(field)
+        plain_value = _plain_foreign_key_value(value)
+
+        ensure_relation_write_allowed(related_model, _foreign_key_record_ops(plain_value), field_name)
 
         try:
             record_id, to_delete = await process_foreign_key_operation(
-                get_related_model(field),
-                _plain_foreign_key_value(value),
+                related_model,
+                plain_value,
                 nullable=getattr(field, "null", False),
                 field_name=field_name,
             )
@@ -210,6 +290,8 @@ async def process_relational_fields(
 
         # Process all relational fields (M2M and O2M) with the same operations
         if is_relation_field(field):
+            ensure_relation_write_allowed(related_model, _relational_record_ops(operations), field_name)
+
             try:
                 await process_relation_operations(instance, field_name, operations, related_model)
             except RelationOperationError as e:
@@ -217,6 +299,7 @@ async def process_relational_fields(
 
 
 __all__ = [
+    "ensure_relation_write_allowed",
     "is_relation_field",
     "is_exposed_relation_field",
     "is_foreign_key_field",

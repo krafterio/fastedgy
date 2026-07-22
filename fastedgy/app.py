@@ -48,6 +48,8 @@ from typing import (
 )
 from typing_extensions import Doc, deprecated
 
+import fastedgy.models.data_record  # noqa: F401
+
 
 T = TypeVar("T")
 

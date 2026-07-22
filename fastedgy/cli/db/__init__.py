@@ -7,6 +7,7 @@ import rich_click as click
 
 from fastedgy import cli
 from fastedgy.cli.db.fulltext import fulltext_reindex
+from fastedgy.cli.db.init_data import init_data
 
 
 class LazyDbGroup(cli.Group):
@@ -49,6 +50,7 @@ def db():
 
 
 db.add_command(fulltext_reindex)
+db.add_command(init_data)
 
 
 __all__ = [

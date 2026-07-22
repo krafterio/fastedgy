@@ -168,7 +168,7 @@ async def test_registry_is_a_di_singleton_collecting_via_mro(setup_app: FastEdgy
     registry = get_service(GlobalFilterRegistry)
 
     assert registry is get_service(GlobalFilterRegistry)
-    assert len(registry.get_filters(WorkspaceableMixin)) == 1
-    assert len(registry.get_filters(GfArticle)) == 3
-    assert len(registry.get_filters(GfPrivateDoc)) == 2
+    assert len(registry.get_filters(WorkspaceableMixin)) == 3
+    assert len(registry.get_filters(GfArticle)) == 5
+    assert len(registry.get_filters(GfPrivateDoc)) == 4
     assert registry.has_filters(GfSharedDoc)

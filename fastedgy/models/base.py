@@ -17,7 +17,7 @@ from fastedgy.orm.manager import (
 )
 from fastedgy.orm.view import create_view
 from fastedgy.orm.registry import lazy_register_model
-from fastedgy.schemas import ConfigDict
+from fastedgy.schemas import ConfigDict, PrivateAttr
 
 from edgy.core.db.models.metaclasses import BaseModelMeta
 
@@ -514,6 +514,59 @@ class BaseModel(Model, metaclass=ModelMeta):
 
     global_query: ClassVar[BaseManager] = Manager()
 
+    _readonly_overrides: dict[str, Any] = PrivateAttr(default_factory=dict)
+
+    def apply_readonly_values(self, values: dict[str, Any]) -> Self:
+        """Stage values for ``read_only`` fields, persisted by the next ``save()``.
+
+        Edgy silently drops ``read_only`` fields on every write path (create
+        kwargs, attribute assignment, ``save(values=...)``): this is the
+        explicit code-side escape hatch, e.g. to set an immutable relation at
+        creation time. API inputs never reach it (``read_only`` fields are
+        excluded from the generated input schemas)."""
+        for name in values:
+            if name not in self.meta.fields:
+                raise ValueError(f"Unknown field '{name}' on {type(self).__name__}")
+
+        self._readonly_overrides.update(values)
+
+        for name, value in values.items():
+            setattr(self, name, value)
+
+        return self
+
+    @classmethod
+    def extract_column_values(
+        cls,
+        extracted_values: dict[str, Any],
+        is_update: bool = False,
+        is_partial: bool = False,
+        phase: str = "",
+        instance: Any = None,
+        model_instance: Any = None,
+        evaluate_values: bool = False,
+    ) -> dict[str, Any]:
+        validated = super().extract_column_values(
+            extracted_values,
+            is_update=is_update,
+            is_partial=is_partial,
+            phase=phase,
+            instance=instance,
+            model_instance=model_instance,
+            evaluate_values=evaluate_values,
+        )
+
+        overrides = (
+            getattr(model_instance, "_readonly_overrides", None) if isinstance(model_instance, BaseModel) else None
+        )
+
+        if overrides and phase in ("prepare_insert", "prepare_update"):
+            for name, value in overrides.items():
+                field = cls.meta.fields[name]
+                validated.update(field.clean(name, value))
+
+        return validated
+
     async def save(
         self,
         force_insert: bool = False,
@@ -527,6 +580,7 @@ class BaseModel(Model, metaclass=ModelMeta):
         await acheck_access(type(self), ModelAction.update if is_update else ModelAction.create, self)
         await validate_write_references(self)
         await super().save(force_insert=force_insert, values=values, force_save=force_save)
+        self._readonly_overrides.clear()
         return self
 
     async def delete(self, skip_post_delete_hooks: bool = False) -> int:

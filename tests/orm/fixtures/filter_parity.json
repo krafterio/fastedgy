@@ -1,0 +1,1308 @@
+{
+  "metadata": {
+    "product": {
+      "name": "product",
+      "api_name": "test_products",
+      "label": "Product",
+      "label_plural": "Products",
+      "searchable": true,
+      "searchable_fields": [
+        "name",
+        "description",
+        "secret_code"
+      ],
+      "search_field": "search_value",
+      "sortable": false,
+      "sortable_field": null,
+      "fields": {
+        "name": {
+          "name": "name",
+          "label": "Name",
+          "type": "char",
+          "readonly": false,
+          "required": true,
+          "searchable": true,
+          "extra": false,
+          "filter_operators": [
+            "=",
+            "!=",
+            "like",
+            "ilike",
+            "not like",
+            "not ilike",
+            "starts with",
+            "ends with",
+            "not starts with",
+            "not ends with",
+            "contains",
+            "icontains",
+            "not contains",
+            "not icontains",
+            "match",
+            "in",
+            "not in",
+            "is empty",
+            "is not empty"
+          ],
+          "target": null,
+          "targets": null,
+          "choices": null
+        },
+        "description": {
+          "name": "description",
+          "label": "Description",
+          "type": "text",
+          "readonly": false,
+          "required": false,
+          "searchable": true,
+          "extra": false,
+          "filter_operators": [
+            "=",
+            "!=",
+            "like",
+            "ilike",
+            "not like",
+            "not ilike",
+            "starts with",
+            "ends with",
+            "not starts with",
+            "not ends with",
+            "contains",
+            "icontains",
+            "not contains",
+            "not icontains",
+            "match",
+            "in",
+            "not in",
+            "is empty",
+            "is not empty"
+          ],
+          "target": null,
+          "targets": null,
+          "choices": null
+        },
+        "price": {
+          "name": "price",
+          "label": "Price",
+          "type": "decimal",
+          "readonly": false,
+          "required": true,
+          "searchable": true,
+          "extra": false,
+          "filter_operators": [
+            "=",
+            "!=",
+            "<",
+            "<=",
+            ">",
+            ">=",
+            "between",
+            "in",
+            "not in",
+            "is empty",
+            "is not empty"
+          ],
+          "target": null,
+          "targets": null,
+          "choices": null
+        },
+        "is_active": {
+          "name": "is_active",
+          "label": "Is active",
+          "type": "boolean",
+          "readonly": false,
+          "required": false,
+          "searchable": true,
+          "extra": false,
+          "filter_operators": [
+            "is true",
+            "is false"
+          ],
+          "target": null,
+          "targets": null,
+          "choices": null
+        },
+        "quantity": {
+          "name": "quantity",
+          "label": "Quantity",
+          "type": "integer",
+          "readonly": false,
+          "required": false,
+          "searchable": true,
+          "extra": false,
+          "filter_operators": [
+            "=",
+            "!=",
+            "<",
+            "<=",
+            ">",
+            ">=",
+            "between",
+            "in",
+            "not in",
+            "is empty",
+            "is not empty"
+          ],
+          "target": null,
+          "targets": null,
+          "choices": null
+        },
+        "rating": {
+          "name": "rating",
+          "label": "Rating",
+          "type": "float",
+          "readonly": false,
+          "required": false,
+          "searchable": true,
+          "extra": false,
+          "filter_operators": [
+            "=",
+            "!=",
+            "<",
+            "<=",
+            ">",
+            ">=",
+            "between",
+            "in",
+            "not in",
+            "is empty",
+            "is not empty"
+          ],
+          "target": null,
+          "targets": null,
+          "choices": null
+        },
+        "released_on": {
+          "name": "released_on",
+          "label": "Released on",
+          "type": "date",
+          "readonly": false,
+          "required": false,
+          "searchable": true,
+          "extra": false,
+          "filter_operators": [
+            "=",
+            "!=",
+            "<",
+            "<=",
+            ">",
+            ">=",
+            "between",
+            "is empty",
+            "is not empty"
+          ],
+          "target": null,
+          "targets": null,
+          "choices": null
+        },
+        "published_at": {
+          "name": "published_at",
+          "label": "Published at",
+          "type": "datetime",
+          "readonly": false,
+          "required": false,
+          "searchable": true,
+          "extra": false,
+          "filter_operators": [
+            "=",
+            "!=",
+            "<",
+            "<=",
+            ">",
+            ">=",
+            "between",
+            "is empty",
+            "is not empty"
+          ],
+          "target": null,
+          "targets": null,
+          "choices": null
+        },
+        "reference": {
+          "name": "reference",
+          "label": "Reference",
+          "type": "uuid",
+          "readonly": false,
+          "required": false,
+          "searchable": true,
+          "extra": false,
+          "filter_operators": [
+            "=",
+            "!=",
+            "like",
+            "ilike",
+            "not like",
+            "not ilike",
+            "starts with",
+            "ends with",
+            "not starts with",
+            "not ends with",
+            "contains",
+            "icontains",
+            "not contains",
+            "not icontains",
+            "match",
+            "in",
+            "not in",
+            "is empty",
+            "is not empty"
+          ],
+          "target": null,
+          "targets": null,
+          "choices": null
+        },
+        "details": {
+          "name": "details",
+          "label": "Details",
+          "type": "json",
+          "readonly": false,
+          "required": false,
+          "searchable": true,
+          "extra": false,
+          "filter_operators": [
+            "is empty",
+            "is not empty"
+          ],
+          "target": null,
+          "targets": null,
+          "choices": null
+        },
+        "category": {
+          "name": "category",
+          "label": "Category",
+          "type": "many2one",
+          "readonly": false,
+          "required": false,
+          "searchable": true,
+          "extra": false,
+          "filter_operators": [
+            "=",
+            "!=",
+            "in",
+            "not in",
+            "is empty",
+            "is not empty"
+          ],
+          "target": "category",
+          "targets": null,
+          "choices": null
+        },
+        "tags": {
+          "name": "tags",
+          "label": "Tags",
+          "type": "many2many",
+          "readonly": false,
+          "required": false,
+          "searchable": true,
+          "extra": false,
+          "filter_operators": [
+            "in",
+            "not in",
+            "is empty",
+            "is not empty"
+          ],
+          "target": "tag",
+          "targets": null,
+          "choices": null
+        },
+        "id": {
+          "name": "id",
+          "label": "ID",
+          "type": "integer",
+          "readonly": true,
+          "required": false,
+          "searchable": true,
+          "extra": false,
+          "filter_operators": [
+            "=",
+            "!=",
+            "<",
+            "<=",
+            ">",
+            ">=",
+            "between",
+            "in",
+            "not in",
+            "is empty",
+            "is not empty"
+          ],
+          "target": null,
+          "targets": null,
+          "choices": null
+        },
+        "created_at": {
+          "name": "created_at",
+          "label": "Created at",
+          "type": "datetime",
+          "readonly": true,
+          "required": false,
+          "searchable": true,
+          "extra": false,
+          "filter_operators": [
+            "=",
+            "!=",
+            "<",
+            "<=",
+            ">",
+            ">=",
+            "between",
+            "is empty",
+            "is not empty"
+          ],
+          "target": null,
+          "targets": null,
+          "choices": null
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "label": "Updated at",
+          "type": "datetime",
+          "readonly": true,
+          "required": false,
+          "searchable": true,
+          "extra": false,
+          "filter_operators": [
+            "=",
+            "!=",
+            "<",
+            "<=",
+            ">",
+            ">=",
+            "between",
+            "is empty",
+            "is not empty"
+          ],
+          "target": null,
+          "targets": null,
+          "choices": null
+        },
+        "search_value": {
+          "name": "search_value",
+          "label": "Fulltext search value",
+          "type": "fulltext",
+          "readonly": false,
+          "required": false,
+          "searchable": true,
+          "extra": false,
+          "filter_operators": [
+            "search",
+            "search_fuzzy"
+          ],
+          "target": null,
+          "targets": null,
+          "choices": null
+        },
+        "notes": {
+          "name": "notes",
+          "label": "Notes",
+          "type": "one2many",
+          "readonly": false,
+          "required": false,
+          "searchable": false,
+          "extra": false,
+          "filter_operators": [
+            "in",
+            "not in",
+            "is empty",
+            "is not empty"
+          ],
+          "target": "note",
+          "targets": null,
+          "choices": null
+        },
+        "annotations": {
+          "name": "annotations",
+          "label": "Annotations",
+          "type": "one2many",
+          "readonly": false,
+          "required": false,
+          "searchable": false,
+          "extra": false,
+          "filter_operators": [
+            "in",
+            "not in",
+            "is empty",
+            "is not empty"
+          ],
+          "target": "annotation",
+          "targets": null,
+          "choices": null
+        }
+      }
+    },
+    "category": {
+      "name": "category",
+      "api_name": "test_categories",
+      "label": "Category",
+      "label_plural": "Categorys",
+      "searchable": false,
+      "searchable_fields": [
+        "name",
+        "description"
+      ],
+      "search_field": null,
+      "sortable": false,
+      "sortable_field": null,
+      "fields": {
+        "name": {
+          "name": "name",
+          "label": "Name",
+          "type": "char",
+          "readonly": false,
+          "required": true,
+          "searchable": true,
+          "extra": false,
+          "filter_operators": [
+            "=",
+            "!=",
+            "like",
+            "ilike",
+            "not like",
+            "not ilike",
+            "starts with",
+            "ends with",
+            "not starts with",
+            "not ends with",
+            "contains",
+            "icontains",
+            "not contains",
+            "not icontains",
+            "match",
+            "in",
+            "not in",
+            "is empty",
+            "is not empty"
+          ],
+          "target": null,
+          "targets": null,
+          "choices": null
+        },
+        "description": {
+          "name": "description",
+          "label": "Description",
+          "type": "text",
+          "readonly": false,
+          "required": false,
+          "searchable": true,
+          "extra": false,
+          "filter_operators": [
+            "=",
+            "!=",
+            "like",
+            "ilike",
+            "not like",
+            "not ilike",
+            "starts with",
+            "ends with",
+            "not starts with",
+            "not ends with",
+            "contains",
+            "icontains",
+            "not contains",
+            "not icontains",
+            "match",
+            "in",
+            "not in",
+            "is empty",
+            "is not empty"
+          ],
+          "target": null,
+          "targets": null,
+          "choices": null
+        },
+        "id": {
+          "name": "id",
+          "label": "ID",
+          "type": "integer",
+          "readonly": true,
+          "required": false,
+          "searchable": true,
+          "extra": false,
+          "filter_operators": [
+            "=",
+            "!=",
+            "<",
+            "<=",
+            ">",
+            ">=",
+            "between",
+            "in",
+            "not in",
+            "is empty",
+            "is not empty"
+          ],
+          "target": null,
+          "targets": null,
+          "choices": null
+        },
+        "created_at": {
+          "name": "created_at",
+          "label": "Created at",
+          "type": "datetime",
+          "readonly": true,
+          "required": false,
+          "searchable": true,
+          "extra": false,
+          "filter_operators": [
+            "=",
+            "!=",
+            "<",
+            "<=",
+            ">",
+            ">=",
+            "between",
+            "is empty",
+            "is not empty"
+          ],
+          "target": null,
+          "targets": null,
+          "choices": null
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "label": "Updated at",
+          "type": "datetime",
+          "readonly": true,
+          "required": false,
+          "searchable": true,
+          "extra": false,
+          "filter_operators": [
+            "=",
+            "!=",
+            "<",
+            "<=",
+            ">",
+            ">=",
+            "between",
+            "is empty",
+            "is not empty"
+          ],
+          "target": null,
+          "targets": null,
+          "choices": null
+        },
+        "notes": {
+          "name": "notes",
+          "label": "Notes",
+          "type": "one2many",
+          "readonly": false,
+          "required": false,
+          "searchable": false,
+          "extra": false,
+          "filter_operators": [
+            "in",
+            "not in",
+            "is empty",
+            "is not empty"
+          ],
+          "target": "note",
+          "targets": null,
+          "choices": null
+        },
+        "annotations": {
+          "name": "annotations",
+          "label": "Annotations",
+          "type": "one2many",
+          "readonly": false,
+          "required": false,
+          "searchable": false,
+          "extra": false,
+          "filter_operators": [
+            "in",
+            "not in",
+            "is empty",
+            "is not empty"
+          ],
+          "target": "annotation",
+          "targets": null,
+          "choices": null
+        },
+        "products": {
+          "name": "products",
+          "label": "Products",
+          "type": "one2many",
+          "readonly": true,
+          "required": false,
+          "searchable": true,
+          "extra": false,
+          "filter_operators": [
+            "in",
+            "not in",
+            "is empty",
+            "is not empty"
+          ],
+          "target": "product",
+          "targets": null,
+          "choices": null
+        }
+      }
+    }
+  },
+  "records": {
+    "product": [
+      {
+        "name": "Laptop Pro",
+        "description": "A great laptop",
+        "price": "999.99",
+        "is_active": false,
+        "quantity": 5,
+        "rating": 4.5,
+        "released_on": "2024-03-01",
+        "published_at": "2024-03-01T12:00:00",
+        "reference": "aaaaaaaa-0000-0000-0000-000000000001",
+        "details": null,
+        "category": {
+          "id": 1
+        },
+        "id": 1,
+        "created_at": "2026-07-22T19:51:07.986367",
+        "updated_at": "2026-07-22T19:51:07.986370"
+      },
+      {
+        "name": "laptop mini",
+        "description": null,
+        "price": "499.00",
+        "is_active": true,
+        "quantity": 0,
+        "rating": null,
+        "released_on": "2023-11-15",
+        "published_at": "2023-11-15T09:30:00",
+        "reference": "bbbbbbbb-0000-0000-0000-000000000002",
+        "details": null,
+        "category": {
+          "id": 1
+        },
+        "id": 2,
+        "created_at": "2026-07-22T19:51:07.996677",
+        "updated_at": "2026-07-22T19:51:07.996682"
+      },
+      {
+        "name": "Novel",
+        "description": "A short novel",
+        "price": "9.50",
+        "is_active": true,
+        "quantity": 12,
+        "rating": 3.9,
+        "released_on": null,
+        "published_at": null,
+        "reference": null,
+        "details": null,
+        "category": {
+          "id": 2
+        },
+        "id": 3,
+        "created_at": "2026-07-22T19:51:07.998441",
+        "updated_at": "2026-07-22T19:51:07.998445"
+      },
+      {
+        "name": "Mystery box",
+        "description": null,
+        "price": "49.90",
+        "is_active": true,
+        "quantity": 3,
+        "rating": null,
+        "released_on": "2024-06-10",
+        "published_at": "2024-06-10T08:00:00",
+        "reference": null,
+        "details": null,
+        "category": null,
+        "id": 4,
+        "created_at": "2026-07-22T19:51:07.999883",
+        "updated_at": "2026-07-22T19:51:07.999886"
+      }
+    ],
+    "category": [
+      {
+        "name": "Electronics",
+        "description": "Devices",
+        "id": 1,
+        "created_at": "2026-07-22T19:51:07.974913",
+        "updated_at": "2026-07-22T19:51:07.974921"
+      },
+      {
+        "name": "Books",
+        "description": null,
+        "id": 2,
+        "created_at": "2026-07-22T19:51:07.978183",
+        "updated_at": "2026-07-22T19:51:07.978186"
+      },
+      {
+        "name": "Empty",
+        "description": "No product",
+        "id": 3,
+        "created_at": "2026-07-22T19:51:07.979451",
+        "updated_at": "2026-07-22T19:51:07.979455"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "model": "product",
+      "filter": [
+        "name",
+        "=",
+        "Laptop Pro"
+      ],
+      "expected_ids": [
+        1
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "name",
+        "!=",
+        "Laptop Pro"
+      ],
+      "expected_ids": [
+        2,
+        3,
+        4
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "name",
+        "like",
+        "Lap%"
+      ],
+      "expected_ids": [
+        1
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "name",
+        "like",
+        "lap%"
+      ],
+      "expected_ids": [
+        2
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "name",
+        "ilike",
+        "lap%"
+      ],
+      "expected_ids": [
+        1,
+        2
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "name",
+        "not like",
+        "Lap%"
+      ],
+      "expected_ids": [
+        2,
+        3,
+        4
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "name",
+        "not ilike",
+        "lap%"
+      ],
+      "expected_ids": [
+        3,
+        4
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "name",
+        "contains",
+        "aptop"
+      ],
+      "expected_ids": [
+        1,
+        2
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "name",
+        "contains",
+        "APTOP"
+      ],
+      "expected_ids": [],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "name",
+        "icontains",
+        "APTOP"
+      ],
+      "expected_ids": [
+        1,
+        2
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "name",
+        "not contains",
+        "aptop"
+      ],
+      "expected_ids": [
+        3,
+        4
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "name",
+        "not icontains",
+        "APTOP"
+      ],
+      "expected_ids": [
+        3,
+        4
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "name",
+        "starts with",
+        "Lap"
+      ],
+      "expected_ids": [
+        1
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "name",
+        "not starts with",
+        "Lap"
+      ],
+      "expected_ids": [
+        2,
+        3,
+        4
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "name",
+        "ends with",
+        "mini"
+      ],
+      "expected_ids": [
+        2
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "name",
+        "not ends with",
+        "mini"
+      ],
+      "expected_ids": [
+        1,
+        3,
+        4
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "description",
+        "not icontains",
+        "great"
+      ],
+      "expected_ids": [
+        3
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "price",
+        ">=",
+        500
+      ],
+      "expected_ids": [
+        1
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "price",
+        "between",
+        [
+          10,
+          600
+        ]
+      ],
+      "expected_ids": [
+        2,
+        4
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "quantity",
+        "in",
+        [
+          0,
+          5
+        ]
+      ],
+      "expected_ids": [
+        1,
+        2
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "quantity",
+        "not in",
+        [
+          0,
+          5
+        ]
+      ],
+      "expected_ids": [
+        3,
+        4
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "is_active",
+        "is true"
+      ],
+      "expected_ids": [
+        2,
+        3,
+        4
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "is_active",
+        "is false"
+      ],
+      "expected_ids": [
+        1
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "rating",
+        "is empty"
+      ],
+      "expected_ids": [
+        2,
+        4
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "rating",
+        "is not empty"
+      ],
+      "expected_ids": [
+        1,
+        3
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "rating",
+        ">",
+        4
+      ],
+      "expected_ids": [
+        1
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "released_on",
+        ">=",
+        "2024-01-01"
+      ],
+      "expected_ids": [
+        1,
+        4
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "published_at",
+        "<",
+        "2024-06-01T00:00:00"
+      ],
+      "expected_ids": [
+        1,
+        2
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "category",
+        "is empty"
+      ],
+      "expected_ids": [
+        4
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "category.name",
+        "=",
+        "Electronics"
+      ],
+      "expected_ids": [
+        1,
+        2
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "category.description",
+        "is empty"
+      ],
+      "expected_ids": [
+        3,
+        4
+      ],
+      "ordered": false
+    },
+    {
+      "model": "category",
+      "filter": [
+        "products.is_active",
+        "is true"
+      ],
+      "expected_ids": [
+        1,
+        2
+      ],
+      "ordered": false
+    },
+    {
+      "model": "category",
+      "filter": [
+        "products.name",
+        "ilike",
+        "%novel%"
+      ],
+      "expected_ids": [
+        2
+      ],
+      "ordered": false
+    },
+    {
+      "model": "category",
+      "filter": [
+        [
+          "products.name",
+          "=",
+          "Laptop Pro"
+        ],
+        [
+          "products.is_active",
+          "is false"
+        ]
+      ],
+      "expected_ids": [
+        1
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "|",
+        [
+          [
+            "category.name",
+            "=",
+            "Books"
+          ],
+          [
+            "price",
+            "<",
+            10
+          ]
+        ]
+      ],
+      "expected_ids": [
+        3
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        [
+          "is_active",
+          "is true"
+        ],
+        [
+          "|",
+          [
+            [
+              "quantity",
+              ">",
+              3
+            ],
+            [
+              "name",
+              "ends with",
+              "mini"
+            ]
+          ]
+        ]
+      ],
+      "expected_ids": [
+        2,
+        3
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "order_by": "name,id",
+      "expected_ids": [
+        2,
+        1,
+        4,
+        3
+      ],
+      "ordered": true
+    },
+    {
+      "model": "product",
+      "order_by": "price:desc,id",
+      "expected_ids": [
+        1,
+        2,
+        4,
+        3
+      ],
+      "ordered": true
+    },
+    {
+      "model": "product",
+      "order_by": "rating,id",
+      "expected_ids": [
+        3,
+        1,
+        2,
+        4
+      ],
+      "ordered": true
+    },
+    {
+      "model": "product",
+      "order_by": "rating:desc,id",
+      "expected_ids": [
+        2,
+        4,
+        1,
+        3
+      ],
+      "ordered": true
+    },
+    {
+      "model": "product",
+      "order_by": "category.name,id",
+      "expected_ids": [
+        3,
+        1,
+        2,
+        4
+      ],
+      "ordered": true
+    },
+    {
+      "model": "product",
+      "order_by": "category.name:desc,id",
+      "expected_ids": [
+        4,
+        1,
+        2,
+        3
+      ],
+      "ordered": true
+    },
+    {
+      "model": "product",
+      "order_by": "name,id",
+      "limit": 2,
+      "offset": 1,
+      "expected_ids": [
+        1,
+        4
+      ],
+      "ordered": true
+    }
+  ]
+}

@@ -36,7 +36,7 @@ class BaseUser(BaseModel):
 
     name: str | None = fields.CharField(max_length=255, null=True, label=_ts("Name"))
 
-    password: str | None = fields.PasswordField(exclude=True, label=_ts("Password"))
+    password: str | None = fields.PasswordField(exclude=True, null=True, label=_ts("Password"))
 
     initials: str | None = fields.ComputedField(getter="get_initials", label=_ts("Initials"))
 

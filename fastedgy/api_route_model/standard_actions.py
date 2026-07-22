@@ -13,6 +13,7 @@ from fastedgy.api_route_model.actions.import_template_action import (
 from fastedgy.api_route_model.actions.get_action import GetApiRouteAction
 from fastedgy.api_route_model.actions.list_action import ListApiRouteAction
 from fastedgy.api_route_model.actions.patch_action import PatchApiRouteAction
+from fastedgy.api_route_model.actions.sync_action import SyncApiRouteAction
 
 
 def register_standard_api_route_model_actions():
@@ -26,6 +27,7 @@ def register_standard_api_route_model_actions():
     arar.register_action(CreateApiRouteAction)
     arar.register_action(PatchApiRouteAction)
     arar.register_action(DeleteApiRouteAction)
+    arar.register_action(SyncApiRouteAction)
 
 
 __all__ = [

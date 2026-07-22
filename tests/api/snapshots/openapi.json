@@ -4993,6 +4993,160 @@
         "title": "SimpleMessage",
         "type": "object"
       },
+      "SyncApplyInput": {
+        "properties": {
+          "operations": {
+            "items": {
+              "$ref": "#/components/schemas/SyncOperation"
+            },
+            "title": "Operations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "operations"
+        ],
+        "title": "SyncApplyInput",
+        "type": "object"
+      },
+      "SyncApplyResult": {
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/SyncOperationResult"
+            },
+            "title": "Results",
+            "type": "array"
+          }
+        },
+        "required": [
+          "results"
+        ],
+        "title": "SyncApplyResult",
+        "type": "object"
+      },
+      "SyncOperation": {
+        "properties": {
+          "base": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "op": {
+            "enum": [
+              "update",
+              "delete"
+            ],
+            "title": "Op",
+            "type": "string"
+          },
+          "payload": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payload"
+          }
+        },
+        "required": [
+          "op",
+          "id"
+        ],
+        "title": "SyncOperation",
+        "type": "object"
+      },
+      "SyncOperationResult": {
+        "properties": {
+          "applied_fields": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Applied Fields"
+          },
+          "discarded_fields": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discarded Fields"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "record": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Record"
+          },
+          "status": {
+            "enum": [
+              "applied",
+              "merged",
+              "conflict",
+              "deleted"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status"
+        ],
+        "title": "SyncOperationResult",
+        "type": "object"
+      },
       "Tag": {
         "properties": {
           "created_at": {
@@ -12804,6 +12958,53 @@
         ]
       }
     },
+    "/api/test_products/sync": {
+      "post": {
+        "description": "Apply a batch of buffered offline Product updates/deletes with per-field three-way merge conflict resolution",
+        "operationId": "sync_items_api_test_products_sync_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SyncApplyInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncApplyResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Sync buffered Product writes",
+        "tags": [
+          "test_products"
+        ]
+      }
+    },
     "/api/test_products/{item_id}": {
       "delete": {
         "description": "Delete a Product by its ID",
@@ -13519,36 +13720,30 @@
         ]
       }
     },
-    "/api/test_tags/{item_id}": {
-      "delete": {
-        "description": "Delete a Tag by its ID",
-        "operationId": "delete_item_api_test_tags__item_id__delete",
-        "parameters": [
-          {
-            "description": "Item ID",
-            "in": "path",
-            "name": "item_id",
-            "required": true,
-            "schema": {
-              "description": "Item ID",
-              "title": "Item Id",
-              "type": "integer"
+    "/api/test_tags/sync": {
+      "post": {
+        "description": "Apply a batch of buffered offline Tag updates/deletes with per-field three-way merge conflict resolution",
+        "operationId": "sync_items_api_test_tags_sync_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SyncApplyInput"
+              }
             }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Successful Response"
           },
-          "404": {
+          "required": true
+        },
+        "responses": {
+          "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
+                  "$ref": "#/components/schemas/SyncApplyResult"
                 }
               }
             },
-            "description": "Item not found"
+            "description": "Successful Response"
           },
           "422": {
             "content": {
@@ -13566,11 +13761,13 @@
             "OAuth2PasswordBearer": []
           }
         ],
-        "summary": "Delete Tag",
+        "summary": "Sync buffered Tag writes",
         "tags": [
           "test_tags"
         ]
-      },
+      }
+    },
+    "/api/test_tags/{item_id}": {
       "get": {
         "description": "Retrieve a single Tag by its ID",
         "operationId": "get_item_api_test_tags__item_id__get",

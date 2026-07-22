@@ -10,7 +10,7 @@ from fastedgy.test.models.category import Category
 from fastedgy.test.models.tag import Tag
 
 
-@api_route_model()
+@api_route_model(sync=True)
 class Product(BaseModel, SearchableMixin):
     name = fields.CharField(max_length=200)
     description = fields.TextField(null=True)

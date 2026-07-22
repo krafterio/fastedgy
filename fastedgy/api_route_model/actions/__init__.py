@@ -11,6 +11,7 @@ from fastedgy.api_route_model.actions.import_action import ImportApiRouteAction
 from fastedgy.api_route_model.actions.import_template_action import (
     ImportTemplateApiRouteAction,
 )
+from fastedgy.api_route_model.actions.sync_action import SyncApiRouteAction
 
 
 __all__ = [
@@ -22,4 +23,5 @@ __all__ = [
     "ExportApiRouteAction",
     "ImportApiRouteAction",
     "ImportTemplateApiRouteAction",
+    "SyncApiRouteAction",
 ]

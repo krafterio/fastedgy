@@ -6,7 +6,7 @@ from fastedgy.models.base import BaseModel
 from fastedgy.api_route_model import api_route_model
 
 
-@api_route_model()
+@api_route_model(sync=True, delete=False)
 class Tag(BaseModel):
     name = fields.CharField(max_length=100)
 

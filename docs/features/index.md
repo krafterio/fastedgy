@@ -64,6 +64,14 @@ Enhanced database capabilities with advanced field types and migration tools.
 
     [Learn more →](orm-migration/overview.md)
 
+-   **:material-database-import: Init Data**
+
+    ---
+
+    Declarative, idempotent seed data with stable external IDs, relation and file resolution.
+
+    [Learn more →](init-data/overview.md)
+
 </div>
 
 ## Core Features

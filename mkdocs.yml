@@ -165,6 +165,9 @@ nav:
       - Database Migration:
         - Overview: features/orm-migration/overview.md
         - Usage Guide: features/orm-migration/guide.md
+      - Init Data:
+        - Overview: features/init-data/overview.md
+        - Usage Guide: features/init-data/guide.md
     - Core Features:
       - Container Service:
         - Overview: features/container-service/overview.md

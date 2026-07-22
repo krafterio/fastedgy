@@ -148,17 +148,81 @@ async def test_operations_apply_in_order(auth_http: httpx.AsyncClient) -> None:
     assert (await _get(auth_http, product["id"]))["quantity"] == 3
 
 
-async def test_invalid_payload_rejects_the_batch(auth_http: httpx.AsyncClient) -> None:
+async def test_invalid_operation_is_rejected_alone(auth_http: httpx.AsyncClient) -> None:
     product = await make_product(auth_http, name="Laptop")
     base = await _get(auth_http, product["id"])
 
-    response = await auth_http.post(
-        "/api/test_products/sync",
-        json={"operations": [_op(base, {"quantity": "not-a-number"})]},
+    results = await _sync(
+        auth_http,
+        [
+            _op(base, {"quantity": "not-a-number"}),
+            _op(base, {"quantity": 7}),
+        ],
     )
 
+    assert results[0]["status"] == "rejected"
+    assert results[0]["detail"]
+    assert results[1]["status"] == "applied"
+    assert (await _get(auth_http, product["id"]))["quantity"] == 7
+
+
+async def test_integrity_violation_only_rejects_its_operation(auth_http: httpx.AsyncClient) -> None:
+    # A NOT NULL violation aborts the operation's savepoint, not the batch.
+    product = await make_product(auth_http, name="Laptop")
+    base = await _get(auth_http, product["id"])
+
+    results = await _sync(
+        auth_http,
+        [
+            _op(base, {"name": None}),
+            _op(base, {"quantity": 9}),
+        ],
+    )
+
+    assert results[0]["status"] == "rejected"
+    assert results[1]["status"] == "applied"
+    fetched = await _get(auth_http, product["id"])
+    assert fetched["name"] == "Laptop"
+    assert fetched["quantity"] == 9
+
+
+async def test_batch_size_is_capped(auth_http: httpx.AsyncClient) -> None:
+    operations = [
+        {"op": "update", "id": index, "payload": {"quantity": 1}, "base": None, "created_at": None}
+        for index in range(501)
+    ]
+
+    response = await auth_http.post("/api/test_products/sync", json={"operations": operations})
+
     assert response.status_code == 422
-    assert (await _get(auth_http, product["id"]))["name"] == "Laptop"
+
+
+async def test_relation_shape_differences_do_not_conflict(auth_http: httpx.AsyncClient) -> None:
+    # The client base holds the relation as an X-Fields subobject while the
+    # server compares against an id-only shape: relations diff by id.
+    category_a = (await auth_http.post("/api/test_categories", json={"name": "A"})).json()
+    category_b = (await auth_http.post("/api/test_categories", json={"name": "B"})).json()
+    product = await make_product(auth_http, name="Laptop", category=category_a["id"])
+
+    base_response = await auth_http.get(
+        f"/api/test_products/{product['id']}",
+        headers={"X-Fields": "id,name,quantity,category.name"},
+    )
+    base = base_response.json()
+    assert base["category"] == {"id": category_a["id"], "name": "A"}
+
+    # Fresh server write on another field: without id-normalization the
+    # category shape difference would flag a spurious conflict.
+    await auth_http.patch(f"/api/test_products/{product['id']}", json={"quantity": 5})
+
+    results = await _sync(
+        auth_http,
+        [_op(base, {"category": category_b["id"]}, created_at="1900-01-01T00:00:00Z")],
+    )
+
+    assert results[0]["status"] == "applied"
+    fetched = await _get(auth_http, product["id"])
+    assert fetched["category"] == {"id": category_b["id"]}
 
 
 async def test_allowed_ops_align_with_the_model_route_config(auth_http: httpx.AsyncClient) -> None:

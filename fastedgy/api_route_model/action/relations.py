@@ -164,15 +164,26 @@ def _foreign_key_record_ops(value: Any) -> set[str]:
     return set()
 
 
-def _relational_record_ops(operations: Any) -> set[str]:
-    """The record-mutating operations a normalized operation list implies."""
+_LINK_OPS = {"link", "unlink", "set", "clear"}
+
+
+def _relational_record_ops(operations: Any, rewrites_target: bool = False) -> set[str]:
+    """The record-mutating operations a normalized operation list implies.
+
+    On a to-many reverse relation (O2M, generic), the link-level operations
+    re-point the foreign key stored on the TARGET records — they count as an
+    ``update`` of the target. M2M link operations only touch the through
+    table and stay free."""
     ops: set[str] = set()
 
     for operation in operations:
         if isinstance(operation, (list, tuple)) and operation and isinstance(operation[0], str):
             ops.add(operation[0])
 
-    return ops & _RECORD_OPS
+    if rewrites_target and ops & _LINK_OPS:
+        ops.add("update")
+
+    return ops & (_RECORD_OPS | {"update"})
 
 
 def _plain_foreign_key_value(value: Any) -> Any:
@@ -290,7 +301,12 @@ async def process_relational_fields(
 
         # Process all relational fields (M2M and O2M) with the same operations
         if is_relation_field(field):
-            ensure_relation_write_allowed(related_model, _relational_record_ops(operations), field_name)
+            rewrites_target = getattr(field, "is_m2m", False) is not True
+            ensure_relation_write_allowed(
+                related_model,
+                _relational_record_ops(operations, rewrites_target=rewrites_target),
+                field_name,
+            )
 
             try:
                 await process_relation_operations(instance, field_name, operations, related_model)

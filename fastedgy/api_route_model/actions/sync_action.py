@@ -57,10 +57,15 @@ from fastedgy.http import Request
 from fastedgy.models.base import BaseModel, BaseView
 from fastedgy.orm import transaction
 from fastedgy.orm.field_selector import filter_selected_fields
+from fastedgy.orm.transaction import with_transaction
 from fastedgy.orm.manager import BaseManager
 from fastedgy.orm.query import QuerySet
-from fastedgy.schemas import BaseModel as BaseSchema
+from fastedgy.schemas import BaseModel as BaseSchema, Field
 from fastedgy.timezone import ensure_aware
+
+from sqlalchemy.exc import IntegrityError
+
+MAX_SYNC_OPERATIONS = 500
 
 
 class SyncOperation(BaseSchema):
@@ -73,14 +78,15 @@ class SyncOperation(BaseSchema):
 
 class SyncOperationResult(BaseSchema):
     id: int
-    status: Literal["applied", "merged", "conflict", "deleted"]
+    status: Literal["applied", "merged", "conflict", "deleted", "rejected"]
     record: dict[str, Any] | None = None
     applied_fields: list[str] | None = None
     discarded_fields: list[str] | None = None
+    detail: str | None = None
 
 
 class SyncApplyInput(BaseSchema):
-    operations: list[SyncOperation]
+    operations: list[SyncOperation] = Field(max_length=MAX_SYNC_OPERATIONS)
 
 
 class SyncApplyResult(BaseSchema):
@@ -148,9 +154,36 @@ async def sync_items_action[M: BaseModel | BaseView](
                 ),
             )
 
-    results = [await _apply(request, model_cls, operation, query) for operation in operations]
+    results = [await _guarded_apply(request, model_cls, operation, query) for operation in operations]
 
     return SyncApplyResult(results=results)
+
+
+async def _guarded_apply[M: BaseModel | BaseView](
+    request: Request,
+    model_cls: type[M],
+    operation: SyncOperation,
+    query: QuerySet | BaseManager | None = None,
+) -> SyncOperationResult:
+    """Apply one operation in its own savepoint.
+
+    An applicative failure (invalid payload, integrity violation, 4xx raised
+    by the nested actions) only rejects that operation — the savepoint is
+    rolled back and the rest of the batch still applies. Server errors and
+    serialization conflicts propagate (the outer transaction handles them)."""
+    try:
+        return await with_transaction(lambda: _apply(request, model_cls, operation, query))
+    except (RequestValidationError, ValidationError) as error:
+        detail = str(error)
+    except IntegrityError as error:
+        detail = str(getattr(error, "orig", error))
+    except HTTPException as error:
+        if error.status_code >= 500:
+            raise
+
+        detail = error.detail if isinstance(error.detail, str) else str(error.detail)
+
+    return SyncOperationResult(id=operation.id, status="rejected", detail=detail)
 
 
 def allowed_sync_ops(model_cls: TypeModel) -> tuple[str, ...]:
@@ -279,9 +312,21 @@ def _changed_fields[M: BaseModel | BaseView](
     return {
         field
         for field in fields
-        if json.dumps(base.get(field), sort_keys=True, default=str)
-        != json.dumps(current.get(field), sort_keys=True, default=str)
+        if json.dumps(_comparable(base.get(field)), sort_keys=True, default=str)
+        != json.dumps(_comparable(current.get(field)), sort_keys=True, default=str)
     }
+
+
+def _comparable(value: Any) -> Any:
+    """Normalize a value for the three-way diff.
+
+    A to-one relation serializes as an object whose shape depends on the
+    selection (the client base may hold ``{"id", "name"}`` where the server
+    holds ``{"id"}``): compare relations by id only."""
+    if isinstance(value, dict) and "id" in value:
+        return value["id"]
+
+    return value
 
 
 def _server_managed_fields(model_cls: type[BaseModel | BaseView]) -> set[str]:

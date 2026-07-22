@@ -12,6 +12,7 @@ from fastedgy.test.models.queued_task_worker import QueuedTaskWorker
 from fastedgy.test.models.tag import Tag
 from fastedgy.test.models.category import Category
 from fastedgy.test.models.product import Product
+from fastedgy.test.models.comment import Comment
 from fastedgy.test.models.note import Note
 from fastedgy.test.models.annotation import Annotation
 from fastedgy.test.models.global_filter import (
@@ -44,6 +45,7 @@ DEMO_MODELS = [
     Tag,
     Category,
     Product,
+    Comment,
     Note,
     Annotation,
 ]
@@ -63,6 +65,7 @@ __all__ = [
     "Tag",
     "Category",
     "Product",
+    "Comment",
     "Note",
     "Annotation",
     "GfArticle",

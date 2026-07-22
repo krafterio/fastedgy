@@ -4,6 +4,14 @@ This guide shows how to use FastEdgy's enhanced Alembic integration for database
 
 ## Setup
 
+Bootstrap everything in one command — it creates the database if missing, initializes the migration repository and generates an initial migration when none exists, applies pending migrations and loads init-data:
+
+```bash
+fastedgy db setup
+```
+
+The sections below run the same steps individually when you need finer control.
+
 Create the database:
 
 ```bash

@@ -14,6 +14,14 @@ fastedgy db createdb
 fastedgy db init --template fastedgy
 ```
 
+### Database setup in one command
+
+`db setup` chains the full database bootstrap: it creates the database if missing, initializes the migration repository and generates an initial migration when none exists, applies pending migrations and loads init-data. Running it again on an existing database only applies migrations and reloads init-data.
+
+```bash
+fastedgy db setup
+```
+
 ### Translation management
 ```bash
 fastedgy trans extract

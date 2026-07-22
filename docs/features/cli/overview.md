@@ -16,6 +16,7 @@ FastEdgy provides a rich command-line interface built on Rich Click, offering be
 FastEdgy includes several useful commands out of the box:
 
 - **`serve`**: Start the development server with hot reload
+- **`db setup`**: Bootstrap the database in one command (create, migrate, init-data)
 - **`db createdb`**: Create the database
 - **`db init`**: Initialize Alembic for database migrations
 - **`trans extract`**: Extract translatable strings for internationalization

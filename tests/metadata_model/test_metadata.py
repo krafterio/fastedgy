@@ -27,3 +27,18 @@ async def test_is_registered(setup_db: FastEdgy) -> None:
     registry = get_service(MetadataModelRegistry)
 
     assert await registry.is_registered("product") is True
+
+
+async def test_synchronizable_derives_from_the_sync_action(setup_db: FastEdgy) -> None:
+    registry = get_service(MetadataModelRegistry)
+
+    # Auto: the sync action is enabled (product) / absent (category).
+    assert (await registry.get_metadata("product")).synchronizable is True
+    assert (await registry.get_metadata("category")).synchronizable is False
+
+
+async def test_synchronizable_override_wins_over_the_action(setup_db: FastEdgy) -> None:
+    # Comment disables every public write action but forces the override.
+    metadata = await get_service(MetadataModelRegistry).get_metadata("comment")
+
+    assert metadata.synchronizable is True

@@ -1893,6 +1893,11 @@
               }
             ],
             "title": "Sortable Field"
+          },
+          "synchronizable": {
+            "default": false,
+            "title": "Synchronizable",
+            "type": "boolean"
           }
         },
         "required": [

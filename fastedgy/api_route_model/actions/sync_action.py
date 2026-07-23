@@ -187,6 +187,15 @@ async def _guarded_apply[M: BaseModel | BaseView](
     return SyncOperationResult(id=operation.id, status="rejected", detail=detail)
 
 
+def is_sync_enabled(model_cls: TypeModel) -> bool:
+    """Whether the opt-in ``sync`` action is enabled on the model's route config.
+
+    Drives the ``synchronizable`` metadata flag: a model exposes offline sync as
+    soon as its ``api_route_model`` registers the ``sync`` action.
+    """
+    return SyncApiRouteAction.should_register(_registered_actions_options(model_cls))
+
+
 def allowed_sync_ops(model_cls: TypeModel) -> tuple[str, ...]:
     """The sync operations the model's route configuration allows.
 
@@ -387,6 +396,7 @@ def _jsonable(record: dict[str, Any]) -> dict[str, Any]:
 
 __all__ = [
     "SyncApiRouteAction",
+    "is_sync_enabled",
     "allowed_sync_ops",
     "SyncOperation",
     "SyncOperationResult",

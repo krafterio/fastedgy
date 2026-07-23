@@ -67,6 +67,7 @@ class MetadataModel(BaseModel):
     search_field: str | None = None
     sortable: bool
     sortable_field: str | None = None
+    synchronizable: bool = False
     fields: dict[str, MetadataField]
 
 

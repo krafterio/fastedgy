@@ -17,6 +17,9 @@ class Comment(BaseModel):
 
     class Meta(BaseModel.Meta):
         tablename = "test_comments"
+        # No public write action, yet forced synchronizable (mirrors models
+        # synced through custom routes): the metadata override wins.
+        synchronizable = True
 
 
 __all__ = [

@@ -433,6 +433,12 @@ class Post(BaseModel):
     content = fields.TextField(label=_t('Content'))
 ```
 
+Add `merge_blocks=True` to resolve concurrent edits with a line-based three-way merge during [offline sync](../offline-sync/guide.md#block-text-merge) instead of dropping a whole side:
+
+```python
+    description = fields.TextField(null=True, merge_blocks=True)
+```
+
 ## Time
 
 Time field for storing time information (hours, minutes, seconds).

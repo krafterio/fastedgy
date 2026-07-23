@@ -116,6 +116,37 @@ class Product(BaseModel):
         ]
 ```
 
+## Read-only fields
+
+Mark a field `read_only=True` when it must never be set from an API input — a platform role, an immutable owner, a value derived server-side:
+
+```python
+class WorkspaceUser(BaseModel):
+    workspace = fields.ForeignKey(Workspace, read_only=True)
+    user = fields.ForeignKey(User, read_only=True)
+    role = fields.CharChoiceField(choices=Role, default=Role.member)
+```
+
+Read-only fields are excluded from the generated input schemas, so no `POST`, `PATCH` or [sync](../offline-sync/overview.md) payload can write them. Edgy also drops them on **every** write path — including `Model(field=...)` at construction, attribute assignment before `save()`, and `save(values={...})`. This makes them safe by default, but it also means server code cannot set them the usual way.
+
+### Setting read-only fields from code
+
+Use `apply_readonly_values(...)`, the explicit code-side escape hatch on `BaseModel`. It stages the values and the next `save()` persists them:
+
+```python
+membership = WorkspaceUser().apply_readonly_values(
+    {"workspace": workspace, "user": user}
+)
+membership.role = Role.admin
+await membership.save()
+```
+
+- The staged values also apply to the in-memory instance immediately (so `membership.workspace` reads back).
+- They are consumed by the next `save()` and then cleared — call it again for a later write.
+- An unknown field name raises `ValueError`.
+
+This keeps the field immutable at the API boundary while leaving it fully writable from trusted code (creation factories, CLI commands, data seeding).
+
 ## Automatic API integration
 
 Integrate with FastEdgy's API route generator:

@@ -264,3 +264,29 @@ async def test_excluded_fields_are_dropped_from_the_payload(auth_http: httpx.Asy
     assert results[0]["applied_fields"] == ["name"]
     record = await Product.query.get(id=product["id"])
     assert record.secret_code is None
+
+
+async def test_relation_operations_are_never_conflicted(auth_http: httpx.AsyncClient) -> None:
+    # Relation payload values are operation lists, not state: they stay out of
+    # the three-way diff and always apply.
+    from fastedgy.test.models.tag import Tag as TagModel
+
+    tag = (await auth_http.post("/api/test_tags", json={"name": "urgent"})).json()
+    product = await make_product(auth_http, name="Laptop")
+
+    base_response = await auth_http.get(
+        f"/api/test_products/{product['id']}",
+        headers={"X-Fields": "id,name,tags.name"},
+    )
+    base = base_response.json()
+
+    await auth_http.patch(f"/api/test_products/{product['id']}", json={"quantity": 3})
+
+    results = await _sync(
+        auth_http,
+        [_op(base, {"tags": [["link", tag["id"]]]}, created_at="1900-01-01T00:00:00Z")],
+    )
+
+    assert results[0]["status"] == "applied"
+    linked = await TagModel.query.filter(products__id=product["id"]).all()
+    assert [item.id for item in linked] == [tag["id"]]

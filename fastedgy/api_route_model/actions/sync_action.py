@@ -330,8 +330,13 @@ def _comparable(value: Any) -> Any:
 
 
 def _server_managed_fields(model_cls: type[BaseModel | BaseView]) -> set[str]:
+    from fastedgy.api_route_model.action.relations import is_relation_field
+
     fields: dict[str, Any] = getattr(model_cls.meta, "fields", {})
 
+    # To-many relations are excluded from the diff: their payload values are
+    # operation lists ([["link", id]], ...), not comparable state — they always
+    # apply (the relation guard still authorizes them).
     return {
         name
         for name, field in fields.items()
@@ -339,6 +344,7 @@ def _server_managed_fields(model_cls: type[BaseModel | BaseView]) -> set[str]:
         or getattr(field, "read_only", False)
         or getattr(field, "auto_now", False)
         or getattr(field, "auto_now_add", False)
+        or is_relation_field(field)
     }
 
 

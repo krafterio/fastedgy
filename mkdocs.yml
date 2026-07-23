@@ -152,6 +152,9 @@ nav:
       - Metadata Generator:
         - Overview: features/metadata-generator/overview.md
         - Usage Guide: features/metadata-generator/guide.md
+      - Offline Sync:
+        - Overview: features/offline-sync/overview.md
+        - Usage Guide: features/offline-sync/guide.md
       - View Transformers:
         - Overview: features/view-transformers/overview.md
         - User Guide: features/view-transformers/guide.md

@@ -40,6 +40,14 @@ Build powerful APIs with automatic CRUD generation and advanced data handling.
 
     [Learn more →](metadata-generator/overview.md)
 
+-   **:material-sync: Offline Sync**
+
+    ---
+
+    Replay a batch of buffered offline writes with server-side three-way merge conflict resolution.
+
+    [Learn more →](offline-sync/overview.md)
+
 </div>
 
 ## ORM Features

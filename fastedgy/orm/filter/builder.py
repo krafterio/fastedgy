@@ -4,7 +4,10 @@
 from typing import Any, cast
 
 from sqlalchemy import (
+    Text as SaText,
+    Uuid as SaUuid,
     and_ as sa_and,
+    cast as sa_cast,
     exists,
     not_ as sa_not,
     or_ as sa_or,
@@ -17,6 +20,7 @@ from fastedgy.orm import Model
 from fastedgy.orm.fields import (
     BaseFieldType,
     IntegerField,
+    UUIDField,
     DateField,
     DateTimeField,
     DecimalField,
@@ -55,6 +59,22 @@ def _get_cond_query(model_cls: type[Model]) -> QuerySet:
     )
 
 
+_PATTERN_OPERATORS = {
+    "like",
+    "ilike",
+    "not like",
+    "not ilike",
+    "starts with",
+    "ends with",
+    "not starts with",
+    "not ends with",
+    "contains",
+    "icontains",
+    "not contains",
+    "not icontains",
+}
+
+
 def build_filter_expression(model_cls: type[Model], filters: FilterRule | FilterCondition | None) -> Any | None:
     if filters is None:
         return None
@@ -88,6 +108,12 @@ def build_filter_expression(model_cls: type[Model], filters: FilterRule | Filter
 
         if "." not in field and getattr(field_type, "is_generic_foreign_key", False):
             return _build_generic_reference_expression(model_cls, cast(Any, field_type), filters)
+
+        # Pattern operators build a LIKE: a UUID column must be compared as
+        # text (PostgreSQL has no uuid ~~ text operator).
+        if "." not in field and filters.operator in _PATTERN_OPERATORS and isinstance(field_type, UUIDField):
+            column = _find_column_in_model(model_cls, field)
+            return operator_method(sa_cast(column, SaText()), str(filters.value))
 
         related_columns = getattr(field_type, "related_columns", None)
         if related_columns:
@@ -319,7 +345,11 @@ def _build_exists_expression(model_cls: type[Model], filters: FilterRule) -> Any
     # Final column and filter condition
     final_column = current_model.table.columns[parts[-1]]
 
-    if filters.operator in FILTER_OPERATORS_SQL_UNPACK:
+    if filters.operator in _PATTERN_OPERATORS and isinstance(getattr(final_column, "type", None), SaUuid):
+        # A UUID column compares as text under pattern operators (PostgreSQL
+        # has no uuid ~~ text operator).
+        filter_cond = operator_method(sa_cast(final_column, SaText()), str(filters.value))
+    elif filters.operator in FILTER_OPERATORS_SQL_UNPACK:
         filter_cond = final_column.between(*value)
     elif filters.operator in ("is true", "is false", "is empty", "is not empty"):
         filter_cond = operator_method(final_column)

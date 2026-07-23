@@ -44,6 +44,8 @@ CASES: list[dict[str, Any]] = [
     {"model": "product", "filter": ["name", "not contains", "aptop"]},
     {"model": "product", "filter": ["name", "not icontains", "APTOP"]},
     {"model": "product", "filter": ["name", "starts with", "Lap"]},
+    {"model": "product", "filter": ["reference", "starts with", "aaaaaaaa"]},
+    {"model": "product", "filter": ["reference", "icontains", "bbbb"]},
     {"model": "product", "filter": ["name", "not starts with", "Lap"]},
     {"model": "product", "filter": ["name", "ends with", "mini"]},
     {"model": "product", "filter": ["name", "not ends with", "mini"]},
@@ -61,6 +63,27 @@ CASES: list[dict[str, Any]] = [
     {"model": "product", "filter": ["published_at", "<", "2024-06-01T00:00:00"]},
     {"model": "product", "filter": ["category", "is empty"]},
     {"model": "product", "filter": ["category.name", "=", "Electronics"]},
+    {"model": "product", "filter": ["tags.name", "=", "urgent"]},
+    {"model": "product", "filter": ["tags.name", "icontains", "A"]},
+    {
+        "model": "product",
+        "filter": ["&", [["tags.name", "icontains", "u"], ["tags.name", "!=", "urgent"]]],
+    },
+    {
+        "model": "product",
+        "filter": ["|", [["tags.name", "=", "urgent"], ["quantity", ">", 90]]],
+    },
+    {"model": "product", "filter": ["annotations.body", "icontains", "warranty"]},
+    {
+        "model": "product",
+        "filter": ["|", [["annotations.body", "icontains", "fragile"], ["tags.name", "=", "urgent"]]],
+    },
+    {"model": "category", "filter": ["annotations.body", "starts with", "Cat"]},
+    {"model": "annotation", "filter": ["anchor.$model", "=", "product"]},
+    {
+        "model": "annotation",
+        "filter": ["&", [["anchor.$model", "=", "category"], ["body", "icontains", "note"]]],
+    },
     {"model": "product", "filter": ["category.description", "is empty"]},
     {"model": "category", "filter": ["products.is_active", "is true"]},
     {"model": "category", "filter": ["products.name", "ilike", "%novel%"]},
@@ -156,6 +179,31 @@ async def _seed() -> None:
     for product in products:
         await product.save()
 
+    from fastedgy.test.models.annotation import Annotation
+    from fastedgy.test.models.tag import Tag
+
+    urgent = Tag(name="urgent")
+    sale = Tag(name="sale")
+    new = Tag(name="new")
+
+    for tag in (urgent, sale, new):
+        await tag.save()
+
+    await products[0].tags.add(urgent)
+    await products[0].tags.add(sale)
+    await products[1].tags.add(sale)
+    await products[2].tags.add(new)
+
+    annotations = [
+        Annotation(body="Extended warranty", anchor=products[0]),
+        Annotation(body="Fragile item", anchor=products[1]),
+        Annotation(body="Category note", anchor=electronics),
+        Annotation(body="Catalog review", anchor=books),
+    ]
+
+    for annotation in annotations:
+        await annotation.save()
+
 
 async def _run_case(model_cls: Any, case: dict[str, Any]) -> list[int]:
     query = model_cls.query.get_queryset()
@@ -176,19 +224,34 @@ async def _run_case(model_cls: Any, case: dict[str, Any]) -> list[int]:
 
 
 async def _build_parity() -> dict[str, Any]:
+    from fastedgy.test.models.annotation import Annotation
     from fastedgy.test.models.category import Category
     from fastedgy.test.models.product import Product
+    from fastedgy.test.models.tag import Tag
 
-    model_classes = {"product": Product, "category": Category}
+    model_classes = {"product": Product, "category": Category, "tag": Tag, "annotation": Annotation}
     await _seed()
 
     metadatas = {name: await generate_metadata_model(cls) for name, cls in model_classes.items()}
     add_inverse_relations({model_classes[name]: metadata for name, metadata in metadatas.items()})
 
+    # Relation payloads the replica mirrors on top of the scalar dump: m2m as
+    # id lists (pivot rows), generic references as their $model/id pair.
+    extra_dump_fields = {"product": "id,tags.id", "annotation": "id,anchor.$model,anchor.id"}
     records: dict[str, list[dict[str, Any]]] = {}
 
     for name, model_cls in model_classes.items():
-        records[name] = [await filter_selected_fields(item, None) for item in await model_cls.query.all()]
+        dumps = []
+
+        for item in await model_cls.query.all():
+            dump = await filter_selected_fields(item, None)
+
+            if name in extra_dump_fields:
+                dump = {**dump, **await filter_selected_fields(item, extra_dump_fields[name])}
+
+            dumps.append(dump)
+
+        records[name] = dumps
 
     cases = []
 

@@ -636,6 +636,267 @@
           "choices": null
         }
       }
+    },
+    "tag": {
+      "name": "tag",
+      "api_name": "test_tags",
+      "label": "Tag",
+      "label_plural": "Tags",
+      "searchable": false,
+      "searchable_fields": [
+        "name"
+      ],
+      "search_field": null,
+      "sortable": false,
+      "sortable_field": null,
+      "fields": {
+        "name": {
+          "name": "name",
+          "label": "Name",
+          "type": "char",
+          "readonly": false,
+          "required": true,
+          "searchable": true,
+          "extra": false,
+          "filter_operators": [
+            "=",
+            "!=",
+            "like",
+            "ilike",
+            "not like",
+            "not ilike",
+            "starts with",
+            "ends with",
+            "not starts with",
+            "not ends with",
+            "contains",
+            "icontains",
+            "not contains",
+            "not icontains",
+            "match",
+            "in",
+            "not in",
+            "is empty",
+            "is not empty"
+          ],
+          "target": null,
+          "targets": null,
+          "choices": null
+        },
+        "id": {
+          "name": "id",
+          "label": "ID",
+          "type": "integer",
+          "readonly": true,
+          "required": false,
+          "searchable": true,
+          "extra": false,
+          "filter_operators": [
+            "=",
+            "!=",
+            "<",
+            "<=",
+            ">",
+            ">=",
+            "between",
+            "in",
+            "not in",
+            "is empty",
+            "is not empty"
+          ],
+          "target": null,
+          "targets": null,
+          "choices": null
+        },
+        "created_at": {
+          "name": "created_at",
+          "label": "Created at",
+          "type": "datetime",
+          "readonly": true,
+          "required": false,
+          "searchable": true,
+          "extra": false,
+          "filter_operators": [
+            "=",
+            "!=",
+            "<",
+            "<=",
+            ">",
+            ">=",
+            "between",
+            "is empty",
+            "is not empty"
+          ],
+          "target": null,
+          "targets": null,
+          "choices": null
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "label": "Updated at",
+          "type": "datetime",
+          "readonly": true,
+          "required": false,
+          "searchable": true,
+          "extra": false,
+          "filter_operators": [
+            "=",
+            "!=",
+            "<",
+            "<=",
+            ">",
+            ">=",
+            "between",
+            "is empty",
+            "is not empty"
+          ],
+          "target": null,
+          "targets": null,
+          "choices": null
+        }
+      }
+    },
+    "annotation": {
+      "name": "annotation",
+      "api_name": "test_annotations",
+      "label": "Annotation",
+      "label_plural": "Annotations",
+      "searchable": false,
+      "searchable_fields": [
+        "body"
+      ],
+      "search_field": null,
+      "sortable": false,
+      "sortable_field": null,
+      "fields": {
+        "body": {
+          "name": "body",
+          "label": "Body",
+          "type": "char",
+          "readonly": false,
+          "required": true,
+          "searchable": true,
+          "extra": false,
+          "filter_operators": [
+            "=",
+            "!=",
+            "like",
+            "ilike",
+            "not like",
+            "not ilike",
+            "starts with",
+            "ends with",
+            "not starts with",
+            "not ends with",
+            "contains",
+            "icontains",
+            "not contains",
+            "not icontains",
+            "match",
+            "in",
+            "not in",
+            "is empty",
+            "is not empty"
+          ],
+          "target": null,
+          "targets": null,
+          "choices": null
+        },
+        "anchor": {
+          "name": "anchor",
+          "label": "Anchor",
+          "type": "reference",
+          "readonly": false,
+          "required": false,
+          "searchable": false,
+          "extra": false,
+          "filter_operators": [
+            "=",
+            "!=",
+            "in",
+            "not in",
+            "is empty",
+            "is not empty"
+          ],
+          "target": null,
+          "targets": [
+            "category",
+            "product"
+          ],
+          "choices": null
+        },
+        "id": {
+          "name": "id",
+          "label": "ID",
+          "type": "integer",
+          "readonly": true,
+          "required": false,
+          "searchable": true,
+          "extra": false,
+          "filter_operators": [
+            "=",
+            "!=",
+            "<",
+            "<=",
+            ">",
+            ">=",
+            "between",
+            "in",
+            "not in",
+            "is empty",
+            "is not empty"
+          ],
+          "target": null,
+          "targets": null,
+          "choices": null
+        },
+        "created_at": {
+          "name": "created_at",
+          "label": "Created at",
+          "type": "datetime",
+          "readonly": true,
+          "required": false,
+          "searchable": true,
+          "extra": false,
+          "filter_operators": [
+            "=",
+            "!=",
+            "<",
+            "<=",
+            ">",
+            ">=",
+            "between",
+            "is empty",
+            "is not empty"
+          ],
+          "target": null,
+          "targets": null,
+          "choices": null
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "label": "Updated at",
+          "type": "datetime",
+          "readonly": true,
+          "required": false,
+          "searchable": true,
+          "extra": false,
+          "filter_operators": [
+            "=",
+            "!=",
+            "<",
+            "<=",
+            ">",
+            ">=",
+            "between",
+            "is empty",
+            "is not empty"
+          ],
+          "target": null,
+          "targets": null,
+          "choices": null
+        }
+      }
     }
   },
   "records": {
@@ -655,8 +916,16 @@
           "id": 1
         },
         "id": 1,
-        "created_at": "2026-07-22T19:51:07.986367",
-        "updated_at": "2026-07-22T19:51:07.986370"
+        "created_at": "2026-07-23T01:19:36.765242",
+        "updated_at": "2026-07-23T01:19:36.765245",
+        "tags": [
+          {
+            "id": 1
+          },
+          {
+            "id": 2
+          }
+        ]
       },
       {
         "name": "laptop mini",
@@ -673,8 +942,13 @@
           "id": 1
         },
         "id": 2,
-        "created_at": "2026-07-22T19:51:07.996677",
-        "updated_at": "2026-07-22T19:51:07.996682"
+        "created_at": "2026-07-23T01:19:36.774063",
+        "updated_at": "2026-07-23T01:19:36.774067",
+        "tags": [
+          {
+            "id": 2
+          }
+        ]
       },
       {
         "name": "Novel",
@@ -691,8 +965,13 @@
           "id": 2
         },
         "id": 3,
-        "created_at": "2026-07-22T19:51:07.998441",
-        "updated_at": "2026-07-22T19:51:07.998445"
+        "created_at": "2026-07-23T01:19:36.775684",
+        "updated_at": "2026-07-23T01:19:36.775688",
+        "tags": [
+          {
+            "id": 3
+          }
+        ]
       },
       {
         "name": "Mystery box",
@@ -707,8 +986,9 @@
         "details": null,
         "category": null,
         "id": 4,
-        "created_at": "2026-07-22T19:51:07.999883",
-        "updated_at": "2026-07-22T19:51:07.999886"
+        "created_at": "2026-07-23T01:19:36.777162",
+        "updated_at": "2026-07-23T01:19:36.777164",
+        "tags": []
       }
     ],
     "category": [
@@ -716,22 +996,84 @@
         "name": "Electronics",
         "description": "Devices",
         "id": 1,
-        "created_at": "2026-07-22T19:51:07.974913",
-        "updated_at": "2026-07-22T19:51:07.974921"
+        "created_at": "2026-07-23T01:19:36.759803",
+        "updated_at": "2026-07-23T01:19:36.759811"
       },
       {
         "name": "Books",
         "description": null,
         "id": 2,
-        "created_at": "2026-07-22T19:51:07.978183",
-        "updated_at": "2026-07-22T19:51:07.978186"
+        "created_at": "2026-07-23T01:19:36.763062",
+        "updated_at": "2026-07-23T01:19:36.763066"
       },
       {
         "name": "Empty",
         "description": "No product",
         "id": 3,
-        "created_at": "2026-07-22T19:51:07.979451",
-        "updated_at": "2026-07-22T19:51:07.979455"
+        "created_at": "2026-07-23T01:19:36.764025",
+        "updated_at": "2026-07-23T01:19:36.764029"
+      }
+    ],
+    "tag": [
+      {
+        "name": "urgent",
+        "id": 1,
+        "created_at": "2026-07-23T01:19:36.778572",
+        "updated_at": "2026-07-23T01:19:36.778575"
+      },
+      {
+        "name": "sale",
+        "id": 2,
+        "created_at": "2026-07-23T01:19:36.779872",
+        "updated_at": "2026-07-23T01:19:36.779875"
+      },
+      {
+        "name": "new",
+        "id": 3,
+        "created_at": "2026-07-23T01:19:36.780734",
+        "updated_at": "2026-07-23T01:19:36.780736"
+      }
+    ],
+    "annotation": [
+      {
+        "body": "Extended warranty",
+        "id": 1,
+        "created_at": "2026-07-23T01:19:36.787383",
+        "updated_at": "2026-07-23T01:19:36.787386",
+        "anchor": {
+          "id": 1,
+          "$model": "product"
+        }
+      },
+      {
+        "body": "Fragile item",
+        "id": 2,
+        "created_at": "2026-07-23T01:19:36.788766",
+        "updated_at": "2026-07-23T01:19:36.788768",
+        "anchor": {
+          "id": 2,
+          "$model": "product"
+        }
+      },
+      {
+        "body": "Category note",
+        "id": 3,
+        "created_at": "2026-07-23T01:19:36.789702",
+        "updated_at": "2026-07-23T01:19:36.789704",
+        "anchor": {
+          "id": 1,
+          "$model": "category"
+        }
+      },
+      {
+        "body": "Catalog review",
+        "id": 4,
+        "created_at": "2026-07-23T01:19:36.790680",
+        "updated_at": "2026-07-23T01:19:36.790683",
+        "anchor": {
+          "id": 2,
+          "$model": "category"
+        }
       }
     ]
   },
@@ -897,6 +1239,30 @@
       ],
       "expected_ids": [
         1
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "reference",
+        "starts with",
+        "aaaaaaaa"
+      ],
+      "expected_ids": [
+        1
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "reference",
+        "icontains",
+        "bbbb"
+      ],
+      "expected_ids": [
+        2
       ],
       "ordered": false
     },
@@ -1119,6 +1485,156 @@
       "expected_ids": [
         1,
         2
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "tags.name",
+        "=",
+        "urgent"
+      ],
+      "expected_ids": [
+        1
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "tags.name",
+        "icontains",
+        "A"
+      ],
+      "expected_ids": [
+        1,
+        2
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "&",
+        [
+          [
+            "tags.name",
+            "icontains",
+            "u"
+          ],
+          [
+            "tags.name",
+            "!=",
+            "urgent"
+          ]
+        ]
+      ],
+      "expected_ids": [],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "|",
+        [
+          [
+            "tags.name",
+            "=",
+            "urgent"
+          ],
+          [
+            "quantity",
+            ">",
+            90
+          ]
+        ]
+      ],
+      "expected_ids": [
+        1
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "annotations.body",
+        "icontains",
+        "warranty"
+      ],
+      "expected_ids": [
+        1
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "|",
+        [
+          [
+            "annotations.body",
+            "icontains",
+            "fragile"
+          ],
+          [
+            "tags.name",
+            "=",
+            "urgent"
+          ]
+        ]
+      ],
+      "expected_ids": [
+        1,
+        2
+      ],
+      "ordered": false
+    },
+    {
+      "model": "category",
+      "filter": [
+        "annotations.body",
+        "starts with",
+        "Cat"
+      ],
+      "expected_ids": [
+        1,
+        2
+      ],
+      "ordered": false
+    },
+    {
+      "model": "annotation",
+      "filter": [
+        "anchor.$model",
+        "=",
+        "product"
+      ],
+      "expected_ids": [
+        1,
+        2
+      ],
+      "ordered": false
+    },
+    {
+      "model": "annotation",
+      "filter": [
+        "&",
+        [
+          [
+            "anchor.$model",
+            "=",
+            "category"
+          ],
+          [
+            "body",
+            "icontains",
+            "note"
+          ]
+        ]
+      ],
+      "expected_ids": [
+        3
       ],
       "ordered": false
     },

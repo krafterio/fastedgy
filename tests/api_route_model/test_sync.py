@@ -290,3 +290,42 @@ async def test_relation_operations_are_never_conflicted(auth_http: httpx.AsyncCl
     assert results[0]["status"] == "applied"
     linked = await TagModel.query.filter(products__id=product["id"]).all()
     assert [item.id for item in linked] == [tag["id"]]
+
+
+async def test_block_merge_field_merges_disjoint_lines(auth_http: httpx.AsyncClient) -> None:
+    # Product.description declares merge_blocks: both writers' lines survive.
+    product = await make_product(auth_http, name="Laptop", description="line one\nline two\nline three")
+    base = await _get(auth_http, product["id"])
+
+    await auth_http.patch(
+        f"/api/test_products/{product['id']}",
+        json={"description": "SERVER one\nline two\nline three"},
+    )
+
+    results = await _sync(
+        auth_http,
+        [_op(base, {"description": "line one\nline two\nCLIENT three"}, created_at="1900-01-01T00:00:00Z")],
+    )
+
+    assert results[0]["status"] == "applied"
+    fetched = await _get(auth_http, product["id"])
+    assert fetched["description"] == "SERVER one\nline two\nCLIENT three"
+
+
+async def test_block_merge_overlap_resolves_by_last_writer(auth_http: httpx.AsyncClient) -> None:
+    product = await make_product(auth_http, name="Laptop", description="line one\nline two")
+    base = await _get(auth_http, product["id"])
+
+    await auth_http.patch(
+        f"/api/test_products/{product['id']}",
+        json={"description": "SERVER one\nline two"},
+    )
+
+    # The buffered edit of the same line is older: the server side wins it.
+    results = await _sync(
+        auth_http,
+        [_op(base, {"description": "CLIENT one\nline two"}, created_at="1900-01-01T00:00:00Z")],
+    )
+
+    assert results[0]["status"] == "applied"
+    assert (await _get(auth_http, product["id"]))["description"] == "SERVER one\nline two"

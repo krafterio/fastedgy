@@ -61,6 +61,7 @@ from fastedgy.orm.transaction import with_transaction
 from fastedgy.orm.manager import BaseManager
 from fastedgy.orm.query import QuerySet
 from fastedgy.schemas import BaseModel as BaseSchema, Field
+from fastedgy.text_merge import merge_text_blocks
 from fastedgy.timezone import ensure_aware
 
 from sqlalchemy.exc import IntegrityError
@@ -250,6 +251,23 @@ async def _apply[M: BaseModel | BaseView](
     server_changed = set(payload) if operation.base is None else _changed_fields(model_cls, operation.base, current)
     conflicts = [field for field in payload if field in server_changed]
 
+    # Declared long-text fields resolve conflicts with a three-way line-based
+    # merge instead of dropping a whole side.
+    if conflicts:
+        block_fields = _block_merge_fields(model_cls)
+        server_newer = _server_is_newer(item, operation)
+
+        for field in [f for f in conflicts if f in block_fields]:
+            base_value = (operation.base or {}).get(field)
+            server_value = current.get(field)
+            client_value = payload.get(field)
+
+            if isinstance(base_value, str) and isinstance(server_value, str) and isinstance(client_value, str):
+                payload[field] = merge_text_blocks(
+                    base_value, server_value, client_value, prefer_client=not server_newer
+                )
+                conflicts.remove(field)
+
     if conflicts and _server_is_newer(item, operation):
         for field in conflicts:
             payload.pop(field, None)
@@ -327,6 +345,12 @@ def _comparable(value: Any) -> Any:
         return value["id"]
 
     return value
+
+
+def _block_merge_fields(model_cls: type[BaseModel | BaseView]) -> set[str]:
+    fields: dict[str, Any] = getattr(model_cls.meta, "fields", {})
+
+    return {name for name, field in fields.items() if getattr(field, "merge_blocks", False)}
 
 
 def _server_managed_fields(model_cls: type[BaseModel | BaseView]) -> set[str]:

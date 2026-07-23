@@ -13,7 +13,7 @@ from fastedgy.test.models.tag import Tag
 @api_route_model(sync=True)
 class Product(BaseModel, SearchableMixin):
     name = fields.CharField(max_length=200)
-    description = fields.TextField(null=True)
+    description = fields.TextField(null=True, merge_blocks=True)
     price = fields.DecimalField(max_digits=10, decimal_places=2)
     is_active = fields.BooleanField(default=True)
     quantity = fields.IntegerField(default=0)

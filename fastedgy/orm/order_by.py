@@ -167,6 +167,8 @@ def _is_valid_field_path(model_cls: type[Model], field_path: str) -> bool:
 
             if hasattr(field, "target"):
                 current_cls = field.target
+            elif hasattr(field, "related_from"):
+                current_cls = field.related_from
 
         return True
     except Exception:

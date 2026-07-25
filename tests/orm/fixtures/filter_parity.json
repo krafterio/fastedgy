@@ -14,6 +14,7 @@
       "search_field": "search_value",
       "sortable": false,
       "sortable_field": null,
+      "synchronizable": true,
       "fields": {
         "name": {
           "name": "name",
@@ -427,6 +428,64 @@
           "target": "annotation",
           "targets": null,
           "choices": null
+        },
+        "extra_priority": {
+          "name": "extra_priority",
+          "label": "Priority",
+          "type": "integer",
+          "readonly": false,
+          "required": false,
+          "searchable": true,
+          "extra": true,
+          "filter_operators": [
+            "=",
+            "!=",
+            "<",
+            "<=",
+            ">",
+            ">=",
+            "between",
+            "in",
+            "not in",
+            "is empty",
+            "is not empty"
+          ],
+          "target": null,
+          "targets": null,
+          "choices": null
+        },
+        "extra_owner": {
+          "name": "extra_owner",
+          "label": "Owner",
+          "type": "char",
+          "readonly": false,
+          "required": false,
+          "searchable": true,
+          "extra": true,
+          "filter_operators": [
+            "=",
+            "!=",
+            "like",
+            "ilike",
+            "not like",
+            "not ilike",
+            "starts with",
+            "ends with",
+            "not starts with",
+            "not ends with",
+            "contains",
+            "icontains",
+            "not contains",
+            "not icontains",
+            "match",
+            "in",
+            "not in",
+            "is empty",
+            "is not empty"
+          ],
+          "target": null,
+          "targets": null,
+          "choices": null
         }
       }
     },
@@ -443,6 +502,7 @@
       "search_field": null,
       "sortable": false,
       "sortable_field": null,
+      "synchronizable": false,
       "fields": {
         "name": {
           "name": "name",
@@ -649,6 +709,7 @@
       "search_field": null,
       "sortable": false,
       "sortable_field": null,
+      "synchronizable": true,
       "fields": {
         "name": {
           "name": "name",
@@ -768,6 +829,7 @@
       "search_field": null,
       "sortable": false,
       "sortable_field": null,
+      "synchronizable": false,
       "fields": {
         "body": {
           "name": "body",
@@ -916,8 +978,10 @@
           "id": 1
         },
         "id": 1,
-        "created_at": "2026-07-23T01:19:36.765242",
-        "updated_at": "2026-07-23T01:19:36.765245",
+        "created_at": "2026-07-25T17:24:41.843978",
+        "updated_at": "2026-07-25T17:24:41.843981",
+        "extra_priority": 2,
+        "extra_owner": "ada",
         "tags": [
           {
             "id": 1
@@ -942,8 +1006,10 @@
           "id": 1
         },
         "id": 2,
-        "created_at": "2026-07-23T01:19:36.774063",
-        "updated_at": "2026-07-23T01:19:36.774067",
+        "created_at": "2026-07-25T17:24:41.853509",
+        "updated_at": "2026-07-25T17:24:41.853513",
+        "extra_priority": 10,
+        "extra_owner": "grace",
         "tags": [
           {
             "id": 2
@@ -965,8 +1031,10 @@
           "id": 2
         },
         "id": 3,
-        "created_at": "2026-07-23T01:19:36.775684",
-        "updated_at": "2026-07-23T01:19:36.775688",
+        "created_at": "2026-07-25T17:24:41.855093",
+        "updated_at": "2026-07-25T17:24:41.855096",
+        "extra_priority": 1,
+        "extra_owner": null,
         "tags": [
           {
             "id": 3
@@ -986,8 +1054,10 @@
         "details": null,
         "category": null,
         "id": 4,
-        "created_at": "2026-07-23T01:19:36.777162",
-        "updated_at": "2026-07-23T01:19:36.777164",
+        "created_at": "2026-07-25T17:24:41.856557",
+        "updated_at": "2026-07-25T17:24:41.856559",
+        "extra_priority": null,
+        "extra_owner": null,
         "tags": []
       }
     ],
@@ -996,50 +1066,50 @@
         "name": "Electronics",
         "description": "Devices",
         "id": 1,
-        "created_at": "2026-07-23T01:19:36.759803",
-        "updated_at": "2026-07-23T01:19:36.759811"
+        "created_at": "2026-07-25T17:24:41.832919",
+        "updated_at": "2026-07-25T17:24:41.832927"
       },
       {
         "name": "Books",
         "description": null,
         "id": 2,
-        "created_at": "2026-07-23T01:19:36.763062",
-        "updated_at": "2026-07-23T01:19:36.763066"
+        "created_at": "2026-07-25T17:24:41.836018",
+        "updated_at": "2026-07-25T17:24:41.836022"
       },
       {
         "name": "Empty",
         "description": "No product",
         "id": 3,
-        "created_at": "2026-07-23T01:19:36.764025",
-        "updated_at": "2026-07-23T01:19:36.764029"
+        "created_at": "2026-07-25T17:24:41.837021",
+        "updated_at": "2026-07-25T17:24:41.837023"
       }
     ],
     "tag": [
       {
         "name": "urgent",
         "id": 1,
-        "created_at": "2026-07-23T01:19:36.778572",
-        "updated_at": "2026-07-23T01:19:36.778575"
+        "created_at": "2026-07-25T17:24:41.858019",
+        "updated_at": "2026-07-25T17:24:41.858022"
       },
       {
         "name": "sale",
         "id": 2,
-        "created_at": "2026-07-23T01:19:36.779872",
-        "updated_at": "2026-07-23T01:19:36.779875"
+        "created_at": "2026-07-25T17:24:41.859428",
+        "updated_at": "2026-07-25T17:24:41.859431"
       },
       {
         "name": "new",
         "id": 3,
-        "created_at": "2026-07-23T01:19:36.780734",
-        "updated_at": "2026-07-23T01:19:36.780736"
+        "created_at": "2026-07-25T17:24:41.860276",
+        "updated_at": "2026-07-25T17:24:41.860278"
       }
     ],
     "annotation": [
       {
         "body": "Extended warranty",
         "id": 1,
-        "created_at": "2026-07-23T01:19:36.787383",
-        "updated_at": "2026-07-23T01:19:36.787386",
+        "created_at": "2026-07-25T17:24:41.870744",
+        "updated_at": "2026-07-25T17:24:41.870747",
         "anchor": {
           "id": 1,
           "$model": "product"
@@ -1048,8 +1118,8 @@
       {
         "body": "Fragile item",
         "id": 2,
-        "created_at": "2026-07-23T01:19:36.788766",
-        "updated_at": "2026-07-23T01:19:36.788768",
+        "created_at": "2026-07-25T17:24:41.872073",
+        "updated_at": "2026-07-25T17:24:41.872075",
         "anchor": {
           "id": 2,
           "$model": "product"
@@ -1058,8 +1128,8 @@
       {
         "body": "Category note",
         "id": 3,
-        "created_at": "2026-07-23T01:19:36.789702",
-        "updated_at": "2026-07-23T01:19:36.789704",
+        "created_at": "2026-07-25T17:24:41.872922",
+        "updated_at": "2026-07-25T17:24:41.872924",
         "anchor": {
           "id": 1,
           "$model": "category"
@@ -1068,8 +1138,8 @@
       {
         "body": "Catalog review",
         "id": 4,
-        "created_at": "2026-07-23T01:19:36.790680",
-        "updated_at": "2026-07-23T01:19:36.790683",
+        "created_at": "2026-07-25T17:24:41.873750",
+        "updated_at": "2026-07-25T17:24:41.873753",
         "anchor": {
           "id": 2,
           "$model": "category"
@@ -1817,6 +1887,64 @@
       "expected_ids": [
         1,
         4
+      ],
+      "ordered": true
+    },
+    {
+      "model": "product",
+      "filter": [
+        "extra_owner",
+        "=",
+        "ada"
+      ],
+      "expected_ids": [
+        1
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "extra_owner",
+        "is empty"
+      ],
+      "expected_ids": [
+        3,
+        4
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "extra_priority",
+        "=",
+        "1"
+      ],
+      "expected_ids": [
+        3
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "order_by": "extra_priority,id",
+      "expected_ids": [
+        3,
+        1,
+        2,
+        4
+      ],
+      "ordered": true
+    },
+    {
+      "model": "product",
+      "order_by": "extra_priority:desc,id",
+      "expected_ids": [
+        4,
+        2,
+        1,
+        3
       ],
       "ordered": true
     }

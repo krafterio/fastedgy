@@ -2438,6 +2438,7 @@
         "type": "object"
       },
       "Product-Create": {
+        "additionalProperties": true,
         "properties": {
           "annotations": {
             "anyOf": [
@@ -2619,15 +2620,6 @@
               }
             ],
             "title": "Details"
-          },
-          "extra": {
-            "anyOf": [
-              {},
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Extra"
           },
           "is_active": {
             "default": true,
@@ -2877,6 +2869,7 @@
         "type": "object"
       },
       "Product-Update": {
+        "additionalProperties": true,
         "properties": {
           "annotations": {
             "anyOf": [
@@ -3058,15 +3051,6 @@
               }
             ],
             "title": "Details"
-          },
-          "extra": {
-            "anyOf": [
-              {},
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Extra"
           },
           "is_active": {
             "anyOf": [

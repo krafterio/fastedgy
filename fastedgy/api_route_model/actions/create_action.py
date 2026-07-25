@@ -94,6 +94,7 @@ async def create_item_action[M: BaseModel | BaseView](
     transformers_ctx = transformers_ctx or {}
 
     from fastedgy.orm.fields import validate_generic_reference_payload
+    from fastedgy.orm.extra_fields import merge_extra_field_values, pop_extra_field_values
 
     try:
         clean_empty_strings(item_data)
@@ -118,6 +119,11 @@ async def create_item_action[M: BaseModel | BaseView](
                 foreign_key_data[key] = value
             else:
                 scalar_data[key] = value
+
+        extra_values = pop_extra_field_values(model_cls, scalar_data)
+
+        if extra_values:
+            scalar_data["extra"] = merge_extra_field_values(None, extra_values)
 
         # Resolve foreign keys to their ids (creating/updating related records as needed)
         resolved_fk, deferred_fk_deletes = await process_foreign_key_fields(model_cls, foreign_key_data)

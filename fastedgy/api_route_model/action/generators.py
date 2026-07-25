@@ -135,6 +135,21 @@ def _is_json_serializable(value: Any) -> bool:
 
 
 @cache
+def _has_extra(model_cls: Any) -> bool:
+    from fastedgy.orm.extra_fields import has_extra_fields
+
+    return has_extra_fields(model_cls)
+
+
+def _extra_config(model_cls: Any) -> dict[str, Any]:
+    """Let the `extra_<name>` keys through: which ones exist depends on the
+    workspace, so they cannot be declared on a schema built once per model."""
+    if not _has_extra(model_cls):
+        return {}
+
+    return {"__config__": ConfigDict(extra="allow")}
+
+
 def generate_input_create_model[M: BaseModel | BaseView](model_cls: type[M]) -> type[M]:
     """Generate Pydantic input model for POST with M2M/O2M support."""
     from fastedgy.schemas import Field as PydanticField
@@ -153,6 +168,11 @@ def generate_input_create_model[M: BaseModel | BaseView](model_cls: type[M]) -> 
 
         # Skip primary keys and read-only fields
         if field.read_only or field.primary_key:
+            continue
+
+        # The extra column is written through its `extra_<name>` keys, never as
+        # the raw JSON object the storage happens to use.
+        if field_name == "extra" and _has_extra(model_cls):
             continue
 
         # Detect M2M or O2M fields (include them even if excluded)
@@ -243,7 +263,7 @@ def generate_input_create_model[M: BaseModel | BaseView](model_cls: type[M]) -> 
 
             fields[field_name] = (field_type, field_to_use)
 
-    return cast(type[M], create_model(f"{model_cls.__name__}-Create", **fields))
+    return cast(type[M], create_model(f"{model_cls.__name__}-Create", **_extra_config(model_cls), **fields))
 
 
 @cache
@@ -265,6 +285,11 @@ def generate_input_patch_model[M: BaseModel | BaseView](model_cls: type[M]) -> t
 
         # Skip primary keys and read-only fields
         if field.read_only or field.primary_key:
+            continue
+
+        # The extra column is written through its `extra_<name>` keys, never as
+        # the raw JSON object the storage happens to use.
+        if field_name == "extra" and _has_extra(model_cls):
             continue
 
         # Detect M2M or O2M fields (include them even if excluded)
@@ -324,7 +349,7 @@ def generate_input_patch_model[M: BaseModel | BaseView](model_cls: type[M]) -> t
             py_field.field_type = optional_field_type(field.field_type)
             fields[field_name] = (py_field.field_type, py_field)
 
-    return cast(type[M], create_model(f"{model_cls.__name__}-Update", **fields))
+    return cast(type[M], create_model(f"{model_cls.__name__}-Update", **_extra_config(model_cls), **fields))
 
 
 def optional_field_type(field_type):

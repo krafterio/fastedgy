@@ -5,7 +5,17 @@ import json
 
 from decimal import Decimal
 
+import pytest
+
+from fastapi import HTTPException
+
 from fastedgy import context
+from fastedgy.api_route_model.actions.create_action import create_item_action
+from fastedgy.api_route_model.actions.patch_action import patch_item_action
+from fastedgy.api_route_model.action.generators import (
+    generate_input_create_model,
+    generate_input_patch_model,
+)
 from fastedgy.app import FastEdgy
 from fastedgy.orm.field_selector import filter_selected_fields
 from fastedgy.orm.filter.builder import filter_query
@@ -25,6 +35,7 @@ def _extra_field(name: str, field_type: WorkspaceExtraFieldType) -> WorkspaceExt
         name=name,
         field_type=field_type,
         model=WorkspaceExtraFieldModel.product,
+        required=False,
     )
 
 
@@ -95,6 +106,51 @@ async def test_selection_returns_the_extra_field_flattened(setup_db: FastEdgy) -
 
         assert dump["extra_priority"] == 2
         assert "extra" not in dump
+
+
+async def test_create_stores_the_extra_field_value(setup_db: FastEdgy) -> None:
+    with use_request() as request:
+        _declare_extra_fields()
+
+        item = await create_item_action(
+            request,
+            Product,
+            generate_input_create_model(Product)(name="Delta", price=Decimal("4.00"), extra_priority=7),
+            fields="id,name,extra_priority",
+        )
+
+        assert item["extra_priority"] == 7
+        assert (await Product.query.filter(name="Delta").get()).extra == {"priority": 7}
+
+
+async def test_patch_keeps_the_extra_fields_left_out_of_the_payload(setup_db: FastEdgy) -> None:
+    with use_request() as request:
+        _declare_extra_fields()
+        await _create_products()
+
+        product = await Product.query.filter(name="Alpha").get()
+        await patch_item_action(
+            request,
+            Product,
+            product.id,
+            generate_input_patch_model(Product)(extra_priority=9),
+        )
+
+        assert (await Product.query.filter(name="Alpha").get()).extra == {"priority": 9, "owner": "ada"}
+
+
+async def test_create_refuses_an_undeclared_extra_field(setup_db: FastEdgy) -> None:
+    with use_request() as request:
+        _declare_extra_fields()
+
+        with pytest.raises(HTTPException) as raised:
+            await create_item_action(
+                request,
+                Product,
+                generate_input_create_model(Product)(name="Epsilon", price=Decimal("5.00"), extra_unknown=1),
+            )
+
+        assert raised.value.status_code == 422
 
 
 async def test_selection_returns_null_for_a_record_without_extra(setup_db: FastEdgy) -> None:

@@ -105,8 +105,16 @@ def _is_synchronizable(model_cls: type[BaseModel | BaseView]) -> bool:
 
 
 async def generate_metadata_fields(model_cls: type[BaseModel | BaseView]) -> dict[str, MetadataField]:
+    from fastedgy.orm.extra_fields import has_extra_fields
+
+    hide_extra_column = has_extra_fields(model_cls)
     fields = {}
     for field_name, field_info in model_cls.meta.fields.items():
+        # The storage of the extra fields, never a field of its own: the API
+        # exposes the `extra_<name>` entries add_extra_fields appends below.
+        if field_name == "extra" and hide_extra_column:
+            continue
+
         is_filterable = getattr(field_info, "filterable", not getattr(field_info, "exclude", False))
         if not field_info.exclude or getattr(field_info, "is_m2m", False) or is_filterable:
             fields[field_name] = generate_metadata_field(model_cls, field_info)

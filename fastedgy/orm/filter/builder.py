@@ -836,22 +836,12 @@ def _find_column_in_model(model_cls: type[Model], field_path: str) -> Any:
 
     for i, part in enumerate(field_parts):
         if i == 0 and part.startswith("extra_"):
-            from fastedgy.models.workspace_extra_field import EXTRA_FIELDS_MAP
-            from fastedgy.metadata_model.generator import generate_metadata_name
-            from fastedgy import context
+            from fastedgy.orm.extra_fields import extra_field_column
 
-            if "extra" in model_cls.meta.fields:
-                extra_field_name = part[6:]
-                extra_fields = context.get_map_workspace_extra_fields(generate_metadata_name(current_model))
+            column = extra_field_column(current_model, part)
 
-                if extra_field_name in extra_fields:
-                    extra_field = extra_fields[extra_field_name]
-
-                    if extra_field.field_type is not None:
-                        field_type = EXTRA_FIELDS_MAP.get(extra_field.field_type)
-
-                        if field_type:
-                            return model_cls.columns.extra.op("->>")(extra_field_name)
+            if column is not None:
+                return column
 
             raise InvalidFilterError(f"Field '{part}' not found in model {current_model.__name__}")
         elif i == len(field_parts) - 1:

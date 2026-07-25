@@ -16,19 +16,9 @@ OrderByInput: TypeAlias = str | OrderByList | None
 
 
 def extra_field_column(model_cls: type[Model], field_path: str) -> Any | None:
-    if "." in field_path or not field_path.startswith("extra_") or "extra" not in model_cls.meta.fields:
-        return None
+    from fastedgy.orm.extra_fields import extra_field_column as resolve
 
-    from fastedgy import context
-    from fastedgy.metadata_model.generator import generate_metadata_name
-
-    name = field_path[6:]
-    extra_fields = context.get_map_workspace_extra_fields(generate_metadata_name(model_cls))
-
-    if name not in extra_fields:
-        return None
-
-    return model_cls.columns.extra.op("->>")(name)
+    return resolve(model_cls, field_path)
 
 
 def inject_order_by(query: QuerySet, order_by: OrderByInput) -> QuerySet:

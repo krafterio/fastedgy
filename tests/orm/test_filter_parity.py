@@ -111,6 +111,14 @@ CASES: list[dict[str, Any]] = [
     {"model": "product", "order_by": "category.name,id"},
     {"model": "product", "order_by": "category.name:desc,id"},
     {"model": "product", "order_by": "name,id", "limit": 2, "offset": 1},
+    # Workspace extra fields live in a single JSON column and the server reads
+    # them with ``extra ->> 'name'``, so every comparison is textual: "10"
+    # sorts before "2".
+    {"model": "product", "filter": ["extra_owner", "=", "ada"]},
+    {"model": "product", "filter": ["extra_owner", "is empty"]},
+    {"model": "product", "filter": ["extra_priority", "=", "1"]},
+    {"model": "product", "order_by": "extra_priority,id"},
+    {"model": "product", "order_by": "extra_priority:desc,id"},
 ]
 
 
@@ -137,6 +145,7 @@ async def _seed() -> None:
             published_at=datetime(2024, 3, 1, 12, 0, 0),
             reference=UUID("aaaaaaaa-0000-0000-0000-000000000001"),
             category=electronics,
+            extra={"priority": 2, "owner": "ada"},
         ),
         Product(
             name="laptop mini",
@@ -149,6 +158,7 @@ async def _seed() -> None:
             published_at=datetime(2023, 11, 15, 9, 30, 0),
             reference=UUID("bbbbbbbb-0000-0000-0000-000000000002"),
             category=electronics,
+            extra={"priority": 10, "owner": "grace"},
         ),
         Product(
             name="Novel",
@@ -161,6 +171,7 @@ async def _seed() -> None:
             published_at=None,
             reference=None,
             category=books,
+            extra={"priority": 1},
         ),
         Product(
             name="Mystery box",
@@ -173,6 +184,7 @@ async def _seed() -> None:
             published_at=datetime(2024, 6, 10, 8, 0, 0),
             reference=None,
             category=None,
+            extra=None,
         ),
     ]
 
@@ -266,8 +278,40 @@ async def _build_parity() -> dict[str, Any]:
     }
 
 
+def _declare_extra_fields() -> None:
+    from fastedgy import context
+    from fastedgy.models.workspace_extra_field import WorkspaceExtraFieldType
+    from fastedgy.test.models.workspace_extra_field import (
+        WorkspaceExtraField,
+        WorkspaceExtraFieldModel,
+    )
+
+    context.set_workspace_extra_fields(
+        [
+            WorkspaceExtraField(
+                label="Priority",
+                name="priority",
+                field_type=WorkspaceExtraFieldType.integer,
+                model=WorkspaceExtraFieldModel.product,
+                required=False,
+            ),
+            WorkspaceExtraField(
+                label="Owner",
+                name="owner",
+                field_type=WorkspaceExtraFieldType.char,
+                model=WorkspaceExtraFieldModel.product,
+                required=False,
+            ),
+        ]
+    )
+
+
 async def test_filter_parity(setup_db) -> None:
-    parity = json.loads(json.dumps(await _build_parity(), default=str))
+    from fastedgy.test.factories import use_request
+
+    with use_request():
+        _declare_extra_fields()
+        parity = json.loads(json.dumps(await _build_parity(), default=str))
     output = json.dumps(parity, indent=2, ensure_ascii=False) + "\n"
 
     extra_out = os.environ.get("FILTER_PARITY_OUT")

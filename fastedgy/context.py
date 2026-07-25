@@ -3,7 +3,6 @@
 
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
-from enum import Enum
 from typing import TYPE_CHECKING, Any, Generator, Union
 from zoneinfo import ZoneInfo
 
@@ -121,7 +120,7 @@ def get_workspace_user() -> Union["WorkspaceUser", None]:
 def set_workspace_extra_fields(
     extra_fields: list["WorkspaceExtraField"] | None,
 ) -> None:
-    fields_map: dict["Enum", list["WorkspaceExtraField"]] | None = None
+    fields_map: dict[str, list["WorkspaceExtraField"]] | None = None
 
     if extra_fields:
         fields_map = {}
@@ -130,10 +129,12 @@ def set_workspace_extra_fields(
             if not field.model:
                 continue
 
-            if field.model.value not in fields_map:
-                fields_map[field.model.value] = []
+            model_name = field.model.name
 
-            fields_map[field.model.value].append(field)
+            if model_name not in fields_map:
+                fields_map[model_name] = []
+
+            fields_map[model_name].append(field)
 
     req = get_request()
     if req:
@@ -151,10 +152,10 @@ def get_workspace_extra_fields(
 
     if not model_name:
         for fields in current_fields.values():
-            all_fields.append(*fields)
+            all_fields.extend(fields)
     else:
         if model_name in current_fields:
-            all_fields.append(*current_fields[model_name])
+            all_fields.extend(current_fields[model_name])
 
     return all_fields
 

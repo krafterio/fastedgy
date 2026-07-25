@@ -2298,6 +2298,15 @@
             ],
             "title": "Details"
           },
+          "extra": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extra"
+          },
           "id": {
             "title": "Id",
             "type": "integer"
@@ -2610,6 +2619,15 @@
               }
             ],
             "title": "Details"
+          },
+          "extra": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extra"
           },
           "is_active": {
             "default": true,
@@ -3040,6 +3058,15 @@
               }
             ],
             "title": "Details"
+          },
+          "extra": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extra"
           },
           "is_active": {
             "anyOf": [
@@ -6461,6 +6488,17 @@
             "title": "Label",
             "type": "string"
           },
+          "model": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceExtraFieldModel"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
           "name": {
             "maxLength": 40,
             "title": "Name",
@@ -6497,6 +6535,17 @@
             "maxLength": 255,
             "title": "Label",
             "type": "string"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceExtraFieldModel"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
           },
           "name": {
             "maxLength": 40,
@@ -6587,6 +6636,17 @@
             ],
             "title": "Label"
           },
+          "model": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceExtraFieldModel"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
           "name": {
             "anyOf": [
               {
@@ -6613,6 +6673,13 @@
         },
         "title": "WorkspaceExtraField-Update",
         "type": "object"
+      },
+      "WorkspaceExtraFieldModel": {
+        "enum": [
+          "product"
+        ],
+        "title": "WorkspaceExtraFieldModel",
+        "type": "string"
       },
       "WorkspaceExtraFieldType": {
         "enum": [

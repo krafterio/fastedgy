@@ -490,7 +490,7 @@ async def filter_selected_fields(item: Model, fields_expr: str | list[str] | Non
     map_fields = parse_field_selector_input(type(item), fields_expr)
 
     if map_fields is None:
-        return item.model_dump()
+        return flatten_extra_fields(item, item.model_dump())
 
     filtered_item: dict = {}
     await filter_fields(_dump_selected(item, map_fields), item, map_fields, filtered_item)
@@ -620,6 +620,7 @@ def _dump_selected(item: Model, fields_map: dict[str, Any]) -> dict:
     model_cls = _real_model_cls(type(item))
     computed_fields = getattr(model_cls, "model_computed_fields", {})
     include: set[str] = set()
+    extra_names: list[str] = []
 
     for field_name, field_value in fields_map.items():
         if field_value is not True:
@@ -627,6 +628,7 @@ def _dump_selected(item: Model, fields_map: dict[str, Any]) -> dict:
 
         if field_name.startswith("extra_") and "extra" in model_cls.meta.fields:
             include.add("extra")
+            extra_names.append(field_name[6:])
         elif field_name in model_cls.meta.fields:
             if _is_selectable_leaf(model_cls.meta.fields[field_name]):
                 include.add(field_name)
@@ -638,7 +640,41 @@ def _dump_selected(item: Model, fields_map: dict[str, Any]) -> dict:
     if pk_name:
         include.add(pk_name)
 
-    return item.model_dump(include=include)
+    dump = item.model_dump(include=include)
+
+    if extra_names:
+        values = dump.get("extra") or {}
+
+        if fields_map.get("extra") is not True:
+            dump.pop("extra", None)
+
+        for name in extra_names:
+            dump[f"extra_{name}"] = values.get(name)
+
+    return dump
+
+
+def flatten_extra_fields(item: Model, dump: dict) -> dict:
+    model_cls = _real_model_cls(type(item))
+
+    if "extra" not in model_cls.meta.fields or "extra" not in dump:
+        return dump
+
+    from fastedgy import context
+    from fastedgy.metadata_model.generator import generate_metadata_name
+
+    names = context.get_map_workspace_extra_fields(generate_metadata_name(model_cls))
+
+    if not names:
+        return dump
+
+    values = dump.get("extra") or {}
+    flattened = {key: value for key, value in dump.items() if key != "extra"}
+
+    for name in names:
+        flattened[f"extra_{name}"] = values.get(name)
+
+    return flattened
 
 
 def _get_loaded_relation(data_obj: Model, field_name: str) -> Any:
@@ -685,6 +721,7 @@ __all__ = [
     "apply_field_map_optimizations",
     "get_computed_field_deps",
     "filter_selected_fields",
+    "flatten_extra_fields",
     "prefetch_generic_references",
     "filter_fields",
 ]

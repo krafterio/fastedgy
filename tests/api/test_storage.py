@@ -108,6 +108,44 @@ async def test_upload_without_meta_keeps_the_attachment_unassociated(auth_http: 
     assert record.record_id is None
 
 
+async def test_upload_rejects_meta_that_writes_nothing(auth_http: httpx.AsyncClient) -> None:
+    from fastedgy.test.models.attachment import Attachment
+
+    before = await Attachment.query.count()
+
+    # A misspelled per-file key reads as a flat object, whose keys match no
+    # Attachment field: the schema would ignore it and the caller would never
+    # know its values were dropped.
+    response = await auth_http.post(
+        "/api/storage/upload/attachments",
+        files={"doc.txt": ("doc.txt", b"hello world", "text/plain")},
+        data={"meta": json.dumps({"doc.pdf": {"record": {"model": "product", "id": 1}}})},
+    )
+
+    assert response.status_code == 422
+    assert "doc.pdf" in str(response.json()["detail"])
+    assert await Attachment.query.count() == before
+
+
+async def test_upload_rejects_meta_mixing_file_keys_and_values(auth_http: httpx.AsyncClient) -> None:
+    product_id = await _product()
+
+    response = await auth_http.post(
+        "/api/storage/upload/attachments",
+        files={"doc.txt": ("doc.txt", b"hello world", "text/plain")},
+        data={
+            "meta": json.dumps(
+                {
+                    "doc.txt": {"record": {"model": "product", "id": product_id}},
+                    "name": "ambiguous",
+                }
+            )
+        },
+    )
+
+    assert response.status_code == 422
+
+
 async def test_upload_rejects_invalid_meta_json(auth_http: httpx.AsyncClient) -> None:
     response = await auth_http.post(
         "/api/storage/upload/attachments",

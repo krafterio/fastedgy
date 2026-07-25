@@ -215,7 +215,20 @@ def _validated_attachment_values(
     except ValidationError as error:
         raise HTTPException(status_code=422, detail=json.loads(error.json()))
 
-    return validated.model_dump(exclude_unset=True, warnings=False)
+    dumped = validated.model_dump(exclude_unset=True, warnings=False)
+
+    if not dumped:
+        # The schema ignores what it does not know, so values that resolve to
+        # nothing would be dropped in silence — usually a misspelled per-file
+        # key read as a flat object, or field names that do not exist.
+        raise HTTPException(
+            status_code=422,
+            detail=_t("The 'meta' field holds no writable Attachment value: {keys}").format(
+                keys=", ".join(sorted(values))
+            ),
+        )
+
+    return dumped
 
 
 @manage_router.post(

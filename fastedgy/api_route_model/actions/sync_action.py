@@ -119,7 +119,12 @@ class SyncApiRouteAction(BaseApiRouteAction):
         options = cast(RouteModelActionOptions, dict(options))
         ops = cast("Sequence[str] | None", options.pop("ops", None))
         # Client-side directive only (see sync_mode): never a route argument.
-        options.pop("mode", None)
+        # Validated here so a typo fails the boot, not the first request that
+        # happens to generate the metadata.
+        mode = options.pop("mode", None)
+
+        if mode is not None:
+            validate_sync_mode(str(mode))
 
         router.add_api_route(
             **{

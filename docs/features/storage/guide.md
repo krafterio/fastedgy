@@ -135,7 +135,15 @@ Errors are not swallowed: an invalid reference target (or any rejected value) re
 `Attachment` is created, and the bytes already written are removed rather than left orphaned.
 
 `meta` keys must be either all file field names or none of them; a mix is ambiguous and returns
-a `422`.
+a `422`. Values that resolve to no writable field also return a `422` rather than being dropped in
+silence — the common case being a misspelled per-file key, read as a flat object whose keys match
+no `Attachment` field.
+
+An unknown replication mode is caught at startup, not on the first request:
+
+```python
+@api_route_model(sync={"mode": "partiel"})   # ValueError at boot
+```
 
 ## Model field upload
 

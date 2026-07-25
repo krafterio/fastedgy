@@ -6,7 +6,13 @@ from copy import copy
 from functools import cache
 from typing import get_origin, Literal, Union, get_args, Any, cast
 
-from pydantic import BaseModel as PydanticBaseModel, ConfigDict, RootModel
+from pydantic import (
+    AliasChoices,
+    BaseModel as PydanticBaseModel,
+    ConfigDict,
+    Field as PydanticFieldInfo,
+    RootModel,
+)
 from pydantic_core import PydanticUndefined
 from edgy.core.db.fields.types import BaseFieldType
 
@@ -77,9 +83,14 @@ ForeignKeyInput = Union[int, ForeignKeyObject, ForeignKeyOperation]
 class ReferenceObject(PydanticBaseModel):
     """Polymorphic reference input: the target model metadata name and the
     record id. Declared as a shared model so the OpenAPI schema documents it
-    once instead of inlining it on every generic reference field."""
+    once instead of inlining it on every generic reference field.
 
-    model: str
+    The target accepts both spellings: ``model`` (the write form) and
+    ``$model`` (the key a serialized reference carries), so a client can send
+    back a reference it just read without rewriting it.
+    """
+
+    model: str = PydanticFieldInfo(validation_alias=AliasChoices("model", "$model"))
     id: int
 
 

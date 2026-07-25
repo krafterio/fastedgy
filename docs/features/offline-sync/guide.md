@@ -1,6 +1,6 @@
 # Offline Sync - Usage Guide
 
-This guide covers enabling the sync action, the request/response contract, how the three-way merge resolves conflicts, restricting operations, reusing the action in custom scoped routes, and the two write-protection primitives sync relies on (the relation guard and `read_only` fields).
+This guide covers enabling the sync action, the request/response contract, how the three-way merge resolves conflicts, restricting operations, declaring the client's replication regime, reusing the action in custom scoped routes, and the two write-protection primitives sync relies on (the relation guard and `read_only` fields).
 
 ## Enabling sync on a model
 
@@ -26,6 +26,69 @@ POST /api/products/sync
 ```
 
 Because sync only ever replays `update` and `delete` operations, it inherits the model's `patch` and `delete` permissions automatically — see [Allowed operations](#allowed-operations) below.
+
+## Replication regime
+
+`sync=True` announces a **full** mirror: the client pulls a paginated `id`/`updated_at` manifest of
+the whole model, then fetches the records that changed. That is the right trade for a reference
+table, and the wrong one for a table with a hundred thousand rows nobody wants on a phone.
+
+Declare `partial` for those:
+
+```python
+@api_route_model(sync={"mode": "partial"})
+class Ticket(BaseModel):
+    subject = fields.CharField(max_length=200)
+```
+
+| Mode | Client behaviour |
+|------|------------------|
+| `full` (default) | Manifest + delta: every record is mirrored, and records missing server-side are pruned locally |
+| `partial` | Nothing is pre-downloaded. The mirror keeps whatever the reads returned, nothing is pruned, and writes still buffer in the outbox |
+
+Both modes are equally writable offline — the mode governs **reads**, not writes. The value reaches
+the client as `synchronizable_mode` in the model metadata; `synchronizable` remains a boolean, true
+for both modes.
+
+The mode is a directive, not an enforcement: nothing server-side changes, and a client may ignore it.
+
+An unknown mode is a typo worth catching, so it raises at metadata generation:
+
+```python
+@api_route_model(sync={"mode": "partiel"})   # ValueError: Sync mode 'partiel' is not supported
+```
+
+To opt out of replication entirely, drop the action (`sync` absent, or `sync=False`) rather than
+passing `mode="none"` — a single spelling for a single intent.
+
+## Provisional values for server-generated fields
+
+A record created offline is missing every value the server assigns: its id, its timestamps, and any
+business reference computed on save. The id and timestamps are internal, but a reference is usually
+on screen — a client showing an empty cell for it looks broken.
+
+Declare what the client should display instead:
+
+```python
+@api_route_model(sync={"mode": "partial"})
+class Ticket(BaseModel):
+    reference = fields.CharField(
+        max_length=50,
+        null=True,
+        read_only=True,          # no input can write it
+        local_placeholder="DRAFT-{seq}",
+    )
+    subject = fields.CharField(max_length=200)
+```
+
+The template surfaces as `local_placeholder` on the field metadata. `{seq}` is interpolated
+client-side from a local per-model counter, so the first two offline tickets read `DRAFT-1` and
+`DRAFT-2`. It is a label for a pending record, **not** a guess at the server value: the buffered
+create never sends it (`read_only` fields are excluded from input schemas), and replaying the create
+replaces the local record with the server one, real reference included.
+
+Pair it with `read_only=True` as above. Without it the field would be writable, and a client could
+persist its provisional label as the real value.
 
 ## Request and response
 

@@ -15,6 +15,7 @@ from fastedgy.test.models.product import Product
 from fastedgy.test.models.comment import Comment
 from fastedgy.test.models.note import Note
 from fastedgy.test.models.annotation import Annotation
+from fastedgy.test.models.ticket import Ticket
 from fastedgy.test.models.global_filter import (
     GfArticle,
     GfOwnedMixin,
@@ -48,6 +49,7 @@ DEMO_MODELS = [
     Comment,
     Note,
     Annotation,
+    Ticket,
 ]
 
 ALL_MODELS = STANDARD_MODELS + DEMO_MODELS
@@ -68,6 +70,7 @@ __all__ = [
     "Comment",
     "Note",
     "Annotation",
+    "Ticket",
     "GfArticle",
     "GfOwnedMixin",
     "GfPrivateDoc",

@@ -28,6 +28,36 @@ async def test_create_with_reference_object(auth_http: httpx.AsyncClient) -> Non
     assert note.subject_id == product["id"]
 
 
+async def test_write_accepts_the_serialized_reference_spelling(auth_http: httpx.AsyncClient) -> None:
+    """A reference read back carries `$model`; writing it as-is must work.
+
+    Offline clients replay payloads built from the records they mirrored, so the
+    read shape has to be a valid write shape.
+    """
+    product = await _make_product(auth_http)
+    other = await _make_product(auth_http, "Other")
+
+    created = await auth_http.post(
+        "/api/test_notes",
+        json={"content": "echoed", "subject": {"$model": "product", "id": product["id"]}},
+    )
+    assert created.status_code == 200, created.text
+
+    note_id = created.json()["id"]
+    note = await Note.query.get(id=note_id)
+    assert note.subject_model == "product"
+    assert note.subject_id == product["id"]
+
+    patched = await auth_http.patch(
+        f"/api/test_notes/{note_id}",
+        json={"subject": {"$model": "product", "id": other["id"]}},
+    )
+    assert patched.status_code == 200, patched.text
+
+    note = await Note.query.get(id=note_id)
+    assert note.subject_id == other["id"]
+
+
 async def test_create_without_reference(auth_http: httpx.AsyncClient) -> None:
     response = await auth_http.post("/api/test_notes", json={"content": "free"})
     assert response.status_code == 200, response.text

@@ -30,6 +30,10 @@ disables the ``patch`` (resp. ``delete``) action rejects ``update`` (resp.
 ``delete``) sync operations with a 403. Override with
 ``@api_route_model(sync={"ops": ["update"]})`` or the ``ops`` parameter of
 :func:`sync_items_action` when a custom route needs a stricter policy.
+
+``@api_route_model(sync={"mode": "partial"})`` declares how much of the model
+the client should mirror (see :func:`sync_mode`). It changes nothing
+server-side: the mode only travels through the metadata.
 """
 
 import json
@@ -50,9 +54,9 @@ from fastedgy.api_route_model.registry import (
     RouteModelRegistry,
     TypeModel,
 )
+from fastedgy.api_route_model.action.generators import generate_input_patch_model
 from fastedgy.dependencies import get_service
 from fastedgy.i18n import _t
-from fastedgy.api_route_model.types import ModelUpdate
 from fastedgy.http import Request
 from fastedgy.models.base import BaseModel, BaseView
 from fastedgy.orm import transaction
@@ -67,6 +71,14 @@ from fastedgy.timezone import ensure_aware
 from sqlalchemy.exc import IntegrityError
 
 MAX_SYNC_OPERATIONS = 500
+
+DEFAULT_SYNC_MODE = "full"
+
+# Modes a model may declare. "none" is derived from the absence of the sync
+# action, so opting out has a single spelling: dropping the action.
+CONFIGURABLE_SYNC_MODES = ("full", "partial")
+
+SYNC_MODES = ("none", *CONFIGURABLE_SYNC_MODES)
 
 
 class SyncOperation(BaseSchema):
@@ -106,6 +118,8 @@ class SyncApiRouteAction(BaseApiRouteAction):
         """Register the sync route."""
         options = cast(RouteModelActionOptions, dict(options))
         ops = cast("Sequence[str] | None", options.pop("ops", None))
+        # Client-side directive only (see sync_mode): never a route argument.
+        options.pop("mode", None)
 
         router.add_api_route(
             **{
@@ -196,6 +210,42 @@ def is_sync_enabled(model_cls: TypeModel) -> bool:
     return SyncApiRouteAction.should_register(_registered_actions_options(model_cls))
 
 
+def validate_sync_mode(mode: str) -> str:
+    """Validate a configured replication mode, or raise on a typo.
+
+    ``none`` is derived (the model has no sync action), never configured, so it
+    is rejected here to keep a single way of opting out: dropping the action.
+    """
+    if mode not in CONFIGURABLE_SYNC_MODES:
+        allowed = ", ".join(f"'{value}'" for value in CONFIGURABLE_SYNC_MODES)
+
+        raise ValueError(f"Sync mode '{mode}' is not supported, expected one of {allowed}")
+
+    return mode
+
+
+def sync_mode(model_cls: TypeModel) -> str:
+    """The replication regime the client should apply to this model.
+
+    ``full`` mirrors every record (paginated manifest, then a delta fetch),
+    ``partial`` mirrors only what the reads happened to return — nothing is
+    pre-downloaded — while still buffering the writes. Drives the
+    ``synchronizable_mode`` metadata field; a model without the sync action is
+    ``none``.
+    """
+    options = _registered_actions_options(model_cls)
+
+    if not SyncApiRouteAction.should_register(options):
+        return "none"
+
+    configured = options.get(SyncApiRouteAction.name, SyncApiRouteAction.default_options)
+
+    if not isinstance(configured, dict) or "mode" not in configured:
+        return DEFAULT_SYNC_MODE
+
+    return validate_sync_mode(str(configured["mode"]))
+
+
 def allowed_sync_ops(model_cls: TypeModel) -> tuple[str, ...]:
     """The sync operations the model's route configuration allows.
 
@@ -255,7 +305,7 @@ async def _apply[M: BaseModel | BaseView](
 
     # Reduce to the PATCH schema surface (drops excluded/unknown fields) so
     # the merge and the reported applied_fields only cover real writes.
-    writable = cast(Any, ModelUpdate[model_cls]).model_fields
+    writable = generate_input_patch_model(model_cls).model_fields
     payload = {field: value for field, value in (operation.payload or {}).items() if field in writable}
     server_changed = set(payload) if operation.base is None else _changed_fields(model_cls, operation.base, current)
     conflicts = [field for field in payload if field in server_changed]
@@ -317,7 +367,7 @@ async def _patch[M: BaseModel | BaseView](
     query: QuerySet | BaseManager | None = None,
 ) -> dict[str, Any]:
     try:
-        item_data = cast(Any, ModelUpdate[model_cls])(**payload)
+        item_data = generate_input_patch_model(model_cls)(**payload)
     except ValidationError as error:
         raise RequestValidationError(error.errors()) from error
 

@@ -52,7 +52,13 @@ class FieldOptions[T = Any]:
     which makes ``name: str = fields.CharField(...)`` fail static type checks.
     This mixin overrides ``__new__`` to return the field value type ``T`` (or
     ``T | None`` when ``null=True``), and exposes the extra FastEdgy options
-    (``label``, ``searchable``, ``sortable``) shared by every field.
+    (``label``, ``searchable``, ``sortable``, ``local_placeholder``) shared by
+    every field.
+
+    ``local_placeholder`` is a template an offline client interpolates to show a
+    provisional value for a field the server will fill in (``"DRAFT-{seq}"`` on
+    a generated business reference). It is metadata only: the server never reads
+    it back, and pairs with ``read_only=True`` so no input can write the field.
 
     ``_get_field_cls`` is delegated to the wrapped Edgy factory so the produced
     field class keeps Edgy's identity: ``isinstance(field, edgy.CharField)`` and
@@ -83,6 +89,7 @@ class FieldOptions[T = Any]:
         label: TranslatableString | str | None = None,
         searchable: bool | str | None = None,
         sortable: bool | None = None,
+        local_placeholder: str | None = None,
         **kwargs: Any,
     ) -> T | None: ...
 
@@ -94,6 +101,7 @@ class FieldOptions[T = Any]:
         label: TranslatableString | str | None = None,
         searchable: bool | str | None = None,
         sortable: bool | None = None,
+        local_placeholder: str | None = None,
         **kwargs: Any,
     ) -> T: ...
 
@@ -103,6 +111,7 @@ class FieldOptions[T = Any]:
         label: TranslatableString | str | None = None,
         searchable: bool | str | None = None,
         sortable: bool | None = None,
+        local_placeholder: str | None = None,
         **kwargs: Any,
     ) -> Any:
         if label is not None:
@@ -113,6 +122,9 @@ class FieldOptions[T = Any]:
 
         if sortable is not None:
             kwargs["sortable"] = sortable
+
+        if local_placeholder is not None:
+            kwargs["local_placeholder"] = local_placeholder
 
         field = super().__new__(cls, *args, **kwargs)
         _resolve_default_conflict(field)

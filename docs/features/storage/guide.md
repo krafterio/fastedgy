@@ -95,6 +95,48 @@ async def upload_global(
     return {"path": file_path}
 ```
 
+## Attachment upload
+
+`POST /api/storage/upload/attachments` stores one or many files and creates an `Attachment` record
+for each. Every form entry holding a file is uploaded, and its field name is used as the file's key:
+
+```bash
+curl -X POST /api/storage/upload/attachments \
+  -F "brief.pdf=@brief.pdf" \
+  -F "photo.jpg=@photo.jpg"
+```
+
+### Setting attachment values at upload time
+
+An optional `meta` form field (a JSON object) carries values applied to the created records. It
+avoids the follow-up `PATCH` that associating an attachment would otherwise require — which matters
+to an offline client, where a single request is a single outbox operation instead of two that can
+fail independently:
+
+```bash
+# Flat form: applied to every file of the request
+curl -X POST /api/storage/upload/attachments \
+  -F "brief.pdf=@brief.pdf" \
+  -F 'meta={"record": {"model": "flow", "id": 42}}'
+
+# Keyed by file field name: applied per file
+curl -X POST /api/storage/upload/attachments \
+  -F "a.pdf=@a.pdf" \
+  -F "b.pdf=@b.pdf" \
+  -F 'meta={"a.pdf": {"record": {"model": "flow", "id": 42}}, "b.pdf": {"record": {"model": "flow", "id": 43}}}'
+```
+
+The values are validated against the `Attachment` PATCH schema, so a polymorphic `record` reference
+goes through the same coercion as a regular `PATCH` (both the `{"model": ...}` write form and the
+`{"$model": ...}` spelling a read returns are accepted). Values describing the stored bytes —
+`storage_path`, `size_bytes`, `is_global` — are always computed and cannot be overridden.
+
+Errors are not swallowed: an invalid reference target (or any rejected value) returns a `422`, no
+`Attachment` is created, and the bytes already written are removed rather than left orphaned.
+
+`meta` keys must be either all file field names or none of them; a mix is ambiguous and returns
+a `422`.
+
 ## Model field upload
 
 Use the built-in API endpoints to upload directly to model fields:

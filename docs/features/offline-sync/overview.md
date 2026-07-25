@@ -14,6 +14,8 @@ It is an opt-in action of the [API Routes Generator](../api-routes/overview.md):
 - **Block text merge**: long-text fields declared with `merge_blocks=True` merge line-by-line (diff3) instead of dropping a whole side
 - **Permission-aligned**: allowed operations follow the model's route configuration — a model without `patch` (resp. `delete`) rejects `update` (resp. `delete`) sync operations
 - **Reusable in custom routes**: call `sync_items_action(...)` with a pre-scoped queryset to restrict the reachable records (multi-tenant safe)
+- **Replication regime**: `sync={"mode": "partial"}` tells the client to mirror only what it reads instead of the whole model, for a table too large to pre-download
+- **Provisional values**: a `local_placeholder` on a server-generated field gives the client something to show until the real value is assigned
 
 ## Why not just replay through PATCH / DELETE?
 
@@ -63,11 +65,48 @@ Every operation gets exactly one result status:
 | `deleted` | the target record no longer exists server-side (an `update` aimed at a record deleted meanwhile) |
 | `rejected` | the operation failed (validation, permission, integrity) — its savepoint was rolled back; `detail` explains why |
 
+## Client directives
+
+Two declarations carry no server-side behaviour at all: they travel through the model metadata
+(`GET /api/dataset/metadatas`) to tell an offline client how to handle the model.
+
+| Declaration | Metadata field | Tells the client |
+|-------------|----------------|------------------|
+| `sync={"mode": "full"}` (default of `sync=True`) | `synchronizable_mode: "full"` | Mirror every record: paginated `id`/`updated_at` manifest, then fetch the delta |
+| `sync={"mode": "partial"}` | `synchronizable_mode: "partial"` | Pre-download nothing; fill the mirror with whatever the reads return, and still buffer the writes |
+| no `sync` action | `synchronizable_mode: "none"` | Do not replicate |
+| `local_placeholder="DRAFT-{seq}"` on a field | `local_placeholder` on that field | Show this interpolated template while the server-generated value is missing |
+
+`synchronizable` stays a boolean (`synchronizable_mode != "none"`), so a client that only reads
+the flag keeps working.
+
+A partially replicated model is the shape offline **creation** needs: a table nobody wants to
+download in full, whose records are still created and edited while disconnected. Pair it with
+`local_placeholder` on the generated business reference and `read_only=True`, so no input can
+write the field and the client still has something to display:
+
+```python
+@api_route_model(sync={"mode": "partial"})
+class Ticket(BaseModel):
+    reference = fields.CharField(
+        max_length=50,
+        null=True,
+        read_only=True,
+        local_placeholder="DRAFT-{seq}",
+    )
+    subject = fields.CharField(max_length=200)
+```
+
+`{seq}` is interpolated client-side from a local per-model counter — a provisional label, never a
+prediction of the server value. Once the buffered create is replayed, the server record replaces
+it wholesale.
+
 ## Assumed limitations
 
 - **Last-writer-wins crosses two clocks**: the tie-breaker compares the server `updated_at` against the client `created_at`. Device and server clocks are not the same clock — treat it as best-effort ordering, not a total order.
 - **No base means whole-operation LWW**: an operation without a `base` snapshot cannot isolate disjoint fields — the entire payload is treated as conflicting and resolved as one.
-- **Creates stay on `POST`**: only updates and deletes are replayed here.
+- **Creates stay on `POST`**: only updates and deletes are replayed here. A create replayed after its response was lost is **not** idempotent — it creates a second record.
+- **The replication mode is advisory**: the server does not enforce it, it only announces it. A client is free to ignore `partial` and mirror everything.
 
 ## Get Started
 

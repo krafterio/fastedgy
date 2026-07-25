@@ -273,6 +273,31 @@
             "title": "Path",
             "type": "string"
           },
+          "record": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Product"
+              },
+              {
+                "additionalProperties": true,
+                "properties": {
+                  "$model": {
+                    "description": "Generic target model name, present when selected through X-Fields",
+                    "enum": [
+                      "product"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Polymorphic reference to the serialized target record. Allowed models: `product`.",
+            "title": "Record"
+          },
           "size_bytes": {
             "anyOf": [
               {
@@ -475,6 +500,23 @@
             "maxLength": 1500,
             "title": "Path",
             "type": "string"
+          },
+          "record": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReferenceObject"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Polymorphic reference for record: `{\"model\": ..., \"id\": ...}`.\n\nAllowed models: `product`",
+            "examples": [
+              {
+                "id": 5,
+                "model": "product"
+              }
+            ]
           },
           "size_bytes": {
             "anyOf": [
@@ -735,6 +777,23 @@
               }
             ],
             "title": "Path"
+          },
+          "record": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReferenceObject"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Polymorphic reference for record: `{\"model\": ..., \"id\": ...}`.\n\nAllowed models: `product`",
+            "examples": [
+              {
+                "id": 5,
+                "model": "product"
+              }
+            ]
           },
           "size_bytes": {
             "anyOf": [
@@ -1773,6 +1832,17 @@
             "title": "Label",
             "type": "string"
           },
+          "local_placeholder": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Local Placeholder"
+          },
           "name": {
             "title": "Name",
             "type": "string"
@@ -1898,6 +1968,11 @@
             "default": false,
             "title": "Synchronizable",
             "type": "boolean"
+          },
+          "synchronizable_mode": {
+            "default": "none",
+            "title": "Synchronizable Mode",
+            "type": "string"
           }
         },
         "required": [
@@ -2236,6 +2311,28 @@
             ],
             "title": "Annotations"
           },
+          "attachments": {
+            "anyOf": [
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Attachment"
+                    },
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attachments"
+          },
           "category": {
             "anyOf": [
               {
@@ -2499,6 +2596,66 @@
               ]
             ],
             "title": "Annotations"
+          },
+          "attachments": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "$ref": "#/components/schemas/RelationOperation"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Relations for attachments.\n\n**Simple mode:** Array of IDs: `[1, 2, 3]`\n\n**Advanced mode:** Array of operations `[[\"action\", value], ...]`\n\nAvailable actions:\n- `create` - Create new record and link (value=object)\n- `update` - Update record and ensure link (value={id:X,...})\n- `link` - Link existing record (value=id)\n- `unlink` - Remove link without deleting (value=id)\n- `delete` - Delete record and remove link (value=id)\n- `set` - Replace all links (value=[ids])\n- `clear` - Remove all links (no value)",
+            "examples": [
+              [
+                1,
+                2,
+                3
+              ],
+              [
+                [
+                  "link",
+                  1
+                ],
+                [
+                  "create",
+                  {
+                    "name": "New"
+                  }
+                ]
+              ],
+              [
+                [
+                  "clear"
+                ],
+                [
+                  "set",
+                  [
+                    1,
+                    2,
+                    3
+                  ]
+                ]
+              ]
+            ],
+            "title": "Attachments"
           },
           "category": {
             "anyOf": [
@@ -2930,6 +3087,66 @@
               ]
             ],
             "title": "Annotations"
+          },
+          "attachments": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "$ref": "#/components/schemas/RelationOperation"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Relations for attachments.\n\n**Simple mode:** Array of IDs: `[1, 2, 3]`\n\n**Advanced mode:** Array of operations `[[\"action\", value], ...]`\n\nAvailable actions:\n- `create` - Create new record and link (value=object)\n- `update` - Update record and ensure link (value={id:X,...})\n- `link` - Link existing record (value=id)\n- `unlink` - Remove link without deleting (value=id)\n- `delete` - Delete record and remove link (value=id)\n- `set` - Replace all links (value=[ids])\n- `clear` - Remove all links (no value)",
+            "examples": [
+              [
+                1,
+                2,
+                3
+              ],
+              [
+                [
+                  "link",
+                  1
+                ],
+                [
+                  "create",
+                  {
+                    "name": "New"
+                  }
+                ]
+              ],
+              [
+                [
+                  "clear"
+                ],
+                [
+                  "set",
+                  [
+                    1,
+                    2,
+                    3
+                  ]
+                ]
+              ]
+            ],
+            "title": "Attachments"
           },
           "category": {
             "anyOf": [
@@ -4960,7 +5177,7 @@
         "type": "object"
       },
       "ReferenceObject": {
-        "description": "Polymorphic reference input: the target model metadata name and the\nrecord id. Declared as a shared model so the OpenAPI schema documents it\nonce instead of inlining it on every generic reference field.",
+        "description": "Polymorphic reference input: the target model metadata name and the\nrecord id. Declared as a shared model so the OpenAPI schema documents it\nonce instead of inlining it on every generic reference field.\n\nThe target accepts both spellings: ``model`` (the write form) and\n``$model`` (the key a serialized reference carries), so a client can send\nback a reference it just read without rewriting it.",
         "properties": {
           "id": {
             "title": "Id",
@@ -5656,6 +5873,126 @@
           }
         },
         "title": "Tag-Update",
+        "type": "object"
+      },
+      "Ticket": {
+        "description": "Partially replicated model with a server-generated reference.\n\nExercises the offline pair a client needs to create records while\ndisconnected: a ``partial`` replication regime (nothing pre-downloaded) and\na ``read_only`` reference carrying the placeholder the client shows until\nthe server assigns the real value.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference"
+          },
+          "subject": {
+            "maxLength": 200,
+            "title": "Subject",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "Ticket",
+        "type": "object"
+      },
+      "Ticket-Create": {
+        "properties": {
+          "subject": {
+            "maxLength": 200,
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject"
+        ],
+        "title": "Ticket-Create",
+        "type": "object"
+      },
+      "Ticket-List": {
+        "properties": {
+          "items": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Ticket"
+                },
+                {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              ]
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "total_pages": {
+            "readOnly": true,
+            "title": "Total Pages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset",
+          "total_pages"
+        ],
+        "title": "Ticket-List",
+        "type": "object"
+      },
+      "Ticket-Update": {
+        "properties": {
+          "subject": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject"
+          }
+        },
+        "title": "Ticket-Update",
         "type": "object"
       },
       "Token": {
@@ -10357,6 +10694,10 @@
                     "description": "Key is the filename and the value is the binary content. Multiple files can be uploaded",
                     "format": "binary",
                     "type": "string"
+                  },
+                  "meta": {
+                    "description": "Optional JSON object of Attachment values applied to the created records, validated against the Attachment PATCH schema. Either flat (applied to every file): `{\"record\": {\"model\": \"flow\", \"id\": 42}}`, or keyed by file field name (applied per file): `{\"file_0\": {\"record\": {...}}}`. Lets a client create an already-associated attachment in a single request.",
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -14569,6 +14910,768 @@
         "summary": "Update Tag",
         "tags": [
           "test_tags"
+        ]
+      }
+    },
+    "/api/test_tickets": {
+      "get": {
+        "description": "Retrieve a paginated list of Ticket items",
+        "operationId": "list_items_api_test_tickets_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 1000,
+              "minimum": 0,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Order the list of items by field(s) separated by commas (ex. 'created_at:desc,name:asc')",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Order the list of items by field(s) separated by commas (ex. 'created_at:desc,name:asc')",
+              "title": "Order by"
+            }
+          },
+          {
+            "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+            "in": "header",
+            "name": "X-Fields",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+              "title": "Fields Selector"
+            }
+          },
+          {
+            "description": "Filter the list of items with the filter expression build with rules and conditions",
+            "in": "header",
+            "name": "X-Filter",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter the list of items with the filter expression build with rules and conditions",
+              "title": "Filter"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ticket-List"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "List Ticket items",
+        "tags": [
+          "test_tickets"
+        ]
+      },
+      "post": {
+        "description": "Create a new Ticket item",
+        "operationId": "create_item_api_test_tickets_post",
+        "parameters": [
+          {
+            "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+            "in": "header",
+            "name": "X-Fields",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+              "title": "Fields Selector"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Ticket-Create"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Ticket"
+                    },
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    }
+                  ],
+                  "title": "Response Create Item Api Test Tickets Post"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            },
+            "description": "Invalid relation operation"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Create Ticket",
+        "tags": [
+          "test_tickets"
+        ]
+      }
+    },
+    "/api/test_tickets/export": {
+      "get": {
+        "description": "Retrieve a export of Ticket items",
+        "operationId": "export_items_api_test_tickets_export_get",
+        "parameters": [
+          {
+            "description": "Export format (csv, xlsx, ods)",
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "schema": {
+              "default": "csv",
+              "description": "Export format (csv, xlsx, ods)",
+              "title": "Format",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Limit"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Order the list of items by field(s) separated by commas (ex. 'created_at:desc,name:asc')",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Order the list of items by field(s) separated by commas (ex. 'created_at:desc,name:asc')",
+              "title": "Order by"
+            }
+          },
+          {
+            "description": "Delimiter for relation values (one2many, many2many) in export cells",
+            "in": "query",
+            "name": "relation_delimiter",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/RelationDelimiter",
+              "default": "newline",
+              "description": "Delimiter for relation values (one2many, many2many) in export cells",
+              "title": "Relation delimiter"
+            }
+          },
+          {
+            "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+            "in": "header",
+            "name": "X-Fields",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+              "title": "Fields Selector"
+            }
+          },
+          {
+            "description": "Filter the list of items with the filter expression build with rules and conditions",
+            "in": "header",
+            "name": "X-Filter",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter the list of items with the filter expression build with rules and conditions",
+              "title": "Filter"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Export Ticket items",
+        "tags": [
+          "test_tickets"
+        ]
+      }
+    },
+    "/api/test_tickets/import": {
+      "post": {
+        "description": "Import Ticket items from a file (CSV, XLSX, ODS)",
+        "operationId": "import_items_api_test_tickets_import_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportItemsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Import Ticket items",
+        "tags": [
+          "test_tickets"
+        ]
+      }
+    },
+    "/api/test_tickets/import/template": {
+      "get": {
+        "description": "Retrieve a import template of Ticket",
+        "operationId": "import_template_api_test_tickets_import_template_get",
+        "parameters": [
+          {
+            "description": "Export format (csv, xlsx, ods)",
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "schema": {
+              "default": "csv",
+              "description": "Export format (csv, xlsx, ods)",
+              "title": "Format",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+            "in": "header",
+            "name": "X-Fields",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+              "title": "Fields Selector"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Import template of Ticket",
+        "tags": [
+          "test_tickets"
+        ]
+      }
+    },
+    "/api/test_tickets/sync": {
+      "post": {
+        "description": "Apply a batch of buffered offline Ticket updates/deletes with per-field three-way merge conflict resolution",
+        "operationId": "sync_items_api_test_tickets_sync_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SyncApplyInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncApplyResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Sync buffered Ticket writes",
+        "tags": [
+          "test_tickets"
+        ]
+      }
+    },
+    "/api/test_tickets/{item_id}": {
+      "delete": {
+        "description": "Delete a Ticket by its ID",
+        "operationId": "delete_item_api_test_tickets__item_id__delete",
+        "parameters": [
+          {
+            "description": "Item ID",
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "description": "Item ID",
+              "title": "Item Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            },
+            "description": "Item not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Delete Ticket",
+        "tags": [
+          "test_tickets"
+        ]
+      },
+      "get": {
+        "description": "Retrieve a single Ticket by its ID",
+        "operationId": "get_item_api_test_tickets__item_id__get",
+        "parameters": [
+          {
+            "description": "Item ID",
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "description": "Item ID",
+              "title": "Item Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+            "in": "header",
+            "name": "X-Fields",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+              "title": "Fields Selector"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Ticket"
+                    },
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    }
+                  ],
+                  "title": "Response Get Item Api Test Tickets  Item Id  Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            },
+            "description": "Item not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Get Ticket",
+        "tags": [
+          "test_tickets"
+        ]
+      },
+      "patch": {
+        "description": "Update an existing Ticket by its ID",
+        "operationId": "patch_item_api_test_tickets__item_id__patch",
+        "parameters": [
+          {
+            "description": "Item ID",
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "description": "Item ID",
+              "title": "Item Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+            "in": "header",
+            "name": "X-Fields",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+              "title": "Fields Selector"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Ticket-Update"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Ticket"
+                    },
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    }
+                  ],
+                  "title": "Response Patch Item Api Test Tickets  Item Id  Patch"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            },
+            "description": "Invalid relation operation"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            },
+            "description": "Item not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Update Ticket",
+        "tags": [
+          "test_tickets"
         ]
       }
     },

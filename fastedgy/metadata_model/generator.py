@@ -70,6 +70,8 @@ async def generate_metadata_model(model_cls: type[BaseModel | BaseView]) -> Meta
     has_fulltext_field = search_field is not None
     is_searchable = has_fulltext_field and len(searchable_fields_list) > 0
 
+    synchronizable_mode = _resolve_synchronizable_mode(model_cls)
+
     metadata = MetadataModel(
         name=name,
         api_name=api_name,
@@ -80,28 +82,41 @@ async def generate_metadata_model(model_cls: type[BaseModel | BaseView]) -> Meta
         search_field=search_field if is_searchable else None,
         sortable=sortable_field is not None,
         sortable_field=sortable_field,
-        synchronizable=_is_synchronizable(model_cls),
+        synchronizable=synchronizable_mode != "none",
+        synchronizable_mode=synchronizable_mode,
         fields=fields,
     )
 
     return metadata
 
 
-def _is_synchronizable(model_cls: type[BaseModel | BaseView]) -> bool:
-    """Whether the client may replicate/sync this model offline.
+def _resolve_synchronizable_mode(model_cls: type[BaseModel | BaseView]) -> str:
+    """How much of this model the client should replicate offline.
 
-    Auto-derived from the ``sync`` action being enabled on the model's
-    ``api_route_model``; overridable with ``Meta.synchronizable`` for models
-    synced through custom routes (their public action is disabled).
+    ``none`` (no replication), ``full`` (every record) or ``partial`` (only
+    what the reads returned, writes still buffered). Auto-derived from the
+    ``sync`` action options; overridable with ``Meta.synchronizable_mode``, or
+    with the boolean ``Meta.synchronizable`` for models synced through custom
+    routes (their public action is disabled).
     """
-    override = getattr(getattr(model_cls, "Meta", None), "synchronizable", None)
+    from fastedgy.api_route_model.actions.sync_action import (
+        DEFAULT_SYNC_MODE,
+        sync_mode,
+        validate_sync_mode,
+    )
+
+    meta = getattr(model_cls, "Meta", None)
+    mode_override = getattr(meta, "synchronizable_mode", None)
+
+    if mode_override is not None:
+        return validate_sync_mode(str(mode_override))
+
+    override = getattr(meta, "synchronizable", None)
 
     if override is not None:
-        return bool(override)
+        return DEFAULT_SYNC_MODE if override else "none"
 
-    from fastedgy.api_route_model.actions.sync_action import is_sync_enabled
-
-    return is_sync_enabled(model_cls)
+    return sync_mode(model_cls)
 
 
 async def generate_metadata_fields(model_cls: type[BaseModel | BaseView]) -> dict[str, MetadataField]:
@@ -227,6 +242,8 @@ def generate_metadata_field(model_cls: type[Model], field: BaseFieldType) -> Met
     if searchable and not filter_operators:
         raise MetadataFieldError(f"Metadata field {field.name} must have a filter operator if searchable is enabled")
 
+    local_placeholder = getattr(field, "local_placeholder", None)
+
     return MetadataField(
         name=field.name,
         label=str(label),
@@ -239,6 +256,7 @@ def generate_metadata_field(model_cls: type[Model], field: BaseFieldType) -> Met
         target=generate_metadata_name(target_model) if target_model else None,
         targets=targets,
         choices=get_field_choices(field),
+        local_placeholder=str(local_placeholder) if local_placeholder is not None else None,
     )
 
 

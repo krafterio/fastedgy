@@ -1,6 +1,7 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+import json
 import re as _re
 from collections.abc import Awaitable, Callable
 from datetime import datetime
@@ -11,6 +12,7 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
+from pydantic import ValidationError
 
 from fastedgy.http import Request
 from fastedgy.dependencies import Inject, get_service
@@ -77,7 +79,17 @@ ATTACHMENT_CACHE_CONTROL = "private, no-cache"
                                 "type": "string",
                                 "format": "binary",
                                 "description": "Key is the filename and the value is the binary content. Multiple files can be uploaded",
-                            }
+                            },
+                            "meta": {
+                                "type": "string",
+                                "description": (
+                                    "Optional JSON object of Attachment values applied to the created records, "
+                                    "validated against the Attachment PATCH schema. Either flat (applied to every "
+                                    'file): `{"record": {"model": "flow", "id": 42}}`, or keyed by file field name '
+                                    '(applied per file): `{"file_0": {"record": {...}}}`. Lets a client create an '
+                                    "already-associated attachment in a single request."
+                                ),
+                            },
                         },
                         "required": ["<filename>"],
                     },
@@ -106,26 +118,34 @@ async def upload_attachments(
     now = datetime.now(context.get_timezone())
     directory_path = f"attachments/{now.strftime('%Y/%m')}"
 
-    files = []
+    files: list[tuple[str, StarletteUploadFile]] = []
     results: list[Any] = []
     form = await request.form()
 
-    for _, value in form.multi_items():
+    for key, value in form.multi_items():
         if isinstance(value, StarletteUploadFile):
-            files.append(value)
+            files.append((key, value))
 
     if not files:
         raise HTTPException(status_code=400, detail=_t("No files uploaded"))
 
-    for _, file in enumerate(files):
+    meta = _parse_attachments_meta(form.get("meta"), [key for key, _ in files])
+
+    for key, file in files:
         filename = f"{uuid7()}.{{ext}}"
 
-        rel_path = await storage.upload(
-            file=file,
-            directory_path=directory_path,
-            filename=filename,
-            create_attachment=True,
-        )
+        try:
+            rel_path = await storage.upload(
+                file=file,
+                directory_path=directory_path,
+                filename=filename,
+                create_attachment=True,
+                attachment_values=_validated_attachment_values(Attachment, meta.get(key)),
+            )
+        except ValueError as e:
+            # Rejected attachment values (an unallowed reference target, a bad
+            # coercion): the caller's input is at fault, not the server.
+            raise HTTPException(status_code=422, detail=str(e))
 
         # Fetch the created attachment
         att = await Attachment.query.filter(storage_path=rel_path).get_or_none()
@@ -135,6 +155,67 @@ async def upload_attachments(
         results.append(att)
 
     return UploadedAttachments[Attachment](attachments=results)
+
+
+def _parse_attachments_meta(raw: Any, file_keys: list[str]) -> dict[str, dict[str, Any]]:
+    """Resolve the optional `meta` form field into per-file value mappings.
+
+    Accepts a flat object applied to every uploaded file, or an object keyed by
+    file field name. A key matching no uploaded file is a client mistake worth
+    surfacing rather than silently dropping.
+    """
+    if raw is None or isinstance(raw, StarletteUploadFile) or not str(raw).strip():
+        return {}
+
+    try:
+        parsed = json.loads(str(raw))
+    except ValueError:
+        raise HTTPException(status_code=422, detail=_t("The 'meta' field is not valid JSON"))
+
+    if not isinstance(parsed, dict):
+        raise HTTPException(status_code=422, detail=_t("The 'meta' field must be a JSON object"))
+
+    if not parsed:
+        return {}
+
+    keyed = all(key in file_keys for key in parsed)
+
+    if keyed:
+        return {key: value for key, value in parsed.items() if isinstance(value, dict)}
+
+    # Not fully keyed, yet some keys name an uploaded file: the intent is
+    # ambiguous, so refuse rather than guess which reading applies.
+    mixed = [key for key in parsed if key in file_keys]
+
+    if mixed:
+        raise HTTPException(
+            status_code=422,
+            detail=_t("The 'meta' field mixes per-file keys and attachment values"),
+        )
+
+    return {key: parsed for key in file_keys}
+
+
+def _validated_attachment_values(
+    attachment_cls: type["BaseModel"], values: dict[str, Any] | None
+) -> dict[str, Any] | None:
+    """Validate caller-supplied attachment values against the PATCH schema.
+
+    Reuses the generated input schema so a polymorphic `record` reference goes
+    through the same coercion as a regular PATCH (and so an unwritable field is
+    rejected here instead of reaching the model constructor).
+    """
+    if not values:
+        return None
+
+    from fastedgy.api_route_model.action.generators import generate_input_patch_model
+
+    try:
+        validated = generate_input_patch_model(attachment_cls)(**values)
+    except ValidationError as error:
+        raise HTTPException(status_code=422, detail=json.loads(error.json()))
+
+    return validated.model_dump(exclude_unset=True, warnings=False)
 
 
 @manage_router.post(

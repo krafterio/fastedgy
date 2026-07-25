@@ -14,6 +14,8 @@ class Meta(Model.Meta):
     default_order_by: OrderByList
     sortable_field: str | None
     search_field: str | None
+    synchronizable: bool
+    synchronizable_mode: str
     workspace_preserve_explicit: bool
     workspace_filter: bool
     workspace_shareable_record_field: str

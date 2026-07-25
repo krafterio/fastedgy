@@ -55,6 +55,7 @@ class MetadataField(BaseModel):
     target: str | None = None
     targets: list[str] | None = None
     choices: dict[str, str] | None = None
+    local_placeholder: str | None = None
 
 
 class MetadataModel(BaseModel):
@@ -68,6 +69,7 @@ class MetadataModel(BaseModel):
     sortable: bool
     sortable_field: str | None = None
     synchronizable: bool = False
+    synchronizable_mode: str = "none"
     fields: dict[str, MetadataField]
 
 

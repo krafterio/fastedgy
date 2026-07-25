@@ -388,7 +388,10 @@ class GenericForeignKey(BaseField):
             return {self.model_column: None, self.id_column: None}
 
         if isinstance(value, dict):
-            model_name = value.get("model")
+            # Serialized references carry the target under "$model" (the virtual
+            # pair key, see resolve_generic_pair_path), so a client echoing back
+            # what it read must be accepted alongside the "model" write form.
+            model_name = value.get("model", value.get("$model"))
             record_id = value.get("id")
             if not model_name or record_id is None:
                 raise ValueError(

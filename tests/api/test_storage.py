@@ -1,11 +1,151 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+import json
 import os
 
 import httpx
 
 from fastedgy.test.fixtures import stored_file_path
+
+
+async def _product(name: str = "Laptop") -> int:
+    from fastedgy.test.models.product import Product
+
+    product = await Product.query.create(name=name, price="10.00")
+
+    return product.id
+
+
+async def test_upload_associates_the_attachment_in_one_pass(auth_http: httpx.AsyncClient) -> None:
+    from fastedgy.test.models.attachment import Attachment
+
+    product_id = await _product()
+
+    response = await auth_http.post(
+        "/api/storage/upload/attachments",
+        files={"doc.txt": ("doc.txt", b"hello world", "text/plain")},
+        data={"meta": json.dumps({"record": {"model": "product", "id": product_id}})},
+    )
+
+    assert response.status_code == 200
+
+    attachment_id = response.json()["attachments"][0]["id"]
+    record = await Attachment.query.get(id=attachment_id)
+
+    # No follow-up PATCH was needed: the polymorphic owner is already set.
+    assert record.record_model == "product"
+    assert record.record_id == product_id
+
+
+async def test_upload_accepts_the_serialized_reference_spelling(auth_http: httpx.AsyncClient) -> None:
+    from fastedgy.test.models.attachment import Attachment
+
+    product_id = await _product()
+
+    # "$model" is what a read returns, so echoing a reference back must work.
+    response = await auth_http.post(
+        "/api/storage/upload/attachments",
+        files={"doc.txt": ("doc.txt", b"hello world", "text/plain")},
+        data={"meta": json.dumps({"record": {"$model": "product", "id": product_id}})},
+    )
+
+    assert response.status_code == 200
+
+    record = await Attachment.query.get(id=response.json()["attachments"][0]["id"])
+
+    assert record.record_model == "product"
+    assert record.record_id == product_id
+
+
+async def test_upload_meta_can_target_each_file(auth_http: httpx.AsyncClient) -> None:
+    from fastedgy.test.models.attachment import Attachment
+
+    first = await _product("First")
+    second = await _product("Second")
+
+    response = await auth_http.post(
+        "/api/storage/upload/attachments",
+        files=[
+            ("a.txt", ("a.txt", b"aaa", "text/plain")),
+            ("b.txt", ("b.txt", b"bbbb", "text/plain")),
+        ],
+        data={
+            "meta": json.dumps(
+                {
+                    "a.txt": {"record": {"model": "product", "id": first}},
+                    "b.txt": {"record": {"model": "product", "id": second}},
+                }
+            )
+        },
+    )
+
+    assert response.status_code == 200
+
+    attachments = response.json()["attachments"]
+    owners = {}
+
+    for attachment in attachments:
+        record = await Attachment.query.get(id=attachment["id"])
+        owners[record.name] = record.record_id
+
+    assert owners == {"a": first, "b": second}
+
+
+async def test_upload_without_meta_keeps_the_attachment_unassociated(auth_http: httpx.AsyncClient) -> None:
+    from fastedgy.test.models.attachment import Attachment
+
+    response = await auth_http.post(
+        "/api/storage/upload/attachments",
+        files={"doc.txt": ("doc.txt", b"hello world", "text/plain")},
+    )
+
+    assert response.status_code == 200
+
+    record = await Attachment.query.get(id=response.json()["attachments"][0]["id"])
+
+    assert record.record_model is None
+    assert record.record_id is None
+
+
+async def test_upload_rejects_invalid_meta_json(auth_http: httpx.AsyncClient) -> None:
+    response = await auth_http.post(
+        "/api/storage/upload/attachments",
+        files={"doc.txt": ("doc.txt", b"hello world", "text/plain")},
+        data={"meta": "{not json"},
+    )
+
+    assert response.status_code == 422
+
+
+async def test_upload_rejects_a_meta_reference_outside_the_allowed_targets(auth_http: httpx.AsyncClient) -> None:
+    from fastedgy.test.models.attachment import Attachment
+
+    before = await Attachment.query.count()
+    stored_before = _stored_attachment_files()
+
+    # "category" is not in the field's `to`: the failure must surface instead of
+    # returning a 200 for an attachment that was never associated.
+    response = await auth_http.post(
+        "/api/storage/upload/attachments",
+        files={"doc.txt": ("doc.txt", b"hello world", "text/plain")},
+        data={"meta": json.dumps({"record": {"model": "category", "id": 1}})},
+    )
+
+    assert response.status_code == 422
+    assert await Attachment.query.count() == before
+
+    # The bytes were written before the record failed: they must not be left behind.
+    assert _stored_attachment_files() == stored_before
+
+
+def _stored_attachment_files() -> set[str]:
+    root = stored_file_path("attachments")
+
+    if not os.path.isdir(root):
+        return set()
+
+    return {os.path.join(current, name) for current, _, filenames in os.walk(root) for name in filenames}
 
 
 async def test_upload_creates_attachment(auth_http: httpx.AsyncClient) -> None:

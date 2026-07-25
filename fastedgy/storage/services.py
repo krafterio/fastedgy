@@ -468,6 +468,7 @@ class Storage:
         filename: str | None = None,
         global_storage: bool = False,
         create_attachment: bool = False,
+        attachment_values: dict[str, Any] | None = None,
     ) -> str:
         if not file.filename:
             raise ValueError(_t("Missing filename"))
@@ -487,6 +488,7 @@ class Storage:
             global_storage=global_storage,
             original_name=file.filename,
             create_attachment=create_attachment,
+            attachment_values=attachment_values,
         )
 
     async def upload_from_base64(
@@ -496,6 +498,7 @@ class Storage:
         filename: str | None = None,
         global_storage: bool = False,
         create_attachment: bool = False,
+        attachment_values: dict[str, Any] | None = None,
     ) -> str:
         if not data.startswith("data:"):
             raise ValueError(_t("Content is not a data URL"))
@@ -516,6 +519,7 @@ class Storage:
             global_storage=global_storage,
             original_name=filename.replace("{ext}", ext) if filename else None,
             create_attachment=create_attachment,
+            attachment_values=attachment_values,
         )
 
     async def download_and_upload(
@@ -525,6 +529,7 @@ class Storage:
         filename: str | None = None,
         global_storage: bool = False,
         create_attachment: bool = False,
+        attachment_values: dict[str, Any] | None = None,
     ) -> str:
         try:
             async with create_http_client() as client:
@@ -546,6 +551,7 @@ class Storage:
                     global_storage=global_storage,
                     original_name=filename.replace("{ext}", ext) if filename else None,
                     create_attachment=create_attachment,
+                    attachment_values=attachment_values,
                 )
         except Exception as e:
             raise ValueError(_t("Error while downloading the file: {error}", error=str(e)))
@@ -636,6 +642,7 @@ class Storage:
         global_storage: bool,
         original_name: str | None,
         create_attachment: bool = False,
+        attachment_values: dict[str, Any] | None = None,
     ) -> str:
         from fastedgy.storage.models.attachment import AttachmentType
 
@@ -677,21 +684,39 @@ class Storage:
                     if original_name
                     else os.path.splitext(os.path.basename(safe_filename))[0]
                 )
-                attachment = AttachmentModel(
-                    type=AttachmentType.file,
-                    name=base_name,
-                    extension=ext,
-                    mime_type=mime_type or None,
-                    size_bytes=len(content),
-                    width=img_width,
-                    height=img_height,
-                    storage_path=relative_path,
-                    is_global=global_storage,
-                    path=base_name,
+                values: dict[str, Any] = {
+                    "type": AttachmentType.file,
+                    "name": base_name,
+                    "extension": ext,
+                    "mime_type": mime_type or None,
+                    "width": img_width,
+                    "height": img_height,
+                    "path": base_name,
+                }
+                # Caller-supplied values win over the ones derived from the file,
+                # except those describing the stored bytes themselves.
+                values.update(attachment_values or {})
+                values.update(
+                    {
+                        "size_bytes": len(content),
+                        "storage_path": relative_path,
+                        "is_global": global_storage,
+                    }
                 )
+                attachment = AttachmentModel(**values)
                 await attachment.save()
         except Exception:
-            pass
+            # A caller that supplied values expects them applied: swallowing the
+            # failure here would return a path for an attachment that does not
+            # exist (or is not associated), with no way to notice. The bytes are
+            # already written, so drop them rather than leave an orphan behind.
+            if attachment_values:
+                try:
+                    await self.adapter.delete(full_path)
+                except Exception:
+                    logger.warning("Could not remove '%s' after a failed attachment creation", relative_path)
+
+                raise
 
         return relative_path
 

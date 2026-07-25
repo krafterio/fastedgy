@@ -1,6 +1,8 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+import pytest
+
 from fastedgy.app import FastEdgy
 from fastedgy.dependencies import get_service
 from fastedgy.metadata_model import MetadataModelRegistry
@@ -42,3 +44,44 @@ async def test_synchronizable_override_wins_over_the_action(setup_db: FastEdgy) 
     metadata = await get_service(MetadataModelRegistry).get_metadata("comment")
 
     assert metadata.synchronizable is True
+    assert metadata.synchronizable_mode == "full"
+
+
+async def test_synchronizable_mode_derives_from_the_sync_options(setup_db: FastEdgy) -> None:
+    registry = get_service(MetadataModelRegistry)
+
+    # sync=True defaults to a full mirror, sync={"mode": "partial"} opts out of it.
+    assert (await registry.get_metadata("product")).synchronizable_mode == "full"
+    assert (await registry.get_metadata("ticket")).synchronizable_mode == "partial"
+
+    # A partial model stays synchronizable: only how much it mirrors changes.
+    assert (await registry.get_metadata("ticket")).synchronizable is True
+
+
+async def test_synchronizable_mode_is_none_without_the_action(setup_db: FastEdgy) -> None:
+    metadata = await get_service(MetadataModelRegistry).get_metadata("category")
+
+    assert metadata.synchronizable is False
+    assert metadata.synchronizable_mode == "none"
+
+
+async def test_local_placeholder_is_exposed_on_the_field(setup_db: FastEdgy) -> None:
+    metadata = await get_service(MetadataModelRegistry).get_metadata("ticket")
+
+    # The client interpolates this while the server-generated value is missing.
+    assert metadata.fields["reference"].local_placeholder == "DRAFT-{seq}"
+    assert metadata.fields["reference"].readonly is True
+
+    # A field that declares nothing carries no placeholder.
+    assert metadata.fields["subject"].local_placeholder is None
+
+
+async def test_invalid_sync_mode_is_rejected() -> None:
+    from fastedgy.api_route_model.actions.sync_action import validate_sync_mode
+
+    with pytest.raises(ValueError, match="Sync mode 'partiel' is not supported"):
+        validate_sync_mode("partiel")
+
+    # "none" is derived from the absence of the action, never configured.
+    with pytest.raises(ValueError, match="Sync mode 'none' is not supported"):
+        validate_sync_mode("none")

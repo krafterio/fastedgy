@@ -13,17 +13,21 @@ from fastedgy.orm import Model, Registry
 from fastedgy.orm.transaction import with_transaction
 from fastedgy.schemas.dataset import ResequenceRequest, Resequence
 
-router = APIRouter(prefix="/dataset", tags=["dataset"])
+# One router per route, so an app can mount them under different prefixes:
+# workspace extra fields make the metadata tenant-specific, while resequencing
+# stays wherever the app needs it. [router] mounts both, as before.
+metadatas_router = APIRouter(prefix="/dataset", tags=["dataset"])
+resequence_router = APIRouter(prefix="/dataset", tags=["dataset"])
 
 
-@router.get("/metadatas")
+@metadatas_router.get("/metadatas")
 async def get_metadata_models(
     meta_registry: MetadataModelRegistry = Inject(MetadataModelRegistry),
 ) -> TypeMapMetadataModels:
     return await meta_registry.get_map_models()
 
 
-@router.put("/resequence")
+@resequence_router.put("/resequence")
 async def resequence(
     data: ResequenceRequest,
     meta_registry: MetadataModelRegistry = Inject(MetadataModelRegistry),
@@ -127,6 +131,13 @@ def _prepare_sequence_update(
     }
 
 
+router = APIRouter()
+router.include_router(metadatas_router)
+router.include_router(resequence_router)
+
+
 __all__ = [
     "router",
+    "metadatas_router",
+    "resequence_router",
 ]

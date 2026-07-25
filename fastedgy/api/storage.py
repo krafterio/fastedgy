@@ -131,6 +131,11 @@ async def upload_attachments(
 
     meta = _parse_attachments_meta(form.get("meta"), [key for key, _ in files])
 
+    # Validate every file's values before storing anything: rejecting the third
+    # file's values after the first two were written would leave a partial
+    # upload behind, with no way for the caller to tell which ones landed.
+    values = {key: _validated_attachment_values(Attachment, meta.get(key)) for key, _ in files}
+
     for key, file in files:
         filename = f"{uuid7()}.{{ext}}"
 
@@ -140,7 +145,7 @@ async def upload_attachments(
                 directory_path=directory_path,
                 filename=filename,
                 create_attachment=True,
-                attachment_values=_validated_attachment_values(Attachment, meta.get(key)),
+                attachment_values=values[key],
             )
         except ValueError as e:
             # Rejected attachment values (an unallowed reference target, a bad
@@ -223,12 +228,46 @@ def _validated_attachment_values(
         # key read as a flat object, or field names that do not exist.
         raise HTTPException(
             status_code=422,
-            detail=_t("The 'meta' field holds no writable Attachment value: {keys}").format(
-                keys=", ".join(sorted(values))
+            detail=_t(
+                "The 'meta' field holds no writable Attachment value: {keys}",
+                keys=", ".join(sorted(values)),
             ),
         )
 
+    _check_reference_targets(attachment_cls, dumped)
+
     return dumped
+
+
+def _check_reference_targets(attachment_cls: type["BaseModel"], values: dict[str, Any]) -> None:
+    """Reject a polymorphic reference aimed at a model the field disallows.
+
+    The schema only types the reference as ``{model, id}``; the allowed targets
+    are enforced when the record is built, which is too late here — the earlier
+    files of the request would already be stored.
+    """
+    for name, field in attachment_cls.meta.fields.items():
+        if not getattr(field, "is_generic_foreign_key", False):
+            continue
+
+        value = values.get(name)
+
+        if not isinstance(value, dict):
+            continue
+
+        target = value.get("model")
+        allowed = cast(Any, field).targets()
+
+        if target not in allowed:
+            raise HTTPException(
+                status_code=422,
+                detail=_t(
+                    "'{model}' is not an allowed target of '{field}', expected one of: {allowed}",
+                    model=target,
+                    field=name,
+                    allowed=", ".join(sorted(allowed)),
+                ),
+            )
 
 
 @manage_router.post(

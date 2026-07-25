@@ -127,6 +127,36 @@ async def test_upload_rejects_meta_that_writes_nothing(auth_http: httpx.AsyncCli
     assert await Attachment.query.count() == before
 
 
+async def test_upload_rejects_bad_meta_before_storing_anything(auth_http: httpx.AsyncClient) -> None:
+    from fastedgy.test.models.attachment import Attachment
+
+    product_id = await _product()
+    before = await Attachment.query.count()
+    stored_before = _stored_attachment_files()
+
+    # The second file's values are invalid: the first must not have been stored,
+    # otherwise the caller gets a 422 over a half-applied upload.
+    response = await auth_http.post(
+        "/api/storage/upload/attachments",
+        files=[
+            ("a.txt", ("a.txt", b"aaa", "text/plain")),
+            ("b.txt", ("b.txt", b"bbb", "text/plain")),
+        ],
+        data={
+            "meta": json.dumps(
+                {
+                    "a.txt": {"record": {"model": "product", "id": product_id}},
+                    "b.txt": {"record": {"model": "nope", "id": 1}},
+                }
+            )
+        },
+    )
+
+    assert response.status_code == 422
+    assert await Attachment.query.count() == before
+    assert _stored_attachment_files() == stored_before
+
+
 async def test_upload_rejects_meta_mixing_file_keys_and_values(auth_http: httpx.AsyncClient) -> None:
     product_id = await _product()
 

@@ -1,7 +1,7 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import Literal, TypeAlias
+from typing import Any, Literal, TypeAlias
 
 from sqlalchemy import asc as sa_asc, desc as sa_desc
 
@@ -13,6 +13,22 @@ OrderByDirection: TypeAlias = Literal["asc", "desc"]
 OrderByTerm: TypeAlias = tuple[str, OrderByDirection]
 OrderByList: TypeAlias = list[OrderByTerm]
 OrderByInput: TypeAlias = str | OrderByList | None
+
+
+def extra_field_column(model_cls: type[Model], field_path: str) -> Any | None:
+    if "." in field_path or not field_path.startswith("extra_") or "extra" not in model_cls.meta.fields:
+        return None
+
+    from fastedgy import context
+    from fastedgy.metadata_model.generator import generate_metadata_name
+
+    name = field_path[6:]
+    extra_fields = context.get_map_workspace_extra_fields(generate_metadata_name(model_cls))
+
+    if name not in extra_fields:
+        return None
+
+    return model_cls.columns.extra.op("->>")(name)
 
 
 def inject_order_by(query: QuerySet, order_by: OrderByInput) -> QuerySet:
@@ -34,9 +50,10 @@ def inject_order_by(query: QuerySet, order_by: OrderByInput) -> QuerySet:
                 # Order by the extra_select label instead of the column
                 expr = rank_fields[label_name]
                 raw_order_expressions.append(sa_desc(expr) if direction == "desc" else sa_asc(expr))
-            else:
-                formatted_fields.append(("-" if direction == "desc" else "") + field.replace(".", "__"))
-                distinct_fields.append(field.replace(".", "__"))
+                continue
+
+            formatted_fields.append(("-" if direction == "desc" else "") + field.replace(".", "__"))
+            distinct_fields.append(field.replace(".", "__"))
 
         if query.distinct_on is not None and len(query.distinct_on) > 0:
             distinct_on_fields = [field.replace(".", "__") for field in query.distinct_on]
@@ -146,6 +163,9 @@ def _is_valid_field_path(model_cls: type[Model], field_path: str) -> bool:
     Returns:
         True if valid and orderable (stored in DB), False otherwise
     """
+    if extra_field_column(model_cls, field_path) is not None:
+        return True
+
     parts = field_path.split(".")
     current_cls = model_cls
 

@@ -306,6 +306,29 @@ async def test_delete_attachment_removes_record_and_file(auth_http: httpx.AsyncC
     assert not os.path.exists(full_path)
 
 
+async def test_delete_attachment_removes_the_file_from_a_workspace_context(auth_http: httpx.AsyncClient) -> None:
+    from fastedgy import context
+    from fastedgy.test.factories import create_workspace, use_request
+    from fastedgy.test.models.attachment import Attachment
+
+    upload = await auth_http.post(
+        "/api/storage/upload/attachments",
+        files={"doc.txt": ("doc.txt", b"hello world", "text/plain")},
+    )
+    record = await Attachment.query.get(id=upload.json()["attachments"][0]["id"])
+    full_path = stored_file_path(record.storage_path)
+
+    assert os.path.isfile(full_path)
+
+    workspace = await create_workspace(slug="ws-attachment-delete")
+
+    with use_request():
+        context.set_workspace(workspace)
+        await record.delete()
+
+    assert not os.path.exists(full_path)
+
+
 async def test_upload_without_files_is_rejected(auth_http: httpx.AsyncClient) -> None:
     response = await auth_http.post("/api/storage/upload/attachments", data={"not": "a file"})
 

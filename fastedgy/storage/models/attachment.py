@@ -342,12 +342,14 @@ async def on_post_delete(sender: Any, instance: Any, model_instance: Any, **kwar
         return
 
     from fastedgy.storage import Storage
+    from fastedgy.storage.routing import is_global_storage_model
 
     storage = get_service(Storage)
+    global_storage = getattr(model_instance, "is_global", is_global_storage_model(Attachment))
 
     for path in files:
         try:
-            await storage.delete(path)
+            await storage.delete(path, global_storage=global_storage)
         except Exception:
             pass
 

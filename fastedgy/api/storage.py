@@ -144,6 +144,7 @@ async def upload_attachments(
                 file=file,
                 directory_path=directory_path,
                 filename=filename,
+                global_storage=is_global_storage_model(Attachment),
                 create_attachment=True,
                 attachment_values=values[key],
             )
@@ -506,7 +507,7 @@ async def download_attachment(
         AttachmentModel: Any = registry.get_model("Attachment")
         record = await AttachmentModel.query.get(id=id)
 
-        global_storage = getattr(record, "is_global", False)
+        global_storage = getattr(record, "is_global", is_global_storage_model(AttachmentModel))
 
         resolved_path, content_type = await storage.get_optimized_or_original(
             record.storage_path,

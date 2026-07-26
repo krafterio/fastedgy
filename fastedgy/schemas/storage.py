@@ -5,6 +5,7 @@ from fastedgy.schemas import BaseModel
 
 
 class UploadedAttachment(BaseModel):
+    id: int
     name: str
     extension: str
     mime_type: str

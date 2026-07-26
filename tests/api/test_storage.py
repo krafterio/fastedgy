@@ -501,3 +501,37 @@ async def test_a_failed_attachment_copy_leaves_no_file_behind(auth_http: httpx.A
         await source.duplicate()
 
     assert _stored_attachment_files() == before
+
+
+async def test_upload_answers_with_the_id_of_every_record_it_created(auth_http: httpx.AsyncClient) -> None:
+    """The ids are declared, not merely present.
+
+    A client stores a file to reference it right away — an image written into a
+    rich text field, an avatar pointed at by a record. Without the id in the
+    schema, a generated client drops it and has to read the attachments back to
+    find what it just uploaded.
+    """
+    response = await auth_http.post(
+        "/api/storage/upload/attachments",
+        files=[
+            ("first.txt", ("first.txt", b"one", "text/plain")),
+            ("second.txt", ("second.txt", b"two", "text/plain")),
+        ],
+    )
+
+    assert response.status_code == 200
+
+    attachments = response.json()["attachments"]
+
+    # One id per uploaded file, each its own record.
+    assert len(attachments) == 2
+    assert all(isinstance(attachment["id"], int) for attachment in attachments)
+    assert attachments[0]["id"] != attachments[1]["id"]
+
+
+async def test_the_upload_schema_declares_the_id(auth_http: httpx.AsyncClient) -> None:
+    response = await auth_http.get("/openapi.json")
+    schema = response.json()["components"]["schemas"]["UploadedAttachment"]
+
+    assert "id" in schema["properties"]
+    assert "id" in schema["required"]

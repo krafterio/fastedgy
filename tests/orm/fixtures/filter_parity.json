@@ -15,6 +15,7 @@
       "sortable": false,
       "sortable_field": null,
       "synchronizable": true,
+      "synchronizable_mode": "full",
       "fields": {
         "name": {
           "name": "name",
@@ -47,7 +48,8 @@
           ],
           "target": null,
           "targets": null,
-          "choices": null
+          "choices": null,
+          "local_placeholder": null
         },
         "description": {
           "name": "description",
@@ -80,7 +82,8 @@
           ],
           "target": null,
           "targets": null,
-          "choices": null
+          "choices": null,
+          "local_placeholder": null
         },
         "price": {
           "name": "price",
@@ -105,7 +108,8 @@
           ],
           "target": null,
           "targets": null,
-          "choices": null
+          "choices": null,
+          "local_placeholder": null
         },
         "is_active": {
           "name": "is_active",
@@ -121,7 +125,8 @@
           ],
           "target": null,
           "targets": null,
-          "choices": null
+          "choices": null,
+          "local_placeholder": null
         },
         "quantity": {
           "name": "quantity",
@@ -146,7 +151,8 @@
           ],
           "target": null,
           "targets": null,
-          "choices": null
+          "choices": null,
+          "local_placeholder": null
         },
         "rating": {
           "name": "rating",
@@ -171,7 +177,8 @@
           ],
           "target": null,
           "targets": null,
-          "choices": null
+          "choices": null,
+          "local_placeholder": null
         },
         "released_on": {
           "name": "released_on",
@@ -194,7 +201,8 @@
           ],
           "target": null,
           "targets": null,
-          "choices": null
+          "choices": null,
+          "local_placeholder": null
         },
         "published_at": {
           "name": "published_at",
@@ -217,7 +225,8 @@
           ],
           "target": null,
           "targets": null,
-          "choices": null
+          "choices": null,
+          "local_placeholder": null
         },
         "reference": {
           "name": "reference",
@@ -250,7 +259,8 @@
           ],
           "target": null,
           "targets": null,
-          "choices": null
+          "choices": null,
+          "local_placeholder": null
         },
         "details": {
           "name": "details",
@@ -266,7 +276,8 @@
           ],
           "target": null,
           "targets": null,
-          "choices": null
+          "choices": null,
+          "local_placeholder": null
         },
         "category": {
           "name": "category",
@@ -286,7 +297,8 @@
           ],
           "target": "category",
           "targets": null,
-          "choices": null
+          "choices": null,
+          "local_placeholder": null
         },
         "tags": {
           "name": "tags",
@@ -304,7 +316,8 @@
           ],
           "target": "tag",
           "targets": null,
-          "choices": null
+          "choices": null,
+          "local_placeholder": null
         },
         "id": {
           "name": "id",
@@ -329,7 +342,8 @@
           ],
           "target": null,
           "targets": null,
-          "choices": null
+          "choices": null,
+          "local_placeholder": null
         },
         "created_at": {
           "name": "created_at",
@@ -352,7 +366,8 @@
           ],
           "target": null,
           "targets": null,
-          "choices": null
+          "choices": null,
+          "local_placeholder": null
         },
         "updated_at": {
           "name": "updated_at",
@@ -375,7 +390,8 @@
           ],
           "target": null,
           "targets": null,
-          "choices": null
+          "choices": null,
+          "local_placeholder": null
         },
         "search_value": {
           "name": "search_value",
@@ -391,7 +407,8 @@
           ],
           "target": null,
           "targets": null,
-          "choices": null
+          "choices": null,
+          "local_placeholder": null
         },
         "notes": {
           "name": "notes",
@@ -409,7 +426,8 @@
           ],
           "target": "note",
           "targets": null,
-          "choices": null
+          "choices": null,
+          "local_placeholder": null
         },
         "annotations": {
           "name": "annotations",
@@ -427,7 +445,27 @@
           ],
           "target": "annotation",
           "targets": null,
-          "choices": null
+          "choices": null,
+          "local_placeholder": null
+        },
+        "attachments": {
+          "name": "attachments",
+          "label": "Attachments",
+          "type": "one2many",
+          "readonly": false,
+          "required": false,
+          "searchable": false,
+          "extra": false,
+          "filter_operators": [
+            "in",
+            "not in",
+            "is empty",
+            "is not empty"
+          ],
+          "target": "attachment",
+          "targets": null,
+          "choices": null,
+          "local_placeholder": null
         },
         "extra_priority": {
           "name": "extra_priority",
@@ -452,7 +490,8 @@
           ],
           "target": null,
           "targets": null,
-          "choices": null
+          "choices": null,
+          "local_placeholder": null
         },
         "extra_owner": {
           "name": "extra_owner",
@@ -485,7 +524,8 @@
           ],
           "target": null,
           "targets": null,
-          "choices": null
+          "choices": null,
+          "local_placeholder": null
         }
       }
     },
@@ -503,6 +543,7 @@
       "sortable": false,
       "sortable_field": null,
       "synchronizable": false,
+      "synchronizable_mode": "none",
       "fields": {
         "name": {
           "name": "name",
@@ -535,7 +576,8 @@
           ],
           "target": null,
           "targets": null,
-          "choices": null
+          "choices": null,
+          "local_placeholder": null
         },
         "description": {
           "name": "description",
@@ -568,7 +610,8 @@
           ],
           "target": null,
           "targets": null,
-          "choices": null
+          "choices": null,
+          "local_placeholder": null
         },
         "id": {
           "name": "id",
@@ -593,7 +636,8 @@
           ],
           "target": null,
           "targets": null,
-          "choices": null
+          "choices": null,
+          "local_placeholder": null
         },
         "created_at": {
           "name": "created_at",
@@ -616,7 +660,8 @@
           ],
           "target": null,
           "targets": null,
-          "choices": null
+          "choices": null,
+          "local_placeholder": null
         },
         "updated_at": {
           "name": "updated_at",
@@ -639,7 +684,8 @@
           ],
           "target": null,
           "targets": null,
-          "choices": null
+          "choices": null,
+          "local_placeholder": null
         },
         "notes": {
           "name": "notes",
@@ -657,7 +703,8 @@
           ],
           "target": "note",
           "targets": null,
-          "choices": null
+          "choices": null,
+          "local_placeholder": null
         },
         "annotations": {
           "name": "annotations",
@@ -675,7 +722,8 @@
           ],
           "target": "annotation",
           "targets": null,
-          "choices": null
+          "choices": null,
+          "local_placeholder": null
         },
         "products": {
           "name": "products",
@@ -693,7 +741,8 @@
           ],
           "target": "product",
           "targets": null,
-          "choices": null
+          "choices": null,
+          "local_placeholder": null
         }
       }
     },
@@ -710,6 +759,7 @@
       "sortable": false,
       "sortable_field": null,
       "synchronizable": true,
+      "synchronizable_mode": "full",
       "fields": {
         "name": {
           "name": "name",
@@ -742,7 +792,8 @@
           ],
           "target": null,
           "targets": null,
-          "choices": null
+          "choices": null,
+          "local_placeholder": null
         },
         "id": {
           "name": "id",
@@ -767,7 +818,8 @@
           ],
           "target": null,
           "targets": null,
-          "choices": null
+          "choices": null,
+          "local_placeholder": null
         },
         "created_at": {
           "name": "created_at",
@@ -790,7 +842,8 @@
           ],
           "target": null,
           "targets": null,
-          "choices": null
+          "choices": null,
+          "local_placeholder": null
         },
         "updated_at": {
           "name": "updated_at",
@@ -813,7 +866,8 @@
           ],
           "target": null,
           "targets": null,
-          "choices": null
+          "choices": null,
+          "local_placeholder": null
         }
       }
     },
@@ -830,6 +884,7 @@
       "sortable": false,
       "sortable_field": null,
       "synchronizable": false,
+      "synchronizable_mode": "none",
       "fields": {
         "body": {
           "name": "body",
@@ -862,7 +917,8 @@
           ],
           "target": null,
           "targets": null,
-          "choices": null
+          "choices": null,
+          "local_placeholder": null
         },
         "anchor": {
           "name": "anchor",
@@ -885,7 +941,8 @@
             "category",
             "product"
           ],
-          "choices": null
+          "choices": null,
+          "local_placeholder": null
         },
         "id": {
           "name": "id",
@@ -910,7 +967,8 @@
           ],
           "target": null,
           "targets": null,
-          "choices": null
+          "choices": null,
+          "local_placeholder": null
         },
         "created_at": {
           "name": "created_at",
@@ -933,7 +991,8 @@
           ],
           "target": null,
           "targets": null,
-          "choices": null
+          "choices": null,
+          "local_placeholder": null
         },
         "updated_at": {
           "name": "updated_at",
@@ -956,7 +1015,8 @@
           ],
           "target": null,
           "targets": null,
-          "choices": null
+          "choices": null,
+          "local_placeholder": null
         }
       }
     }
@@ -978,8 +1038,8 @@
           "id": 1
         },
         "id": 1,
-        "created_at": "2026-07-25T17:24:41.843978",
-        "updated_at": "2026-07-25T17:24:41.843981",
+        "created_at": "2026-07-26T02:29:40.259650",
+        "updated_at": "2026-07-26T02:29:40.259653",
         "extra_priority": 2,
         "extra_owner": "ada",
         "tags": [
@@ -1006,8 +1066,8 @@
           "id": 1
         },
         "id": 2,
-        "created_at": "2026-07-25T17:24:41.853509",
-        "updated_at": "2026-07-25T17:24:41.853513",
+        "created_at": "2026-07-26T02:29:40.271418",
+        "updated_at": "2026-07-26T02:29:40.271421",
         "extra_priority": 10,
         "extra_owner": "grace",
         "tags": [
@@ -1031,8 +1091,8 @@
           "id": 2
         },
         "id": 3,
-        "created_at": "2026-07-25T17:24:41.855093",
-        "updated_at": "2026-07-25T17:24:41.855096",
+        "created_at": "2026-07-26T02:29:40.273080",
+        "updated_at": "2026-07-26T02:29:40.273083",
         "extra_priority": 1,
         "extra_owner": null,
         "tags": [
@@ -1054,8 +1114,8 @@
         "details": null,
         "category": null,
         "id": 4,
-        "created_at": "2026-07-25T17:24:41.856557",
-        "updated_at": "2026-07-25T17:24:41.856559",
+        "created_at": "2026-07-26T02:29:40.274473",
+        "updated_at": "2026-07-26T02:29:40.274475",
         "extra_priority": null,
         "extra_owner": null,
         "tags": []
@@ -1066,50 +1126,50 @@
         "name": "Electronics",
         "description": "Devices",
         "id": 1,
-        "created_at": "2026-07-25T17:24:41.832919",
-        "updated_at": "2026-07-25T17:24:41.832927"
+        "created_at": "2026-07-26T02:29:40.249839",
+        "updated_at": "2026-07-26T02:29:40.249846"
       },
       {
         "name": "Books",
         "description": null,
         "id": 2,
-        "created_at": "2026-07-25T17:24:41.836018",
-        "updated_at": "2026-07-25T17:24:41.836022"
+        "created_at": "2026-07-26T02:29:40.253665",
+        "updated_at": "2026-07-26T02:29:40.253668"
       },
       {
         "name": "Empty",
         "description": "No product",
         "id": 3,
-        "created_at": "2026-07-25T17:24:41.837021",
-        "updated_at": "2026-07-25T17:24:41.837023"
+        "created_at": "2026-07-26T02:29:40.254681",
+        "updated_at": "2026-07-26T02:29:40.254684"
       }
     ],
     "tag": [
       {
         "name": "urgent",
         "id": 1,
-        "created_at": "2026-07-25T17:24:41.858019",
-        "updated_at": "2026-07-25T17:24:41.858022"
+        "created_at": "2026-07-26T02:29:40.275868",
+        "updated_at": "2026-07-26T02:29:40.275870"
       },
       {
         "name": "sale",
         "id": 2,
-        "created_at": "2026-07-25T17:24:41.859428",
-        "updated_at": "2026-07-25T17:24:41.859431"
+        "created_at": "2026-07-26T02:29:40.277262",
+        "updated_at": "2026-07-26T02:29:40.277266"
       },
       {
         "name": "new",
         "id": 3,
-        "created_at": "2026-07-25T17:24:41.860276",
-        "updated_at": "2026-07-25T17:24:41.860278"
+        "created_at": "2026-07-26T02:29:40.278202",
+        "updated_at": "2026-07-26T02:29:40.278205"
       }
     ],
     "annotation": [
       {
         "body": "Extended warranty",
         "id": 1,
-        "created_at": "2026-07-25T17:24:41.870744",
-        "updated_at": "2026-07-25T17:24:41.870747",
+        "created_at": "2026-07-26T02:29:40.289641",
+        "updated_at": "2026-07-26T02:29:40.289644",
         "anchor": {
           "id": 1,
           "$model": "product"
@@ -1118,8 +1178,8 @@
       {
         "body": "Fragile item",
         "id": 2,
-        "created_at": "2026-07-25T17:24:41.872073",
-        "updated_at": "2026-07-25T17:24:41.872075",
+        "created_at": "2026-07-26T02:29:40.291226",
+        "updated_at": "2026-07-26T02:29:40.291228",
         "anchor": {
           "id": 2,
           "$model": "product"
@@ -1128,8 +1188,8 @@
       {
         "body": "Category note",
         "id": 3,
-        "created_at": "2026-07-25T17:24:41.872922",
-        "updated_at": "2026-07-25T17:24:41.872924",
+        "created_at": "2026-07-26T02:29:40.292081",
+        "updated_at": "2026-07-26T02:29:40.292084",
         "anchor": {
           "id": 1,
           "$model": "category"
@@ -1138,8 +1198,8 @@
       {
         "body": "Catalog review",
         "id": 4,
-        "created_at": "2026-07-25T17:24:41.873750",
-        "updated_at": "2026-07-25T17:24:41.873753",
+        "created_at": "2026-07-26T02:29:40.292949",
+        "updated_at": "2026-07-26T02:29:40.292951",
         "anchor": {
           "id": 2,
           "$model": "category"
@@ -1537,12 +1597,231 @@
     {
       "model": "product",
       "filter": [
+        "released_on",
+        "<=",
+        "2024-03-01"
+      ],
+      "expected_ids": [
+        1,
+        2
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "released_on",
+        "between",
+        [
+          "2023-11-15",
+          "2024-03-01"
+        ]
+      ],
+      "expected_ids": [
+        1,
+        2
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        [
+          "released_on",
+          ">=",
+          "2024-03-01"
+        ],
+        [
+          "released_on",
+          "<",
+          "2024-04-01"
+        ]
+      ],
+      "expected_ids": [
+        1
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "published_at",
+        ">=",
+        "2024-03-01T12:00:00"
+      ],
+      "expected_ids": [
+        1,
+        4
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "published_at",
+        "<=",
+        "2024-03-01T12:00:00"
+      ],
+      "expected_ids": [
+        1,
+        2
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "published_at",
+        "between",
+        [
+          "2023-11-15T09:30:00",
+          "2024-06-10T08:00:00"
+        ]
+      ],
+      "expected_ids": [
+        1,
+        2,
+        4
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "published_at",
+        ">=",
+        "2024-03-01"
+      ],
+      "expected_ids": [
+        1,
+        4
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "published_at",
+        "between",
+        [
+          "2024-03-01",
+          "2024-06-10"
+        ]
+      ],
+      "expected_ids": [
+        1
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
         "category",
         "is empty"
       ],
       "expected_ids": [
         4
       ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "category",
+        "is not empty"
+      ],
+      "expected_ids": [
+        2,
+        1,
+        3
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "category",
+        "=",
+        1
+      ],
+      "expected_ids": [
+        1,
+        2
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "category",
+        "!=",
+        1
+      ],
+      "expected_ids": [
+        3
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "category",
+        "in",
+        [
+          1,
+          2
+        ]
+      ],
+      "expected_ids": [
+        1,
+        2,
+        3
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "category",
+        "not in",
+        [
+          1
+        ]
+      ],
+      "expected_ids": [
+        3
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "&",
+        [
+          [
+            "category",
+            "=",
+            1
+          ],
+          [
+            "is_active",
+            "is true"
+          ]
+        ]
+      ],
+      "expected_ids": [
+        2
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "category",
+        "=",
+        3
+      ],
+      "expected_ids": [],
       "ordered": false
     },
     {

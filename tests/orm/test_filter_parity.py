@@ -61,7 +61,39 @@ CASES: list[dict[str, Any]] = [
     {"model": "product", "filter": ["rating", ">", 4]},
     {"model": "product", "filter": ["released_on", ">=", "2024-01-01"]},
     {"model": "product", "filter": ["published_at", "<", "2024-06-01T00:00:00"]},
+    # Bounds a date range picker produces, including the boundary values
+    # themselves: "between" is inclusive on both ends, and a half-open pair is
+    # how a calendar bucket is expressed.
+    {"model": "product", "filter": ["released_on", "<=", "2024-03-01"]},
+    {"model": "product", "filter": ["released_on", "between", ["2023-11-15", "2024-03-01"]]},
+    {
+        "model": "product",
+        "filter": [["released_on", ">=", "2024-03-01"], ["released_on", "<", "2024-04-01"]],
+    },
+    {"model": "product", "filter": ["published_at", ">=", "2024-03-01T12:00:00"]},
+    {"model": "product", "filter": ["published_at", "<=", "2024-03-01T12:00:00"]},
+    {
+        "model": "product",
+        "filter": ["published_at", "between", ["2023-11-15T09:30:00", "2024-06-10T08:00:00"]],
+    },
+    # A date-only bound on a datetime field: both engines must cut at midnight,
+    # so the upper bound excludes that whole day.
+    {"model": "product", "filter": ["published_at", ">=", "2024-03-01"]},
+    {"model": "product", "filter": ["published_at", "between", ["2024-03-01", "2024-06-10"]]},
     {"model": "product", "filter": ["category", "is empty"]},
+    {"model": "product", "filter": ["category", "is not empty"]},
+    # A many2one leaf compared to an id: the server rewrites the leaf to
+    # ``category.id`` and joins the related table, a replica compares the bare
+    # FK column. Two plans that must agree, rows with no relation included.
+    {"model": "product", "filter": ["category", "=", 1]},
+    {"model": "product", "filter": ["category", "!=", 1]},
+    {"model": "product", "filter": ["category", "in", [1, 2]]},
+    {"model": "product", "filter": ["category", "not in", [1]]},
+    {
+        "model": "product",
+        "filter": ["&", [["category", "=", 1], ["is_active", "is true"]]],
+    },
+    {"model": "product", "filter": ["category", "=", 3]},
     {"model": "product", "filter": ["category.name", "=", "Electronics"]},
     {"model": "product", "filter": ["tags.name", "=", "urgent"]},
     {"model": "product", "filter": ["tags.name", "icontains", "A"]},

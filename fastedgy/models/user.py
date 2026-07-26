@@ -3,6 +3,8 @@
 
 from fastedgy.i18n import _ts
 
+import re
+
 from datetime import datetime
 
 from fastedgy.orm import fields
@@ -38,7 +40,13 @@ class BaseUser(BaseModel):
 
     password: str | None = fields.PasswordField(exclude=True, null=True, label=_ts("Password"))
 
-    initials: str | None = fields.ComputedField(getter="get_initials", label=_ts("Initials"))
+    initials: str | None = fields.ComputedField(
+        getter="get_initials", exclude=False, read_only=True, label=_ts("Initials")
+    )
+
+    display_name: str | None = fields.ComputedField(
+        getter="get_display_name", exclude=False, read_only=True, label=_ts("Display name")
+    )
 
     reset_pwd_token: str | None = fields.CharField(
         max_length=255,
@@ -54,14 +62,34 @@ class BaseUser(BaseModel):
     )
 
     @classmethod
+    def get_display_name(cls, field, instance, owner=None) -> str:
+        """What names the user: their name, or their email until they set one."""
+        return instance.name or instance.email or ""
+
+    @classmethod
     def get_initials(cls, field, instance, owner=None) -> str:
+        """Initials of the name, or of the email's local part when there is none.
+
+        A single letter would collide for every colleague sharing a first
+        initial, so the email is read the way a name is: `jean.dupont@` gives
+        `JD`, `francois@` gives `FR`.
+        """
         if instance.name:
             words = instance.name.split()
             initials = "".join([word[:2].upper() for word in words if word])
 
             return initials[:6]
 
-        return instance.email[0].upper() if instance.email else ""
+        local = (instance.email or "").split("@")[0]
+        words = [word for word in re.split(r"[._\-+]", local) if word]
+
+        if not words:
+            return ""
+
+        if len(words) >= 2:
+            return f"{words[0][0]}{words[1][0]}".upper()
+
+        return words[0][:2].upper()
 
     def set_password(self, raw_password: str) -> None:
         from fastedgy.depends.security import hash_password

@@ -53,3 +53,23 @@ async def test_undecodable_image_falls_back_to_the_original(setup_db: FastEdgy, 
     assert mime == "image/jpeg"
     assert any("serving the original" in r.getMessage() for r in caplog.records)
     assert not any(r.levelno >= logging.ERROR for r in caplog.records)
+
+
+async def test_delete_workspace_takes_an_explicit_id(setup_db: FastEdgy) -> None:
+    from fastedgy.test.fixtures import STORAGE_ROOT
+
+    storage = get_service(Storage)
+
+    await storage.adapter.write("workspace/42/notes/a.txt", b"data")
+    await storage.cache_adapter.write("cache_optimized_images/workspace/42/thumb.webp", b"cache")
+
+    assert await storage.delete_workspace(42) is True
+
+    assert not os.path.exists(os.path.join(STORAGE_ROOT, "workspace", "42"))
+    assert not os.path.exists(os.path.join(STORAGE_ROOT, "cache_optimized_images", "workspace", "42"))
+
+
+async def test_delete_workspace_without_workspace_does_nothing(setup_db: FastEdgy) -> None:
+    storage = get_service(Storage)
+
+    assert await storage.delete_workspace() is False

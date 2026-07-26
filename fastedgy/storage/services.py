@@ -598,19 +598,22 @@ class Storage:
         except Exception:
             return False
 
-    async def delete_workspace(self) -> bool:
-        workspace = context.get_workspace()
+    async def delete_workspace(self, workspace_id: int | None = None) -> bool:
+        if workspace_id is None:
+            workspace = context.get_workspace()
+            workspace_id = workspace.id if workspace else None
 
-        if workspace:
-            folder = self.settings.storage_workspace_folder
-            data_prefix = f"{folder}/{workspace.id}"
-            cache_prefix = f"cache_optimized_images/{folder}/{workspace.id}"
-            await self.adapter.delete_directory(data_prefix)
-            await self.cache_adapter.delete_directory(data_prefix)
-            await self.cache_adapter.delete_directory(cache_prefix)
-            return True
+        if workspace_id is None:
+            return False
 
-        return False
+        folder = self.settings.storage_workspace_folder
+        data_prefix = f"{folder}/{workspace_id}"
+        cache_prefix = f"cache_optimized_images/{folder}/{workspace_id}"
+        await self.adapter.delete_directory(data_prefix)
+        await self.cache_adapter.delete_directory(data_prefix)
+        await self.cache_adapter.delete_directory(cache_prefix)
+
+        return True
 
     async def cleanup_image_cache(self) -> int:
         """Delete cached optimized images older than cache_max_age_days.

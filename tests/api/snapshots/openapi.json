@@ -6117,6 +6117,15 @@
             "title": "Created At",
             "type": "string"
           },
+          "display_name": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
           "email": {
             "format": "email",
             "maxLength": 255,
@@ -6126,6 +6135,15 @@
           "id": {
             "title": "Id",
             "type": "integer"
+          },
+          "initials": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Initials"
           },
           "name": {
             "anyOf": [

@@ -89,6 +89,7 @@ class FieldOptions[T = Any]:
         label: TranslatableString | str | None = None,
         searchable: bool | str | None = None,
         sortable: bool | None = None,
+        copy: bool | None = None,
         local_placeholder: str | None = None,
         **kwargs: Any,
     ) -> T | None: ...
@@ -101,6 +102,7 @@ class FieldOptions[T = Any]:
         label: TranslatableString | str | None = None,
         searchable: bool | str | None = None,
         sortable: bool | None = None,
+        copy: bool | None = None,
         local_placeholder: str | None = None,
         **kwargs: Any,
     ) -> T: ...
@@ -111,6 +113,7 @@ class FieldOptions[T = Any]:
         label: TranslatableString | str | None = None,
         searchable: bool | str | None = None,
         sortable: bool | None = None,
+        copy: bool | None = None,
         local_placeholder: str | None = None,
         **kwargs: Any,
     ) -> Any:
@@ -122,6 +125,9 @@ class FieldOptions[T = Any]:
 
         if sortable is not None:
             kwargs["sortable"] = sortable
+
+        if copy is not None:
+            kwargs["copy"] = copy
 
         if local_placeholder is not None:
             kwargs["local_placeholder"] = local_placeholder

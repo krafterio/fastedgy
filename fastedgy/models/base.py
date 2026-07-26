@@ -435,14 +435,18 @@ def _factoryize_callable_defaults(core_schema: Any, seen: set[int]) -> None:
 
 
 class BaseModel(Model, metaclass=ModelMeta):
-    id: int | None = fields.IntegerField(primary_key=True, autoincrement=True, label=_ts("ID"))
+    id: int | None = fields.IntegerField(primary_key=True, autoincrement=True, copy=False, label=_ts("ID"))
 
     created_at: datetime | None = fields.DateTimeField(
-        default_factory=datetime.now, read_only=True, auto_now_add=True, label=_ts("Created at")
+        default_factory=datetime.now,
+        read_only=True,
+        auto_now_add=True,
+        copy=False,
+        label=_ts("Created at"),
     )
 
     updated_at: datetime | None = fields.DateTimeField(
-        default_factory=datetime.now, auto_now=True, label=_ts("Updated at")
+        default_factory=datetime.now, auto_now=True, copy=False, label=_ts("Updated at")
     )
 
     class Meta(Meta):
@@ -588,6 +592,52 @@ class BaseModel(Model, metaclass=ModelMeta):
 
         await acheck_access(type(self), ModelAction.delete, self)
         return await super().delete(skip_post_delete_hooks=skip_post_delete_hooks)
+
+    def duplicate_values(self, values: dict[str, Any] | None = None) -> dict[str, Any]:
+        """The scalar values a copy of this record starts from.
+
+        Reads what the fields declare copyable (see ``is_copyable_field``), then
+        applies ``values``, which always wins — that is where a caller, or an
+        overriding model, states what a copy must not inherit.
+        """
+        from fastedgy.orm.copy import is_copyable_field, is_copyable_to_many_field
+
+        copied = {
+            name: getattr(self, name, None)
+            for name, field in self.meta.fields.items()
+            if is_copyable_field(field) and not is_copyable_to_many_field(field)
+        }
+        copied.update(values or {})
+
+        return copied
+
+    async def duplicate_to_many(self, target: Self) -> None:
+        """Re-create this record's to-many links on ``target``.
+
+        Runs once the copy exists: a link needs both of its ends saved.
+        """
+        from fastedgy.orm.copy import is_copyable_to_many_field
+
+        for name, field in self.meta.fields.items():
+            if not is_copyable_to_many_field(field):
+                continue
+
+            for record in await getattr(self, name).all():
+                await getattr(target, name).add(record)
+
+    async def duplicate(self, values: dict[str, Any] | None = None) -> Self:
+        """Persist a copy of this record and return it.
+
+        Not Pydantic's in-memory ``copy``/``model_copy``: this one inserts a new
+        row from the fields declared copyable, then re-creates the to-many links.
+        Models override it to place their own rules — a status reset, a date left
+        empty, related records duplicated alongside.
+        """
+        target = type(self)(**self.duplicate_values(values))
+        await target.save(force_insert=True)
+        await self.duplicate_to_many(target)
+
+        return target
 
 
 class BaseView(Model, metaclass=ModelMeta):

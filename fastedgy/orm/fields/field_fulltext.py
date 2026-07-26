@@ -130,6 +130,7 @@ class FulltextField(BaseField):
     def __init__(self, **kwargs: Any) -> None:
         kwargs.setdefault("exclude", True)
         kwargs.setdefault("filterable", True)
+        kwargs.setdefault("copy", False)
         kwargs["null"] = True
         kwargs["primary_key"] = False
         kwargs["field_type"] = kwargs["annotation"] = Any

@@ -135,13 +135,21 @@ class BlameableMixin(Model):
         extra="ignore",
     )
 
-    created_by = fields.ForeignKey("User", on_delete="SET NULL", null=True, related_name=False, label=_ts("Created by"))
+    created_by = fields.ForeignKey(
+        "User",
+        on_delete="SET NULL",
+        null=True,
+        related_name=False,
+        copy=False,
+        label=_ts("Created by"),
+    )
 
     updated_by = fields.ForeignKey(
         "User",
         on_delete="SET NULL",
         null=True,
         related_name=False,
+        copy=False,
         label=_ts("Updated by"),
     )
 

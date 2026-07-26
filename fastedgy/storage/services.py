@@ -491,6 +491,33 @@ class Storage:
             attachment_values=attachment_values,
         )
 
+    async def upload_from_bytes(
+        self,
+        content: bytes,
+        directory_path: str,
+        filename: str | None = None,
+        mime_type: str | None = None,
+        extension: str | None = None,
+        global_storage: bool = False,
+        create_attachment: bool = False,
+        attachment_values: dict[str, Any] | None = None,
+    ) -> str:
+        """Store bytes already in hand, for a caller holding the content itself
+        (a duplicated attachment, a generated file) rather than an upload."""
+        ext = (extension or mimetypes.guess_extension(mime_type or "") or ".bin").lstrip(".")
+
+        return await self._finalize_store(
+            content=content,
+            directory_path=directory_path,
+            filename=filename,
+            ext=ext,
+            mime_type=mime_type,
+            global_storage=global_storage,
+            original_name=filename.replace("{ext}", ext) if filename else None,
+            create_attachment=create_attachment,
+            attachment_values=attachment_values,
+        )
+
     async def upload_from_base64(
         self,
         data: str,
@@ -505,19 +532,13 @@ class Storage:
 
         header, base64_data = data.split(",", 1)
         content_type = header.split(";")[0][5:]
-        ext = mimetypes.guess_extension(content_type) or ".bin"
-        ext = ext.lstrip(".")
 
-        content = base64.b64decode(base64_data)
-
-        return await self._finalize_store(
-            content=content,
+        return await self.upload_from_bytes(
+            base64.b64decode(base64_data),
             directory_path=directory_path,
             filename=filename,
-            ext=ext,
             mime_type=content_type or None,
             global_storage=global_storage,
-            original_name=filename.replace("{ext}", ext) if filename else None,
             create_attachment=create_attachment,
             attachment_values=attachment_values,
         )

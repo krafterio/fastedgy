@@ -599,13 +599,18 @@ class BaseModel(Model, metaclass=ModelMeta):
         Reads what the fields declare copyable (see ``is_copyable_field``), then
         applies ``values``, which always wins — that is where a caller, or an
         overriding model, states what a copy must not inherit.
+
+        A generic reference is read through its own two columns: the field itself
+        resolves to the awaitable that loads the target.
         """
         from fastedgy.orm.copy import is_copyable_field, is_copyable_to_many_field
 
         copied = {
             name: getattr(self, name, None)
             for name, field in self.meta.fields.items()
-            if is_copyable_field(field) and not is_copyable_to_many_field(field)
+            if is_copyable_field(field)
+            and not is_copyable_to_many_field(field)
+            and not getattr(field, "is_generic_foreign_key", False)
         }
         copied.update(values or {})
 

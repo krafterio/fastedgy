@@ -5,6 +5,7 @@ import json
 import os
 
 import httpx
+import pytest
 
 from fastedgy.test.fixtures import stored_file_path
 
@@ -454,3 +455,49 @@ async def test_path_download_is_served_immutable(auth_http: httpx.AsyncClient) -
     assert download.content == b"immutable content"
     assert download.headers["cache-control"] == "private, max-age=31536000, immutable"
     assert "etag" not in download.headers
+
+
+async def test_duplicating_an_attachment_copies_its_file(auth_http: httpx.AsyncClient) -> None:
+    from fastedgy.dependencies import get_service
+    from fastedgy.storage import Storage
+    from fastedgy.test.models.attachment import Attachment
+
+    upload = await auth_http.post(
+        "/api/storage/upload/attachments",
+        files={"doc.txt": ("doc.txt", b"hello world", "text/plain")},
+    )
+    source = await Attachment.query.get(id=upload.json()["attachments"][0]["id"])
+
+    copy = await source.duplicate()
+
+    storage = get_service(Storage)
+
+    assert copy.id != source.id
+    assert copy.storage_path != source.storage_path
+    assert await storage.read_file(copy.storage_path, global_storage=True) == b"hello world"
+
+    await copy.delete()
+
+    assert os.path.isfile(stored_file_path(source.storage_path))
+
+
+async def test_a_failed_attachment_copy_leaves_no_file_behind(auth_http: httpx.AsyncClient, monkeypatch) -> None:
+    from fastedgy.models.base import BaseModel
+    from fastedgy.test.models.attachment import Attachment
+
+    upload = await auth_http.post(
+        "/api/storage/upload/attachments",
+        files={"doc.txt": ("doc.txt", b"hello world", "text/plain")},
+    )
+    source = await Attachment.query.get(id=upload.json()["attachments"][0]["id"])
+    before = _stored_attachment_files()
+
+    async def failing_duplicate(self, values=None):
+        raise RuntimeError("no record for you")
+
+    monkeypatch.setattr(BaseModel, "duplicate", failing_duplicate)
+
+    with pytest.raises(RuntimeError):
+        await source.duplicate()
+
+    assert _stored_attachment_files() == before

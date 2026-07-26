@@ -2,7 +2,7 @@
 # MIT License (see LICENSE file).
 
 from enum import Enum
-from typing import TYPE_CHECKING, Union, Any, cast
+from typing import TYPE_CHECKING, Union, Any, Self, cast
 import contextlib
 
 from fastedgy.models.base import BaseModel
@@ -17,6 +17,11 @@ from fastedgy.orm.signals import (
 )
 
 from fastedgy.dependencies import get_service
+
+try:
+    from uuid_extensions import uuid7
+except ImportError:
+    from uuid import uuid4 as uuid7
 
 if TYPE_CHECKING:
     from fastedgy.models.attachment import BaseAttachment as Attachment
@@ -84,6 +89,42 @@ class AttachmentMixin(BaseModel):
         on_delete="CASCADE",
         label=_ts("Parent"),
     )
+
+    async def duplicate(self, values: dict[str, Any] | None = None) -> Self:
+        """Copy the record onto a stored file of its own.
+
+        Two attachments must never share one file: deleting either would take
+        the other's away. The bytes are written first, and dropped again when
+        the record they were written for cannot be created.
+        """
+        from fastedgy.storage import Storage
+        from fastedgy.storage.routing import is_global_storage_model
+
+        overrides = dict(values or {})
+        source_path = getattr(self, "storage_path", None)
+
+        if not source_path or "storage_path" in overrides:
+            return await super().duplicate(overrides)
+
+        storage = get_service(Storage)
+        global_storage = is_global_storage_model(type(self))
+        directory, _, filename = source_path.rpartition("/")
+        extension = filename.rpartition(".")[2] or None
+
+        overrides["storage_path"] = await storage.upload_from_bytes(
+            await storage.read_file(source_path, global_storage=global_storage),
+            directory_path=directory,
+            filename=f"{uuid7()}.{{ext}}",
+            mime_type=getattr(self, "mime_type", None),
+            extension=extension,
+            global_storage=global_storage,
+        )
+
+        try:
+            return await super().duplicate(overrides)
+        except Exception:
+            await storage.delete(overrides["storage_path"], global_storage=global_storage)
+            raise
 
 
 class AttachmentType(str, Enum):

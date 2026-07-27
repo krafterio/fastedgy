@@ -13,11 +13,12 @@ from typing import Any, cast
 from starlette.datastructures import Headers, UploadFile
 
 from fastedgy.config import BaseSettings
-from fastedgy.dependencies import get_service
+from fastedgy.dependencies import get_service, has_service
 from fastedgy.metadata_model.generator import generate_metadata_name
 from fastedgy.models.base import BaseModel
 from fastedgy.models.data_record import DataRecord
 from fastedgy.orm import Registry, with_transaction
+from fastedgy.orm.data_ref import DataRefs
 from fastedgy.storage import Storage
 from fastedgy.storage.routing import is_global_storage_model
 
@@ -290,6 +291,12 @@ async def load_data(data_dir: str | None = None) -> LoadReport:
             await _apply_record(record, resolved, server_path, report)
 
     await with_transaction(run)
+
+    # What this process resolved before the load may name a record the load has
+    # just replaced. Other workers are unaffected: they only ever cache a key
+    # they read after their own start.
+    if has_service(DataRefs):
+        cast(DataRefs, get_service(DataRefs)).reset()
 
     return report
 

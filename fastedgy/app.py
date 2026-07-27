@@ -25,6 +25,7 @@ from fastedgy.http import (
 )
 from fastedgy.i18n import LocaleMiddleware
 from fastedgy.orm import Registry, Database
+from fastedgy.orm.data_ref import DataRefs
 from fastedgy.orm.registry import register_lazy_models
 from fastedgy.timezone import setup_timezone
 from starlette.routing import BaseRoute
@@ -804,6 +805,30 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
                 """
             ),
         ] = True,
+        system_user_data_key: Annotated[
+            Optional[str],
+            Doc(
+                """
+                Key of the data record naming the account the application acts
+                under - the author of what it writes on nobody's behalf.
+
+                It is the key a `data/*.py` file declares through `id("...")`,
+                not an id: the record keeps its key across databases while its
+                id is whatever the sequence handed out. Read it through the
+                `DataRefs` service (`await get_service(DataRefs).system_user_id()`).
+
+                Left out, the application declares no such account and the
+                service answers None - there is no fallback to the first user
+                of the table.
+
+                **Example**
+
+                ```python
+                app = FastEdgy(system_user_data_key="user_system")
+                ```
+                """
+            ),
+        ] = None,
         **extra: Annotated[
             Any,
             Doc(
@@ -876,6 +901,7 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
 
         register_service(db)
         register_service(registry)
+        register_service(DataRefs(system_user_data_key))
 
         monkay.set_instance(Instance(registry=registry, app=self))
         register_lazy_models(registry)

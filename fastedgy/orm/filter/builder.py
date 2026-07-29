@@ -74,6 +74,11 @@ _PATTERN_OPERATORS = {
     "not icontains",
 }
 
+_NULLABILITY_OPERATORS = {
+    "is empty",
+    "is not empty",
+}
+
 
 def build_filter_expression(model_cls: type[Model], filters: FilterRule | FilterCondition | None) -> Any | None:
     if filters is None:
@@ -192,7 +197,12 @@ def _build_exists_expression(model_cls: type[Model], filters: FilterRule) -> Any
     resolved_field = field
 
     related_columns = getattr(field_type, "related_columns", None)
-    if related_columns:
+
+    # A nullability test on a relation leaf stays on the foreign key column of
+    # the parent: hopping to the target primary key would add a JOIN inside the
+    # EXISTS, and that JOIN drops the very rows "is empty" is meant to match
+    # (the target row does not exist), making the predicate unsatisfiable.
+    if related_columns and filters.operator not in _NULLABILITY_OPERATORS:
         resolved_field += "." + list(related_columns.keys())[0]
 
     parts = resolved_field.split(".")
@@ -345,13 +355,21 @@ def _build_exists_expression(model_cls: type[Model], filters: FilterRule) -> Any
     # Final column and filter condition
     final_column = current_model.table.columns[parts[-1]]
 
-    if filters.operator in _PATTERN_OPERATORS and isinstance(getattr(final_column, "type", None), SaUuid):
+    # "is empty" over a relation path means "nothing at the end of the path":
+    # it must also match rows whose intermediate hops are missing, which an
+    # EXISTS can never express (no row to test). Compile it as the negation of
+    # "something is there", mirroring the ORM lookup semantics (outer join).
+    negate = filters.operator == "is empty"
+
+    if negate:
+        filter_cond = FILTER_OPERATORS_SQL["is not empty"](final_column)
+    elif filters.operator in _PATTERN_OPERATORS and isinstance(getattr(final_column, "type", None), SaUuid):
         # A UUID column compares as text under pattern operators (PostgreSQL
         # has no uuid ~~ text operator).
         filter_cond = operator_method(sa_cast(final_column, SaText()), str(filters.value))
     elif filters.operator in FILTER_OPERATORS_SQL_UNPACK:
         filter_cond = final_column.between(*value)
-    elif filters.operator in ("is true", "is false", "is empty", "is not empty"):
+    elif filters.operator in ("is true", "is false", "is not empty"):
         filter_cond = operator_method(final_column)
     else:
         filter_cond = operator_method(final_column, value)
@@ -362,6 +380,9 @@ def _build_exists_expression(model_cls: type[Model], filters: FilterRule) -> Any
         select_from = select_from.join(table, cond)
 
     subq = sa_select(literal_column("1")).select_from(select_from).where(root_link_condition).where(filter_cond)
+
+    if negate:
+        return sa_not(exists(subq))
 
     return exists(subq)
 

@@ -144,8 +144,27 @@ async def validate_write_references(instance: Any) -> None:
             continue
 
         if not await target.query.filter(pk=pk).exists():
+            import logging
+
             from fastapi import HTTPException
             from fastedgy.i18n import _t
+
+            # Debug: a refusal is the guard doing its job, so it is not the
+            # library's place to put it in anyone's error stream — the app logs
+            # it with its own context and level. It is recorded at all because
+            # the generic 403 detail never says WHICH reference was refused,
+            # which makes a wrongful refusal impossible to diagnose otherwise:
+            # enable this logger to get the identity back.
+            logging.getLogger("fastedgy.global_filters").debug(
+                "Write reference refused: %s.%s -> %s(pk=%s) [instance_pk=%s, user=%s, workspace=%s]",
+                model_cls.__name__,
+                name,
+                target.__name__,
+                pk,
+                instance.pk,
+                getattr(context.get_user(), "id", None),
+                context.get_workspace_id(),
+            )
 
             raise HTTPException(
                 status_code=403,

@@ -565,7 +565,17 @@ class QueueWorker:
         return get_service(EdgyDatabase)
 
     async def _run_write_with_retry(self, op_coro_factory, *, max_attempts: int = 5, base_delay: float = 0.1):
-        """Run a small DB write with retries under a short-lived connection to avoid transaction reentrancy."""
+        """Run a small DB write with retries under a short-lived connection to avoid transaction reentrancy.
+
+        READ COMMITTED, set as the FIRST statement of the transaction (passing
+        an isolation_level to databasez' `transaction()` silently yields a
+        phantom transaction). Every caller is a single-row state transition on
+        `queued_tasks`, already guarded by its own `WHERE ... AND state = …` —
+        it never needs SSI. Under SERIALIZABLE these writes took predicate locks
+        on the hottest table of the system and got cancelled as pivots by
+        unrelated queue traffic, exhausting their retries and leaving the task
+        stranded in 'doing' until the reaper picked it up.
+        """
         from sqlalchemy.exc import DBAPIError, OperationalError
 
         from fastedgy.orm.transaction import is_disconnect_error
@@ -576,6 +586,7 @@ class QueueWorker:
         while True:
             try:
                 async with database.transaction():
+                    await database.execute("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
                     await op_coro_factory()
                 return
             except (DBAPIError, OperationalError) as e:

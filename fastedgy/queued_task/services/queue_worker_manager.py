@@ -1428,9 +1428,18 @@ class QueueWorkerManager:
                     # under the 30s interval: a HANGING write (TCP black hole)
                     # would otherwise also block the health-file touch and
                     # flap the container — the opposite of its purpose.
+                    #
+                    # READ COMMITTED: this is bookkeeping on the worker's OWN row,
+                    # never read back for a decision inside the same transaction.
+                    # Under SERIALIZABLE it took predicate locks and got cancelled
+                    # as a pivot by unrelated queue traffic, burning its retries
+                    # for nothing.
                     try:
                         await asyncio.wait_for(
-                            with_transaction(self.worker_status_record.save),
+                            with_transaction(
+                                self.worker_status_record.save,
+                                isolation_level="READ COMMITTED",
+                            ),
                             timeout=20,
                         )
                     except asyncio.TimeoutError:
@@ -1444,7 +1453,15 @@ class QueueWorkerManager:
                 logger.debug("Heartbeat task cancelled")
                 break
             except Exception as e:
-                logger.error(f"Heartbeat task error: {e}")
+                from fastedgy.orm.transaction import is_serialization_error
+
+                # A lost beat is self-healing (the next one is 30s away) and the
+                # liveness window tolerates it: logging it as an error made the
+                # queue look broken during perfectly normal contention spikes.
+                if is_serialization_error(e):
+                    logger.warning(f"Heartbeat skipped on serialization conflict: {e}")
+                else:
+                    logger.error(f"Heartbeat task error: {e}")
 
     @classmethod
     async def get_global_stats(cls) -> Dict[str, Any]:

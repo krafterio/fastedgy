@@ -64,6 +64,7 @@ class TaskCreationRequest:
     max_retries: Optional[int] = None
     channel: Optional[str] = None
     priority: Optional[int] = None
+    auto_remove: bool = False
 
     def __post_init__(self):
         if self.args is None:
@@ -93,6 +94,7 @@ class QueuedTasks:
         max_retries: int | None = None,
         channel: str | None = None,
         priority: int | None = None,
+        auto_remove: bool = False,
         **kwargs: Any,
     ) -> QueuedTaskRef:
         """
@@ -104,6 +106,9 @@ class QueuedTasks:
         channel selects the concurrency lane (None = 'default', capacities
         from QUEUED_TASK_CHANNELS); priority orders the claim (higher runs
         first, None = 0).
+        auto_remove drops the row once the task succeeds. It defaults to False
+        like `create_task`, so a fire-and-forget housekeeping task enqueued from
+        a signal otherwise leaves one row per call in `queued_tasks` forever.
         """
         if "QueuedTask" not in self.registry.models:
             raise RuntimeError(
@@ -134,6 +139,7 @@ class QueuedTasks:
             max_retries=max_retries,
             channel=channel,
             priority=priority,
+            auto_remove=auto_remove,
         )
 
         # Add to creation queue
@@ -243,6 +249,7 @@ class QueuedTasks:
             max_retries=request.max_retries,
             channel=request.channel,
             priority=request.priority,
+            auto_remove=request.auto_remove,
         )
 
         return task.id or 0

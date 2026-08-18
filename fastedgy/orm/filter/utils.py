@@ -163,6 +163,33 @@ def _has_duplicating_relation_filter(model_cls: Any, filters: Filter | None) -> 
     return False
 
 
+def has_duplicating_relation_path(model_cls: Any, field_path: str) -> bool:
+    """Whether joining ``field_path`` repeats the source record once per related row.
+
+    True as soon as one hop is a reverse one-to-many or a many-to-many: both
+    fan out, so the join yields a row per related record instead of per record.
+    """
+    from fastedgy.orm.fields import ManyToMany
+
+    current_cls = model_cls
+
+    for part in field_path.split(".")[:-1]:
+        field_type = current_cls.meta.fields.get(part)
+
+        if field_type is None:
+            return False
+
+        if isinstance(field_type, ManyToMany) or hasattr(field_type, "related_from"):
+            return True
+
+        if not hasattr(field_type, "target"):
+            return False
+
+        current_cls = field_type.target
+
+    return False
+
+
 def _convert_value(value: Any | None, callback: Callable) -> Any:
     if isinstance(value, str):
         try:
@@ -194,5 +221,6 @@ __all__ = [
     "add_prefix_on_fields",
     "_has_relation_filter",
     "_has_duplicating_relation_filter",
+    "has_duplicating_relation_path",
     "_convert_value",
 ]

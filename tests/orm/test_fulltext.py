@@ -1,9 +1,14 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+import json
+
 from fastedgy.app import FastEdgy
 from fastedgy.dependencies import get_service
 from fastedgy.orm import Registry
+from fastedgy.orm.filter import filter_query
+from fastedgy.orm.order_by import inject_order_by
+from fastedgy.test.factories import create_product
 from fastedgy.test.models.product import Product
 
 
@@ -65,3 +70,15 @@ async def test_fulltext_changed_source_still_recomputes(setup_db: FastEdgy) -> N
 
     assert await _fetch_col(product.id, "ctid::text") != ctid_before
     assert "sprocket" in await _fetch_col(product.id, "search_value_en::text")
+
+
+async def test_order_by_search_relevance(setup_db: FastEdgy) -> None:
+    # The filter labels a rank expression in extra_select; ordering by the
+    # fulltext field sorts on that label, not on the stored search column.
+    await create_product(name="Laptop Pro", price="10.00")
+    await create_product(name="Novel", price="5.00")
+
+    query = filter_query(Product.query.get_queryset(), json.dumps(["search_value", "search", "laptop"]))
+    items = await inject_order_by(query, "search_value:desc").all()
+
+    assert [item.name for item in items] == ["Laptop Pro"]

@@ -3,8 +3,6 @@
 
 from typing import Any, Literal, TypeAlias
 
-from sqlalchemy import asc as sa_asc, desc as sa_desc
-
 from fastedgy.orm import Model
 from fastedgy.orm.query import QuerySet
 
@@ -21,27 +19,48 @@ def extra_field_column(model_cls: type[Model], field_path: str) -> Any | None:
     return resolve(model_cls, field_path)
 
 
+def aggregated_relation_column(model_cls: type[Model], field_path: str, descending: bool) -> Any | None:
+    """Correlated scalar subquery ordering a record by an aggregate of a fanning-out path.
+
+    Joining a reverse one-to-many (or a many-to-many) to sort by one of its
+    columns repeats the record once per related row: ``count()`` then counts
+    join rows, and a page holds fewer records than its limit. Aggregating in a
+    correlated subquery keeps one row per record and reproduces the order the
+    join used to yield, since the first row a record reached carried its
+    smallest related value ascending and its largest descending.
+
+    ``descending`` picks the aggregate, not the sort direction: the caller
+    applies that. Returns ``None`` when the path fans out nowhere (a plain
+    column or a forward relation, neither of which duplicates) or cannot be
+    resolved.
+    """
+    from sqlalchemy import func, select as sa_select
+
+    from fastedgy.orm.filter.builder import relation_path_source
+    from fastedgy.orm.filter.utils import has_duplicating_relation_path
+
+    if not has_duplicating_relation_path(model_cls, field_path):
+        return None
+
+    source = relation_path_source(model_cls, field_path)
+
+    if source is None:
+        return None
+
+    select_from, root_link_condition, final_column = source
+    aggregate = func.max if descending else func.min
+
+    return sa_select(aggregate(final_column)).select_from(select_from).where(root_link_condition).scalar_subquery()
+
+
 def inject_order_by(query: QuerySet, order_by: OrderByInput) -> QuerySet:
     order_by_fields = parse_order_by(query.model_class, order_by)
 
     if order_by_fields:
-        # Check for extra_select rank labels (generic mechanism)
-        rank_fields = _extract_rank_fields(query, order_by_fields)
-
-        # Build formatted fields, replacing rank fields with raw ordering
         formatted_fields = []
         distinct_fields = []
-        raw_order_expressions = []
 
         for field, direction in order_by_fields:
-            label_name = f"_{field}_rank"
-
-            if label_name in rank_fields:
-                # Order by the extra_select label instead of the column
-                expr = rank_fields[label_name]
-                raw_order_expressions.append(sa_desc(expr) if direction == "desc" else sa_asc(expr))
-                continue
-
             formatted_fields.append(("-" if direction == "desc" else "") + field.replace(".", "__"))
             distinct_fields.append(field.replace(".", "__"))
 
@@ -62,36 +81,7 @@ def inject_order_by(query: QuerySet, order_by: OrderByInput) -> QuerySet:
         if formatted_fields:
             query = query.order_by(*formatted_fields)
 
-        # Apply raw order expressions for rank fields
-        # These are applied via SQLAlchemy directly on the queryset
-        if raw_order_expressions:
-            for expr in raw_order_expressions:
-                query = query.order_by(expr)
-
     return query
-
-
-def _extract_rank_fields(query: QuerySet, order_by_fields: OrderByList) -> dict:
-    """
-    Generic mechanism: check if any order_by field has a matching
-    _{field_name}_rank label in query._extra_select.
-
-    Returns dict mapping label_name to the SQLAlchemy labeled column.
-    """
-    result = {}
-
-    if not hasattr(query, "_extra_select") or not query._extra_select:
-        return result
-
-    for field, direction in order_by_fields:
-        label_name = f"_{field}_rank"
-
-        for extra in query._extra_select:
-            if getattr(extra, "name", None) == label_name:
-                result[label_name] = extra
-                break
-
-    return result
 
 
 def parse_order_by(model_cls: type[Model], order_by_input: OrderByInput) -> OrderByList:
@@ -190,6 +180,7 @@ __all__ = [
     "OrderByTerm",
     "OrderByList",
     "OrderByInput",
+    "aggregated_relation_column",
     "inject_order_by",
     "parse_order_by",
 ]

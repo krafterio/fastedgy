@@ -143,6 +143,15 @@ CASES: list[dict[str, Any]] = [
     {"model": "product", "order_by": "category.name,id"},
     {"model": "product", "order_by": "category.name:desc,id"},
     {"model": "product", "order_by": "name,id", "limit": 2, "offset": 1},
+    # Ordering through a relation that fans out ranks a record by an aggregate
+    # of the far side, never by a joined row: ascending takes its smallest
+    # related value, descending its largest, and a record with nothing related
+    # sorts as NULL. One row per record, so `limit`/`offset` count records.
+    {"model": "category", "order_by": "products.price,id"},
+    {"model": "category", "order_by": "products.price:desc,id"},
+    {"model": "category", "order_by": "products.price,id", "limit": 2, "offset": 1},
+    {"model": "product", "order_by": "tags.name,id"},
+    {"model": "product", "order_by": "tags.name:desc,id"},
     # Workspace extra fields live in a single JSON column and the server reads
     # them with ``extra ->> 'name'``, so every comparison is textual: "10"
     # sorts before "2".

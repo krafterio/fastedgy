@@ -5,12 +5,12 @@ from typing import Any
 
 from edgy.core.db.models.managers import Manager, RedirectManager, BaseManager
 
-from fastedgy.orm.query import QuerySet
+from fastedgy.orm.query import QuerySet, OrderingQuerySet
 from fastedgy.orm.access_guard import ModelAction, acheck_access, check_access
 from fastedgy.orm.filter.global_filters import apply_global_filters
 
 
-class AccessControlQuerySet(QuerySet):
+class AccessControlQuerySet(OrderingQuerySet):
     """QuerySet used by the access-controlled managers: bulk writes go through
     the access guards like instance writes do. Guards receive no instance, so
     row-conditional write exemptions do not apply to bulk operations.

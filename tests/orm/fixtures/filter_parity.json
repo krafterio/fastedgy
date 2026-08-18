@@ -1038,8 +1038,8 @@
           "id": 1
         },
         "id": 1,
-        "created_at": "2026-07-26T02:29:40.259650",
-        "updated_at": "2026-07-26T02:29:40.259653",
+        "created_at": "2026-08-18T13:56:33.223810",
+        "updated_at": "2026-08-18T13:56:33.223814",
         "extra_priority": 2,
         "extra_owner": "ada",
         "tags": [
@@ -1066,8 +1066,8 @@
           "id": 1
         },
         "id": 2,
-        "created_at": "2026-07-26T02:29:40.271418",
-        "updated_at": "2026-07-26T02:29:40.271421",
+        "created_at": "2026-08-18T13:56:33.235688",
+        "updated_at": "2026-08-18T13:56:33.235693",
         "extra_priority": 10,
         "extra_owner": "grace",
         "tags": [
@@ -1091,8 +1091,8 @@
           "id": 2
         },
         "id": 3,
-        "created_at": "2026-07-26T02:29:40.273080",
-        "updated_at": "2026-07-26T02:29:40.273083",
+        "created_at": "2026-08-18T13:56:33.237741",
+        "updated_at": "2026-08-18T13:56:33.237745",
         "extra_priority": 1,
         "extra_owner": null,
         "tags": [
@@ -1114,8 +1114,8 @@
         "details": null,
         "category": null,
         "id": 4,
-        "created_at": "2026-07-26T02:29:40.274473",
-        "updated_at": "2026-07-26T02:29:40.274475",
+        "created_at": "2026-08-18T13:56:33.239332",
+        "updated_at": "2026-08-18T13:56:33.239335",
         "extra_priority": null,
         "extra_owner": null,
         "tags": []
@@ -1126,50 +1126,50 @@
         "name": "Electronics",
         "description": "Devices",
         "id": 1,
-        "created_at": "2026-07-26T02:29:40.249839",
-        "updated_at": "2026-07-26T02:29:40.249846"
+        "created_at": "2026-08-18T13:56:33.213206",
+        "updated_at": "2026-08-18T13:56:33.213216"
       },
       {
         "name": "Books",
         "description": null,
         "id": 2,
-        "created_at": "2026-07-26T02:29:40.253665",
-        "updated_at": "2026-07-26T02:29:40.253668"
+        "created_at": "2026-08-18T13:56:33.217853",
+        "updated_at": "2026-08-18T13:56:33.217861"
       },
       {
         "name": "Empty",
         "description": "No product",
         "id": 3,
-        "created_at": "2026-07-26T02:29:40.254681",
-        "updated_at": "2026-07-26T02:29:40.254684"
+        "created_at": "2026-08-18T13:56:33.219357",
+        "updated_at": "2026-08-18T13:56:33.219360"
       }
     ],
     "tag": [
       {
         "name": "urgent",
         "id": 1,
-        "created_at": "2026-07-26T02:29:40.275868",
-        "updated_at": "2026-07-26T02:29:40.275870"
+        "created_at": "2026-08-18T13:56:33.241066",
+        "updated_at": "2026-08-18T13:56:33.241070"
       },
       {
         "name": "sale",
         "id": 2,
-        "created_at": "2026-07-26T02:29:40.277262",
-        "updated_at": "2026-07-26T02:29:40.277266"
+        "created_at": "2026-08-18T13:56:33.242652",
+        "updated_at": "2026-08-18T13:56:33.242655"
       },
       {
         "name": "new",
         "id": 3,
-        "created_at": "2026-07-26T02:29:40.278202",
-        "updated_at": "2026-07-26T02:29:40.278205"
+        "created_at": "2026-08-18T13:56:33.243914",
+        "updated_at": "2026-08-18T13:56:33.243916"
       }
     ],
     "annotation": [
       {
         "body": "Extended warranty",
         "id": 1,
-        "created_at": "2026-07-26T02:29:40.289641",
-        "updated_at": "2026-07-26T02:29:40.289644",
+        "created_at": "2026-08-18T13:56:33.256971",
+        "updated_at": "2026-08-18T13:56:33.256974",
         "anchor": {
           "id": 1,
           "$model": "product"
@@ -1178,8 +1178,8 @@
       {
         "body": "Fragile item",
         "id": 2,
-        "created_at": "2026-07-26T02:29:40.291226",
-        "updated_at": "2026-07-26T02:29:40.291228",
+        "created_at": "2026-08-18T13:56:33.258882",
+        "updated_at": "2026-08-18T13:56:33.258885",
         "anchor": {
           "id": 2,
           "$model": "product"
@@ -1188,8 +1188,8 @@
       {
         "body": "Category note",
         "id": 3,
-        "created_at": "2026-07-26T02:29:40.292081",
-        "updated_at": "2026-07-26T02:29:40.292084",
+        "created_at": "2026-08-18T13:56:33.259851",
+        "updated_at": "2026-08-18T13:56:33.259854",
         "anchor": {
           "id": 1,
           "$model": "category"
@@ -1198,8 +1198,8 @@
       {
         "body": "Catalog review",
         "id": 4,
-        "created_at": "2026-07-26T02:29:40.292949",
-        "updated_at": "2026-07-26T02:29:40.292951",
+        "created_at": "2026-08-18T13:56:33.260915",
+        "updated_at": "2026-08-18T13:56:33.260917",
         "anchor": {
           "id": 2,
           "$model": "category"
@@ -2166,6 +2166,59 @@
       "expected_ids": [
         1,
         4
+      ],
+      "ordered": true
+    },
+    {
+      "model": "category",
+      "order_by": "products.price,id",
+      "expected_ids": [
+        2,
+        1,
+        3
+      ],
+      "ordered": true
+    },
+    {
+      "model": "category",
+      "order_by": "products.price:desc,id",
+      "expected_ids": [
+        3,
+        1,
+        2
+      ],
+      "ordered": true
+    },
+    {
+      "model": "category",
+      "order_by": "products.price,id",
+      "limit": 2,
+      "offset": 1,
+      "expected_ids": [
+        1,
+        3
+      ],
+      "ordered": true
+    },
+    {
+      "model": "product",
+      "order_by": "tags.name,id",
+      "expected_ids": [
+        3,
+        1,
+        2,
+        4
+      ],
+      "ordered": true
+    },
+    {
+      "model": "product",
+      "order_by": "tags.name:desc,id",
+      "expected_ids": [
+        4,
+        1,
+        2,
+        3
       ],
       "ordered": true
     },

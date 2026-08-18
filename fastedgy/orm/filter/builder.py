@@ -80,12 +80,28 @@ _NULLABILITY_OPERATORS = {
 }
 
 
-def build_filter_expression(model_cls: type[Model], filters: FilterRule | FilterCondition | None) -> Any | None:
+def build_filter_expression(
+    model_cls: type[Model],
+    filters: FilterRule | FilterCondition | None,
+    exists_paths: set[str] | None = None,
+) -> Any | None:
+    """``exists_paths`` names the fanning-out relation prefixes to compile as a
+    correlated EXISTS instead of a join, so the query stops repeating a record
+    per related row. Only sound for a prefix carried by a single rule: ANDed
+    rules over one relation mean "the same related row satisfies all of them",
+    which separate EXISTS would loosen."""
     if filters is None:
         return None
 
     if isinstance(filters, FilterRule):
         field = filters.field
+
+        if exists_paths and "." in field and field.rsplit(".", 1)[0] in exists_paths:
+            expression = _build_exists_expression(model_cls, filters)
+
+            if expression is not None:
+                return expression
+
         operator_method = FILTER_OPERATORS_SQL.get(filters.operator, None)
         operator_dict_method = FILTER_DICT_OPERATORS_SQL.get(filters.operator, None)
 
@@ -157,7 +173,7 @@ def build_filter_expression(model_cls: type[Model], filters: FilterRule | Filter
             expr = None
 
         if expr is None:
-            expr = build_filter_expression(model_cls, rule)
+            expr = build_filter_expression(model_cls, rule, exists_paths)
 
         if expr is not None:
             expressions.append(expr)
@@ -176,35 +192,13 @@ def build_filter_expression(model_cls: type[Model], filters: FilterRule | Filter
     return cond_query.and_(*expressions)
 
 
-def _build_exists_expression(model_cls: type[Model], filters: FilterRule) -> Any | None:
-    """
-    Build an EXISTS subquery for a relation-based filter rule.
+def relation_path_source(model_cls: type[Model], resolved_field: str) -> tuple[Any, Any, Any] | None:
+    """Compile a dotted relation path into the pieces a correlated subquery needs.
 
-    Used for relation-based rules in OR conditions to ensure each branch
-    evaluates independently with its own JOIN context, instead of sharing
-    JOINs with other branches.
-    """
-    field = filters.field
-    operator_method = FILTER_OPERATORS_SQL.get(filters.operator, None)
-
-    if not operator_method:
-        return None
-
-    value = _convert_value_by_field_type(model_cls, field, filters.value)
-
-    # Resolve field type and append related column if the leaf is a relation
-    field_type = _find_field_type_in_model(model_cls, field)
-    resolved_field = field
-
-    related_columns = getattr(field_type, "related_columns", None)
-
-    # A nullability test on a relation leaf stays on the foreign key column of
-    # the parent: hopping to the target primary key would add a JOIN inside the
-    # EXISTS, and that JOIN drops the very rows "is empty" is meant to match
-    # (the target row does not exist), making the predicate unsatisfiable.
-    if related_columns and filters.operator not in _NULLABILITY_OPERATORS:
-        resolved_field += "." + list(related_columns.keys())[0]
-
+    Returns ``(select_from, root_link_condition, final_column)``: the joined
+    source for the far side of the path, the condition correlating it back to
+    ``model_cls``, and the column the leaf names. Returns ``None`` when a hop
+    cannot be resolved."""
     parts = resolved_field.split(".")
     current_model = model_cls
     from_table = None
@@ -355,6 +349,50 @@ def _build_exists_expression(model_cls: type[Model], filters: FilterRule) -> Any
     # Final column and filter condition
     final_column = current_model.table.columns[parts[-1]]
 
+    select_from = from_table
+
+    for table, cond in join_entries:
+        select_from = select_from.join(table, cond)
+
+    return select_from, root_link_condition, final_column
+
+
+def _build_exists_expression(model_cls: type[Model], filters: FilterRule) -> Any | None:
+    """
+    Build an EXISTS subquery for a relation-based filter rule.
+
+    Used for relation-based rules in OR conditions to ensure each branch
+    evaluates independently with its own JOIN context, instead of sharing
+    JOINs with other branches.
+    """
+    field = filters.field
+    operator_method = FILTER_OPERATORS_SQL.get(filters.operator, None)
+
+    if not operator_method:
+        return None
+
+    value = _convert_value_by_field_type(model_cls, field, filters.value)
+
+    # Resolve field type and append related column if the leaf is a relation
+    field_type = _find_field_type_in_model(model_cls, field)
+    resolved_field = field
+
+    related_columns = getattr(field_type, "related_columns", None)
+
+    # A nullability test on a relation leaf stays on the foreign key column of
+    # the parent: hopping to the target primary key would add a JOIN inside the
+    # EXISTS, and that JOIN drops the very rows "is empty" is meant to match
+    # (the target row does not exist), making the predicate unsatisfiable.
+    if related_columns and filters.operator not in _NULLABILITY_OPERATORS:
+        resolved_field += "." + list(related_columns.keys())[0]
+
+    source = relation_path_source(model_cls, resolved_field)
+
+    if source is None:
+        return None
+
+    select_from, root_link_condition, final_column = source
+
     # "is empty" over a relation path means "nothing at the end of the path":
     # it must also match rows whose intermediate hops are missing, which an
     # EXISTS can never express (no row to test). Compile it as the negation of
@@ -374,17 +412,32 @@ def _build_exists_expression(model_cls: type[Model], filters: FilterRule) -> Any
     else:
         filter_cond = operator_method(final_column, value)
 
-    # Build EXISTS subquery with independent JOINs
-    select_from = from_table
-    for table, cond in join_entries:
-        select_from = select_from.join(table, cond)
-
     subq = sa_select(literal_column("1")).select_from(select_from).where(root_link_condition).where(filter_cond)
 
     if negate:
         return sa_not(exists(subq))
 
     return exists(subq)
+
+
+def _duplicating_rule_paths(model_cls: type[Model], filters: Any) -> list[str]:
+    """Relation prefix of every rule whose path fans out, one entry per rule.
+
+    Repeats on purpose: a prefix listed twice is carried by two rules, which
+    have to keep sharing one join to keep meaning "the same related row".
+    """
+    from fastedgy.orm.filter.utils import has_duplicating_relation_path
+
+    if isinstance(filters, FilterRule):
+        if "." not in filters.field or not has_duplicating_relation_path(model_cls, filters.field):
+            return []
+
+        return [filters.field.rsplit(".", 1)[0]]
+
+    if isinstance(filters, FilterCondition):
+        return [path for rule in filters.rules for path in _duplicating_rule_paths(model_cls, rule)]
+
+    return []
 
 
 def filter_query(
@@ -416,12 +469,22 @@ def filter_query(
 
         raise
 
-    expression = build_filter_expression(query.model_class, filters)
+    paths = _duplicating_rule_paths(query.model_class, filters)
+    solo_paths = {path for path in paths if paths.count(path) == 1}
+    expression = build_filter_expression(query.model_class, filters, solo_paths)
 
     if expression is not None:
         query = query.filter(expression)
 
-        if _has_duplicating_relation_filter(query.model_class, filters) and query.distinct_on is None:
+        # Only the paths left on a join still repeat the record, and only those
+        # still need dedup. Dropping DISTINCT ON where it became pointless is
+        # what lets an aggregate lead the ORDER BY (PostgreSQL requires the
+        # DISTINCT ON expressions to come first).
+        if (
+            set(paths) - solo_paths
+            and _has_duplicating_relation_filter(query.model_class, filters)
+            and query.distinct_on is None
+        ):
             primary_key = find_primary_key_field(query.model_class)
             if primary_key:
                 query = query.distinct(primary_key)

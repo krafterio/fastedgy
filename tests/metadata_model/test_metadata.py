@@ -85,3 +85,17 @@ async def test_invalid_sync_mode_is_rejected() -> None:
     # "none" is derived from the absence of the action, never configured.
     with pytest.raises(ValueError, match="Sync mode 'none' is not supported"):
         validate_sync_mode("none")
+
+
+async def test_generic_reverse_relations_keep_a_stable_order(setup_db: FastEdgy) -> None:
+    # Where a GenericForeignKey installs its reverse side depends on import
+    # order, so the generated metadata only stays comparable across runs (and
+    # against the committed parity fixture) if those relations are sorted.
+    from fastedgy.metadata_model.generator import generate_metadata_model
+    from fastedgy.test.models.product import Product
+
+    fields = list((await generate_metadata_model(Product)).fields)
+    generic_reverse = [name for name in fields if name in ("annotations", "attachments", "notes")]
+
+    assert generic_reverse == sorted(generic_reverse)
+    assert fields.index("name") < fields.index(generic_reverse[0])

@@ -276,6 +276,34 @@ async def _run_case(model_cls: Any, case: dict[str, Any]) -> list[int]:
     return [item.id for item in await query.all()]
 
 
+PARITY_EPOCH = "2000-01-01 00:00:00+00"
+
+
+async def _freeze_timestamps(model_classes: Any) -> None:
+    """Pin the audit columns the seed stamps with the clock.
+
+    They take part in no case, but they land in the record dump, so leaving
+    them on wall-clock time rewrites the fixture on every regeneration.
+    Deriving them from the row id keeps them distinct, so a future case
+    ordering on them still has a reproducible answer.
+    """
+    from fastedgy.dependencies import get_service
+    from fastedgy.orm import Registry
+
+    database = get_service(Registry).database
+
+    for model_cls in model_classes:
+        # The epoch carries its UTC offset and goes in as a literal: the audit
+        # columns are timestamptz, so a naive value would be read in the
+        # server's timezone and the fixture would differ between a laptop and
+        # CI. Pinning the instant makes the dump independent of both.
+        await database.execute(
+            f"UPDATE {model_cls.meta.tablename} SET "
+            f"created_at = TIMESTAMPTZ '{PARITY_EPOCH}' + (id * interval '1 second'), "
+            f"updated_at = TIMESTAMPTZ '{PARITY_EPOCH}' + (id * interval '1 second')"
+        )
+
+
 async def _build_parity() -> dict[str, Any]:
     from fastedgy.test.models.annotation import Annotation
     from fastedgy.test.models.category import Category
@@ -284,6 +312,7 @@ async def _build_parity() -> dict[str, Any]:
 
     model_classes = {"product": Product, "category": Category, "tag": Tag, "annotation": Annotation}
     await _seed()
+    await _freeze_timestamps(model_classes.values())
 
     metadatas = {name: await generate_metadata_model(cls) for name, cls in model_classes.items()}
     add_inverse_relations({model_classes[name]: metadata for name, metadata in metadatas.items()})

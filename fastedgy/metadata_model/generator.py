@@ -119,12 +119,31 @@ def _resolve_synchronizable_mode(model_cls: type[BaseModel | BaseView]) -> str:
     return sync_mode(model_cls)
 
 
+def _ordered_model_fields(model_cls: type[BaseModel | BaseView]) -> list[tuple[str, Any]]:
+    """Declared fields in declaration order, then the generic reverse relations.
+
+    A ``GenericForeignKey`` installs its reverse side on each target the first
+    time it resolves, so where those land among the model fields follows import
+    order rather than anything declared, and it is not stable between runs.
+    Sorting them by name pins the generated metadata without disturbing the
+    declared fields, whose order the clients read as the column order.
+    """
+    declared: list[tuple[str, Any]] = []
+    generic_reverse: list[tuple[str, Any]] = []
+
+    for field_name, field_info in model_cls.meta.fields.items():
+        target = generic_reverse if getattr(field_info, "is_generic_related", False) else declared
+        target.append((field_name, field_info))
+
+    return declared + sorted(generic_reverse, key=lambda field: field[0])
+
+
 async def generate_metadata_fields(model_cls: type[BaseModel | BaseView]) -> dict[str, MetadataField]:
     from fastedgy.orm.extra_fields import has_extra_fields
 
     hide_extra_column = has_extra_fields(model_cls)
     fields = {}
-    for field_name, field_info in model_cls.meta.fields.items():
+    for field_name, field_info in _ordered_model_fields(model_cls):
         # The storage of the extra fields, never a field of its own: the API
         # exposes the `extra_<name>` entries add_extra_fields appends below.
         if field_name == "extra" and hide_extra_column:

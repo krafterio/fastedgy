@@ -177,7 +177,7 @@ def _resolve_dependencies(service_class: Type[T]) -> Dict[str, Any]:
         module = sys.modules.get(service_class.__module__)
         globalns = getattr(module, "__dict__", {}) if module else {}
         type_hints = get_type_hints(service_class.__init__, globalns=globalns, localns=None)
-    except (NameError, Exception):
+    except NameError, Exception:
         pass
 
     for param_name, param in sig.parameters.items():

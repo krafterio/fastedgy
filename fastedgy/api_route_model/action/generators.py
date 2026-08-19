@@ -141,7 +141,7 @@ def _is_json_serializable(value: Any) -> bool:
     try:
         json.dumps(value)
         return True
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return False
 
 

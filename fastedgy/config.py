@@ -101,7 +101,7 @@ def discover_settings_class():
             settings_class = import_from_string(settings_package)
             if settings_class and issubclass(settings_class, BaseSettings):
                 return settings_class
-        except (ImportFromStringError, AttributeError, TypeError):
+        except ImportFromStringError, AttributeError, TypeError:
             continue
 
     return BaseSettings

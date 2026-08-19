@@ -183,7 +183,7 @@ class I18nExtractor:
                 translations_dir = os.path.join(package_path, "translations")
 
                 return package_path, translations_dir
-        except (ImportError, ModuleNotFoundError):
+        except ImportError, ModuleNotFoundError:
             pass
 
         # Look in site-packages

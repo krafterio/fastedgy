@@ -34,7 +34,7 @@ def _getter_takes_model(get_filter: GlobalFilterGetter) -> bool:
     historical contract."""
     try:
         return len(inspect.signature(get_filter).parameters) >= 1
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return False
 
 

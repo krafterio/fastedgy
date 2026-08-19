@@ -100,7 +100,7 @@ def load_app() -> FastEdgy:
     try:
         settings = init_settings()
         factory = import_from_string(settings.app_factory)
-    except (ImportFromStringError, ImportError, AttributeError, ValueError):
+    except ImportFromStringError, ImportError, AttributeError, ValueError:
         return build_app()
 
     return factory()

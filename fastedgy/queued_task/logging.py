@@ -128,7 +128,7 @@ class QueuedTaskLogger(logging.Logger):
             if args:
                 try:
                     formatted_message = message % args
-                except (TypeError, ValueError):
+                except TypeError, ValueError:
                     formatted_message = f"{message} {args}"
             else:
                 formatted_message = message

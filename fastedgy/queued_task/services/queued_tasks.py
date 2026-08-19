@@ -220,7 +220,7 @@ class QueuedTasks:
                 # If we reach here, function is importable
                 module_name = func.__module__
                 function_name = func.__name__
-            except (ImportError, AttributeError):
+            except ImportError, AttributeError:
                 # Function is local or not importable, use dill
                 is_local_function = True
         else:
@@ -322,7 +322,7 @@ class QueuedTasks:
                     # If we reach here, function is importable
                     module_name = func.__module__
                     function_name = func.__name__
-                except (ImportError, AttributeError):
+                except ImportError, AttributeError:
                     # Function is local or not importable, use dill
                     is_local_function = True
             else:
@@ -498,7 +498,7 @@ class QueuedTasks:
                 # If we reach here, function is importable
                 module_name = func.__module__
                 function_name = func.__name__
-            except (ImportError, AttributeError):
+            except ImportError, AttributeError:
                 # Function is local or not importable, use dill
                 is_local_function = True
         else:

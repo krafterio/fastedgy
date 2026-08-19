@@ -725,7 +725,7 @@ async def resolve_relation_value(field, value: str, unique_field: str = "id") ->
         # Direct ID lookup
         try:
             return int(value)
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             return None
     else:
         # Lookup by unique field
@@ -779,14 +779,14 @@ def convert_value(value: str, field) -> Any:
     if "int" in str(field_type).lower() and "integer" not in str(field_type).lower():
         try:
             return int(float(value))  # Handle "5.0" → 5
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             return None
 
     # Float
     if "float" in str(field_type).lower() or "decimal" in str(field_type).lower():
         try:
             return float(value)
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             return None
 
     # Date

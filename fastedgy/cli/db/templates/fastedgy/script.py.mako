@@ -64,7 +64,7 @@ def ${f"upgrade{hash_to_identifier(db_name or '')}"}():
                         model_defaults={}
                     )
                 )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             print("failure migrating defaults", exc)
             traceback.print_exception(exc)
 

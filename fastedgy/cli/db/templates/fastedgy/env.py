@@ -39,7 +39,7 @@ MAIN_DATABASE_NAME: str = " "
 
 def iter_databases(
     registry: Registry,
-) -> Generator[tuple[str | None, Database, "sqlalchemy.MetaData"], None, None]:
+) -> Generator[tuple[str | None, Database, sqlalchemy.MetaData], None, None]:
     url: str | None = os.environ.get("EDGY_DATABASE_URL")
     name: str | Literal[False] | None = os.environ.get("EDGY_DATABASE") or False
     if url and not name:
@@ -101,7 +101,7 @@ def run_migrations_offline() -> Any:
             context.run_migrations(engine_name=name or "")
 
 
-def do_run_migrations(connection: Any, name: str, metadata: "sqlalchemy.MetaData") -> Any:
+def do_run_migrations(connection: Any, name: str, metadata: sqlalchemy.MetaData) -> Any:
     # this callback is used to prevent an auto-migration from being generated
     # when there are no changes to the schema
     # reference: http://alembic.zzzcomputing.com/en/latest/cookbook.html

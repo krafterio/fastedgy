@@ -5,7 +5,7 @@ authors = [
     {name = "Krafter", email = "developer@krafter.io"},
 ]
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.14"
 dynamic = [
     "version"
 ]

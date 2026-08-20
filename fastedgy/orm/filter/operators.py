@@ -17,6 +17,7 @@ from fastedgy.orm.fields import (
     CharField,
     TextField,
     ChoiceField,
+    CharChoiceField,
     DateField,
     DateTimeField,
     DurationField,
@@ -369,6 +370,16 @@ FILTER_OPERATORS_FIELD_MAP = {
         "is not empty",
     ],
     ChoiceField: [
+        "=",
+        "!=",
+        "in",
+        "not in",
+        "is empty",
+        "is not empty",
+    ],
+    # Stored as a varchar rather than a native enum, but the value still comes
+    # from a fixed set of members: the same operators, never the text ones.
+    CharChoiceField: [
         "=",
         "!=",
         "in",

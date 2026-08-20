@@ -93,6 +93,12 @@ _PATTERN_OPERATORS = {
     "not icontains",
 }
 
+_LIST_OPERATORS = {
+    "in",
+    "not in",
+}
+
+
 _NULLABILITY_OPERATORS = {
     "is empty",
     "is not empty",
@@ -154,8 +160,21 @@ def build_filter_expression(
         if join_paths is not None and "." in field and has_duplicating_relation_path(model_cls, field):
             join_paths.add(field.rsplit(".", 1)[0])
 
-        use_col = field.startswith("extra_") or resolve_generic_pair(model_cls, field) is not None
         field_type = _find_field_type_in_model(model_cls, field)
+
+        use_col = (
+            field.startswith("extra_")
+            or resolve_generic_pair(model_cls, field) is not None
+            # The ORM coerces a lookup value as a single scalar, and its date
+            # cleaner raises on a list, so a set of dates is built on the column.
+            # Only on a direct field: a relation path needs the join the lookup
+            # is what produces.
+            or (
+                filters.operator in _LIST_OPERATORS
+                and "." not in field
+                and isinstance(field_type, (DateField, DateTimeField))
+            )
+        )
 
         if "." not in field and getattr(field_type, "is_generic_foreign_key", False):
             return _build_generic_reference_expression(model_cls, cast(Any, field_type), filters)

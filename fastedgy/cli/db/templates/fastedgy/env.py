@@ -30,8 +30,6 @@ config: Any = context.config
 # This line sets up loggers basically.
 if get_service(BaseSettings).log_format != LogFormat.JSON:
     fileConfig(config.config_file_name)
-else:
-    logging.getLogger("alembic").setLevel(logging.INFO)
 logger = logging.getLogger("alembic.env")
 MAIN_DATABASE_NAME: str = " "
 

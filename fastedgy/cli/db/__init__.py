@@ -5,6 +5,8 @@ from typing import Any
 
 import rich_click as click
 
+from logging import getLogger, WARNING
+
 from fastedgy import cli
 from fastedgy.cli.db.fulltext import fulltext_reindex
 from fastedgy.cli.db.init_data import init_data
@@ -23,6 +25,8 @@ class LazyDbGroup(cli.Group):
     def _ensure_operations(self) -> None:
         if self._operations_loaded:
             return
+
+        getLogger("alembic.runtime.plugins").setLevel(WARNING)
 
         self._operations_loaded = True
         cli.register_commands_in_group(

@@ -29,17 +29,17 @@ handlers =
 qualname = sqlalchemy.engine
 
 [logger_alembic]
-level = INFO
+level = WARN
 handlers =
 qualname = alembic
 
 [logger_edgy]
-level = INFO
+level = WARN
 handlers =
 qualname = edgy
 
 [logger_fastedgy]
-level = INFO
+level = WARN
 handlers =
 qualname = fastedgy
 

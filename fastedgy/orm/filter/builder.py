@@ -440,14 +440,22 @@ def _duplicating_rule_paths(model_cls: type[Model], filters: Any) -> list[str]:
     return []
 
 
-def filter_query(
-    query: QuerySet | BaseManager,
+def filter_query[Q: (QuerySet, BaseManager)](
+    query: Q,
     filters: str | list | FilterTuple | Filter | None,
     restrict_error: bool = False,
     allow_excluded: bool = False,
-) -> QuerySet:
+) -> Q:
+    """Applies filters to a query, giving back the type it was handed.
+
+    A manager in, a manager out. Edgy declares `QuerySet` concrete while its
+    methods still reference the unbound `EdgyEmbedTarget`, so a plain
+    `-> QuerySet` leaves every `await filter_query(...).first()` on the caller
+    side resolving to `Never`. Echoing the input type restores the ergonomics
+    `Model.query.filter(...)` already had.
+    """
     has_filters = filters is not None
-    query = cast(QuerySet, query)
+    built = cast(QuerySet, query)
 
     try:
         if not isinstance(filters, FilterCondition) and not isinstance(filters, FilterRule):
@@ -459,22 +467,22 @@ def filter_query(
         if has_filters and not filters:
             raise InvalidFilterError("Invalid format of filters")
 
-        filters = validate_filters(query.model_class, filters, allow_excluded=allow_excluded)
+        filters = validate_filters(built.model_class, filters, allow_excluded=allow_excluded)
     except InvalidFilterError:
         if has_filters and restrict_error:
-            primary_key = find_primary_key_field(query.model_class)
+            primary_key = find_primary_key_field(built.model_class)
 
             if primary_key:
-                return query.filter({f"{primary_key}__is": None})
+                return cast(Q, built.filter({f"{primary_key}__is": None}))
 
         raise
 
-    paths = _duplicating_rule_paths(query.model_class, filters)
+    paths = _duplicating_rule_paths(built.model_class, filters)
     solo_paths = {path for path in paths if paths.count(path) == 1}
-    expression = build_filter_expression(query.model_class, filters, solo_paths)
+    expression = build_filter_expression(built.model_class, filters, solo_paths)
 
     if expression is not None:
-        query = query.filter(expression)
+        built = built.filter(expression)
 
         # Only the paths left on a join still repeat the record, and only those
         # still need dedup. Dropping DISTINCT ON where it became pointless is
@@ -482,17 +490,17 @@ def filter_query(
         # DISTINCT ON expressions to come first).
         if (
             set(paths) - solo_paths
-            and _has_duplicating_relation_filter(query.model_class, filters)
-            and query.distinct_on is None
+            and _has_duplicating_relation_filter(built.model_class, filters)
+            and built.distinct_on is None
         ):
-            primary_key = find_primary_key_field(query.model_class)
+            primary_key = find_primary_key_field(built.model_class)
             if primary_key:
-                query = query.distinct(primary_key)
+                built = built.distinct(primary_key)
 
     # Add ts_rank extra_select for fulltext search fields
-    query = _add_fulltext_rank_extra_select(query, filters)
+    built = _add_fulltext_rank_extra_select(built, filters)
 
-    return query
+    return cast(Q, built)
 
 
 def _get_fulltext_locale() -> str:

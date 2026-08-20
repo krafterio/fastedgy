@@ -1,6 +1,7 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+from dataclasses import dataclass, field
 from typing import Any, cast
 
 from sqlalchemy import (
@@ -98,12 +99,18 @@ def build_filter_expression(
     model_cls: type[Model],
     filters: FilterRule | FilterCondition | None,
     exists_paths: set[str] | None = None,
+    grouped_paths: set[str] | None = None,
 ) -> Any | None:
     """``exists_paths`` names the fanning-out relation prefixes to compile as a
     correlated EXISTS instead of a join, so the query stops repeating a record
     per related row. Only sound for a prefix carried by a single rule: ANDed
     rules over one relation mean "the same related row satisfies all of them",
-    which separate EXISTS would loosen."""
+    which separate EXISTS would loosen.
+
+    Several such rules are folded into one EXISTS carrying their conjunction,
+    which keeps that meaning without a join. ``grouped_paths``, when given,
+    collects the prefixes that were: what stays out of it is what still repeats
+    the record, and still needs the caller to dedupe."""
     if filters is None:
         return None
 
@@ -177,8 +184,25 @@ def build_filter_expression(
     is_or = filters.condition == "|"
 
     expressions = []
+    grouped_rules: set[int] = set()
+
+    if not is_or:
+        for prefix, rules in and_exists_groups(model_cls, filters).items():
+            expression = _build_grouped_exists_expression(model_cls, prefix, rules)
+
+            if expression is None:
+                continue
+
+            expressions.append(expression)
+            grouped_rules.update(id(rule) for rule in rules)
+
+            if grouped_paths is not None:
+                grouped_paths.add(prefix)
 
     for rule in filters.rules:
+        if id(rule) in grouped_rules:
+            continue
+
         # For OR conditions, use EXISTS subqueries for relation-based rules
         # to ensure each branch evaluates independently with its own JOIN context
         if is_or and isinstance(rule, FilterRule) and "." in rule.field:
@@ -187,7 +211,7 @@ def build_filter_expression(
             expr = None
 
         if expr is None:
-            expr = build_filter_expression(model_cls, rule, exists_paths)
+            expr = build_filter_expression(model_cls, rule, exists_paths, grouped_paths)
 
         if expr is not None:
             expressions.append(expr)
@@ -206,20 +230,45 @@ def build_filter_expression(
     return cond_query.and_(*expressions)
 
 
-def relation_path_source(model_cls: type[Model], resolved_field: str) -> tuple[Any, Any, Any] | None:
-    """Compile a dotted relation path into the pieces a correlated subquery needs.
+@dataclass
+class RelationWalk:
+    """How far a dotted relation path has been compiled into joins.
 
-    Returns ``(select_from, root_link_condition, final_column)``: the joined
-    source for the far side of the path, the condition correlating it back to
-    ``model_cls``, and the column the leaf names. Returns ``None`` when a hop
-    cannot be resolved."""
-    parts = resolved_field.split(".")
-    current_model = model_cls
-    from_table = None
-    root_link_condition = None
-    join_entries = []  # list of (table, join_condition) for subsequent JOINs
+    Carried from one hop to the next so a walk can be resumed: the rules of an
+    AND that share a relation prefix walk it once, then each continues from
+    here with its own leaf.
+    """
 
-    for i, part in enumerate(parts[:-1]):
+    current_model: Any
+    from_table: Any = None
+    root_link_condition: Any = None
+    join_entries: list[tuple[Any, Any]] = field(default_factory=list)
+
+    def select_from(self) -> Any:
+        select_from = self.from_table
+
+        for table, condition in self.join_entries:
+            select_from = select_from.join(table, condition)
+
+        return select_from
+
+
+def walk_relation_path(
+    model_cls: type[Model], hops: list[str], walk: RelationWalk | None = None
+) -> RelationWalk | None:
+    """Compile the relation hops of a path into joins, or ``None`` if one cannot
+    be resolved.
+
+    ``walk`` resumes an earlier call: the first hop of a fresh walk correlates
+    back to ``model_cls`` and becomes the subquery's FROM, every later one is a
+    plain JOIN onto it.
+    """
+    walk = RelationWalk(current_model=model_cls) if walk is None else walk
+
+    for part in hops:
+        current_model = walk.current_model
+        from_table = walk.from_table
+        join_entries = walk.join_entries
         field_info = current_model.meta.fields[part]
 
         if isinstance(field_info, ManyToMany):
@@ -252,8 +301,8 @@ def relation_path_source(model_cls: type[Model], resolved_field: str) -> tuple[A
             target_table = target_model.table
 
             if from_table is None:
-                from_table = through_table
-                root_link_condition = through_table.columns[from_fk] == model_cls.table.columns[current_pk]
+                walk.from_table = through_table
+                walk.root_link_condition = through_table.columns[from_fk] == model_cls.table.columns[current_pk]
             else:
                 join_entries.append(
                     (
@@ -269,7 +318,7 @@ def relation_path_source(model_cls: type[Model], resolved_field: str) -> tuple[A
                 )
             )
 
-            current_model = target_model
+            walk.current_model = target_model
 
         elif hasattr(field_info, "related_from"):
             # Reverse relation (OneToMany): related_model has FK pointing back
@@ -304,13 +353,15 @@ def relation_path_source(model_cls: type[Model], resolved_field: str) -> tuple[A
                 )
 
                 if from_table is None:
-                    from_table = related_model.table
-                    root_link_condition = link_condition
+                    walk.from_table = related_model.table
+                    walk.root_link_condition = link_condition
                 else:
                     join_entries.append((related_model.table, link_condition))
             elif from_table is None:
-                from_table = related_model.table
-                root_link_condition = related_model.table.columns[fk_field_name] == model_cls.table.columns[current_pk]
+                walk.from_table = related_model.table
+                walk.root_link_condition = (
+                    related_model.table.columns[fk_field_name] == model_cls.table.columns[current_pk]
+                )
             else:
                 join_entries.append(
                     (
@@ -319,7 +370,7 @@ def relation_path_source(model_cls: type[Model], resolved_field: str) -> tuple[A
                     )
                 )
 
-            current_model = related_model
+            walk.current_model = related_model
 
         elif hasattr(field_info, "target"):
             # Forward FK
@@ -327,8 +378,8 @@ def relation_path_source(model_cls: type[Model], resolved_field: str) -> tuple[A
             pk_col = next(iter(getattr(field_info, "related_columns").keys()))
 
             if from_table is None:
-                from_table = related_model.table
-                root_link_condition = related_model.table.columns[pk_col] == model_cls.table.columns[part]
+                walk.from_table = related_model.table
+                walk.root_link_condition = related_model.table.columns[pk_col] == model_cls.table.columns[part]
             else:
                 join_entries.append(
                     (
@@ -337,14 +388,14 @@ def relation_path_source(model_cls: type[Model], resolved_field: str) -> tuple[A
                     )
                 )
 
-            current_model = related_model
+            walk.current_model = related_model
 
         elif hasattr(field_info, "related_model"):
             related_model = getattr(field_info, "related_model")
 
             if from_table is None:
-                from_table = related_model.table
-                root_link_condition = related_model.table.columns["id"] == model_cls.table.columns[part]
+                walk.from_table = related_model.table
+                walk.root_link_condition = related_model.table.columns["id"] == model_cls.table.columns[part]
             else:
                 join_entries.append(
                     (
@@ -353,22 +404,149 @@ def relation_path_source(model_cls: type[Model], resolved_field: str) -> tuple[A
                     )
                 )
 
-            current_model = related_model
+            walk.current_model = related_model
         else:
             return None
 
-    if from_table is None or root_link_condition is None:
+    return walk
+
+
+def relation_path_source(model_cls: type[Model], resolved_field: str) -> tuple[Any, Any, Any] | None:
+    """Compile a dotted relation path into the pieces a correlated subquery needs.
+
+    Returns ``(select_from, root_link_condition, final_column)``: the joined
+    source for the far side of the path, the condition correlating it back to
+    ``model_cls``, and the column the leaf names. Returns ``None`` when a hop
+    cannot be resolved."""
+    parts = resolved_field.split(".")
+    walk = walk_relation_path(model_cls, parts[:-1])
+
+    if walk is None or walk.from_table is None or walk.root_link_condition is None:
         return None
 
-    # Final column and filter condition
-    final_column = current_model.table.columns[parts[-1]]
+    return walk.select_from(), walk.root_link_condition, walk.current_model.table.columns[parts[-1]]
 
-    select_from = from_table
 
-    for table, cond in join_entries:
-        select_from = select_from.join(table, cond)
+def and_exists_groups(model_cls: type[Model], filters: FilterCondition) -> dict[str, list[FilterRule]]:
+    """The rules of an AND that share a relation prefix which fans out, grouped by it.
 
-    return select_from, root_link_condition, final_column
+    Only prefixes carrying two or more rules: a single one already compiles to
+    its own EXISTS. A group holding an "is empty" is left out, that operator
+    means "nothing at the end of the path" and has to stay the negation of an
+    EXISTS of its own, which a shared one cannot express.
+    """
+    from fastedgy.orm.filter.utils import has_duplicating_relation_path
+
+    if filters.condition != "&":
+        return {}
+
+    groups: dict[str, list[FilterRule]] = {}
+
+    for rule in filters.rules:
+        if not isinstance(rule, FilterRule) or "." not in rule.field:
+            continue
+
+        if not has_duplicating_relation_path(model_cls, rule.field):
+            continue
+
+        groups.setdefault(rule.field.rsplit(".", 1)[0], []).append(rule)
+
+    return {
+        prefix: rules
+        for prefix, rules in groups.items()
+        if len(rules) > 1 and not any(rule.operator == "is empty" for rule in rules)
+    }
+
+
+def _build_grouped_exists_expression(model_cls: type[Model], prefix: str, rules: list[FilterRule]) -> Any | None:
+    """One correlated EXISTS carrying every rule of an AND that shares ``prefix``.
+
+    ANDed rules over one relation mean "the same related row satisfies all of
+    them". Separate EXISTS would loosen that, so they used to stay on a shared
+    join, which repeats the record and needs a ``DISTINCT ON (pk)`` to undo --
+    and PostgreSQL then refuses any ORDER BY not leading with it, so a list
+    route taking `order_by` failed at the database. One EXISTS holding the
+    conjunction keeps the semantics, repeats nothing and leaves the ordering
+    free.
+
+    Returns ``None`` when the group cannot be compiled this way, and the caller
+    falls back to the shared join.
+    """
+    walk = walk_relation_path(model_cls, prefix.split("."))
+
+    if walk is None or walk.from_table is None or walk.root_link_condition is None:
+        return None
+
+    prefix_model = walk.current_model
+    joins = list(walk.join_entries)
+    conditions = []
+
+    for rule in rules:
+        leaf = rule.field[len(prefix) + 1 :]
+        field_type = _find_field_type_in_model(prefix_model, leaf)
+        related_columns = getattr(field_type, "related_columns", None)
+        resolved = leaf + "." + next(iter(related_columns.keys())) if related_columns else leaf
+        parts = resolved.split(".")
+
+        leaf_walk = walk_relation_path(
+            prefix_model,
+            parts[:-1],
+            RelationWalk(
+                current_model=prefix_model,
+                from_table=walk.from_table,
+                root_link_condition=walk.root_link_condition,
+            ),
+        )
+
+        if leaf_walk is None:
+            return None
+
+        for entry in leaf_walk.join_entries:
+            existing = next((join for join in joins if join[0] is entry[0]), None)
+
+            if existing is None:
+                joins.append(entry)
+            elif str(existing[1]) != str(entry[1]):
+                # The same table reached by two different conditions would need
+                # an alias inside the subquery. Leave the group on the join.
+                return None
+
+        column = leaf_walk.current_model.table.columns[parts[-1]]
+        conditions.append(
+            _exists_leaf_condition(rule, column, _convert_value_by_field_type(prefix_model, leaf, rule.value))
+        )
+
+    select_from = walk.from_table
+
+    for table, condition in joins:
+        select_from = select_from.join(table, condition)
+
+    subquery = (
+        sa_select(literal_column("1"))
+        .select_from(select_from)
+        .where(walk.root_link_condition)
+        .where(sa_and(*conditions))
+    )
+
+    return exists(subquery)
+
+
+def _exists_leaf_condition(filters: FilterRule, final_column: Any, value: Any) -> Any:
+    """The predicate a rule puts on the column its path ends at."""
+    operator_method = FILTER_OPERATORS_SQL[filters.operator]
+
+    if filters.operator in _PATTERN_OPERATORS and isinstance(getattr(final_column, "type", None), SaUuid):
+        # A UUID column compares as text under pattern operators (PostgreSQL
+        # has no uuid ~~ text operator).
+        return operator_method(sa_cast(final_column, SaText()), str(filters.value))
+
+    if filters.operator in FILTER_OPERATORS_SQL_UNPACK:
+        return final_column.between(*value)
+
+    if filters.operator in ("is true", "is false", "is not empty"):
+        return operator_method(final_column)
+
+    return operator_method(final_column, value)
 
 
 def _build_exists_expression(model_cls: type[Model], filters: FilterRule) -> Any | None:
@@ -415,16 +593,8 @@ def _build_exists_expression(model_cls: type[Model], filters: FilterRule) -> Any
 
     if negate:
         filter_cond = FILTER_OPERATORS_SQL["is not empty"](final_column)
-    elif filters.operator in _PATTERN_OPERATORS and isinstance(getattr(final_column, "type", None), SaUuid):
-        # A UUID column compares as text under pattern operators (PostgreSQL
-        # has no uuid ~~ text operator).
-        filter_cond = operator_method(sa_cast(final_column, SaText()), str(filters.value))
-    elif filters.operator in FILTER_OPERATORS_SQL_UNPACK:
-        filter_cond = final_column.between(*value)
-    elif filters.operator in ("is true", "is false", "is not empty"):
-        filter_cond = operator_method(final_column)
     else:
-        filter_cond = operator_method(final_column, value)
+        filter_cond = _exists_leaf_condition(filters, final_column, value)
 
     subq = sa_select(literal_column("1")).select_from(select_from).where(root_link_condition).where(filter_cond)
 
@@ -493,7 +663,8 @@ def filter_query[Q: (QuerySet, BaseManager)](
 
     paths = _duplicating_rule_paths(built.model_class, filters)
     solo_paths = {path for path in paths if paths.count(path) == 1}
-    expression = build_filter_expression(built.model_class, filters, solo_paths)
+    grouped_paths: set[str] = set()
+    expression = build_filter_expression(built.model_class, filters, solo_paths, grouped_paths)
 
     if expression is not None:
         built = built.filter(expression)
@@ -503,7 +674,7 @@ def filter_query[Q: (QuerySet, BaseManager)](
         # what lets an aggregate lead the ORDER BY (PostgreSQL requires the
         # DISTINCT ON expressions to come first).
         if (
-            set(paths) - solo_paths
+            set(paths) - solo_paths - grouped_paths
             and _has_duplicating_relation_filter(built.model_class, filters)
             and built.distinct_on is None
         ):

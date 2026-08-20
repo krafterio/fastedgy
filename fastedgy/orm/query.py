@@ -13,7 +13,34 @@ from edgy.core.db.querysets import (
 )
 
 
-class OrderingQuerySet(QuerySet):
+class FilterQuerySet(QuerySet):
+    """Lets the query-builder rules be passed to `filter()` directly.
+
+    `R`, `And` and `Or` route through `filter_query`, which validates the field
+    and the operator, resolves relation paths and dedupes the joins a to-many
+    rule would otherwise repeat. Everything else falls through to the ORM, so
+    SQLAlchemy clauses and keyword lookups keep working unchanged.
+    """
+
+    def filter(self, *clauses: Any, **kwargs: Any) -> QuerySet:
+        # Deferred: the filter builder imports this module.
+        from fastedgy.orm.filter import FilterCondition, FilterRule, filter_query
+
+        rules = [clause for clause in clauses if isinstance(clause, FilterRule | FilterCondition)]
+
+        if not rules:
+            return super().filter(*clauses, **kwargs)
+
+        others = tuple(clause for clause in clauses if not isinstance(clause, FilterRule | FilterCondition))
+        queryset = super().filter(*others, **kwargs) if others or kwargs else self
+
+        for rule in rules:
+            queryset = filter_query(queryset, rule)
+
+        return queryset
+
+
+class OrderingQuerySet(FilterQuerySet):
     """Adds ordering by a path that fans out (reverse one-to-many, many-to-many).
 
     The ORM resolves every ordering term to a join, which for such a path
@@ -81,6 +108,7 @@ def order_path(order_by: str) -> str:
 
 __all__ = [
     "QuerySet",
+    "FilterQuerySet",
     "OrderingQuerySet",
     "order_path",
     "Q",

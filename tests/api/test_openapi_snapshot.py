@@ -2,13 +2,10 @@
 # MIT License (see LICENSE file).
 
 import difflib
-
 from pathlib import Path
 
 from fastedgy.app import FastEdgy
-
 from fastedgy.test.app import APP_VERSION, build_app, dump_openapi
-
 
 SNAPSHOT_PATH = Path(__file__).resolve().parent / "snapshots" / "openapi.json"
 

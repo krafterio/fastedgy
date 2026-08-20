@@ -2,7 +2,6 @@
 # MIT License (see LICENSE file).
 
 from pathlib import Path
-
 from typing import cast
 
 from fastedgy.app import FastEdgy

@@ -4,7 +4,6 @@
 import io
 import mimetypes
 import os
-
 from dataclasses import dataclass, field
 from glob import glob
 from pathlib import Path
@@ -70,7 +69,7 @@ def _build_model_map(registry: Registry) -> dict[str, type[BaseModel]]:
 
 def _read_records(path: str) -> list[dict[str, Any]]:
     namespace: dict[str, Any] = {}
-    exec(compile(Path(path).read_text(encoding="utf-8"), path, "exec"), namespace)
+    exec(compile(Path(path).read_text(encoding="utf-8"), path, "exec"), namespace)  # noqa: S102
     data = namespace.get("data", [])
 
     if not isinstance(data, list):
@@ -302,12 +301,12 @@ async def load_data(data_dir: str | None = None) -> LoadReport:
 
 
 __all__ = [
-    "IdRef",
-    "Ref",
     "FileRef",
+    "IdRef",
     "LoadReport",
-    "load_data",
-    "id",
-    "ref",
+    "Ref",
     "file",
+    "id",
+    "load_data",
+    "ref",
 ]

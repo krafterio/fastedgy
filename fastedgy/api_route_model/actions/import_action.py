@@ -1,33 +1,35 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import Annotated, Callable, Coroutine, Any
+from collections.abc import Callable, Coroutine
+from typing import Annotated, Any
 
 from fastapi import APIRouter, File, UploadFile
-from pydantic import BaseModel as PydanticBaseModel, Field as PydanticField
+from pydantic import BaseModel as PydanticBaseModel
+from pydantic import Field as PydanticField
 
 from fastedgy.api_route_model.action import BaseApiRouteAction
 from fastedgy.api_route_model.registry import (
-    TypeModel,
     RouteModelActionOptions,
+    TypeModel,
     ViewTransformerRegistry,
 )
 from fastedgy.api_route_model.view_transformer import (
     BaseViewTransformer,
-    PreImportTransformer,
     PostImportTransformer,
+    PreImportTransformer,
 )
 from fastedgy.dataflow.importer import (
-    import_data,
-    ImportResult,
     ImportErrorResponse,
     ImportFailedError,
+    ImportResult,
+    import_data,
 )
 from fastedgy.dependencies import get_service
 from fastedgy.http import Request
 from fastedgy.models.base import BaseModel, BaseView
-from fastedgy.orm.query import QuerySet
 from fastedgy.orm.manager import BaseManager
+from fastedgy.orm.query import QuerySet
 
 
 class ImportItemsBody(PydanticBaseModel):
@@ -145,8 +147,8 @@ async def import_items_action[M: BaseModel | BaseView](
 
 
 __all__ = [
-    "ImportItemsBody",
     "ImportApiRouteAction",
+    "ImportItemsBody",
     "generate_import_items",
     "import_items_action",
 ]

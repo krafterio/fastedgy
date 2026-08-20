@@ -1,24 +1,24 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-import io
 import csv
+import io
 from datetime import datetime
 from enum import Enum
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from sqlalchemy.exc import IntegrityError, DataError, ProgrammingError
+from sqlalchemy.exc import DataError, IntegrityError, ProgrammingError
 
 from fastedgy.i18n import _t
-from fastedgy.orm import transaction
-from fastedgy.schemas import BaseModel, ValidationError
-
 from fastedgy.metadata_model.utils import get_field_label_from_path
+from fastedgy.orm import transaction
 from fastedgy.orm.filter import R
 from fastedgy.orm.query import QuerySet
+from fastedgy.schemas import BaseModel, ValidationError
 
 if TYPE_CHECKING:
     from fastapi import UploadFile
+
     from fastedgy.orm import Model
 
 
@@ -53,7 +53,7 @@ class ImportFailedError(Exception):
         )
 
 
-def _format_error_message(error: Exception, model_cls: type["Model"] | None = None) -> str:
+def _format_error_message(error: Exception, model_cls: "type[Model] | None" = None) -> str:
     """
     Format error message to be user-friendly.
 
@@ -128,7 +128,7 @@ def _format_error_message(error: Exception, model_cls: type["Model"] | None = No
     return str(error)
 
 
-def _format_db_error_message(error: Exception, model_cls: type["Model"] | None = None) -> str:
+def _format_db_error_message(error: Exception, model_cls: "type[Model] | None" = None) -> str:
     """
     Format database error messages to be user-friendly.
 
@@ -373,14 +373,14 @@ async def parse_ods_file(file: "UploadFile") -> list[list[str]]:
     data = get_data(io.BytesIO(content))
 
     # Get first sheet
-    sheet_name = list(data.keys())[0]
+    sheet_name = next(iter(data.keys()))
     rows = data[sheet_name]
 
     # Convert all values to strings
     return [[str(cell) if cell is not None else "" for cell in row] for row in rows]
 
 
-def map_columns(headers: list[str], model_cls: type["Model"]) -> dict[str, str]:
+def map_columns(headers: list[str], model_cls: "type[Model]") -> dict[str, str]:
     """
     Map column headers to field names (technical or label).
 
@@ -419,7 +419,7 @@ def map_columns(headers: list[str], model_cls: type["Model"]) -> dict[str, str]:
     return mapping
 
 
-def find_field_by_label(model_cls: type["Model"], label: str) -> str | None:
+def find_field_by_label(model_cls: "type[Model]", label: str) -> str | None:
     """Find field name by its label."""
     # Try exact match with label
     for field_name in model_cls.meta.fields:
@@ -460,7 +460,7 @@ def find_field_by_label(model_cls: type["Model"], label: str) -> str | None:
     return None
 
 
-def detect_identifier_field(model_cls: type["Model"], field_mapping: dict[str, str]) -> str | None:
+def detect_identifier_field(model_cls: "type[Model]", field_mapping: dict[str, str]) -> str | None:
     """
     Detect the identifier field (primary key or unique field) from mapped columns.
 
@@ -491,7 +491,7 @@ def detect_identifier_field(model_cls: type["Model"], field_mapping: dict[str, s
 
 
 async def process_row(
-    model_cls: type["Model"],
+    model_cls: "type[Model]",
     row: list[str],
     headers: list[str],
     field_mapping: dict[str, str],
@@ -645,7 +645,7 @@ def is_relation_field(field) -> bool:
 
 
 async def process_relational_field(
-    model_cls: type["Model"],
+    model_cls: "type[Model]",
     field_path: str,
     value: str,
     model_data: dict[str, Any],
@@ -825,9 +825,8 @@ def convert_value(value: str, field) -> Any:
         # Try to match enum value
         if hasattr(field, "choices"):
             for choice in field.choices:
-                if isinstance(choice, Enum):
-                    if choice.value == value or choice.name == value:
-                        return choice
+                if isinstance(choice, Enum) and (choice.value == value or choice.name == value):
+                    return choice
         return value
 
     # Default: return as string
@@ -835,14 +834,14 @@ def convert_value(value: str, field) -> Any:
 
 
 __all__ = [
-    "ImportResult",
     "ImportErrorResponse",
     "ImportFailedError",
-    "import_data",
-    "parse_csv_file",
-    "parse_xlsx_file",
-    "parse_ods_file",
-    "map_columns",
-    "detect_identifier_field",
+    "ImportResult",
     "convert_value",
+    "detect_identifier_field",
+    "import_data",
+    "map_columns",
+    "parse_csv_file",
+    "parse_ods_file",
+    "parse_xlsx_file",
 ]

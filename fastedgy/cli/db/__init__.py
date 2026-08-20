@@ -1,11 +1,10 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+from logging import WARNING, getLogger
 from typing import Any
 
 import rich_click as click
-
-from logging import getLogger, WARNING
 
 from fastedgy import cli
 from fastedgy.cli.db.fulltext import fulltext_reindex
@@ -50,7 +49,6 @@ class LazyDbGroup(cli.Group):
 @cli.group(name="db", cls=LazyDbGroup)
 def db():
     """Database management commands."""
-    pass
 
 
 db.add_command(fulltext_reindex)

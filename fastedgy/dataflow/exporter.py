@@ -1,36 +1,31 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from fastedgy.i18n import _t
-
-import io
 import csv
-import html2text
-
+import io
 from datetime import date, datetime
 from enum import Enum
-
 from typing import Any
 
-from fastedgy.api_route_model.params import RelationDelimiter
-from fastedgy.models.base import BaseModel, BaseView
-
+import html2text
 from fastapi import HTTPException
+from starlette.responses import StreamingResponse
 
-from fastedgy.orm.order_by import inject_order_by
+from fastedgy.api_route_model.params import RelationDelimiter
+from fastedgy.i18n import _t
+from fastedgy.metadata_model.utils import get_field_label_from_path
+from fastedgy.models.base import BaseModel, BaseView
 from fastedgy.orm.field_selector import (
-    optimize_query_filter_fields,
     clean_field_names_from_input,
+    optimize_query_filter_fields,
 )
 from fastedgy.orm.filter import (
-    filter_query,
     InvalidFilterError,
+    filter_query,
 )
-from fastedgy.metadata_model.utils import get_field_label_from_path
+from fastedgy.orm.order_by import inject_order_by
 from fastedgy.orm.query import QuerySet
-from fastedgy.orm.utils import get_value_from_path, get_field_from_path
-
-from starlette.responses import StreamingResponse
+from fastedgy.orm.utils import get_field_from_path, get_value_from_path
 
 
 def parse_field_with_converter(field_expr: str) -> tuple[str, str | None]:
@@ -129,11 +124,11 @@ async def export_data[M: BaseModel | BaseView](
         raise HTTPException(status_code=422, detail=str(e))
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         if filters:
             raise HTTPException(status_code=422, detail=_t("Invalid filters"))
         else:
-            raise e
+            raise
 
     # Parse field expressions to extract converters
     field_expressions = []
@@ -310,11 +305,11 @@ def generate_ods_export(field_names: list[str], data_rows: list[list[str]], file
 
 
 __all__ = [
-    "parse_field_with_converter",
     "apply_export_converter",
     "export_data",
     "format_value",
     "generate_csv_export",
-    "generate_xlsx_export",
     "generate_ods_export",
+    "generate_xlsx_export",
+    "parse_field_with_converter",
 ]

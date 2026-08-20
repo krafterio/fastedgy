@@ -39,9 +39,9 @@ class FieldExportConverter(Generic[InputT, OutputT]):
         # and the original methods are not inherited
         original_new = cls.__new__
 
-        def patched_new(__cls: type, *args: Any, **kw: Any) -> Any:
-            kw["_export_converter_class"] = __cls
-            return original_new(__cls, *args, **kw)
+        def patched_new(cls: type, /, *args: Any, **kw: Any) -> Any:
+            kw["_export_converter_class"] = cls
+            return original_new(cls, *args, **kw)
 
         setattr(cls, "__new__", patched_new)
 

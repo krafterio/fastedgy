@@ -1,18 +1,16 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-import os
 import logging
-
-from typing import Any
+import os
+from typing import Any, Self
 
 from babel.messages import Catalog
 from babel.messages.pofile import read_po
 
 from fastedgy.config import BaseSettings
 from fastedgy.context import get_locale
-from fastedgy.dependencies import get_service, has_service, Inject
-
+from fastedgy.dependencies import Inject, get_service, has_service
 
 logger = logging.getLogger("fastedgy.i18n")
 
@@ -21,7 +19,7 @@ class TranslatableString(str):
     message: str
     kwargs: dict[str, Any]
 
-    def __new__(cls, message: str, **kwargs: Any) -> "TranslatableString":
+    def __new__(cls, message: str, **kwargs: Any) -> Self:
         instance = super().__new__(cls, message)
         instance.message = message
         instance.kwargs = kwargs
@@ -130,7 +128,7 @@ class I18n:
                     locale = filename[:-3]
                     available.add(locale)
 
-        return sorted(list(available))
+        return sorted(available)
 
     def clear_cache(self) -> None:
         """Clear translation cache."""
@@ -140,6 +138,6 @@ class I18n:
 
 
 __all__ = [
-    "TranslatableString",
     "I18n",
+    "TranslatableString",
 ]

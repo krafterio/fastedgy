@@ -6,7 +6,7 @@ from fastedgy.storage.adapters.filesystem import FilesystemAdapter
 from fastedgy.storage.adapters.s3 import S3Adapter
 
 __all__ = [
-    "StorageAdapter",
     "FilesystemAdapter",
     "S3Adapter",
+    "StorageAdapter",
 ]

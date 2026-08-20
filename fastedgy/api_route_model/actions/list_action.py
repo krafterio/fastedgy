@@ -1,46 +1,46 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from fastedgy.i18n import _t
+from collections.abc import Callable
+from typing import Any, cast
 
-from typing import Callable, Any, cast
+from fastapi import APIRouter, HTTPException, Query
 
-from fastapi import APIRouter, Query, HTTPException
-
-from fastedgy.models.base import BaseModel, BaseView
 from fastedgy.api_route_model.action import BaseApiRouteAction
-from fastedgy.api_route_model.types import ModelList
 from fastedgy.api_route_model.params import (
-    OrderByQuery,
     FieldSelectorHeader,
     FilterHeader,
+    OrderByQuery,
 )
-from fastedgy.orm.order_by import inject_order_by
+from fastedgy.api_route_model.registry import (
+    RouteModelActionOptions,
+    TypeModel,
+    ViewTransformerRegistry,
+)
+from fastedgy.api_route_model.types import ModelList
+from fastedgy.api_route_model.view_transformer import (
+    BaseViewTransformer,
+    GetViewsTransformer,
+    GetViewTransformer,
+    PostPaginateViewTransformer,
+    PrePaginateViewTransformer,
+)
+from fastedgy.dependencies import get_service
+from fastedgy.http import Request
+from fastedgy.i18n import _t
+from fastedgy.models.base import BaseModel, BaseView
 from fastedgy.orm.field_selector import (
     filter_selected_fields,
     optimize_query_filter_fields,
     prefetch_generic_references,
 )
 from fastedgy.orm.filter import (
-    filter_query,
     InvalidFilterError,
+    filter_query,
 )
-from fastedgy.api_route_model.registry import (
-    TypeModel,
-    RouteModelActionOptions,
-    ViewTransformerRegistry,
-)
-from fastedgy.api_route_model.view_transformer import (
-    BaseViewTransformer,
-    PrePaginateViewTransformer,
-    PostPaginateViewTransformer,
-    GetViewTransformer,
-    GetViewsTransformer,
-)
-from fastedgy.dependencies import get_service
-from fastedgy.http import Request
-from fastedgy.orm.query import QuerySet
 from fastedgy.orm.manager import BaseManager
+from fastedgy.orm.order_by import inject_order_by
+from fastedgy.orm.query import QuerySet
 from fastedgy.schemas.base import Pagination
 
 
@@ -131,11 +131,11 @@ async def list_items_action[M: BaseModel | BaseView](
         raise HTTPException(status_code=422, detail=str(e))
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         if filters:
             raise HTTPException(status_code=422, detail=_t("Invalid filters"))
         else:
-            raise e
+            raise
 
     for transformer in vtr.get_transformers(GetViewsTransformer, model_cls, transformers):
         await transformer.get_views(request, items, transformers_ctx)

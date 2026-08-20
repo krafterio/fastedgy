@@ -8,7 +8,6 @@ from fastedgy.dependencies import get_service
 from fastedgy.health import Health
 from fastedgy.schemas.health import Health as HealthStatus
 
-
 router = APIRouter(prefix="/health", tags=["health"])
 
 

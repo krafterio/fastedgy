@@ -5,7 +5,6 @@ from collections.abc import Generator
 from contextlib import contextmanager
 
 import pytest
-
 from fastapi import HTTPException
 
 from fastedgy import context

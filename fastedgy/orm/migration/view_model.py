@@ -2,13 +2,12 @@
 # MIT License (see LICENSE file).
 
 import re
-import sqlparse
-
 from collections import defaultdict
 
-from alembic.autogenerate.api import AutogenContext
-from alembic.operations import Operations, MigrateOperation
+import sqlparse
 from alembic.autogenerate import comparators, renderers
+from alembic.autogenerate.api import AutogenContext
+from alembic.operations import MigrateOperation, Operations
 from alembic.operations.ops import UpgradeOps
 from sqlalchemy import text
 
@@ -418,10 +417,10 @@ def _check_db_view_difference(connection, view_name: str, model_def: str, db_def
 
 
 __all__ = [
-    "compare_view",
     "CreateViewOperation",
     "DropViewOperation",
     "ReplaceViewOperation",
+    "compare_view",
     "normalize_sql",
     "process_view_model_revision_directives",
 ]

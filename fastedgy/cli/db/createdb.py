@@ -5,9 +5,8 @@ import sys
 import threading
 
 from fastedgy import cli
-from fastedgy.cli import console, CliContext
+from fastedgy.cli import CliContext, console
 from fastedgy.cli.db import db
-
 
 # Monkey-patch to ignore _DeleteDummyThreadOnDel exception at process termination with Python 3.13
 _dummy_thread_cls = getattr(threading, "_DeleteDummyThreadOnDel")
@@ -30,8 +29,9 @@ setattr(_dummy_thread_cls, "__del__", _safe_del)
 @cli.pass_cli_context
 async def createdb(ctx: CliContext):
     """Create the database"""
-    from fastedgy.orm import Database
     from sqlalchemy.engine.url import make_url
+
+    from fastedgy.orm import Database
 
     db_url = make_url(ctx.settings.database_url).set(database="postgres")
     admin_database_url = (

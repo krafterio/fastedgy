@@ -38,10 +38,11 @@ def _remove_system_objects_operations(context, ops):
     """
     Recursively remove operations that target system objects from PostgreSQL extensions.
     """
-    from alembic.operations.ops import DropTableOp, CreateTableOp, ModifyTableOps
+    from alembic.operations.ops import CreateTableOp, DropTableOp, ModifyTableOps
+
     from fastedgy.orm.migration.view_model import (
-        DropViewOperation,
         CreateViewOperation,
+        DropViewOperation,
         ReplaceViewOperation,
     )
 

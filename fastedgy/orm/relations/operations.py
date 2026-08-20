@@ -3,9 +3,9 @@
 
 """Pydantic models for relation operations (tuple-based API)."""
 
-from typing import Literal, Any, Union
-from fastedgy.schemas import RootModel, field_validator
+from typing import Any, Literal, Union
 
+from fastedgy.schemas import RootModel, field_validator
 
 # Helper types for ID representation
 IdOrObject = Union[int, dict[str, Any]]  # Accept 42 or {"id": 42, ...}
@@ -42,7 +42,7 @@ class UpdateOp(RootModel):
     @field_validator("root")
     @classmethod
     def validate_id_present(cls, v):
-        action, data = v
+        _action, data = v
         if not isinstance(data, dict) or "id" not in data:
             raise ValueError("update operation requires an object with 'id' field")
         if not isinstance(data["id"], int) or data["id"] <= 0:

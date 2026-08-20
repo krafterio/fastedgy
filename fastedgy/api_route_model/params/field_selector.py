@@ -3,7 +3,7 @@
 
 from typing import Any
 
-from fastapi.params import Query, Header
+from fastapi.params import Header, Query
 
 
 def FieldSelectorQuery() -> Any:
@@ -26,6 +26,6 @@ def FieldSelectorHeader() -> Any:
 
 
 __all__ = [
-    "FieldSelectorQuery",
     "FieldSelectorHeader",
+    "FieldSelectorQuery",
 ]

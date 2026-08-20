@@ -1,24 +1,23 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from enum import Enum
 import logging
-
-from typing import Sequence, Type, Union, cast
+from collections.abc import Sequence
+from enum import Enum
+from typing import cast
 
 from fastapi import APIRouter
-
 from fastapi.params import Depends
-from fastedgy.dependencies import get_service, Token
-from fastedgy.models.base import BaseModel, BaseView
+
+from fastedgy.api_route_model.action import ApiRouteActionRegistry
 from fastedgy.api_route_model.registry import (
     CONSOLE_ROUTE_MODEL_REGISTRY_TOKEN,
     RouteModelActionOptions,
     RouteModelOptions,
     RouteModelRegistry,
 )
-from fastedgy.api_route_model.action import ApiRouteActionRegistry
-
+from fastedgy.dependencies import Token, get_service
+from fastedgy.models.base import BaseModel, BaseView
 
 logger = logging.getLogger("api_route_model.generator")
 
@@ -44,7 +43,7 @@ def generate_router_for_model(
     options = registry.get_model_options(model_cls)
 
     # Extract router-level options from RouteModelOptions
-    router_tags: list[Union[str, Enum]] | None = options.get("tags")
+    router_tags: list[str | Enum] | None = options.get("tags")
     router_dependencies: Sequence[Depends] | None = options.get("dependencies")
     actions_options: RouteModelOptions = options.get("actions", {})
 
@@ -72,7 +71,7 @@ def generate_router_for_model(
 
 
 def get_all_generated_routers(
-    registry: Type[RouteModelRegistry] | Token[RouteModelRegistry] = RouteModelRegistry,
+    registry: type[RouteModelRegistry] | Token[RouteModelRegistry] = RouteModelRegistry,
     tags: bool = True,
 ) -> dict[str, APIRouter]:
     """
@@ -122,7 +121,7 @@ get_all_generated_admin_routers = get_all_generated_console_routers
 
 
 __all__ = [
-    "get_all_generated_routers",
-    "get_all_generated_console_routers",
     "get_all_generated_admin_routers",
+    "get_all_generated_console_routers",
+    "get_all_generated_routers",
 ]

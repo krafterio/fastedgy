@@ -3,11 +3,11 @@
 
 from typing import Any
 
-from sqlalchemy import Column, event, MetaData, ReturnsRows, Table
+from sqlalchemy import Column, MetaData, ReturnsRows, Table, event
 from sqlalchemy.ext import compiler
 from sqlalchemy.schema import DDLElement, PrimaryKeyConstraint
-from sqlalchemy.sql.schema import SchemaItem
 from sqlalchemy.sql.expression import ClauseElement, Executable
+from sqlalchemy.sql.schema import SchemaItem
 
 from fastedgy.orm.utils import get_columns
 
@@ -72,7 +72,7 @@ def create_table_from_selectable(name, selectable, indexes=None, metadata=None, 
     ] + indexes
     table = TableView(name, metadata, selectable, *args, **kwargs)
 
-    if not any([c.primary_key for c in get_columns(selectable)]):
+    if not any(c.primary_key for c in get_columns(selectable)):
         table.append_constraint(PrimaryKeyConstraint(*[c.name for c in get_columns(selectable)]))
 
     return table
@@ -223,8 +223,8 @@ __all__ = [
     "DropView",
     "RefreshMaterializedView",
     "TableView",
-    "create_table_from_selectable",
     "create_materialized_view",
+    "create_table_from_selectable",
     "create_view",
     "refresh_materialized_view",
 ]

@@ -2,11 +2,9 @@
 # MIT License (see LICENSE file).
 
 import asyncio
-
 from typing import Any
 
 import httpx
-
 
 DEFAULT_RETRY_STATUS_CODES = frozenset({429, 500, 502, 503, 504})
 

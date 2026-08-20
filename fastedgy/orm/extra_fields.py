@@ -6,7 +6,6 @@ from typing import Any, cast
 
 from sqlalchemy import Boolean, Date, DateTime, Float, Integer
 
-
 EXTRA_FIELD_PREFIX = "extra_"
 
 
@@ -44,6 +43,7 @@ def extra_field_column(model_cls: Any, field_path: str) -> Any | None:
     declared — otherwise a comparison against an already-converted value fails
     outright (``text = integer``), and ordering would put "10" before "2"."""
     from sqlalchemy import cast as sa_cast
+
     from fastedgy.models.workspace_extra_field import WorkspaceExtraFieldType
 
     if "." in field_path or not field_path.startswith(EXTRA_FIELD_PREFIX):
@@ -90,9 +90,9 @@ def merge_extra_field_values(current: Any, values: dict[str, Any]) -> dict[str, 
 
 __all__ = [
     "EXTRA_FIELD_PREFIX",
-    "has_extra_fields",
     "declared_extra_fields",
     "extra_field_column",
-    "pop_extra_field_values",
+    "has_extra_fields",
     "merge_extra_field_values",
+    "pop_extra_field_values",
 ]

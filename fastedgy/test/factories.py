@@ -118,13 +118,13 @@ def authenticate(client: httpx.AsyncClient, user) -> httpx.AsyncClient:
 
 
 __all__ = [
-    "make_request",
-    "use_request",
-    "create_user",
-    "create_workspace",
-    "create_category",
-    "create_tag",
-    "create_product",
     "auth_token",
     "authenticate",
+    "create_category",
+    "create_product",
+    "create_tag",
+    "create_user",
+    "create_workspace",
+    "make_request",
+    "use_request",
 ]

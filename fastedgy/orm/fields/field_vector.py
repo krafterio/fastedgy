@@ -1,10 +1,12 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+from collections.abc import Iterable, Sequence, Sized
+from typing import Any, cast
+
 from edgy.core.db.fields.factories import FieldFactory
-from sqlalchemy.types import UserDefinedType
 from sqlalchemy.dialects.postgresql.base import ischema_names
-from typing import Any, Iterable, Sequence, Sized, cast
+from sqlalchemy.types import UserDefinedType
 
 from .field_options import FieldOptions
 
@@ -55,9 +57,8 @@ class Vector(UserDefinedType):
         if isinstance(value, str):
             return value
 
-        if self.dimensions is not None and isinstance(value, Sized):
-            if len(value) != self.dimensions:
-                raise ValueError(f"Vector length must be {self.dimensions}")
+        if self.dimensions is not None and isinstance(value, Sized) and len(value) != self.dimensions:
+            raise ValueError(f"Vector length must be {self.dimensions}")
 
         return "[" + ",".join(str(float(x)) for x in value) + "]"
 

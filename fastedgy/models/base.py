@@ -1,27 +1,24 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from fastedgy.i18n import _ts
-
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Any, ClassVar, Optional, Self
-
 from datetime import date, datetime, time
-
-from fastedgy.orm import Model, Meta, fields
-from fastedgy.orm.manager import (
-    BaseManager,
-    GlobalManager,
-    AccessControlManager,
-    AccessControlRedirectManager,
-)
-from fastedgy.orm.view import create_view
-from fastedgy.orm.registry import lazy_register_model
-from fastedgy.schemas import ConfigDict, PrivateAttr
+from typing import TYPE_CHECKING, Any, ClassVar, Self
 
 from edgy.core.db.models.metaclasses import BaseModelMeta
-
 from sqlalchemy import MetaData, Selectable, Table
+
+from fastedgy.i18n import _ts
+from fastedgy.orm import Meta, Model, fields
+from fastedgy.orm.manager import (
+    AccessControlManager,
+    AccessControlRedirectManager,
+    BaseManager,
+    GlobalManager,
+)
+from fastedgy.orm.registry import lazy_register_model
+from fastedgy.orm.view import create_view
+from fastedgy.schemas import ConfigDict, PrivateAttr
 
 
 def _optimize_edgy_field_extraction() -> None:
@@ -40,6 +37,7 @@ def _optimize_edgy_field_extraction() -> None:
     already no-ops, so the resulting attrs (and their order) are identical.
     """
     import inspect
+
     from edgy.core.db.models import metaclasses as _mc
 
     if getattr(_mc.extract_fields_and_managers, "_fastedgy_optimized", False):
@@ -762,8 +760,8 @@ class BaseView(Model, metaclass=ModelMeta):
     @classmethod
     def build(
         cls,
-        schema: Optional[str] = None,
-        metadata: Optional[MetaData] = None,
+        schema: str | None = None,
+        metadata: MetaData | None = None,
     ) -> Table:
         return create_view(
             name=cls.meta.tablename,

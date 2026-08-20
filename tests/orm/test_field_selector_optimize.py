@@ -12,7 +12,6 @@ from fastedgy.orm.field_selector import (
 )
 from fastedgy.orm.query import QuerySet
 from fastedgy.test.models.fs_optimize import FsoBrand, FsoCategory, FsoProduct, FsoTag
-
 from tests.api_route_model.helpers import make_category, make_product, make_tag
 
 

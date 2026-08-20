@@ -2,15 +2,15 @@
 # MIT License (see LICENSE file).
 
 from fastedgy.orm import Model
+from fastedgy.orm.filter.operators import get_filter_operators
 from fastedgy.orm.filter.types import (
-    InvalidFilterError,
-    FilterRule,
-    FilterCondition,
-    Filter,
     And,
+    Filter,
+    FilterCondition,
+    FilterRule,
+    InvalidFilterError,
     Or,
 )
-from fastedgy.orm.filter.operators import get_filter_operators
 
 
 def validate_filters(
@@ -60,8 +60,8 @@ def validate_filter_field(model_cls: type[Model], field_path: str, allow_exclude
         return True
 
     if field_path.startswith("extra_"):
-        from fastedgy.metadata_model.generator import generate_metadata_name
         from fastedgy import context
+        from fastedgy.metadata_model.generator import generate_metadata_name
 
         if "extra" not in model_cls.meta.fields:
             return False
@@ -97,9 +97,8 @@ def validate_filter_field(model_cls: type[Model], field_path: str, allow_exclude
             if is_excluded and not allow_excluded:
                 if not getattr(field_info, "filterable", False):
                     return False
-            elif not is_excluded:
-                if not getattr(field_info, "filterable", True):
-                    return False
+            elif not is_excluded and not getattr(field_info, "filterable", True):
+                return False
 
     return True
 
@@ -117,12 +116,12 @@ def validate_filter_operator(model_cls: type[Model], field_path: str, operator: 
         return operator in get_filter_operators(model_cls.meta.fields[column_name])
 
     if field_path.startswith("extra_"):
-        from fastedgy.models.workspace_extra_field import (
-            EXTRA_FIELDS_MAP,
-            EXTRA_FIELD_TYPE_OPTIONS,
-        )
-        from fastedgy.metadata_model.generator import generate_metadata_name
         from fastedgy import context
+        from fastedgy.metadata_model.generator import generate_metadata_name
+        from fastedgy.models.workspace_extra_field import (
+            EXTRA_FIELD_TYPE_OPTIONS,
+            EXTRA_FIELDS_MAP,
+        )
 
         if "extra" not in model_cls.meta.fields:
             return False
@@ -171,7 +170,7 @@ def validate_filter_operator(model_cls: type[Model], field_path: str, operator: 
 
 
 __all__ = [
-    "validate_filters",
     "validate_filter_field",
     "validate_filter_operator",
+    "validate_filters",
 ]

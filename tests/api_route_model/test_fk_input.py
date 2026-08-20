@@ -7,7 +7,6 @@ import pytest
 from fastedgy.app import FastEdgy
 from fastedgy.orm.relations.processor import process_foreign_key_operation
 from fastedgy.orm.relations.utils import RelationOperationError
-
 from fastedgy.test.models.category import Category
 
 

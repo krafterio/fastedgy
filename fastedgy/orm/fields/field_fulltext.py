@@ -4,12 +4,11 @@
 from __future__ import annotations
 
 import logging
-from functools import lru_cache
-from typing import TYPE_CHECKING, Any, Literal, Sequence, cast
+from collections.abc import Sequence
+from functools import cache
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import sqlalchemy
-from sqlalchemy.dialects.postgresql import TSVECTOR
-
 from edgy.core.db.fields import (
     CharField,
     EmailField,
@@ -17,6 +16,7 @@ from edgy.core.db.fields import (
 )
 from edgy.core.db.fields.base import BaseField
 from edgy.core.db.fields.types import BaseFieldType
+from sqlalchemy.dialects.postgresql import TSVECTOR
 
 from .field_html import HTMLField
 from .field_phone import PhoneField
@@ -67,9 +67,9 @@ def resolve_search_weight(field_info: BaseFieldType) -> SearchWeight | None:
     return None
 
 
-@lru_cache(maxsize=None)
+@cache
 def get_searchable_fields(
-    model_cls: type[BaseModel],
+    model_cls: "type[BaseModel]",
 ) -> dict[str, SearchWeight]:
     """
     Discover all searchable fields on a model and their weights.
@@ -286,12 +286,12 @@ async def recompute_fulltext(
 
 
 __all__ = [
-    "SearchWeight",
     "SEARCH_WEIGHT_FIELD_MAP",
-    "resolve_search_weight",
-    "get_searchable_fields",
-    "get_pg_language",
-    "escape_sql",
-    "recompute_fulltext",
     "FulltextField",
+    "SearchWeight",
+    "escape_sql",
+    "get_pg_language",
+    "get_searchable_fields",
+    "recompute_fulltext",
+    "resolve_search_weight",
 ]

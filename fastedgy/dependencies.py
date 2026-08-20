@@ -1,18 +1,16 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from fastapi import Depends
+from collections.abc import Callable
 from typing import (
-    Callable,
-    TypeVar,
     Any,
-    Type,
-    cast,
-    Union,
     Generic,
-    Dict,
+    TypeVar,
+    Union,
+    cast,
 )
 
+from fastapi import Depends
 
 T = TypeVar("T")
 
@@ -20,7 +18,7 @@ T = TypeVar("T")
 class Token(Generic[T]):
     """Token for service registration using string names or class types."""
 
-    def __init__(self, key: Union[str, Type[Any]]):
+    def __init__(self, key: str | type[Any]):
         self.key = key
         self.name = key if isinstance(key, str) else key.__name__
 
@@ -46,16 +44,16 @@ class Token(Generic[T]):
         return isinstance(other, Token) and other.key == self.key
 
 
-ProviderKey = Union[Type[Any], Token[Any]]
+ProviderKey = Union[type[Any], Token[Any]]
 
 
-_services_registry: Dict[ProviderKey, Union[Any, Type[Any]]] = {}
-_dependencies_cache: Dict[tuple[ProviderKey, Type[Any]], Any] = {}
+_services_registry: dict[ProviderKey, Any | type[Any]] = {}
+_dependencies_cache: dict[tuple[ProviderKey, type[Any]], Any] = {}
 
 
 def register_service(
-    instance: Union[T, Type[T]],
-    key: Union[Type[T], Token[T], str, None] = None,
+    instance: T | type[T],
+    key: type[T] | Token[T] | str | None = None,
     force: bool = False,
 ) -> None:
     """
@@ -78,17 +76,17 @@ def register_service(
             _register_service(instance_type_key, instance, force)
 
 
-def unregister_service(key: Union[Type[T], Token[T], str]) -> None:
+def unregister_service(key: type[T] | Token[T] | str) -> None:
     """Unregister a service from the registry."""
     _unregister_service(_normalize_key(key))
 
 
-def has_service(key: Union[Type[T], Token[T], str]) -> bool:
+def has_service(key: type[T] | Token[T] | str) -> bool:
     """Check if a service is registered."""
     return _has_service(_normalize_key(key))
 
 
-def get_service(key: Union[Type[T], Token[T], str]) -> T:
+def get_service(key: type[T] | Token[T] | str) -> T:
     """
     Get a service instance from the registry.
     Auto-registers classes if not already registered.
@@ -120,7 +118,7 @@ def get_service(key: Union[Type[T], Token[T], str]) -> T:
     return instance
 
 
-def provide(cls: Union[Type[T], Token[T], str]) -> Callable[[], T]:
+def provide(cls: type[T] | Token[T] | str) -> Callable[[], T]:
     """Use in FastAPI signatures: svc: Svc = Depends(provide(Svc))"""
 
     def dep() -> T:
@@ -129,15 +127,15 @@ def provide(cls: Union[Type[T], Token[T], str]) -> Callable[[], T]:
     return dep
 
 
-def Inject(cls: Union[Type[T], Token[T], str]) -> T:
+def Inject(cls: type[T] | Token[T] | str) -> T:
     """Use in FastAPI signatures: svc: Svc = Inject(Svc)"""
     return Depends(provide(cls))
 
 
 def _normalize_key(
-    key: Union[Type[Any], Token[Any], str],
-) -> Union[Token[Any], Type[Any]]:
-    if isinstance(key, str) or isinstance(key, type):
+    key: type[Any] | Token[Any] | str,
+) -> Token[Any] | type[Any]:
+    if isinstance(key, (str, type)):
         return Token(key)
 
     return key
@@ -148,7 +146,7 @@ def _has_service(key: ProviderKey) -> bool:
     return key in _services_registry
 
 
-def _register_service(key: ProviderKey, instance: Union[Any, Type[Any]], force: bool = False) -> None:
+def _register_service(key: ProviderKey, instance: Any | type[Any], force: bool = False) -> None:
     """Internal function to register a service in the registry."""
     if force or key not in _services_registry:
         _services_registry[key] = instance
@@ -156,11 +154,10 @@ def _register_service(key: ProviderKey, instance: Union[Any, Type[Any]], force: 
 
 def _unregister_service(key: ProviderKey) -> None:
     """Internal function to unregister a service from the registry."""
-    if key in _services_registry:
-        del _services_registry[key]
+    _services_registry.pop(key, None)
 
 
-def _resolve_dependencies(service_class: Type[T]) -> Dict[str, Any]:
+def _resolve_dependencies(service_class: type[T]) -> dict[str, Any]:
     """
     Resolve service dependencies by inspecting __init__ parameters.
     Handles both direct type annotations and string annotations (TYPE_CHECKING).
@@ -187,7 +184,7 @@ def _resolve_dependencies(service_class: Type[T]) -> Dict[str, Any]:
         param_type = type_hints.get(param_name, param.annotation)
 
         if isinstance(param_type, str):
-            for key in _services_registry.keys():
+            for key in _services_registry:
                 if isinstance(key, type) and key.__name__ == param_type:
                     param_type = key
                     break
@@ -231,12 +228,12 @@ def _resolve_dependencies(service_class: Type[T]) -> Dict[str, Any]:
 
 
 __all__ = [
+    "Inject",
+    "ProviderKey",
+    "Token",
+    "get_service",
+    "has_service",
+    "provide",
     "register_service",
     "unregister_service",
-    "has_service",
-    "get_service",
-    "provide",
-    "Inject",
-    "Token",
-    "ProviderKey",
 ]

@@ -2,14 +2,14 @@
 # MIT License (see LICENSE file).
 
 import os
-import edgy
 from pathlib import Path
+
+import edgy
 
 from fastedgy import cli
 from fastedgy.cli import CliContext
 from fastedgy.cli.db import db
 from fastedgy.config import BaseSettings
-
 
 FASTEDGY_TEMPLATE_NAME = "fastedgy"
 FASTEDGY_TEMPLATE_DIR = Path(__file__).parent / "templates"

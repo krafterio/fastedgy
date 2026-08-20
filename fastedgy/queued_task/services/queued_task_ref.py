@@ -2,8 +2,7 @@
 # MIT License (see LICENSE file).
 
 import asyncio
-
-from typing import Optional, Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from fastedgy.queued_task.models.queued_task import QueuedTaskState
 
@@ -19,11 +18,11 @@ class QueuedTaskRef:
 
     def __init__(self, service: "QueuedTasks"):
         self._service = service
-        self._task_id: Optional[int] = None
-        self._creation_future: Optional[asyncio.Future[int]] = asyncio.Future()
+        self._task_id: int | None = None
+        self._creation_future: asyncio.Future[int] | None = asyncio.Future()
 
     @property
-    def id(self) -> Optional[int]:
+    def id(self) -> int | None:
         """Task ID (None if not yet created in database)"""
         return self._task_id
 
@@ -56,7 +55,7 @@ class QueuedTaskRef:
         """
         await self._stop_async()
 
-    async def wait(self, timeout: Optional[float] = None) -> Any:
+    async def wait(self, timeout: float | None = None) -> Any:
         """Wait for task completion and return result.
 
         Args:
@@ -84,7 +83,7 @@ class QueuedTaskRef:
             QueuedTaskState.stopped,
         ]:
             if deadline is not None and asyncio.get_event_loop().time() >= deadline:
-                raise asyncio.TimeoutError(f"Task {task_id} did not reach a terminal state within {timeout}s")
+                raise TimeoutError(f"Task {task_id} did not reach a terminal state within {timeout}s")
             await asyncio.sleep(0.5)
             task = await self._service.get_task_by_id(task_id)
             if not task:

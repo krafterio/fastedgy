@@ -2,7 +2,7 @@
 # MIT License (see LICENSE file).
 
 from abc import ABC, abstractmethod
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 
 class StorageAdapter(ABC):
@@ -54,7 +54,6 @@ class StorageAdapter(ABC):
 
     async def touch(self, path: str) -> None:
         """Update the modification time of a file. No-op by default."""
-        pass
 
     async def delete_old_files(self, prefix: str, max_age_seconds: float) -> int:
         """Delete files under prefix older than max_age_seconds. Returns count deleted."""

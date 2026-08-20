@@ -1,39 +1,30 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+import asyncio
+import json
+import logging
+from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import datetime
 from typing import (
     TYPE_CHECKING,
     Any,
-    Dict,
-    List,
-    Optional,
-    Callable,
     ParamSpec,
-    cast,
     Protocol,
+    cast,
 )
 
-from datetime import datetime
-
-from dataclasses import dataclass
-
-import asyncio
-
 import dill
-
-import json
-
-import logging
 
 from fastedgy import context
 from fastedgy import context as fastedgy_context
 from fastedgy.dependencies import Inject, get_service
-from fastedgy.orm import Registry
 from fastedgy.lifecycle import AppLifecycle
+from fastedgy.orm import Registry
 from fastedgy.queued_task.models.queued_task import QueuedTaskState
-from fastedgy.queued_task.services.queued_task_ref import QueuedTaskRef
 from fastedgy.queued_task.services.queue_hooks import QueueHookRegistry
-
+from fastedgy.queued_task.services.queued_task_ref import QueuedTaskRef
 
 if TYPE_CHECKING:
     from fastedgy.models.queued_task import BaseQueuedTask as QueuedTask
@@ -56,14 +47,14 @@ class SerializableCallable(Protocol):
 class TaskCreationRequest:
     """Request for creating a task in the creation queue"""
 
-    ref: "QueuedTaskRef"
+    ref: QueuedTaskRef
     func: Callable
-    args: List[Any]
-    kwargs: Dict[str, Any]
-    parent_ref: Optional["QueuedTaskRef"] = None
-    max_retries: Optional[int] = None
-    channel: Optional[str] = None
-    priority: Optional[int] = None
+    args: list[Any]
+    kwargs: dict[str, Any]
+    parent_ref: QueuedTaskRef | None = None
+    max_retries: int | None = None
+    channel: str | None = None
+    priority: int | None = None
     auto_remove: bool = False
 
     def __post_init__(self):
@@ -81,8 +72,8 @@ class QueuedTasks:
         hook_registry: QueueHookRegistry = Inject(QueueHookRegistry),
         registry: Registry = Inject(Registry),
     ):
-        self._creation_queue: List[TaskCreationRequest] = []
-        self._creation_task: Optional[asyncio.Task] = None
+        self._creation_queue: list[TaskCreationRequest] = []
+        self._creation_task: asyncio.Task | None = None
         self.hook_registry = hook_registry
         self.registry = registry
 
@@ -198,7 +189,7 @@ class QueuedTasks:
             lifecycle: AppLifecycle = get_service(AppLifecycle)
             lifecycle.unlock()
 
-    async def _create_task_for_request(self, request: TaskCreationRequest, parent_id: Optional[int] = None) -> int:
+    async def _create_task_for_request(self, request: TaskCreationRequest, parent_id: int | None = None) -> int:
         """Create a task in database from a creation request"""
         func = request.func
         args = request.args
@@ -299,9 +290,9 @@ class QueuedTasks:
         func: SerializableCallable,
         args: tuple,
         kwargs: dict,
-        max_retries: Optional[int] = None,
-        channel: Optional[str] = None,
-        priority: Optional[int] = None,
+        max_retries: int | None = None,
+        channel: str | None = None,
+        priority: int | None = None,
         auto_remove: bool = False,
     ):
         """Create queued task - supports both regular and local functions"""
@@ -354,19 +345,19 @@ class QueuedTasks:
 
     async def create_task(
         self,
-        module_name: Optional[str] = None,
-        function_name: Optional[str] = None,
-        serialized_function: Optional[bytes] = None,
-        args: Optional[List[Any]] = None,
-        kwargs: Optional[Dict[str, Any]] = None,
-        context: Optional[Dict[str, Any]] = None,
-        name: Optional[str] = None,
-        parent_task: Optional["QueuedTask"] = None,
+        module_name: str | None = None,
+        function_name: str | None = None,
+        serialized_function: bytes | None = None,
+        args: list[Any] | None = None,
+        kwargs: dict[str, Any] | None = None,
+        context: dict[str, Any] | None = None,
+        name: str | None = None,
+        parent_task: "QueuedTask | None" = None,
         auto_remove: bool = False,
-        date_enqueued: Optional[datetime] = None,
-        max_retries: Optional[int] = None,
-        channel: Optional[str] = None,
-        priority: Optional[int] = None,
+        date_enqueued: datetime | None = None,
+        max_retries: int | None = None,
+        channel: str | None = None,
+        priority: int | None = None,
     ) -> "QueuedTask":
         """Create a new task in the queue"""
         # Validation: must have either module/function or serialized function
@@ -400,8 +391,9 @@ class QueuedTasks:
         # UPDATE of a nonexistent row (silently lost task) and any bookkeeping
         # read into a lazy-load of it (ObjectNotFound) — so every attempt
         # restarts from the pristine pre-insert state.
-        from fastedgy.orm import with_transaction
         from sqlalchemy.exc import IntegrityError
+
+        from fastedgy.orm import with_transaction
 
         pristine_state = dict(vars(task))
 
@@ -434,13 +426,13 @@ class QueuedTasks:
     async def create_child_task(
         self,
         parent_task_id: int,
-        module_name: Optional[str] = None,
-        function_name: Optional[str] = None,
-        serialized_function: Optional[bytes] = None,
-        args: Optional[List[Any]] = None,
-        kwargs: Optional[Dict[str, Any]] = None,
-        context: Optional[Dict[str, Any]] = None,
-        name: Optional[str] = None,
+        module_name: str | None = None,
+        function_name: str | None = None,
+        serialized_function: bytes | None = None,
+        args: list[Any] | None = None,
+        kwargs: dict[str, Any] | None = None,
+        context: dict[str, Any] | None = None,
+        name: str | None = None,
         auto_remove: bool = False,
     ) -> "QueuedTask":
         """Create a child task that depends on a parent task"""
@@ -592,12 +584,12 @@ class QueuedTasks:
         QueuedTask = cast(type["QueuedTask"], self.registry.get_model("QueuedTask"))
         return await QueuedTask.query.filter(QueuedTask.columns.state == QueuedTaskState.enqueued).count()
 
-    async def get_task_by_id(self, task_id: int) -> Optional["QueuedTask"]:
+    async def get_task_by_id(self, task_id: int) -> "QueuedTask | None":
         """Get task by ID"""
         QueuedTask = cast(type["QueuedTask"], self.registry.get_model("QueuedTask"))
         return await QueuedTask.query.filter(QueuedTask.columns.id == task_id).get_or_none()
 
-    async def get_task_status(self, task_id: int) -> Optional[Dict[str, Any]]:
+    async def get_task_status(self, task_id: int) -> dict[str, Any] | None:
         """Get task status"""
         task = await self.get_task_by_id(task_id)
 

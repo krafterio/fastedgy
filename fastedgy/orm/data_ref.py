@@ -3,12 +3,10 @@
 
 import asyncio
 import logging
-
 from typing import cast
 
 from fastedgy.models.base import BaseModel
 from fastedgy.models.data_record import DataRecord
-
 
 logger = logging.getLogger("fastedgy.orm.data_ref")
 

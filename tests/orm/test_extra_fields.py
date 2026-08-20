@@ -2,21 +2,20 @@
 # MIT License (see LICENSE file).
 
 import json
-
 from decimal import Decimal
 
 import pytest
-
 from fastapi import HTTPException
 
 from fastedgy import context
-from fastedgy.api_route_model.actions.create_action import create_item_action
-from fastedgy.api_route_model.actions.patch_action import patch_item_action
 from fastedgy.api_route_model.action.generators import (
     generate_input_create_model,
     generate_input_patch_model,
 )
+from fastedgy.api_route_model.actions.create_action import create_item_action
+from fastedgy.api_route_model.actions.patch_action import patch_item_action
 from fastedgy.app import FastEdgy
+from fastedgy.models.workspace_extra_field import WorkspaceExtraFieldType
 from fastedgy.orm.field_selector import filter_selected_fields
 from fastedgy.orm.filter.builder import filter_query
 from fastedgy.orm.order_by import inject_order_by, parse_order_by
@@ -26,7 +25,6 @@ from fastedgy.test.models.workspace_extra_field import (
     WorkspaceExtraField,
     WorkspaceExtraFieldModel,
 )
-from fastedgy.models.workspace_extra_field import WorkspaceExtraFieldType
 
 
 def _extra_field(name: str, field_type: WorkspaceExtraFieldType) -> WorkspaceExtraField:

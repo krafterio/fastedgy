@@ -14,7 +14,7 @@ class BaseAttachment(AttachmentMixin):
 
 
 __all__ = [
-    "BaseAttachment",
     "AttachmentPathMixin",
     "AttachmentType",
+    "BaseAttachment",
 ]

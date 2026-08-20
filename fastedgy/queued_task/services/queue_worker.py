@@ -2,28 +2,22 @@
 # MIT License (see LICENSE file).
 
 import asyncio
+import importlib
+import inspect
+import logging
+import random
+import traceback
+from datetime import datetime
+from typing import TYPE_CHECKING, Any, cast
 
 import dill
-
-import importlib
-
-import inspect
-
-import logging
-
-import traceback
-
-from datetime import datetime
-import random
-
-from typing import TYPE_CHECKING, Any, Dict, Optional, cast
 
 from fastedgy import context
 from fastedgy.dependencies import get_service
 from fastedgy.orm import Registry
 from fastedgy.queued_task.config import QueuedTaskConfig
-from fastedgy.queued_task.models.queued_task import QueuedTaskState
 from fastedgy.queued_task.context import TaskContext
+from fastedgy.queued_task.models.queued_task import QueuedTaskState
 from fastedgy.queued_task.services.queue_hooks import QueueHookRegistry
 
 if TYPE_CHECKING:
@@ -49,7 +43,7 @@ class QueueWorker:
 
     def __init__(self, worker_id: str):
         self.worker_id = worker_id
-        self.current_task: Optional[QueuedTask] = None
+        self.current_task: "QueuedTask | None" = None
         self.is_busy = False
         self.created_at = datetime.now(context.get_timezone())
         self.last_activity = datetime.now(context.get_timezone())
@@ -58,9 +52,9 @@ class QueueWorker:
         # Set when a SYNC task hits task_timeout while its executor thread is
         # still running: the event fires at the thread's REAL end. Consumed
         # (read and cleared) by the manager to defer the channel-slot release.
-        self.pending_sync_finished: Optional[asyncio.Event] = None
+        self.pending_sync_finished: asyncio.Event | None = None
 
-    async def run_task(self, task: "QueuedTask") -> Dict[str, Any]:
+    async def run_task(self, task: "QueuedTask") -> dict[str, Any]:
         """
         Execute a single queued task.
 
@@ -486,59 +480,54 @@ class QueueWorker:
 
         # Use TaskContext to manage current task and execution context
         with TaskContext(task, execution_context):
-            try:
-                # Prepare arguments
-                args = task.args or []
-                kwargs = task.kwargs or {}
-                logger.debug(f"Args: {args}, Kwargs: {kwargs}")
+            # Prepare arguments
+            args = task.args or []
+            kwargs = task.kwargs or {}
+            logger.debug(f"Args: {args}, Kwargs: {kwargs}")
 
-                # Execute function (sync or async), bounded by task_timeout so
-                # a hung execution can never occupy its worker forever.
-                sync_finished: Optional[asyncio.Event] = None
-                if inspect.iscoroutinefunction(func):
-                    logger.debug("Executing async function")
-                    awaitable = func(*args, **kwargs)
-                else:
-                    logger.debug("Executing sync function in executor")
-                    # Run sync function in thread pool to avoid blocking.
-                    # Note: on timeout the worker is freed and the task marked
-                    # failed, but the underlying thread keeps running until the
-                    # sync function returns (asyncio cannot kill a thread).
-                    # The wrapper signals the thread's REAL end: the asyncio
-                    # future is cancelled by the timeout and fires its
-                    # callbacks immediately, so it cannot carry that signal.
-                    loop = asyncio.get_event_loop()
-                    sync_finished = asyncio.Event()
+            # Execute function (sync or async), bounded by task_timeout so
+            # a hung execution can never occupy its worker forever.
+            sync_finished: asyncio.Event | None = None
+            if inspect.iscoroutinefunction(func):
+                logger.debug("Executing async function")
+                awaitable = func(*args, **kwargs)
+            else:
+                logger.debug("Executing sync function in executor")
+                # Run sync function in thread pool to avoid blocking.
+                # Note: on timeout the worker is freed and the task marked
+                # failed, but the underlying thread keeps running until the
+                # sync function returns (asyncio cannot kill a thread).
+                # The wrapper signals the thread's REAL end: the asyncio
+                # future is cancelled by the timeout and fires its
+                # callbacks immediately, so it cannot carry that signal.
+                loop = asyncio.get_event_loop()
+                sync_finished = asyncio.Event()
 
-                    def _run_sync(finished: asyncio.Event = sync_finished):
-                        try:
-                            return func(*args, **kwargs)
-                        finally:
-                            loop.call_soon_threadsafe(finished.set)
-
-                    awaitable = loop.run_in_executor(None, _run_sync)
-
-                timeout = int(self.config.task_timeout or 0)
-                if timeout > 0:
+                def _run_sync(finished: asyncio.Event = sync_finished):
                     try:
-                        result = await asyncio.wait_for(awaitable, timeout=timeout)
-                    except asyncio.TimeoutError:
-                        if sync_finished is not None and not sync_finished.is_set():
-                            # Zombie executor thread: expose its end-of-life
-                            # event so the manager keeps the channel slot
-                            # until the body actually stops running.
-                            self.pending_sync_finished = sync_finished
-                        raise TaskTimeoutError(f"Task execution exceeded task_timeout ({timeout}s)") from None
-                else:
-                    result = await awaitable
+                        return func(*args, **kwargs)
+                    finally:
+                        loop.call_soon_threadsafe(finished.set)
 
-                logger.debug(f"Task function result: {result}")
+                awaitable = loop.run_in_executor(None, _run_sync)
 
-                return result
+            timeout = int(self.config.task_timeout or 0)
+            if timeout > 0:
+                try:
+                    result = await asyncio.wait_for(awaitable, timeout=timeout)
+                except TimeoutError:
+                    if sync_finished is not None and not sync_finished.is_set():
+                        # Zombie executor thread: expose its end-of-life
+                        # event so the manager keeps the channel slot
+                        # until the body actually stops running.
+                        self.pending_sync_finished = sync_finished
+                    raise TaskTimeoutError(f"Task execution exceeded task_timeout ({timeout}s)") from None
+            else:
+                result = await awaitable
 
-            except Exception:
-                # Exception will be handled and logged by the caller (run_task)
-                raise
+            logger.debug(f"Task function result: {result}")
+
+            return result
 
     @property
     def is_idle_timeout(self) -> bool:

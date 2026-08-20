@@ -2,13 +2,11 @@
 # MIT License (see LICENSE file).
 
 import logging
-
 from email.message import EmailMessage
 
 import aiosmtplib
 
 from fastedgy.mail.adapters.base import MailAdapter
-
 
 logger = logging.getLogger("services.mail")
 
@@ -52,7 +50,7 @@ class SmtpAdapter(MailAdapter):
             await smtp.send_message(email)
             logger.debug(f"Email sent successfully to {recipients}")
         except Exception as e:
-            logger.error(f"Failed to send email: {str(e)}")
+            logger.error(f"Failed to send email: {e!s}")
             raise
         finally:
             smtp.close()

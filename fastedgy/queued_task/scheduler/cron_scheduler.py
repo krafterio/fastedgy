@@ -10,11 +10,11 @@ from cronsim import CronSim
 from fastedgy import context as fastedgy_context
 from fastedgy.dependencies import get_service
 from fastedgy.orm import Database
-from fastedgy.queued_task.services.queued_tasks import QueuedTasks
 from fastedgy.queued_task.scheduler.registry import (
-    ScheduledTaskRegistry,
     ScheduledTaskDef,
+    ScheduledTaskRegistry,
 )
+from fastedgy.queued_task.services.queued_tasks import QueuedTasks
 
 logger = logging.getLogger("queued_task.scheduler")
 

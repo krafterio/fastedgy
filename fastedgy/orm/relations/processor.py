@@ -3,15 +3,15 @@
 
 """Processor for executing relation operations."""
 
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from fastedgy.models.base import BaseModel, BaseView
 
 from fastedgy.orm.relations.utils import (
+    RelationOperationError,
     extract_id,
     extract_id_and_values,
-    RelationOperationError,
 )
 
 
@@ -38,7 +38,7 @@ def _generic_parent_values(instance: "BaseModel | BaseView", generic_field: Any)
     }
 
 
-async def _get_related_or_raise(related_model: type["BaseModel"], record_id: int) -> "BaseModel":
+async def _get_related_or_raise(related_model: "type[BaseModel]", record_id: int) -> "BaseModel":
     from edgy.exceptions import ObjectNotFound
 
     try:
@@ -48,12 +48,12 @@ async def _get_related_or_raise(related_model: type["BaseModel"], record_id: int
 
 
 async def process_foreign_key_operation(
-    related_model: type["BaseModel"],
+    related_model: "type[BaseModel]",
     value: Any,
     *,
     nullable: bool,
     field_name: str,
-) -> tuple[int | None, "BaseModel | None"]:
+) -> "tuple[int | None, BaseModel | None]":
     """
     Resolve a foreign key input to the id to store (or None to unlink).
 
@@ -142,7 +142,7 @@ async def process_foreign_key_operation(
         except IndexError:
             raise RelationOperationError(f"Operation '{action}' requires a value")
         except Exception as e:
-            raise RelationOperationError(f"Error executing {action} operation on {field_name}: {str(e)}") from e
+            raise RelationOperationError(f"Error executing {action} operation on {field_name}: {e!s}") from e
 
     raise RelationOperationError(
         f"Invalid foreign key value for {field_name}: {value!r}. Expected an id, an object or an operation."
@@ -153,7 +153,7 @@ async def process_relation_operations(
     instance: "BaseModel | BaseView",
     field_name: str,
     operations: list[list[Any]] | list[tuple[str, Any]],
-    related_model: type["BaseModel"],
+    related_model: "type[BaseModel]",
 ) -> None:
     """
     Process relational operations (M2M or O2M) for a given field.
@@ -397,4 +397,4 @@ async def process_relation_operations(
         except RelationOperationError:
             raise
         except Exception as e:
-            raise RelationOperationError(f"Error executing {action} operation on {field_name}: {str(e)}") from e
+            raise RelationOperationError(f"Error executing {action} operation on {field_name}: {e!s}") from e

@@ -1,23 +1,26 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-import sys
 import os
+import sys
 import tomllib
-
 from functools import cached_property
 from pathlib import Path
-from typing import Annotated, Any, Type
+from typing import Annotated, Any
 from urllib.parse import urlparse
-from fastedgy.dependencies import Inject, get_service, has_service, register_service
-from fastedgy.logger import LogLevel, LogOutput, LogFormat
+
 from pydantic import BeforeValidator
-from fastedgy.schemas import field_validator
 from pydantic_settings import (
     BaseSettings as PydanticBaseSettings,
-    SettingsConfigDict,
-    NoDecode,
 )
+from pydantic_settings import (
+    NoDecode,
+    SettingsConfigDict,
+)
+
+from fastedgy.dependencies import Inject, get_service, has_service, register_service
+from fastedgy.logger import LogFormat, LogLevel, LogOutput
+from fastedgy.schemas import field_validator
 
 
 def _parse_csv_list(v):
@@ -94,7 +97,7 @@ def discover_settings_class():
 
     Searches for custom settings in project and falls back to BaseSettings if not found.
     """
-    from fastedgy.modules import import_from_string, ImportFromStringError
+    from fastedgy.modules import ImportFromStringError, import_from_string
 
     for settings_package in SETTINGS_PACKAGES:
         try:
@@ -339,7 +342,7 @@ def init_settings(env_file: str | None = None):
 
             os.environ[existing_env_file] = env_file
 
-        settings_class: Type[BaseSettings] = discover_settings_class()
+        settings_class: type[BaseSettings] = discover_settings_class()
 
         settings = settings_class.from_env_file(env_file)
         register_service(settings, BaseSettings)
@@ -380,8 +383,8 @@ __all__ = [
     "SERVER_FILES",
     "SETTINGS_PACKAGES",
     "BaseSettings",
-    "discover_settings_class",
-    "init_settings",
     "Settings",
+    "discover_settings_class",
     "get_project_version",
+    "init_settings",
 ]

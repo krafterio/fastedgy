@@ -4,5 +4,3 @@
 
 class BaseEvent:
     """Base class for all events"""
-
-    pass

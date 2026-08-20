@@ -4,12 +4,14 @@
 from typing import TYPE_CHECKING, Any, Self, cast
 
 from edgy.core.db.querysets import (
-    QuerySet as BaseQuerySet,
+    Prefetch,
     Q,
     and_,
     not_,
     or_,
-    Prefetch,
+)
+from edgy.core.db.querysets import (
+    QuerySet as BaseQuerySet,
 )
 
 
@@ -66,7 +68,7 @@ class QuerySet(BaseQuerySet):
     True: that manager already answers for the system, and the internal
     columns are exactly what a scheduler or a service filters on."""
 
-    def filter(self, *clauses: Any, allow_excluded: bool | None = None, **kwargs: Any) -> "QuerySet":
+    def filter(self, *clauses: Any, allow_excluded: bool | None = None, **kwargs: Any) -> QuerySet:
         # Deferred: the filter builder imports this module.
         from fastedgy.orm.filter import FilterCondition, FilterRule, filter_query
 
@@ -87,7 +89,7 @@ class QuerySet(BaseQuerySet):
 
         return cast(QuerySet, queryset)
 
-    def order_by(self, *order_by: str) -> "QuerySet":
+    def order_by(self, *order_by: str) -> QuerySet:
         aggregated = tuple(term for term in order_by if self._orders_on_aggregate(term))
 
         if not aggregated:
@@ -146,11 +148,11 @@ def order_path(order_by: str) -> str:
 
 __all__ = [
     "BaseQuerySet",
-    "QuerySet",
-    "order_path",
+    "Prefetch",
     "Q",
+    "QuerySet",
     "and_",
     "not_",
     "or_",
-    "Prefetch",
+    "order_path",
 ]

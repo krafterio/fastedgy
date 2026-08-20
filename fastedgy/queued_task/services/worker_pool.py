@@ -2,17 +2,12 @@
 # MIT License (see LICENSE file).
 
 import asyncio
-
-import uuid
-
 import logging
-
-from typing import Dict, Optional, List
+import uuid
 
 from fastedgy.dependencies import get_service
 from fastedgy.queued_task.config import QueuedTaskConfig
 from fastedgy.queued_task.services.queue_worker import QueueWorker
-
 
 logger = logging.getLogger("queued_task.worker_pool")
 
@@ -20,16 +15,16 @@ logger = logging.getLogger("queued_task.worker_pool")
 class WorkerPool:
     """Manages a pool of queue workers with intelligent timeout handling"""
 
-    def __init__(self, max_workers: Optional[int] = None):
+    def __init__(self, max_workers: int | None = None):
         self.config = get_service(QueuedTaskConfig)
         self.max_workers = max_workers or self.config.max_workers
         self.idle_workers: asyncio.Queue[QueueWorker] = asyncio.Queue()
-        self.busy_workers: Dict[str, QueueWorker] = {}
-        self.worker_timeout_tasks: Dict[str, asyncio.Task] = {}
+        self.busy_workers: dict[str, QueueWorker] = {}
+        self.worker_timeout_tasks: dict[str, asyncio.Task] = {}
 
         logger.info(f"WorkerPool initialized with max_workers={self.max_workers}")
 
-    async def get_available_worker(self) -> Optional[QueueWorker]:
+    async def get_available_worker(self) -> QueueWorker | None:
         """
         Get an available worker from the pool
 
@@ -118,7 +113,7 @@ class WorkerPool:
             # Timeout was cancelled (worker was reused)
             logger.debug(f"Idle timeout cancelled for worker {worker.worker_id}")
 
-    async def get_pool_stats(self) -> Dict[str, int]:
+    async def get_pool_stats(self) -> dict[str, int]:
         """Get current pool statistics"""
         return {
             "max_workers": self.max_workers,
@@ -152,7 +147,7 @@ class WorkerPool:
 
         logger.info("Worker pool shutdown complete")
 
-    def get_busy_workers(self) -> List[QueueWorker]:
+    def get_busy_workers(self) -> list[QueueWorker]:
         """Get list of currently busy workers"""
         return list(self.busy_workers.values())
 

@@ -1,12 +1,14 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+from collections.abc import Sequence
+from typing import Any, cast
+
 from edgy.core.db.fields.factories import FieldFactory
 from edgy.core.db.fields.types import BaseFieldType
 from sqlalchemy import Column, Index
-from sqlalchemy.types import UserDefinedType
 from sqlalchemy.dialects.postgresql.base import ischema_names
-from typing import Any, Sequence, cast
+from sqlalchemy.types import UserDefinedType
 
 from .field_options import FieldOptions
 
@@ -43,8 +45,8 @@ class Point(UserDefinedType):
                 value = value.strip()
 
                 if value.startswith("0101000020"):
-                    from binascii import unhexlify
                     import struct
+                    from binascii import unhexlify
 
                     try:
                         data = unhexlify(value)

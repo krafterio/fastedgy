@@ -6,7 +6,6 @@ from pathlib import Path
 from fastedgy.test.app import build_app, dump_openapi
 from fastedgy.test.database import configure_database_env
 
-
 SNAPSHOT_PATH = Path(__file__).resolve().parent / "snapshots" / "openapi.json"
 
 

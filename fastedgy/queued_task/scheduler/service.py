@@ -2,8 +2,9 @@
 # MIT License (see LICENSE file).
 
 import logging
+from collections.abc import Callable
 from datetime import datetime, timedelta
-from typing import Any, Callable, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from fastedgy import context as fastedgy_context
 from fastedgy.dependencies import get_service

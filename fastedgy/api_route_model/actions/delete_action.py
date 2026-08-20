@@ -1,7 +1,8 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import Callable, Any, Coroutine
+from collections.abc import Callable, Coroutine
+from typing import Any
 
 from fastapi import APIRouter, Path
 
@@ -9,22 +10,22 @@ from fastedgy.api_route_model.action import BaseApiRouteAction
 from fastedgy.api_route_model.exception import handle_action_exception
 from fastedgy.api_route_model.registry import (
     BaseViewTransformer,
-    TypeModel,
     RouteModelActionOptions,
+    TypeModel,
     ViewTransformerRegistry,
 )
 from fastedgy.api_route_model.view_transformer import (
-    PreLoadRecordViewTransformer,
-    PreDeleteTransformer,
     PostDeleteTransformer,
+    PreDeleteTransformer,
+    PreLoadRecordViewTransformer,
 )
 from fastedgy.dependencies import get_service
-from fastedgy.schemas import ErrorMessage
+from fastedgy.http import Request
 from fastedgy.models.base import BaseModel, BaseView
 from fastedgy.orm import transaction
-from fastedgy.orm.query import QuerySet
 from fastedgy.orm.manager import BaseManager
-from fastedgy.http import Request
+from fastedgy.orm.query import QuerySet
+from fastedgy.schemas import ErrorMessage
 
 
 class DeleteApiRouteAction(BaseApiRouteAction):
@@ -104,11 +105,9 @@ async def delete_item_action[M: BaseModel | BaseView](
     except Exception as e:
         handle_action_exception(e, model_cls, not_found_message)
 
-    return None
-
 
 __all__ = [
     "DeleteApiRouteAction",
-    "generate_delete_item",
     "delete_item_action",
+    "generate_delete_item",
 ]

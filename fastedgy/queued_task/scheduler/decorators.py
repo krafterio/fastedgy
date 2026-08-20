@@ -1,14 +1,15 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import Any, Callable, Dict, Optional
+from collections.abc import Callable
+from typing import Any
 
 import rich_click as click
 
 from fastedgy.dependencies import get_service
 from fastedgy.queued_task.scheduler.registry import (
-    ScheduledTaskRegistry,
     ScheduledTaskDef,
+    ScheduledTaskRegistry,
 )
 
 
@@ -18,8 +19,6 @@ class Option(click.Option):
     Currently identical to click.Option but provides an extension point
     for future scheduler-specific option behavior.
     """
-
-    pass
 
 
 def option(*param_decls: str, **attrs: Any) -> Callable:
@@ -51,14 +50,14 @@ def option(*param_decls: str, **attrs: Any) -> Callable:
 
 
 def scheduled_task(
-    cron: Optional[str] = None,
-    name: Optional[str] = None,
+    cron: str | None = None,
+    name: str | None = None,
     description: str = "",
     auto_remove: bool = True,
     enabled: bool = True,
-    context: Optional[Dict[str, Any]] = None,
-    channel: Optional[str] = None,
-    priority: Optional[int] = None,
+    context: dict[str, Any] | None = None,
+    channel: str | None = None,
+    priority: int | None = None,
 ) -> Callable:
     """Decorator to register a function as a cron-scheduled task.
 

@@ -1,10 +1,10 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+from fastedgy.api_route_model import api_route_model
 from fastedgy.i18n import _ts
 from fastedgy.models.workspace_extra_field import BaseWorkspaceExtraField
 from fastedgy.orm import fields
-from fastedgy.api_route_model import api_route_model
 
 
 class WorkspaceExtraFieldModel(fields.ChoiceEnum):
@@ -24,6 +24,6 @@ class WorkspaceExtraField(BaseWorkspaceExtraField):
 
 
 __all__ = [
-    "WorkspaceExtraFieldModel",
     "WorkspaceExtraField",
+    "WorkspaceExtraFieldModel",
 ]

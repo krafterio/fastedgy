@@ -2,17 +2,19 @@
 # MIT License (see LICENSE file).
 
 import importlib
-
 from typing import TYPE_CHECKING, Any
 
 from edgy import (
     Database,
-    Registry,
     Model,
-    StrictModel,
     ReflectModel,
+    Registry,
+    StrictModel,
 )
 from edgy.core.db.models.types import BaseModelType
+from sqlalchemy.exc import SQLAlchemyError
+
+from fastedgy.bus.service import Bus
 from fastedgy.orm import access_guard, field_selector, filter, order_by
 from fastedgy.orm.meta import Meta
 from fastedgy.orm.relations.many import Many
@@ -24,10 +26,6 @@ from fastedgy.orm.transaction import (
     transaction,
     with_transaction,
 )
-
-from sqlalchemy.exc import SQLAlchemyError
-
-from fastedgy.bus.service import Bus
 
 # ``migration`` pulls Alembic, which is only needed by the ``db`` CLI commands.
 # Loading it lazily keeps it out of the app/serve/runtime import path.
@@ -45,21 +43,21 @@ def __getattr__(name: str) -> Any:
 
 
 __all__ = [
-    "Database",
-    "Registry",
-    "Model",
-    "Meta",
-    "Many",
-    "StrictModel",
-    "ReflectModel",
     "BaseModelType",
-    "migration",
+    "Database",
+    "Many",
+    "Meta",
+    "Model",
+    "ReflectModel",
+    "Registry",
+    "StrictModel",
     "access_guard",
-    "field_selector",
-    "filter",
-    "order_by",
     "defer_after_commit",
     "drain_signal_side_effects",
+    "field_selector",
+    "filter",
+    "migration",
+    "order_by",
     "retry_on_serialization",
     "run_signal_side_effect",
     "transaction",

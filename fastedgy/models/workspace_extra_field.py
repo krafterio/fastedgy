@@ -1,11 +1,11 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from fastedgy.models.queued_task import OrderByList
-from fastedgy.orm import fields
+from fastedgy.i18n import _ts
 from fastedgy.models.base import BaseModel
 from fastedgy.models.mixins import WorkspaceableMixin
-from fastedgy.i18n import _ts
+from fastedgy.models.queued_task import OrderByList
+from fastedgy.orm import fields
 
 
 class WorkspaceExtraFieldType(fields.ChoiceEnum):
@@ -63,8 +63,8 @@ class BaseWorkspaceExtraField(BaseModel, WorkspaceableMixin):
 
 
 __all__ = [
-    "WorkspaceExtraFieldType",
     "EXTRA_FIELDS_MAP",
     "EXTRA_FIELD_TYPE_OPTIONS",
     "BaseWorkspaceExtraField",
+    "WorkspaceExtraFieldType",
 ]

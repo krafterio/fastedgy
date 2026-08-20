@@ -2,10 +2,11 @@
 # MIT License (see LICENSE file).
 
 from collections.abc import Callable
-from typing import Any, TypeVar
 from datetime import datetime
+from typing import Any, TypeVar
 
-from pydantic import BaseModel as PydanticBaseModel, computed_field, field_serializer
+from pydantic import BaseModel as PydanticBaseModel
+from pydantic import computed_field, field_serializer
 
 
 def computed_field_deps[F: property | Callable[..., object]](*deps: str) -> Callable[[F], F]:
@@ -108,8 +109,8 @@ class ErrorMessage(BaseModel):
 
 __all__ = [
     "BaseModel",
-    "Pagination",
-    "List",
-    "SimpleMessage",
     "ErrorMessage",
+    "List",
+    "Pagination",
+    "SimpleMessage",
 ]

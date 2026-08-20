@@ -54,11 +54,11 @@ class ChangePasswordRequest(BaseModel):
 
 
 __all__ = [
+    "ChangePasswordRequest",
+    "ForgotPasswordRequest",
+    "ResetPasswordRequest",
     "Token",
     "TokenRefresh",
     "UserLogin",
     "UserRegisterRequest",
-    "ForgotPasswordRequest",
-    "ResetPasswordRequest",
-    "ChangePasswordRequest",
 ]

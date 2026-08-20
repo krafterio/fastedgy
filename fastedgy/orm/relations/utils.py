@@ -9,8 +9,6 @@ from typing import Any
 class RelationOperationError(ValueError):
     """Error during relation operation processing."""
 
-    pass
-
 
 def extract_id(value: int | dict[str, Any]) -> int:
     """

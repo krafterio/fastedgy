@@ -1,17 +1,15 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+from typing import TYPE_CHECKING
+
 from fastedgy.i18n import _ts
-
-from typing import TYPE_CHECKING, Union
-
-from fastedgy.orm import fields
 from fastedgy.models.base import BaseModel
-
+from fastedgy.orm import fields
 
 if TYPE_CHECKING:
-    from fastedgy.models.workspace import BaseWorkspace as Workspace
     from fastedgy.models.user import BaseUser as User
+    from fastedgy.models.workspace import BaseWorkspace as Workspace
 
 
 class BaseWorkspaceUser(BaseModel):
@@ -45,7 +43,7 @@ class BaseWorkspaceUser(BaseModel):
     # Immutable through the API and regular saves: a membership is never
     # re-pointed to another workspace/user. Code sets them at creation time
     # via ``apply_readonly_values`` (see BaseModel).
-    workspace: Union["Workspace", None] = fields.ForeignKey(
+    workspace: "Workspace | None" = fields.ForeignKey(
         "Workspace",
         on_delete="CASCADE",
         related_name="workspace_users",
@@ -53,7 +51,7 @@ class BaseWorkspaceUser(BaseModel):
         label=_ts("Workspace"),
     )
 
-    user: Union["User", None] = fields.ForeignKey(
+    user: "User | None" = fields.ForeignKey(
         "User",
         on_delete="CASCADE",
         related_name="workspace_memberships",

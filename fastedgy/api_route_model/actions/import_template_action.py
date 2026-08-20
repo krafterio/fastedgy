@@ -1,23 +1,23 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import Callable, Any
+from collections.abc import Callable
+from typing import Any
 
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, HTTPException, Query
+from starlette.responses import StreamingResponse
 
-from fastedgy.i18n import _t
-from fastedgy.models.base import BaseModel, BaseView
 from fastedgy.api_route_model.action import BaseApiRouteAction
 from fastedgy.api_route_model.params import (
     FieldSelectorHeader,
 )
 from fastedgy.api_route_model.registry import (
-    TypeModel,
     RouteModelActionOptions,
+    TypeModel,
 )
 from fastedgy.http import Request
-
-from starlette.responses import StreamingResponse
+from fastedgy.i18n import _t
+from fastedgy.models.base import BaseModel, BaseView
 
 
 class ImportTemplateApiRouteAction(BaseApiRouteAction):
@@ -86,13 +86,13 @@ async def import_template_action[M: BaseModel | BaseView](
     Returns:
         StreamingResponse with the import template (only field names, no data)
     """
-    from fastedgy.orm.field_selector import clean_field_names_from_input
-    from fastedgy.metadata_model.utils import get_field_label_from_path
     from fastedgy.dataflow.exporter import (
         generate_csv_export,
-        generate_xlsx_export,
         generate_ods_export,
+        generate_xlsx_export,
     )
+    from fastedgy.metadata_model.utils import get_field_label_from_path
+    from fastedgy.orm.field_selector import clean_field_names_from_input
 
     # Get field names to include in template
     field_names = clean_field_names_from_input(model_cls, fields)

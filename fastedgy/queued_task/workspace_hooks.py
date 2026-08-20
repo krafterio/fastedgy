@@ -2,16 +2,15 @@
 # MIT License (see LICENSE file).
 
 import logging
-
 from typing import TYPE_CHECKING, cast
 
 from fastedgy import context
 from fastedgy.dependencies import get_service
 from fastedgy.orm import Registry
 from fastedgy.queued_task.services.queue_hooks import (
+    on_post_run,
     on_pre_create,
     on_pre_run,
-    on_post_run,
 )
 
 if TYPE_CHECKING:

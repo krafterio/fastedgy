@@ -1,10 +1,10 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import Any, get_args
 from dataclasses import dataclass
+from typing import Any, get_args
 
-from fastedgy.orm.filter.operators import FilterOperator, FilterConditionType
+from fastedgy.orm.filter.operators import FilterConditionType, FilterOperator
 
 
 class InvalidFilterError(Exception): ...
@@ -24,7 +24,7 @@ class FilterRule:
 @dataclass(frozen=True)
 class FilterCondition:
     condition: FilterConditionType
-    rules: list["FilterRule | FilterCondition"]
+    rules: list[FilterRule | FilterCondition]
 
     def __post_init__(self):
         if self.condition not in get_args(FilterConditionType):
@@ -56,16 +56,16 @@ type FilterTuple = FilterRuleTuple | FilterConditionTuple | FilterRulesTuple
 
 
 __all__ = [
-    "InvalidFilterError",
-    "FilterRule",
-    "FilterCondition",
-    "R",
     "And",
-    "Or",
-    "FilterRules",
     "Filter",
-    "FilterRuleTuple",
-    "FilterRulesTuple",
+    "FilterCondition",
     "FilterConditionTuple",
+    "FilterRule",
+    "FilterRuleTuple",
+    "FilterRules",
+    "FilterRulesTuple",
     "FilterTuple",
+    "InvalidFilterError",
+    "Or",
+    "R",
 ]

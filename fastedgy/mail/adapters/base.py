@@ -2,7 +2,6 @@
 # MIT License (see LICENSE file).
 
 from abc import ABC, abstractmethod
-
 from email.message import EmailMessage
 
 

@@ -1,8 +1,8 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from contextlib import asynccontextmanager
 from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -41,7 +41,7 @@ def test_datetime_serializer_uses_context_timezone() -> None:
 
 def test_run_async_context_sync() -> None:
     @asynccontextmanager
-    async def resource() -> AsyncGenerator[str, None]:
+    async def resource() -> AsyncGenerator[str]:
         yield "ready"
 
     with run_async_context_sync(resource()) as value:

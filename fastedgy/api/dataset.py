@@ -1,17 +1,17 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from fastedgy.i18n import _t
-
 from typing import Any, cast
+
 from fastapi import APIRouter, HTTPException
 
 from fastedgy.dependencies import Inject
+from fastedgy.i18n import _t
 from fastedgy.metadata_model import MetadataModelRegistry, TypeMapMetadataModels
 from fastedgy.metadata_model.generator import generate_class_name
 from fastedgy.orm import Model, Registry
 from fastedgy.orm.transaction import with_transaction
-from fastedgy.schemas.dataset import ResequenceRequest, Resequence
+from fastedgy.schemas.dataset import Resequence, ResequenceRequest
 
 # One router per route, so an app can mount them under different prefixes:
 # workspace extra fields make the metadata tenant-specific, while resequencing
@@ -137,7 +137,7 @@ router.include_router(resequence_router)
 
 
 __all__ = [
-    "router",
     "metadatas_router",
     "resequence_router",
+    "router",
 ]

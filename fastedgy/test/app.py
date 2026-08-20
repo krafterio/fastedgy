@@ -6,14 +6,13 @@ import json
 
 from fastapi import APIRouter
 
-from fastedgy.app import FastEdgy
 from fastedgy.api_route_model.router import register_api_route_models
 from fastedgy.api_route_model.standard_actions import (
     register_standard_api_route_model_actions,
 )
+from fastedgy.app import FastEdgy
 from fastedgy.dependencies import get_service
 from fastedgy.orm import Registry
-
 
 APP_TITLE = "FastEdgy Test API"
 APP_VERSION = "0.0.0-test"
@@ -111,11 +110,11 @@ def dump_openapi(app: FastEdgy) -> str:
 
 
 __all__ = [
+    "API_PREFIX",
+    "APP_DESCRIPTION",
     "APP_TITLE",
     "APP_VERSION",
-    "APP_DESCRIPTION",
-    "API_PREFIX",
     "build_app",
-    "load_app",
     "dump_openapi",
+    "load_app",
 ]

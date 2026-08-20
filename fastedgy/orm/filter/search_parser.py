@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import re
 
-
 # All Unicode quote characters → normalized to ASCII "
 _QUOTE_CHARS = re.compile(
     r'["\u00AB\u00BB\u2018\u2019\u201A\u201B\u201C\u201D\u201E\u201F\u2039\u203A\u300C\u300D\u300E\u300F\uFF02]'

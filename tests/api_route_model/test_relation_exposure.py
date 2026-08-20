@@ -1,13 +1,12 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from fastedgy.app import FastEdgy
 from fastedgy.api_route_model.action import (
     generate_input_create_model,
     generate_input_patch_model,
     is_exposed_relation_field,
 )
-
+from fastedgy.app import FastEdgy
 from fastedgy.test.models.category import Category
 from fastedgy.test.models.product import Product
 from fastedgy.test.models.queued_task import QueuedTask

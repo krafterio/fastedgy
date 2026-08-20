@@ -1,8 +1,8 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from alembic.operations import Operations, MigrateOperation
 from alembic.autogenerate import renderers
+from alembic.operations import MigrateOperation, Operations
 from sqlalchemy import text
 
 
@@ -28,7 +28,7 @@ def process_postgis_revision_directives(context, revision, directives):
 
 def _check_for_postgis_operations(ops):
     """Recursively check if any operations use PostGIS geometry types"""
-    from alembic.operations.ops import AddColumnOp, CreateTableOp, AlterColumnOp
+    from alembic.operations.ops import AddColumnOp, AlterColumnOp, CreateTableOp
 
     for op in ops:
         if isinstance(op, AddColumnOp):
@@ -43,9 +43,8 @@ def _check_for_postgis_operations(ops):
                 return True
             if hasattr(op, "existing_type") and op.existing_type and _is_postgis_type(op.existing_type):
                 return True
-        elif hasattr(op, "ops"):
-            if _check_for_postgis_operations(op.ops):
-                return True
+        elif hasattr(op, "ops") and _check_for_postgis_operations(op.ops):
+            return True
     return False
 
 
@@ -146,9 +145,9 @@ def disable_postgis_extension() -> None:
 
 
 __all__ = [
-    "process_postgis_revision_directives",
-    "EnablePostGISExtensionOperation",
     "DisablePostGISExtensionOperation",
-    "enable_postgis_extension",
+    "EnablePostGISExtensionOperation",
     "disable_postgis_extension",
+    "enable_postgis_extension",
+    "process_postgis_revision_directives",
 ]

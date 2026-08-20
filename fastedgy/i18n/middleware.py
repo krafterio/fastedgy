@@ -6,8 +6,8 @@ from starlette.requests import Request
 from starlette.responses import Response
 from starlette.types import ASGIApp
 
-from fastedgy.context import set_locale
 from fastedgy.config import BaseSettings
+from fastedgy.context import set_locale
 from fastedgy.dependencies import get_service
 
 

@@ -2,8 +2,8 @@
 # MIT License (see LICENSE file).
 
 import logging
-
-from typing import List, Callable, Any, Optional, TYPE_CHECKING, Awaitable
+from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING, Any
 
 from fastedgy.dependencies import get_service
 
@@ -18,10 +18,10 @@ class QueueHookRegistry:
     """Registry for managing task lifecycle hooks"""
 
     def __init__(self):
-        self.on_pre_create_hooks: List[Callable] = []
-        self.on_post_create_hooks: List[Callable] = []
-        self.on_pre_run_hooks: List[Callable] = []
-        self.on_post_run_hooks: List[Callable] = []
+        self.on_pre_create_hooks: list[Callable] = []
+        self.on_post_create_hooks: list[Callable] = []
+        self.on_pre_run_hooks: list[Callable] = []
+        self.on_post_run_hooks: list[Callable] = []
 
     def register_pre_create(self, func: Callable) -> None:
         """Register a pre-create hook"""
@@ -85,21 +85,21 @@ class QueueHookRegistry:
 
 
 # Decorator functions that use the global registry
-def on_pre_create(func: Callable[["QueuedTask"], Awaitable[None]]) -> Callable:
+def on_pre_create(func: "Callable[[QueuedTask], Awaitable[None]]") -> Callable:
     """Decorator to register a function to run before task creation (between new and save)"""
     registry = get_service(QueueHookRegistry)
     registry.register_pre_create(func)
     return func
 
 
-def on_post_create(func: Callable[["QueuedTask"], Awaitable[None]]) -> Callable:
+def on_post_create(func: "Callable[[QueuedTask], Awaitable[None]]") -> Callable:
     """Decorator to register a function to run after task creation"""
     registry = get_service(QueueHookRegistry)
     registry.register_post_create(func)
     return func
 
 
-def on_pre_run(func: Callable[["QueuedTask"], Awaitable[None]]) -> Callable:
+def on_pre_run(func: "Callable[[QueuedTask], Awaitable[None]]") -> Callable:
     """Decorator to register a function to run before task execution"""
     registry = get_service(QueueHookRegistry)
     registry.register_pre_run(func)
@@ -107,7 +107,7 @@ def on_pre_run(func: Callable[["QueuedTask"], Awaitable[None]]) -> Callable:
 
 
 def on_post_run(
-    func: Callable[["QueuedTask", Any, Optional[Exception]], Awaitable[None]],
+    func: "Callable[[QueuedTask, Any, Exception | None], Awaitable[None]]",
 ) -> Callable:
     """Decorator to register a function to run after task execution"""
     registry = get_service(QueueHookRegistry)

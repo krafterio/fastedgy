@@ -1,7 +1,7 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from functools import lru_cache
+from functools import cache
 from typing import Any, Literal, overload
 
 from edgy.core.db.fields.factories import (
@@ -12,7 +12,6 @@ from edgy.core.db.fields.factories import (
 from pydantic_core import PydanticUndefined
 
 from ...i18n import TranslatableString
-
 
 _FACTORY_ROOTS = frozenset({FieldFactory, ForeignKeyFieldFactory})
 
@@ -66,7 +65,7 @@ class FieldOptions[T = Any]:
     """
 
     @staticmethod
-    @lru_cache(maxsize=None)
+    @cache
     def _get_field_cls(factory_cls: Any) -> Any:
         if "__new__" not in factory_cls.__dict__:
             for base in factory_cls.__mro__:

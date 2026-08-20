@@ -4,15 +4,14 @@
 from enum import Enum
 from typing import Any, cast
 
+from edgy.core.db.fields import ChoiceField as EdgyChoiceField
 from pydantic import GetCoreSchemaHandler, GetJsonSchemaHandler
 from pydantic.json_schema import JsonSchemaValue
 from pydantic_core import CoreSchema, core_schema
 
-from edgy.core.db.fields import ChoiceField as EdgyChoiceField
-
+from ...i18n import TranslatableString
 from .field_converter import FieldExportConverter
 from .field_options import FieldOptions
-from ...i18n import TranslatableString
 
 
 class ChoiceEnum(TranslatableString, Enum):
@@ -51,7 +50,7 @@ class ChoiceEnum(TranslatableString, Enum):
         - Another enum with matching name (mirror enum from DB)
         """
 
-        def validate(value: Any) -> "ChoiceEnum":
+        def validate(value: Any) -> ChoiceEnum:
             # If it's already a member of this enum
             if isinstance(value, cls):
                 return value
@@ -69,7 +68,7 @@ class ChoiceEnum(TranslatableString, Enum):
                     raise ValueError(f"Invalid {cls.__name__}: {value.name}")
             raise ValueError(f"Invalid {cls.__name__}: {value}")
 
-        def serialize(value: "ChoiceEnum") -> str:
+        def serialize(value: ChoiceEnum) -> str:
             return value.name
 
         return core_schema.no_info_plain_validator_function(
@@ -120,7 +119,7 @@ class _ChoiceMirrorEnum(str, Enum):
         label instead of the name.
         """
 
-        def validate(value: Any) -> "_ChoiceMirrorEnum":
+        def validate(value: Any) -> _ChoiceMirrorEnum:
             if isinstance(value, cls):
                 return value
             if isinstance(value, str):

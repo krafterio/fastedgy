@@ -1,6 +1,7 @@
 from typing import Any
 
 from edgy.core.db.models.types import BaseModelType
+
 from fastedgy.orm.query import QuerySet
 
 class BaseManager:

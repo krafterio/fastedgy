@@ -55,8 +55,8 @@ def ensure_aware(value: datetime | None) -> datetime | None:
 
 
 __all__ = [
-    "setup_timezone",
+    "ensure_aware",
     "get_timezone",
     "get_timezone_info",
-    "ensure_aware",
+    "setup_timezone",
 ]

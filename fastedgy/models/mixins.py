@@ -5,7 +5,8 @@ from typing import TYPE_CHECKING, Any
 
 from fastedgy import context
 from fastedgy.dependencies import get_service
-from fastedgy.orm import fields, Model, Meta
+from fastedgy.i18n import _ts
+from fastedgy.orm import Meta, Model, fields
 from fastedgy.orm.filter import R, global_filter
 from fastedgy.orm.workspace_shareable import (
     WorkspaceShareableRegistry,
@@ -13,9 +14,10 @@ from fastedgy.orm.workspace_shareable import (
     shared_record_cascade_filter,
     shared_record_confinement_filter,
     shared_record_filter_applies,
+)
+from fastedgy.orm.workspace_shareable import (
     snake_case as _snake_case,
 )
-from fastedgy.i18n import _ts
 from fastedgy.schemas import ConfigDict
 
 if TYPE_CHECKING:
@@ -275,9 +277,9 @@ class SearchableMixin(Model):
 
 
 __all__ = [
-    "WorkspaceableMixin",
-    "WorkspaceShareableMixin",
-    "WorkspaceShareableMemberMixin",
     "BlameableMixin",
     "SearchableMixin",
+    "WorkspaceShareableMemberMixin",
+    "WorkspaceShareableMixin",
+    "WorkspaceableMixin",
 ]

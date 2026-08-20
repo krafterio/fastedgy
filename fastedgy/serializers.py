@@ -1,7 +1,7 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 
 def datetime_serializer(value: datetime) -> str:
@@ -17,8 +17,8 @@ def datetime_serializer(value: datetime) -> str:
     Returns:
         ISO 8601 string with timezone offset (e.g., "2025-10-04T19:00:00+02:00")
     """
+
     from fastedgy.context import get_timezone, has_timezone
-    from datetime import timezone as dt_timezone
 
     if not isinstance(value, datetime):
         return value
@@ -28,7 +28,7 @@ def datetime_serializer(value: datetime) -> str:
     if value.tzinfo is not None:
         value = value.astimezone(tz)
     else:
-        value = value.replace(tzinfo=dt_timezone.utc).astimezone(tz)
+        value = value.replace(tzinfo=UTC).astimezone(tz)
 
     if not has_timezone():
         return value.replace(tzinfo=None).isoformat()

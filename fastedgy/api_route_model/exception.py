@@ -5,12 +5,12 @@ from typing import NoReturn
 
 from fastapi import HTTPException
 from fastapi.exceptions import RequestValidationError
-from fastedgy.schemas import ValidationError, ErrorDetails
 from sqlalchemy.exc import DBAPIError, IntegrityError
 
 from fastedgy.i18n import _t
 from fastedgy.orm.exceptions import ObjectNotFound
 from fastedgy.orm.transaction import is_serialization_error
+from fastedgy.schemas import ErrorDetails, ValidationError
 
 
 def handle_action_exception(

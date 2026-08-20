@@ -1,19 +1,19 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from fastedgy.dependencies import get_service
 from fastedgy.api_route_model.action import ApiRouteActionRegistry
 from fastedgy.api_route_model.actions.create_action import CreateApiRouteAction
 from fastedgy.api_route_model.actions.delete_action import DeleteApiRouteAction
 from fastedgy.api_route_model.actions.export_action import ExportApiRouteAction
+from fastedgy.api_route_model.actions.get_action import GetApiRouteAction
 from fastedgy.api_route_model.actions.import_action import ImportApiRouteAction
 from fastedgy.api_route_model.actions.import_template_action import (
     ImportTemplateApiRouteAction,
 )
-from fastedgy.api_route_model.actions.get_action import GetApiRouteAction
 from fastedgy.api_route_model.actions.list_action import ListApiRouteAction
 from fastedgy.api_route_model.actions.patch_action import PatchApiRouteAction
 from fastedgy.api_route_model.actions.sync_action import SyncApiRouteAction
+from fastedgy.dependencies import get_service
 
 
 def register_standard_api_route_model_actions():

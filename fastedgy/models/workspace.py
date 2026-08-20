@@ -1,14 +1,13 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from fastedgy.i18n import _ts
-
-import string
 import random
+import string
 
-from fastedgy.orm.order_by import OrderByList
-from fastedgy.orm import fields
+from fastedgy.i18n import _ts
 from fastedgy.models.base import BaseModel
+from fastedgy.orm import fields
+from fastedgy.orm.order_by import OrderByList
 
 
 def generate_slug(length=10) -> str:
@@ -52,6 +51,6 @@ class BaseWorkspace(BaseModel):
 
 
 __all__ = [
-    "generate_slug",
     "BaseWorkspace",
+    "generate_slug",
 ]

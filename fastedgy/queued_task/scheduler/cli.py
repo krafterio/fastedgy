@@ -9,10 +9,9 @@ import rich_click as click
 
 from fastedgy.dependencies import get_service
 from fastedgy.queued_task.scheduler.registry import (
-    ScheduledTaskRegistry,
     ScheduledTaskDef,
+    ScheduledTaskRegistry,
 )
-
 
 logger = logging.getLogger("queued_task.scheduler")
 
@@ -32,7 +31,6 @@ def create_scheduler_cli_group() -> click.Group:
     @click.group(name="scheduler", cls=Group)
     def scheduler_group():
         """Scheduled task commands."""
-        pass
 
     registry = get_service(ScheduledTaskRegistry)
 
@@ -55,6 +53,7 @@ def _build_status_command() -> click.Command:
 
     def status_callback():
         from datetime import datetime
+
         from cronsim import CronSim
 
         registry = get_service(ScheduledTaskRegistry)
@@ -101,7 +100,7 @@ def _build_command_for_task(task_def: ScheduledTaskDef) -> click.Command:
     2. Opens the lifespan context
     3. Calls the scheduled task function with the provided options
     """
-    from fastedgy.cli import Command, initialize_app, pass_cli_context, CliContext
+    from fastedgy.cli import CliContext, Command, initialize_app, pass_cli_context
 
     func = task_def.func
 

@@ -2,13 +2,13 @@
 # MIT License (see LICENSE file).
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Optional
+from typing import Any
 
 import rich_click as click
 
 from fastedgy.config import BaseSettings, get_service
-
 
 logger = logging.getLogger("queued_task.scheduler")
 
@@ -24,9 +24,9 @@ class ScheduledTaskDef:
     options: list[click.Option] = field(default_factory=list)
     auto_remove: bool = True
     enabled: bool = True
-    context: Optional[Dict[str, Any]] = None
-    channel: Optional[str] = None
-    priority: Optional[int] = None
+    context: dict[str, Any] | None = None
+    channel: str | None = None
+    priority: int | None = None
 
     @property
     def module_name(self) -> str:
@@ -46,7 +46,7 @@ class ScheduledTaskRegistry:
 
     def __init__(self, settings: BaseSettings | None = None):
         self.__settings = settings
-        self._tasks: Dict[str, ScheduledTaskDef] = {}
+        self._tasks: dict[str, ScheduledTaskDef] = {}
 
     @property
     def _settings(self) -> BaseSettings:
@@ -64,10 +64,10 @@ class ScheduledTaskRegistry:
             f"(cron='{task_def.cron}', func={task_def.module_name}.{task_def.function_name})"
         )
 
-    def get(self, name: str) -> Optional[ScheduledTaskDef]:
+    def get(self, name: str) -> ScheduledTaskDef | None:
         return self._tasks.get(name)
 
-    def get_all(self) -> Dict[str, ScheduledTaskDef]:
+    def get_all(self) -> dict[str, ScheduledTaskDef]:
         return dict(self._tasks)
 
     def is_task_enabled(self, name: str) -> bool:

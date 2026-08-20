@@ -8,4 +8,3 @@ from fastedgy import cli
 @cli.initialize_app
 def trans():
     """Translation management commands."""
-    pass

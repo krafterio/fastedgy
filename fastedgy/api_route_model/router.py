@@ -2,24 +2,24 @@
 # MIT License (see LICENSE file).
 
 import logging
-from typing import Any, Type, cast
+from typing import Any, cast
 
 from fastapi import APIRouter
+
 from fastedgy.api_route_model.generator import get_all_generated_routers
 from fastedgy.api_route_model.registry import (
     CONSOLE_ROUTE_MODEL_REGISTRY_TOKEN,
     RouteModelRegistry,
 )
-from fastedgy.dependencies import get_service, Token
+from fastedgy.dependencies import Token, get_service
 from fastedgy.metadata_model import MetadataModelRegistry
-
 
 logger = logging.getLogger("api_route_model.router")
 
 
 def register_api_route_models(
     router: APIRouter,
-    registry: Type[RouteModelRegistry] | Token[RouteModelRegistry] = RouteModelRegistry,
+    registry: type[RouteModelRegistry] | Token[RouteModelRegistry] = RouteModelRegistry,
     tags: bool = True,
 ) -> None:
     """
@@ -49,7 +49,7 @@ def register_api_route_models(
         mmr.register_model(model_cls)
 
 
-def _resolve_generic_references(registry: Type[RouteModelRegistry] | Token[RouteModelRegistry]) -> None:
+def _resolve_generic_references(registry: type[RouteModelRegistry] | Token[RouteModelRegistry]) -> None:
     """Resolve every GenericForeignKey of the registered models before any route
     or input schema is generated (they are cached): all target models are
     imported by now, so the reverse relations get installed on every target."""
@@ -80,7 +80,7 @@ register_admin_api_route_models = register_console_api_route_models
 
 
 __all__ = [
+    "register_admin_api_route_models",
     "register_api_route_models",
     "register_console_api_route_models",
-    "register_admin_api_route_models",
 ]

@@ -3,9 +3,8 @@
 
 import os
 import shutil
-
+from collections.abc import AsyncIterator
 from pathlib import Path
-from typing import AsyncIterator
 
 from fastedgy.storage.adapters.base import StorageAdapter
 

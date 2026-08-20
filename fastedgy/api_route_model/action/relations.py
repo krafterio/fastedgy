@@ -102,7 +102,7 @@ def is_foreign_key_field(field) -> bool:
 _RECORD_OPS = {"create", "update", "delete"}
 
 
-def ensure_relation_write_allowed(related_model: "TypeModel", ops: set[str], field_name: str) -> None:
+def ensure_relation_write_allowed(related_model: TypeModel, ops: set[str], field_name: str) -> None:
     """Reject payload record-operations the related model's API does not allow.
 
     A relation input cannot do to a related model what the API forbids on it
@@ -207,9 +207,9 @@ def _plain_foreign_key_value(value: Any) -> Any:
 
 
 async def process_foreign_key_fields(
-    model_cls: "TypeModel",
+    model_cls: TypeModel,
     foreign_key_data: dict[str, Any],
-) -> tuple[dict[str, int | None], list["BaseModel"]]:
+) -> tuple[dict[str, int | None], list[BaseModel]]:
     """
     Resolve foreign key inputs to the ids to store on the instance.
 
@@ -228,12 +228,13 @@ async def process_foreign_key_fields(
     Raises:
         HTTPException: If a foreign key operation fails
     """
-    from fastedgy.orm.relations.processor import process_foreign_key_operation
-    from fastedgy.orm.relations.utils import RelationOperationError
     from fastapi import HTTPException
 
+    from fastedgy.orm.relations.processor import process_foreign_key_operation
+    from fastedgy.orm.relations.utils import RelationOperationError
+
     resolved: dict[str, int | None] = {}
-    deferred_deletes: list["BaseModel"] = []
+    deferred_deletes: list[BaseModel] = []
 
     for field_name, value in foreign_key_data.items():
         field = model_cls.model_fields[field_name]
@@ -261,8 +262,8 @@ async def process_foreign_key_fields(
 
 
 async def process_relational_fields(
-    instance: "BaseModel | BaseView",
-    model_cls: "TypeModel",
+    instance: BaseModel | BaseView,
+    model_cls: TypeModel,
     relational_data: dict[str, Any],
 ) -> None:
     """
@@ -276,9 +277,10 @@ async def process_relational_fields(
     Raises:
         HTTPException: If a relation operation fails
     """
+    from fastapi import HTTPException
+
     from fastedgy.orm.relations.processor import process_relation_operations
     from fastedgy.orm.relations.utils import RelationOperationError
-    from fastapi import HTTPException
 
     for field_name, operations in relational_data.items():
         field = model_cls.model_fields[field_name]
@@ -316,10 +318,10 @@ async def process_relational_fields(
 
 __all__ = [
     "ensure_relation_write_allowed",
-    "is_relation_field",
+    "get_related_model",
     "is_exposed_relation_field",
     "is_foreign_key_field",
-    "get_related_model",
-    "process_relational_fields",
+    "is_relation_field",
     "process_foreign_key_fields",
+    "process_relational_fields",
 ]

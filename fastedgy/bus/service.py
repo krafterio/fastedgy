@@ -3,19 +3,14 @@
 
 import inspect
 import logging
+from collections.abc import Callable
 from typing import (
-    Callable,
-    Dict,
-    List,
-    Optional,
-    Tuple,
-    Type,
-    Union,
     TYPE_CHECKING,
+    Union,
 )
 
-from fastedgy.dependencies import Token
 from fastedgy.bus.base import BaseEvent
+from fastedgy.dependencies import Token
 
 if TYPE_CHECKING:
     from fastedgy.dependencies import Token as TokenType
@@ -23,7 +18,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger("fastedgy.events")
 
 
-EventKey = Union[Type[BaseEvent], "TokenType[BaseEvent]"]
+EventKey = Union[type[BaseEvent], "TokenType[BaseEvent]"]
 
 
 class Bus:
@@ -41,7 +36,7 @@ class Bus:
             cls.critical_exceptions = (*cls.critical_exceptions, exc_type)
 
     def __init__(self):
-        self._listeners: Dict[Token, List[Tuple[int, Callable]]] = {}
+        self._listeners: dict[Token, list[tuple[int, Callable]]] = {}
 
     def register(
         self,
@@ -67,7 +62,7 @@ class Bus:
 
         logger.debug(f"Registered listener for {normalized_key} with priority {priority}: {handler.__name__}")
 
-    async def dispatch(self, event: BaseEvent, event_key: Optional[EventKey] = None) -> None:
+    async def dispatch(self, event: BaseEvent, event_key: EventKey | None = None) -> None:
         """
         Dispatch an event to all registered listeners.
 
@@ -99,10 +94,9 @@ class Bus:
                     handler(event)
             except self.critical_exceptions:
                 raise
-            except Exception as e:
-                logger.error(
-                    f"Error in event handler {handler.__name__} (priority {priority}) for {normalized_key}: {e}",
-                    exc_info=True,
+            except Exception:
+                logger.exception(
+                    f"Error in event handler {handler.__name__} (priority {priority}) for {normalized_key}"
                 )
 
     def unregister(self, event_key: EventKey, handler: Callable) -> None:

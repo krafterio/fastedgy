@@ -1,8 +1,10 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+from collections.abc import AsyncIterator
 from contextlib import AbstractAsyncContextManager
-from typing import TYPE_CHECKING, AsyncIterator, cast
+from datetime import UTC
+from typing import TYPE_CHECKING, cast
 
 from fastedgy.storage.adapters.base import StorageAdapter
 
@@ -65,7 +67,7 @@ class S3Adapter(StorageAdapter):
             kwargs["aws_secret_access_key"] = self.secret_access_key
         return kwargs
 
-    def _client(self) -> AbstractAsyncContextManager["S3Client"]:
+    def _client(self) -> "AbstractAsyncContextManager[S3Client]":
         return cast(
             AbstractAsyncContextManager["S3Client"],
             self._get_session().client("s3", **self._client_kwargs()),
@@ -151,9 +153,9 @@ class S3Adapter(StorageAdapter):
             return response["ContentLength"]
 
     async def delete_old_files(self, prefix: str, max_age_seconds: float) -> int:
-        from datetime import datetime, timezone
+        from datetime import datetime
 
-        cutoff = datetime.now(timezone.utc).timestamp() - max_age_seconds
+        cutoff = datetime.now(UTC).timestamp() - max_age_seconds
         deleted = 0
 
         async with self._client() as s3:

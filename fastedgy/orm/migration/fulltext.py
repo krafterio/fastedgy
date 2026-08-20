@@ -3,8 +3,8 @@
 
 from sqlalchemy.dialects.postgresql import TSVECTOR
 
-from .unaccent import EnableUnaccentExtensionOperation
 from .pg_trgm import EnablePgTrgmExtensionOperation
+from .unaccent import EnableUnaccentExtensionOperation
 
 
 def process_fulltext_revision_directives(context, revision, directives):
@@ -31,7 +31,7 @@ def process_fulltext_revision_directives(context, revision, directives):
 
 def _check_for_tsvector_operations(ops):
     """Recursively check if any operations use TSVECTOR type."""
-    from alembic.operations.ops import AddColumnOp, CreateTableOp, AlterColumnOp
+    from alembic.operations.ops import AddColumnOp, AlterColumnOp, CreateTableOp
 
     for op in ops:
         if isinstance(op, AddColumnOp):
@@ -44,9 +44,8 @@ def _check_for_tsvector_operations(ops):
         elif isinstance(op, AlterColumnOp):
             if hasattr(op, "modify_type") and op.modify_type and _is_tsvector_type(op.modify_type):
                 return True
-        elif hasattr(op, "ops"):
-            if _check_for_tsvector_operations(op.ops):
-                return True
+        elif hasattr(op, "ops") and _check_for_tsvector_operations(op.ops):
+            return True
     return False
 
 

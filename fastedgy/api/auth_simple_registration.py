@@ -1,13 +1,14 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from fastedgy.i18n import _t
-
 from typing import TYPE_CHECKING, cast
+
 from fastapi import APIRouter, Body, HTTPException, status
+
 from fastedgy import context
-from fastedgy.orm import Registry
 from fastedgy.dependencies import Inject
+from fastedgy.i18n import _t
+from fastedgy.orm import Registry
 from fastedgy.schemas.auth import UserRegisterRequest
 from fastedgy.schemas.base import SimpleMessage
 

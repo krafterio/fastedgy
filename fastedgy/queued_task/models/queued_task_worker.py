@@ -1,15 +1,11 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from fastedgy.i18n import _ts
-
 import socket
-
 from datetime import datetime
 
-from typing import Optional
-
 from fastedgy import context
+from fastedgy.i18n import _ts
 from fastedgy.orm import Model, fields
 
 
@@ -46,9 +42,9 @@ class QueuedTaskWorkerMixin(Model):
 
     last_heartbeat: datetime = fields.DateTimeField(auto_now=True, label=_ts("Last Heartbeat"))
 
-    started_at: Optional[datetime] = fields.DateTimeField(null=True, label=_ts("Started At"))
+    started_at: datetime | None = fields.DateTimeField(null=True, label=_ts("Started At"))
 
-    version: Optional[str] = fields.CharField(max_length=50, null=True, label=_ts("Version"))
+    version: str | None = fields.CharField(max_length=50, null=True, label=_ts("Version"))
 
     @property
     def total_workers(self) -> int:

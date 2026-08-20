@@ -1,42 +1,41 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from fastedgy.i18n import _t
+from collections.abc import Callable
+from typing import Any, cast
 
-from typing import Callable, Any, cast
+from fastapi import APIRouter, HTTPException, Query
+from starlette.responses import StreamingResponse
 
-from fastapi import APIRouter, Query, HTTPException
-
-from fastedgy.models.base import BaseModel, BaseView
 from fastedgy.api_route_model.action import BaseApiRouteAction
 from fastedgy.api_route_model.params import (
-    OrderByQuery,
     FieldSelectorHeader,
     FilterHeader,
+    OrderByQuery,
     RelationDelimiter,
     RelationDelimiterQuery,
 )
 from fastedgy.api_route_model.registry import (
-    TypeModel,
     RouteModelActionOptions,
+    TypeModel,
     ViewTransformerRegistry,
 )
 from fastedgy.api_route_model.view_transformer import (
     BaseViewTransformer,
-    PrePaginateViewTransformer,
-    PreExportTransformer,
     PostExportTransformer,
+    PreExportTransformer,
+    PrePaginateViewTransformer,
 )
 from fastedgy.dataflow.exporter import export_data
 from fastedgy.dependencies import get_service
 from fastedgy.http import Request
-from fastedgy.orm.filter import InvalidFilterError, filter_query
-from fastedgy.orm.order_by import inject_order_by
+from fastedgy.i18n import _t
+from fastedgy.models.base import BaseModel, BaseView
 from fastedgy.orm.field_selector import optimize_query_filter_fields
-from fastedgy.orm.query import QuerySet
+from fastedgy.orm.filter import InvalidFilterError, filter_query
 from fastedgy.orm.manager import BaseManager
-
-from starlette.responses import StreamingResponse
+from fastedgy.orm.order_by import inject_order_by
+from fastedgy.orm.query import QuerySet
 
 
 class ExportApiRouteAction(BaseApiRouteAction):
@@ -152,11 +151,11 @@ async def export_items_action[M: BaseModel | BaseView](
         raise HTTPException(status_code=422, detail=str(e))
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         if filters:
             raise HTTPException(status_code=422, detail=_t("Invalid filters"))
         else:
-            raise e
+            raise
 
     # Generate export
     response = await export_data(
@@ -205,6 +204,6 @@ async def export_items_action[M: BaseModel | BaseView](
 
 __all__ = [
     "ExportApiRouteAction",
-    "generate_export_items",
     "export_items_action",
+    "generate_export_items",
 ]

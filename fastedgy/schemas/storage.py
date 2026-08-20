@@ -23,6 +23,6 @@ class UploadedModelField(BaseModel):
 
 
 __all__ = [
-    "UploadedAttachments",
     "UploadedAttachment",
+    "UploadedAttachments",
 ]

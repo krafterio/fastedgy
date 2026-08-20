@@ -10,11 +10,12 @@ from typing import TYPE_CHECKING, Any, Literal
 import edgy
 from alembic import context
 from edgy.core.connection import Database, Registry
+from rich.console import Console
+
 from fastedgy.config import BaseSettings
 from fastedgy.dependencies import get_service
 from fastedgy.logger import LogFormat
 from fastedgy.orm.migration import fastedgy_process_revision_directives
-from rich.console import Console
 
 if TYPE_CHECKING:
     import sqlalchemy
@@ -36,7 +37,7 @@ MAIN_DATABASE_NAME: str = " "
 
 def iter_databases(
     registry: Registry,
-) -> Generator[tuple[str | None, Database, sqlalchemy.MetaData]]:
+) -> "Generator[tuple[str | None, Database, sqlalchemy.MetaData]]":
     url: str | None = os.environ.get("EDGY_DATABASE_URL")
     name: str | Literal[False] | None = os.environ.get("EDGY_DATABASE") or False
     if url and not name:
@@ -98,7 +99,7 @@ def run_migrations_offline() -> Any:
             context.run_migrations(engine_name=name or "")
 
 
-def do_run_migrations(connection: Any, name: str, metadata: sqlalchemy.MetaData) -> Any:
+def do_run_migrations(connection: Any, name: str, metadata: "sqlalchemy.MetaData") -> Any:
     # this callback is used to prevent an auto-migration from being generated
     # when there are no changes to the schema
     # reference: http://alembic.zzzcomputing.com/en/latest/cookbook.html

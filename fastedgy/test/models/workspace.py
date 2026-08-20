@@ -1,8 +1,8 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from fastedgy.models.workspace import BaseWorkspace
 from fastedgy.api_route_model import api_route_model
+from fastedgy.models.workspace import BaseWorkspace
 
 
 @api_route_model()

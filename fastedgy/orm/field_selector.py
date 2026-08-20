@@ -3,7 +3,7 @@
 
 from typing import Any
 
-from fastedgy.orm import Model, BaseModelType
+from fastedgy.orm import BaseModelType, Model
 from fastedgy.orm.access_guard import AccessDeniedError
 from fastedgy.orm.fields import BaseFieldType
 from fastedgy.orm.query import QuerySet
@@ -700,13 +700,9 @@ def _add_field_selector(fields: dict[str, Any], field: BaseFieldType | None, for
         force: Force adding even if excluded
     """
     if field and (not field.exclude or force):
-        if getattr(field, "is_m2m", False):
+        if getattr(field, "is_m2m", False) or hasattr(field, "related_from"):
             field_val = [{"id": True}]
-        elif hasattr(field, "related_from"):
-            field_val = [{"id": True}]
-        elif getattr(field, "is_generic_foreign_key", False):
-            field_val = {"id": True}
-        elif hasattr(field, "target"):
+        elif getattr(field, "is_generic_foreign_key", False) or hasattr(field, "target"):
             field_val = {"id": True}
         else:
             field_val = True
@@ -715,13 +711,13 @@ def _add_field_selector(fields: dict[str, Any], field: BaseFieldType | None, for
 
 
 __all__ = [
-    "parse_field_selector_input",
-    "clean_field_names_from_input",
-    "optimize_query_filter_fields",
     "apply_field_map_optimizations",
-    "get_computed_field_deps",
+    "clean_field_names_from_input",
+    "filter_fields",
     "filter_selected_fields",
     "flatten_extra_fields",
+    "get_computed_field_deps",
+    "optimize_query_filter_fields",
+    "parse_field_selector_input",
     "prefetch_generic_references",
-    "filter_fields",
 ]

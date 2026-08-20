@@ -1,16 +1,16 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+from inspect import isclass
 from typing import Any
 
 import sqlalchemy as sa
-from inspect import isclass
-
-from fastedgy.orm import fields, BaseModelType, Model
 from sqlalchemy.orm import ColumnProperty, Mapper
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 from sqlalchemy.orm.util import AliasedClass
 from sqlalchemy.sql.selectable import SelectBase
+
+from fastedgy.orm import BaseModelType, Model, fields
 
 
 def find_primary_key_field(model_cls: type[BaseModelType] | BaseModelType) -> str | None:
@@ -171,8 +171,8 @@ async def get_value_from_path(instance: Model, path: str) -> Any | None:
 
 
 __all__ = [
-    "find_primary_key_field",
     "extract_field_names",
+    "find_primary_key_field",
     "get_columns",
     "get_field_from_path",
     "get_value_from_path",

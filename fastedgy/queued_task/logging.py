@@ -3,14 +3,13 @@
 
 import asyncio
 import logging
-
 from datetime import datetime
 from typing import cast
 
 from fastedgy import context
 from fastedgy.dependencies import get_service
-from fastedgy.queued_task.context import get_current_task
 from fastedgy.queued_task.config import QueuedTaskConfig
+from fastedgy.queued_task.context import get_current_task
 
 
 class QueuedTaskLogger(logging.Logger):
@@ -37,7 +36,7 @@ class QueuedTaskLogger(logging.Logger):
     # otherwise pile up an unbounded number of pending insert tasks, each
     # costing a SELECT + INSERT. Past the cap, DB logging is dropped (console
     # logging is unaffected) and counted.
-    _pending_db_logs: "set[asyncio.Task]" = set()
+    _pending_db_logs: set[asyncio.Task] = set()
     _dropped_db_logs: int = 0
     _MAX_PENDING_DB_LOGS = 500
 
@@ -105,12 +104,12 @@ class QueuedTaskLogger(logging.Logger):
             return
 
         try:
-            from fastedgy.orm import Registry
+            from fastedgy.models.queued_task import BaseQueuedTask as QueuedTask
             from fastedgy.models.queued_task_log import (
                 BaseQueuedTaskLog as QueuedTaskLog,
             )
+            from fastedgy.orm import Registry
             from fastedgy.queued_task.models.queued_task_log import QueuedTaskLogType
-            from fastedgy.models.queued_task import BaseQueuedTask as QueuedTask
 
             log_type = QueuedTaskLogType[level.lower()]
 

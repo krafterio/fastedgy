@@ -50,10 +50,10 @@ def snake_case(name: str) -> str:
 
 
 class WorkspaceShareableRoot:
-    def __init__(self, key: str, root_model: type["Model"]):
+    def __init__(self, key: str, root_model: "type[Model]"):
         self.key = key
         self.root_model = root_model
-        self.member_model: type["Model"] | None = None
+        self.member_model: "type[Model] | None" = None
         self.member_record_field: str = ""
         self.member_user_field: str = "user"
 
@@ -64,11 +64,11 @@ class WorkspaceShareableRegistry:
 
     def __init__(self) -> None:
         self._roots: dict[str, WorkspaceShareableRoot] = {}
-        self._pending_members: list[type["Model"]] = []
+        self._pending_members: "list[type[Model]]" = []
         self._children: dict[type, list[str]] = {}
         self._paths: dict[tuple[type, str], str | None] = {}
 
-    def register_root(self, model_cls: type["Model"], key: str) -> None:
+    def register_root(self, model_cls: "type[Model]", key: str) -> None:
         existing = self._roots.get(key)
 
         if existing is not None and existing.root_model is not model_cls:
@@ -79,7 +79,7 @@ class WorkspaceShareableRegistry:
         self._roots[key] = WorkspaceShareableRoot(key, model_cls)
         self._paths.clear()
 
-    def register_member(self, member_cls: type["Model"]) -> None:
+    def register_member(self, member_cls: "type[Model]") -> None:
         self._pending_members.append(member_cls)
 
     def register_child(self, model_cls: type, path: str) -> None:
@@ -161,7 +161,7 @@ class WorkspaceShareableRegistry:
         if not self._pending_members:
             return
 
-        remaining: list[type["Model"]] = []
+        remaining: "list[type[Model]]" = []
 
         for member_cls in self._pending_members:
             meta = getattr(member_cls, "Meta", None)
@@ -361,10 +361,10 @@ __all__ = [
     "WORKSPACE_SHARED_RECORD_HEADER",
     "WorkspaceShareableRegistry",
     "WorkspaceShareableRoot",
-    "workspace_shareable_via",
     "enforce_shared_record_write",
     "resolve_workspace_shared_record",
-    "shared_record_confinement_filter",
     "shared_record_cascade_filter",
+    "shared_record_confinement_filter",
     "shared_record_filter_applies",
+    "workspace_shareable_via",
 ]

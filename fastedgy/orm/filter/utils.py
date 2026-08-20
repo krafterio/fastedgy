@@ -1,16 +1,17 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import Any, Callable, cast
+from collections.abc import Callable
+from typing import Any, cast
 
 from fastedgy.orm.filter.types import (
-    FilterRule,
-    FilterCondition,
-    Filter,
-    FilterTuple,
-    FilterRuleTuple,
-    FilterConditionTuple,
     And,
+    Filter,
+    FilterCondition,
+    FilterConditionTuple,
+    FilterRule,
+    FilterRuleTuple,
+    FilterTuple,
 )
 
 
@@ -19,7 +20,7 @@ def is_rule(item: Any) -> bool:
         return True
 
     return (
-        (isinstance(item, tuple) or isinstance(item, list))
+        (isinstance(item, (tuple, list)))
         and 2 <= len(item) <= 3
         and isinstance(item[0], str)
         and isinstance(item[1], str)
@@ -31,10 +32,7 @@ def is_condition(item: Any) -> bool:
         return True
 
     return (
-        (isinstance(item, tuple) or isinstance(item, list))
-        and len(item) == 2
-        and isinstance(item[0], str)
-        and isinstance(item[1], list)
+        (isinstance(item, (tuple, list))) and len(item) == 2 and isinstance(item[0], str) and isinstance(item[1], list)
     )
 
 
@@ -127,7 +125,7 @@ def _has_duplicating_relation_filter(model_cls: Any, filters: Filter | None) -> 
     Only ManyToMany and OneToMany relations can create duplicates.
     ForeignKey and OneToOne are N:1 or 1:1 relationships, no duplicates possible.
     """
-    from fastedgy.orm.fields import ManyToMany, ForeignKey, OneToOne
+    from fastedgy.orm.fields import ForeignKey, ManyToMany, OneToOne
 
     if not filters:
         return False
@@ -152,10 +150,7 @@ def _has_duplicating_relation_filter(model_cls: Any, filters: Filter | None) -> 
         if isinstance(field_type, ManyToMany):
             return True
 
-        if hasattr(field_type, "related_from"):
-            return True
-
-        return False
+        return bool(hasattr(field_type, "related_from"))
 
     if isinstance(filters, FilterCondition):
         return any(_has_duplicating_relation_filter(model_cls, rule) for rule in filters.rules)
@@ -215,12 +210,12 @@ def _convert_value(value: Any | None, callback: Callable) -> Any:
 
 
 __all__ = [
-    "is_rule",
-    "is_condition",
-    "merge_filters",
-    "add_prefix_on_fields",
-    "_has_relation_filter",
-    "_has_duplicating_relation_filter",
-    "has_duplicating_relation_path",
     "_convert_value",
+    "_has_duplicating_relation_filter",
+    "_has_relation_filter",
+    "add_prefix_on_fields",
+    "has_duplicating_relation_path",
+    "is_condition",
+    "is_rule",
+    "merge_filters",
 ]

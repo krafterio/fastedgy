@@ -70,6 +70,6 @@ class FsoProduct(BaseModel):
 __all__ = [
     "FsoBrand",
     "FsoCategory",
-    "FsoTag",
     "FsoProduct",
+    "FsoTag",
 ]

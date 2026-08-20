@@ -1,36 +1,37 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+from collections.abc import Callable
 from datetime import datetime
-from typing import Callable, Any
+from typing import Any
 
 from fastapi import APIRouter, Body, HTTPException
 
-from fastedgy.dependencies import get_service
-from fastedgy.http import Request
-from fastedgy.schemas import ErrorMessage
-from fastedgy.models.base import BaseModel, BaseView
-from fastedgy.timezone import ensure_aware
 from fastedgy.api_route_model.action import (
     BaseApiRouteAction,
     clean_empty_strings,
 )
-from fastedgy.api_route_model.types import ModelItem, ModelCreate
 from fastedgy.api_route_model.exception import handle_action_exception
 from fastedgy.api_route_model.params import FieldSelectorHeader
-from fastedgy.orm.field_selector import filter_selected_fields
 from fastedgy.api_route_model.registry import (
-    TypeModel,
     RouteModelActionOptions,
+    TypeModel,
     ViewTransformerRegistry,
 )
+from fastedgy.api_route_model.types import ModelCreate, ModelItem
 from fastedgy.api_route_model.view_transformer import (
     BaseViewTransformer,
     GetViewTransformer,
     PostSaveTransformer,
     PreSaveTransformer,
 )
+from fastedgy.dependencies import get_service
+from fastedgy.http import Request
+from fastedgy.models.base import BaseModel, BaseView
 from fastedgy.orm import transaction
+from fastedgy.orm.field_selector import filter_selected_fields
+from fastedgy.schemas import ErrorMessage
+from fastedgy.timezone import ensure_aware
 
 
 class CreateApiRouteAction(BaseApiRouteAction):
@@ -85,16 +86,16 @@ async def create_item_action[M: BaseModel | BaseView](
     transformers_ctx: dict[str, Any] | None = None,
 ) -> M | dict[str, Any]:
     from fastedgy.api_route_model.action import (
-        is_relation_field,
         is_foreign_key_field,
+        is_relation_field,
         process_foreign_key_fields,
         process_relational_fields,
     )
 
     transformers_ctx = transformers_ctx or {}
 
-    from fastedgy.orm.fields import validate_generic_reference_payload
     from fastedgy.orm.extra_fields import merge_extra_field_values, pop_extra_field_values
+    from fastedgy.orm.fields import validate_generic_reference_payload
 
     try:
         clean_empty_strings(item_data)
@@ -172,6 +173,6 @@ async def create_item_action[M: BaseModel | BaseView](
 
 __all__ = [
     "CreateApiRouteAction",
-    "generate_create_item",
     "create_item_action",
+    "generate_create_item",
 ]

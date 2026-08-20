@@ -1,8 +1,8 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from alembic.operations import Operations, MigrateOperation
 from alembic.autogenerate import renderers
+from alembic.operations import MigrateOperation, Operations
 from sqlalchemy import text
 
 
@@ -74,8 +74,8 @@ def disable_pg_trgm_extension() -> None:
 
 
 __all__ = [
-    "EnablePgTrgmExtensionOperation",
     "DisablePgTrgmExtensionOperation",
-    "enable_pg_trgm_extension",
+    "EnablePgTrgmExtensionOperation",
     "disable_pg_trgm_extension",
+    "enable_pg_trgm_extension",
 ]

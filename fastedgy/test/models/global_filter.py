@@ -1,14 +1,12 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import Union
 
 from fastedgy import context
 from fastedgy.models.base import BaseModel
 from fastedgy.models.mixins import WorkspaceableMixin
 from fastedgy.orm import fields
 from fastedgy.orm.filter import R, global_filter
-
 from fastedgy.test.models.user import User
 
 
@@ -31,7 +29,7 @@ class GfOwnedMixin(WorkspaceableMixin):
     class Meta:
         abstract = True
 
-    owner: Union["User", None] = fields.ForeignKey(User, null=True, related_name="+")
+    owner: User | None = fields.ForeignKey(User, null=True, related_name="+")
 
 
 class GfPrivateDoc(BaseModel, GfOwnedMixin):
@@ -58,8 +56,8 @@ class GfLink(BaseModel, WorkspaceableMixin):
 
 __all__ = [
     "GfArticle",
+    "GfLink",
     "GfOwnedMixin",
     "GfPrivateDoc",
     "GfSharedDoc",
-    "GfLink",
 ]

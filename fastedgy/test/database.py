@@ -6,12 +6,10 @@ import os
 import subprocess
 import sys
 import time
-
 from pathlib import Path
 
 from dotenv import dotenv_values
 from sqlalchemy.engine.url import make_url
-
 
 DEFAULT_DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/fastedgy"
 TEST_DATABASE_SUFFIX = "-test"
@@ -179,6 +177,7 @@ def _build_template_subprocess() -> None:
         env=env,
         capture_output=True,
         text=True,
+        check=False,
     )
 
     if result.returncode != 0:
@@ -250,16 +249,16 @@ async def truncate_all_tables() -> None:
 __all__ = [
     "DEFAULT_DATABASE_URL",
     "TEST_DATABASE_SUFFIX",
-    "template_database_name",
-    "worker_database_name",
-    "template_database_url",
-    "worker_database_url",
     "admin_database_url",
-    "configure_database_env",
     "can_connect",
-    "recreate_template_database",
+    "configure_database_env",
     "create_worker_database",
     "drop_worker_database",
     "ensure_template_database",
+    "recreate_template_database",
+    "template_database_name",
+    "template_database_url",
     "truncate_all_tables",
+    "worker_database_name",
+    "worker_database_url",
 ]

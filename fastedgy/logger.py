@@ -6,7 +6,6 @@ import logging
 import os
 import re
 import sys
-
 from copy import copy
 from enum import Enum
 
@@ -233,14 +232,14 @@ def setup_logging(
 
 
 __all__ = [
-    "setup_logging",
+    "DatabaseConnectionFilter",
+    "JsonFormatter",
+    "LogFormat",
     "LogLevel",
     "LogOutput",
-    "LogFormat",
+    "StderrFilter",
+    "StdoutFilter",
     "TextFormatter",
     "TextLightFormatter",
-    "JsonFormatter",
-    "DatabaseConnectionFilter",
-    "StdoutFilter",
-    "StderrFilter",
+    "setup_logging",
 ]

@@ -1,7 +1,7 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastedgy.app import FastEdgy
 from fastedgy.test.models.queued_task_worker import QueuedTaskWorker
@@ -40,10 +40,10 @@ async def test_mark_as_stopped_resets_counters(setup_db: FastEdgy) -> None:
 async def test_is_alive_depends_on_heartbeat(setup_db: FastEdgy) -> None:
     worker = QueuedTaskWorker(server_name="server-4")
 
-    worker.last_heartbeat = datetime.now(timezone.utc)
+    worker.last_heartbeat = datetime.now(UTC)
     assert worker.is_alive is True
 
-    worker.last_heartbeat = datetime.now(timezone.utc) - timedelta(minutes=5)
+    worker.last_heartbeat = datetime.now(UTC) - timedelta(minutes=5)
     assert worker.is_alive is False
 
 

@@ -2,7 +2,6 @@
 # MIT License (see LICENSE file).
 
 import httpx
-
 from starlette.requests import ClientDisconnect
 
 from fastedgy.app import FastEdgy
@@ -59,7 +58,6 @@ async def test_query_errors_on_a_healthy_database_stay_errors(
     # ServerErrorMiddleware turns them into a 500): a propagated exception
     # proves the middleware did NOT swallow it into a 503.
     import pytest
-
     from asyncpg.exceptions import InterfaceError, QueryCanceledError, UniqueViolationError
     from sqlalchemy.exc import IntegrityError, OperationalError
 

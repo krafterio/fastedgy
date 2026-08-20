@@ -1,18 +1,18 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Optional, Union, cast
-from fastedgy.dependencies import get_service
-from jose import JWTError, jwt
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
-from fastedgy import context
-from fastedgy.config import BaseSettings
-from fastedgy.orm import Registry
+from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING, cast
 
 import bcrypt
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError, jwt
 
+from fastedgy import context
+from fastedgy.config import BaseSettings
+from fastedgy.dependencies import get_service
+from fastedgy.orm import Registry
 
 if TYPE_CHECKING:
     from fastedgy.models.user import BaseUser as User
@@ -48,9 +48,9 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     settings = get_service(BaseSettings)
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
+        expire = datetime.now(UTC) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes=settings.auth_access_token_expire_minutes)
+        expire = datetime.now(UTC) + timedelta(minutes=settings.auth_access_token_expire_minutes)
     to_encode.update({"exp": expire, "type": "access"})
     encoded_jwt = jwt.encode(to_encode, settings.auth_secret_key, algorithm=settings.auth_algorithm)
     return encoded_jwt
@@ -59,7 +59,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
 def create_refresh_token(data: dict):
     settings = get_service(BaseSettings)
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + timedelta(days=settings.auth_refresh_token_expire_days)
+    expire = datetime.now(UTC) + timedelta(days=settings.auth_refresh_token_expire_days)
     to_encode.update({"exp": expire, "type": "refresh"})
     encoded_jwt = jwt.encode(to_encode, settings.auth_secret_key, algorithm=settings.auth_algorithm)
     return encoded_jwt
@@ -119,7 +119,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> "User":
 
 async def get_optional_current_user(
     token: str | None = Depends(oauth2_scheme_optional),
-) -> Optional["User"]:
+) -> "User | None":
     try:
         return await get_current_user(token) if token else None
     except HTTPException:
@@ -128,7 +128,7 @@ async def get_optional_current_user(
 
 async def get_current_workspace(
     current_user=Depends(get_current_user),
-) -> Union["Workspace", None]:
+) -> "Workspace | None":
     workspace = context.get_workspace()
     workspace_user = context.get_workspace_user()
 
@@ -163,7 +163,7 @@ async def get_current_workspace(
     return workspace
 
 
-def _find_workspace_user_model() -> Union[type["WorkspaceUser"], None]:
+def _find_workspace_user_model() -> "type[WorkspaceUser] | None":
     """The concrete workspace-user model of the app (e.g. HouseholdUser) is not
     necessarily registered under the generic 'WorkspaceUser' name — resolve it
     by base class."""
@@ -277,15 +277,15 @@ async def get_workspace_shared_record(current_user=Depends(get_current_user)):
 
 
 __all__ = [
-    "oauth2_scheme",
-    "oauth2_scheme_optional",
-    "hash_password",
-    "verify_password",
+    "authenticate_user",
     "create_access_token",
     "create_refresh_token",
-    "authenticate_user",
     "get_current_user",
-    "get_optional_current_user",
     "get_current_workspace",
+    "get_optional_current_user",
     "get_workspace_shared_record",
+    "hash_password",
+    "oauth2_scheme",
+    "oauth2_scheme_optional",
+    "verify_password",
 ]

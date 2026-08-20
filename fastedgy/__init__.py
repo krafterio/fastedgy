@@ -2,7 +2,6 @@
 # MIT License (see LICENSE file).
 
 import importlib
-
 from typing import TYPE_CHECKING, Any
 
 # Submodules are imported lazily (PEP 562): importing ``fastedgy`` no longer pulls
@@ -33,21 +32,51 @@ _SUBMODULES = frozenset(
 if TYPE_CHECKING:
     from fastedgy import (
         api_route_model as api_route_model,
-        cli as cli,
-        metadata_model as metadata_model,
-        orm as orm,
-        schemas as schemas,
+    )
+    from fastedgy import (
         app as app,
-        config as config,
-        context as context,
-        dataflow as dataflow,
-        dependencies as dependencies,
+    )
+    from fastedgy import (
         bus as bus,
+    )
+    from fastedgy import (
+        cli as cli,
+    )
+    from fastedgy import (
+        config as config,
+    )
+    from fastedgy import (
+        context as context,
+    )
+    from fastedgy import (
+        dataflow as dataflow,
+    )
+    from fastedgy import (
+        dependencies as dependencies,
+    )
+    from fastedgy import (
         http as http,
-        modules as modules,
-        logger as logger,
-        storage as storage,
+    )
+    from fastedgy import (
         lifecycle as lifecycle,
+    )
+    from fastedgy import (
+        logger as logger,
+    )
+    from fastedgy import (
+        metadata_model as metadata_model,
+    )
+    from fastedgy import (
+        modules as modules,
+    )
+    from fastedgy import (
+        orm as orm,
+    )
+    from fastedgy import (
+        schemas as schemas,
+    )
+    from fastedgy import (
+        storage as storage,
     )
 
 
@@ -66,19 +95,19 @@ def __dir__() -> list[str]:
 
 __all__ = [
     "api_route_model",
-    "cli",
-    "metadata_model",
-    "orm",
-    "schemas",
     "app",
+    "bus",
+    "cli",
     "config",
     "context",
     "dataflow",
     "dependencies",
-    "bus",
     "http",
-    "modules",
-    "logger",
-    "storage",
     "lifecycle",
+    "logger",
+    "metadata_model",
+    "modules",
+    "orm",
+    "schemas",
+    "storage",
 ]

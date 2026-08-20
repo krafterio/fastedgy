@@ -4,9 +4,10 @@
 import asyncio
 import logging
 import random
+from collections.abc import Awaitable, Callable, Coroutine
 from contextvars import ContextVar
 from functools import wraps
-from typing import Any, Awaitable, Callable, Coroutine, TypeVar, overload
+from typing import Any, TypeVar, overload
 
 from sqlalchemy.exc import DBAPIError
 
@@ -360,14 +361,14 @@ def transaction(
 
 
 __all__ = [
+    "is_disconnect_error",
+    "is_serialization_error",
+    "retry_on_serialization",
     "transaction",
     "with_transaction",
-    "retry_on_serialization",
-    "is_serialization_error",
-    "is_disconnect_error",
 ]
 
-_side_effect_tasks: set["asyncio.Task"] = set()
+_side_effect_tasks: set[asyncio.Task] = set()
 
 
 def run_signal_side_effect(op: Callable[[], Awaitable[Any]], label: str) -> None:

@@ -3,7 +3,6 @@
 
 import io
 import os
-
 from contextlib import redirect_stderr, redirect_stdout
 from glob import glob
 

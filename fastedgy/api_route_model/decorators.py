@@ -1,25 +1,26 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import Type, Callable, TypeVar, Union, Sequence, cast
+from collections.abc import Callable, Sequence
 from enum import Enum
+from typing import TypeVar, cast
 
 from fastapi.params import Depends
+
 from fastedgy.api_route_model.registry import (
     CONSOLE_ROUTE_MODEL_REGISTRY_TOKEN,
-    RouteModelRegistry,
     RouteModelOptions,
     RouteModelOptionsValue,
+    RouteModelRegistry,
 )
-from fastedgy.dependencies import get_service, Token
+from fastedgy.dependencies import Token, get_service
 from fastedgy.models.base import BaseModel, BaseView
-
 
 M = TypeVar("M", bound=type[BaseModel | BaseView])
 
 
 def build_api_route_model_decorator(
-    default_registry: Type[RouteModelRegistry] | Token[RouteModelRegistry],
+    default_registry: type[RouteModelRegistry] | Token[RouteModelRegistry],
 ) -> Callable[..., Callable[[M], M]]:
     """
     Factory function to build an API route model decorator.
@@ -33,10 +34,10 @@ def build_api_route_model_decorator(
 
     def decorator_factory(
         prefix: str | None = None,
-        tags: list[Union[str, Enum]] | None = None,
+        tags: list[str | Enum] | None = None,
         dependencies: Sequence[Depends] | None = None,
         actions: dict[str, RouteModelOptionsValue] | None = None,
-        registry: Type[RouteModelRegistry] | Token[RouteModelRegistry] | None = None,
+        registry: type[RouteModelRegistry] | Token[RouteModelRegistry] | None = None,
         **kwargs: RouteModelOptionsValue,
     ) -> Callable[[M], M]:
         """
@@ -115,8 +116,8 @@ admin_api_route_model = console_api_route_model
 
 
 __all__ = [
-    "build_api_route_model_decorator",
-    "api_route_model",
-    "console_api_route_model",
     "admin_api_route_model",
+    "api_route_model",
+    "build_api_route_model_decorator",
+    "console_api_route_model",
 ]

@@ -1,9 +1,9 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from fastedgy.orm import fields
-from fastedgy.models.attachment import AttachmentPathMixin
 from fastedgy.api_route_model import api_route_model
+from fastedgy.models.attachment import AttachmentPathMixin
+from fastedgy.orm import fields
 
 
 @api_route_model()

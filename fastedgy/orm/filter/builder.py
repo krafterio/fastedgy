@@ -5,50 +5,64 @@ from typing import Any, cast
 
 from sqlalchemy import (
     Text as SaText,
+)
+from sqlalchemy import (
     Uuid as SaUuid,
+)
+from sqlalchemy import (
     and_ as sa_and,
+)
+from sqlalchemy import (
     cast as sa_cast,
+)
+from sqlalchemy import (
     exists,
-    not_ as sa_not,
-    or_ as sa_or,
-    select as sa_select,
     literal_column,
     text,
+)
+from sqlalchemy import (
+    not_ as sa_not,
+)
+from sqlalchemy import (
+    or_ as sa_or,
+)
+from sqlalchemy import (
+    select as sa_select,
 )
 
 from fastedgy.orm import Model
 from fastedgy.orm.fields import (
     BaseFieldType,
-    IntegerField,
-    UUIDField,
     DateField,
     DateTimeField,
     DecimalField,
     FloatField,
+    IntegerField,
     ManyToMany,
+    UUIDField,
     generic_target_name,
     resolve_generic_pair,
 )
-from fastedgy.orm.query import QuerySet
-from fastedgy.orm.manager import BaseManager
-from fastedgy.orm.utils import find_primary_key_field
-from fastedgy.orm.filter.types import (
-    InvalidFilterError,
-    FilterRule,
-    FilterCondition,
-    Filter,
-    FilterTuple,
-)
+from fastedgy.orm.fields.field_fulltext import get_pg_language
 from fastedgy.orm.filter.operators import (
-    FILTER_OPERATORS_SQL,
     FILTER_DICT_OPERATORS_SQL,
+    FILTER_OPERATORS_SQL,
     FILTER_OPERATORS_SQL_UNPACK,
 )
 from fastedgy.orm.filter.parser import parse_filter_input
-from fastedgy.orm.filter.validator import validate_filters
-from fastedgy.orm.filter.utils import _has_duplicating_relation_filter, _convert_value
 from fastedgy.orm.filter.search_parser import parse_search_input
-from fastedgy.orm.fields.field_fulltext import get_pg_language
+from fastedgy.orm.filter.types import (
+    Filter,
+    FilterCondition,
+    FilterRule,
+    FilterTuple,
+    InvalidFilterError,
+)
+from fastedgy.orm.filter.utils import _convert_value, _has_duplicating_relation_filter
+from fastedgy.orm.filter.validator import validate_filters
+from fastedgy.orm.manager import BaseManager
+from fastedgy.orm.query import QuerySet
+from fastedgy.orm.utils import find_primary_key_field
 
 
 def _get_cond_query(model_cls: type[Model]) -> QuerySet:
@@ -138,7 +152,7 @@ def build_filter_expression(
 
         related_columns = getattr(field_type, "related_columns", None)
         if related_columns:
-            field += "." + list(related_columns.keys())[0]
+            field += "." + next(iter(related_columns.keys()))
 
         column = _find_column_in_model(model_cls, field)
         value = _convert_value_by_field_type(model_cls, field, filters.value)
@@ -310,7 +324,7 @@ def relation_path_source(model_cls: type[Model], resolved_field: str) -> tuple[A
         elif hasattr(field_info, "target"):
             # Forward FK
             related_model = getattr(field_info, "target")
-            pk_col = list(getattr(field_info, "related_columns").keys())[0]
+            pk_col = next(iter(getattr(field_info, "related_columns").keys()))
 
             if from_table is None:
                 from_table = related_model.table
@@ -384,7 +398,7 @@ def _build_exists_expression(model_cls: type[Model], filters: FilterRule) -> Any
     # EXISTS, and that JOIN drops the very rows "is empty" is meant to match
     # (the target row does not exist), making the predicate unsatisfiable.
     if related_columns and filters.operator not in _NULLABILITY_OPERATORS:
-        resolved_field += "." + list(related_columns.keys())[0]
+        resolved_field += "." + next(iter(related_columns.keys()))
 
     source = relation_path_source(model_cls, resolved_field)
 
@@ -543,7 +557,7 @@ def _build_fulltext_search_expression(model_cls: type[Model], field_path: str, v
     Build a fulltext search WHERE expression:
     tablename.column_locale @@ to_tsquery('language', unaccent('parsed_tsquery'))
     """
-    target_cls, tablename, field_name = _resolve_fulltext_field(model_cls, field_path)
+    _target_cls, tablename, field_name = _resolve_fulltext_field(model_cls, field_path)
     locale = _get_fulltext_locale()
     pg_language = get_pg_language(locale)
     column_name = f"{field_name}_{locale}"
@@ -585,7 +599,7 @@ def _build_fulltext_fuzzy_expression(model_cls: type[Model], field_path: str, va
     """
     from fastedgy.orm.filter.search_parser import _tokenize
 
-    target_cls, tablename, field_name = _resolve_fulltext_field(model_cls, field_path)
+    _target_cls, tablename, field_name = _resolve_fulltext_field(model_cls, field_path)
     locale = _get_fulltext_locale()
     pg_language = get_pg_language(locale)
     column_name = f"{field_name}_{locale}"
@@ -720,7 +734,7 @@ def _add_fulltext_rank_extra_select(query: QuerySet, filters: Filter | None) -> 
     pg_language = get_pg_language(locale)
 
     for field_path, tsqueries in search_rules.items():
-        target_cls, tablename, field_name = _resolve_fulltext_field(query.model_class, field_path)
+        _target_cls, tablename, field_name = _resolve_fulltext_field(query.model_class, field_path)
         column_name = f"{field_name}_{locale}"
         qualified_column = f"{tablename}.{column_name}"
         label_name = f"_{field_path}_rank"
@@ -862,9 +876,9 @@ def _find_field_type_in_model(model_cls: type[Model], field_path: str) -> type[B
 
     for i, part in enumerate(field_parts):
         if i == 0 and part.startswith("extra_"):
-            from fastedgy.models.workspace_extra_field import EXTRA_FIELDS_MAP
-            from fastedgy.metadata_model.generator import generate_metadata_name
             from fastedgy import context
+            from fastedgy.metadata_model.generator import generate_metadata_name
+            from fastedgy.models.workspace_extra_field import EXTRA_FIELDS_MAP
 
             if "extra" in model_cls.meta.fields:
                 extra_field_name = part[6:]
@@ -979,11 +993,11 @@ def _convert_value_by_field_type(model_cls: type[Model], field_path: str, value:
 
     for part in parts:
         if field_path.startswith("extra_"):
-            from fastedgy.metadata_model.generator import generate_metadata_name
             from fastedgy import context
+            from fastedgy.metadata_model.generator import generate_metadata_name
             from fastedgy.models.workspace_extra_field import (
-                EXTRA_FIELDS_MAP,
                 EXTRA_FIELD_TYPE_OPTIONS,
+                EXTRA_FIELDS_MAP,
             )
 
             extra_field_name = field_path[6:]
@@ -1010,7 +1024,7 @@ def _convert_value_by_field_type(model_cls: type[Model], field_path: str, value:
     if isinstance(field, (DateField, DateTimeField)):
         from datetime import datetime
 
-        return _convert_value(value, lambda val: datetime.fromisoformat(val.replace("Z", "+00:00")))
+        return _convert_value(value, lambda val: datetime.fromisoformat(val))
     elif isinstance(field, IntegerField):
         return _convert_value(value, lambda val: int(val))
     elif isinstance(field, (FloatField, DecimalField)):

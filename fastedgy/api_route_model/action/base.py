@@ -2,13 +2,12 @@
 # MIT License (see LICENSE file).
 
 from abc import ABC, abstractmethod
-from typing import Type
 
 from fastapi import APIRouter
 
 from fastedgy.api_route_model.registry import (
-    RouteModelOptions,
     RouteModelActionOptions,
+    RouteModelOptions,
     TypeModel,
 )
 
@@ -31,7 +30,6 @@ class BaseApiRouteAction(ABC):
             model_cls: The Edgy model class
             options: Configuration options for this route
         """
-        pass
 
     @classmethod
     def should_register(cls, options: RouteModelOptions) -> bool:
@@ -50,9 +48,9 @@ class BaseApiRouteAction(ABC):
 class ApiRouteActionRegistry:
     """Registry for api route actions."""
 
-    _actions: dict[str, Type[BaseApiRouteAction]] = {}
+    _actions: dict[str, type[BaseApiRouteAction]] = {}
 
-    def register_action(self, action_cls: Type[BaseApiRouteAction]) -> None:
+    def register_action(self, action_cls: type[BaseApiRouteAction]) -> None:
         """
         Register an action class.
 
@@ -70,7 +68,7 @@ class ApiRouteActionRegistry:
 
         self._actions[action_cls.name] = action_cls
 
-    def get_action(self, name: str) -> Type[BaseApiRouteAction]:
+    def get_action(self, name: str) -> type[BaseApiRouteAction]:
         """
         Get an action by name.
 
@@ -88,7 +86,7 @@ class ApiRouteActionRegistry:
 
         return self._actions[name]
 
-    def get_all_actions(self) -> dict[str, Type[BaseApiRouteAction]]:
+    def get_all_actions(self) -> dict[str, type[BaseApiRouteAction]]:
         """
         Get all registered actions.
 
@@ -108,6 +106,6 @@ class ApiRouteActionRegistry:
 
 
 __all__ = [
-    "BaseApiRouteAction",
     "ApiRouteActionRegistry",
+    "BaseApiRouteAction",
 ]

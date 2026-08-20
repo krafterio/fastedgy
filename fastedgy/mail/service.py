@@ -2,16 +2,12 @@
 # MIT License (see LICENSE file).
 
 import logging
-
 import re
-
-import html2text
-
 from email.message import EmailMessage
 from email.utils import formataddr, parseaddr
-
 from enum import Enum
 
+import html2text
 from jinja2 import Environment, FileSystemLoader, Undefined, select_autoescape
 
 from fastedgy.config import BaseSettings
@@ -19,7 +15,6 @@ from fastedgy.dependencies import Inject
 from fastedgy.mail.adapters.base import MailAdapter
 from fastedgy.mail.adapters.mock import MockAdapter
 from fastedgy.mail.adapters.smtp import SmtpAdapter
-
 
 logger = logging.getLogger("services.mail")
 

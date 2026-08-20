@@ -1,10 +1,10 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import Callable
+from collections.abc import Callable
 
-from fastedgy.dependencies import get_service
 from fastedgy.bus.service import Bus, EventKey
+from fastedgy.dependencies import get_service
 
 
 def on_event(

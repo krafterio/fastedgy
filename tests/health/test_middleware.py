@@ -3,7 +3,6 @@
 
 import httpx
 import pytest
-
 from sqlalchemy.exc import DBAPIError
 
 from fastedgy.app import FastEdgy

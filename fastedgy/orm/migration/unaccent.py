@@ -1,8 +1,8 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from alembic.operations import Operations, MigrateOperation
 from alembic.autogenerate import renderers
+from alembic.operations import MigrateOperation, Operations
 from sqlalchemy import text
 
 
@@ -74,8 +74,8 @@ def disable_unaccent_extension() -> None:
 
 
 __all__ = [
-    "EnableUnaccentExtensionOperation",
     "DisableUnaccentExtensionOperation",
-    "enable_unaccent_extension",
+    "EnableUnaccentExtensionOperation",
     "disable_unaccent_extension",
+    "enable_unaccent_extension",
 ]

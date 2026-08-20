@@ -3,7 +3,6 @@
 
 from fastedgy.health.service import Health
 
-
 __all__ = [
     "Health",
 ]

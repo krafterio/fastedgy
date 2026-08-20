@@ -2,13 +2,12 @@
 # MIT License (see LICENSE file).
 
 from abc import ABC, abstractmethod
-
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from fastedgy.http import Request
+from fastedgy.models.base import BaseModel, BaseView
 from fastedgy.orm.query import QuerySet
 from fastedgy.schemas import Pagination
-from fastedgy.models.base import BaseModel, BaseView
 
 if TYPE_CHECKING:
     from fastapi import UploadFile
@@ -16,8 +15,6 @@ if TYPE_CHECKING:
 
 class BaseViewTransformer(ABC):
     """Base class for all view transformers."""
-
-    pass
 
 
 class PrePaginateViewTransformer(BaseViewTransformer):
@@ -86,7 +83,7 @@ class PreUploadTransformer(BaseViewTransformer):
     async def pre_upload(
         self,
         request: Request,
-        record: "BaseModel",
+        record: BaseModel,
         field: str,
         file: "UploadFile",
         ctx: dict[str, Any],
@@ -107,7 +104,7 @@ class PostUploadTransformer(BaseViewTransformer):
     async def post_upload(
         self,
         request: Request,
-        record: "BaseModel",
+        record: BaseModel,
         field: str,
         path: str,
         ctx: dict[str, Any],
@@ -152,7 +149,7 @@ class PreDeleteFileTransformer(BaseViewTransformer):
         model: str,
         model_id: int,
         field: str,
-        record: "BaseModel",
+        record: BaseModel,
         ctx: dict[str, Any],
     ) -> bool | None:
         """
@@ -174,7 +171,7 @@ class PostDeleteFileTransformer(BaseViewTransformer):
         model: str,
         model_id: int,
         field: str,
-        record: "BaseModel",
+        record: BaseModel,
         ctx: dict[str, Any],
     ) -> None: ...
 
@@ -271,20 +268,20 @@ class PostImportTransformer(BaseViewTransformer):
 
 __all__ = [
     "BaseViewTransformer",
-    "PrePaginateViewTransformer",
-    "PostPaginateViewTransformer",
-    "GetViewsTransformer",
     "GetViewTransformer",
-    "PreSaveTransformer",
-    "PostSaveTransformer",
-    "PreDeleteTransformer",
+    "GetViewsTransformer",
     "PostDeleteTransformer",
-    "PreUploadTransformer",
-    "PostUploadTransformer",
-    "PreDownloadTransformer",
     "PostDownloadTransformer",
-    "PreExportTransformer",
     "PostExportTransformer",
-    "PreImportTransformer",
     "PostImportTransformer",
+    "PostPaginateViewTransformer",
+    "PostSaveTransformer",
+    "PostUploadTransformer",
+    "PreDeleteTransformer",
+    "PreDownloadTransformer",
+    "PreExportTransformer",
+    "PreImportTransformer",
+    "PrePaginateViewTransformer",
+    "PreSaveTransformer",
+    "PreUploadTransformer",
 ]

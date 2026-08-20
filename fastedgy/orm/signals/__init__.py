@@ -2,24 +2,23 @@
 # MIT License (see LICENSE file).
 
 from edgy.core.signals import (
-    pre_save,
+    post_delete,
     post_save,
-    pre_update,
     post_update,
     pre_delete,
-    post_delete,
+    pre_save,
+    pre_update,
 )
 
-from .fulltext import register_fulltext_signals, register_all_fulltext_signals
-
+from .fulltext import register_all_fulltext_signals, register_fulltext_signals
 
 __all__ = [
-    "pre_save",
+    "post_delete",
     "post_save",
-    "pre_update",
     "post_update",
     "pre_delete",
-    "post_delete",
-    "register_fulltext_signals",
+    "pre_save",
+    "pre_update",
     "register_all_fulltext_signals",
+    "register_fulltext_signals",
 ]

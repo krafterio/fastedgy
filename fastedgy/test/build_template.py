@@ -22,9 +22,9 @@ def _has_committed_migrations() -> bool:
 
 def _autogenerate_schema() -> None:
     import edgy
-
     from alembic import command
     from edgy.cli.base import Config, revision, upgrade
+
     from fastedgy.cli.db.init import FASTEDGY_TEMPLATE_DIR, FASTEDGY_TEMPLATE_NAME
 
     migrations_dir = tempfile.mkdtemp(prefix="fastedgy-test-migrations-")

@@ -4,10 +4,10 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Callable, Iterable, Sequence, cast
+from collections.abc import Callable, Iterable, Sequence
+from typing import Any, cast
 
 import sqlalchemy
-
 from edgy.core.db.fields.base import BaseField
 from edgy.core.db.fields.types import BaseFieldType
 
@@ -15,7 +15,6 @@ from fastedgy.orm.access_guard import AccessDeniedError
 
 from .field_char import CharField
 from .field_integer import IntegerField
-
 
 GenericTargets = Callable[[], Iterable[Any]] | Iterable[Any]
 
@@ -125,7 +124,7 @@ class GenericRelation:
     the owning model plus ``add``/``remove`` helpers. Unknown attributes are
     delegated to the queryset (``all``, ``filter``, ``count``, ``limit``, ...)."""
 
-    def __init__(self, instance: Any, field: "GenericRelatedField") -> None:
+    def __init__(self, instance: Any, field: GenericRelatedField) -> None:
         self.__dict__["instance"] = instance
         self.__dict__["field"] = field
 
@@ -182,7 +181,7 @@ class GenericRelatedField(BaseField):
         super().__init__(**kwargs)
 
     @property
-    def generic_field(self) -> "GenericForeignKey":
+    def generic_field(self) -> GenericForeignKey:
         return cast("GenericForeignKey", self.related_from.meta.fields[self.generic_field_name])
 
     def get_columns(self, name: str) -> Sequence[sqlalchemy.Column]:

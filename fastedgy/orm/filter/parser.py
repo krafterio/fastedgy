@@ -1,24 +1,24 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import get_args, cast
 import json
+from typing import cast, get_args
 from urllib.parse import unquote
 
+from fastedgy.orm.filter.operators import FilterOperator
 from fastedgy.orm.filter.types import (
-    InvalidFilterError,
-    FilterRule,
+    And,
     FilterCondition,
-    FilterTuple,
-    FilterRuleTuple,
     FilterConditionTuple,
     FilterConditionType,
-    R,
-    And,
+    FilterRule,
+    FilterRuleTuple,
+    FilterTuple,
+    InvalidFilterError,
     Or,
+    R,
 )
-from fastedgy.orm.filter.operators import FilterOperator
-from fastedgy.orm.filter.utils import is_rule, is_condition
+from fastedgy.orm.filter.utils import is_condition, is_rule
 
 
 def parse_filter_input(
@@ -197,10 +197,10 @@ def create_condition_from_tuple(
 
 
 __all__ = [
-    "parse_filter_input",
-    "parse_filter_input_str",
-    "parse_filter_input_array_to_tuple",
-    "parse_filter_input_tuple",
-    "create_rule_from_tuple",
     "create_condition_from_tuple",
+    "create_rule_from_tuple",
+    "parse_filter_input",
+    "parse_filter_input_array_to_tuple",
+    "parse_filter_input_str",
+    "parse_filter_input_tuple",
 ]

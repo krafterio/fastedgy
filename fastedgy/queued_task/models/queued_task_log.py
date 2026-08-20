@@ -1,13 +1,12 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+from datetime import datetime
 from typing import TYPE_CHECKING
 
-from datetime import datetime
-
-from fastedgy.orm import fields
 from fastedgy.i18n import _ts
 from fastedgy.models.base import BaseModel
+from fastedgy.orm import fields
 
 if TYPE_CHECKING:
     from fastedgy.models.queued_task import BaseQueuedTask as QueuedTask

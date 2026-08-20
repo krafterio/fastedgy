@@ -4,20 +4,24 @@
 import json
 from copy import copy
 from functools import cache
-from typing import get_origin, Literal, Union, get_args, Any, cast
+from typing import Any, Literal, Union, cast, get_args, get_origin
 
+from edgy.core.db.fields.types import BaseFieldType
 from pydantic import (
     AliasChoices,
-    BaseModel as PydanticBaseModel,
     ConfigDict,
-    Field as PydanticFieldInfo,
     RootModel,
 )
+from pydantic import (
+    BaseModel as PydanticBaseModel,
+)
+from pydantic import (
+    Field as PydanticFieldInfo,
+)
 from pydantic_core import PydanticUndefined
-from edgy.core.db.fields.types import BaseFieldType
 
-from fastedgy.schemas import create_model
 from fastedgy.models.base import BaseModel, BaseView
+from fastedgy.schemas import create_model
 
 
 class RelationOperation(
@@ -163,10 +167,11 @@ def _extra_config(model_cls: Any) -> dict[str, Any]:
 
 def generate_input_create_model[M: BaseModel | BaseView](model_cls: type[M]) -> type[M]:
     """Generate Pydantic input model for POST with M2M/O2M support."""
-    from fastedgy.schemas import Field as PydanticField
+    from edgy.core.db.fields.foreign_keys import ForeignKey
+
     from fastedgy.api_route_model.action.relations import is_exposed_relation_field
     from fastedgy.orm.fields import resolve_registry_generic_references
-    from edgy.core.db.fields.foreign_keys import ForeignKey
+    from fastedgy.schemas import Field as PydanticField
 
     # The result is cached: generic reverse relations must be installed first,
     # whichever consumer (route registration, AI tools, admin) comes first.
@@ -280,10 +285,11 @@ def generate_input_create_model[M: BaseModel | BaseView](model_cls: type[M]) -> 
 @cache
 def generate_input_patch_model[M: BaseModel | BaseView](model_cls: type[M]) -> type[M]:
     """Generate Pydantic input model for PATCH with M2M/O2M support."""
-    from fastedgy.schemas import Field as PydanticField
+    from edgy.core.db.fields.foreign_keys import ForeignKey
+
     from fastedgy.api_route_model.action.relations import is_exposed_relation_field
     from fastedgy.orm.fields import resolve_registry_generic_references
-    from edgy.core.db.fields.foreign_keys import ForeignKey
+    from fastedgy.schemas import Field as PydanticField
 
     # The result is cached: generic reverse relations must be installed first,
     # whichever consumer (route registration, AI tools, admin) comes first.
@@ -384,13 +390,13 @@ def clean_empty_strings(item_data: BaseModel) -> None:
 
 
 __all__ = [
-    "RelationOperation",
-    "RelationInput",
+    "ForeignKeyInput",
     "ForeignKeyObject",
     "ForeignKeyOperation",
-    "ForeignKeyInput",
+    "RelationInput",
+    "RelationOperation",
+    "clean_empty_strings",
     "generate_input_create_model",
     "generate_input_patch_model",
     "optional_field_type",
-    "clean_empty_strings",
 ]

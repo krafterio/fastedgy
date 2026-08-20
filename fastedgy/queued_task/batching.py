@@ -1,7 +1,8 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import Any, AsyncIterator, Callable, Iterable
+from collections.abc import AsyncIterator, Callable, Iterable
+from typing import Any
 
 from fastedgy.dependencies import get_service
 from fastedgy.queued_task.context import get_context, set_context

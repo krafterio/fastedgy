@@ -16,25 +16,25 @@ Many-to-Many and One-to-Many fields:
 - ["clear"] - Remove all relations
 """
 
+from fastedgy.orm.relations.many import Many
 from fastedgy.orm.relations.operations import (
-    CreateOp,
-    UpdateOp,
-    DeleteOp,
-    UnlinkOp,
-    LinkOp,
-    SetOp,
     ClearOp,
+    CreateOp,
+    DeleteOp,
+    LinkOp,
     RelationOperation,
-)
-from fastedgy.orm.relations.utils import (
-    extract_id,
-    extract_id_and_values,
-    RelationOperationError,
+    SetOp,
+    UnlinkOp,
+    UpdateOp,
 )
 from fastedgy.orm.relations.processor import (
     process_relation_operations,
 )
-from fastedgy.orm.relations.many import Many
+from fastedgy.orm.relations.utils import (
+    RelationOperationError,
+    extract_id,
+    extract_id_and_values,
+)
 
 __all__ = [
     # Operations

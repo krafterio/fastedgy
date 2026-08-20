@@ -2,13 +2,12 @@
 # MIT License (see LICENSE file).
 
 import inspect
-import sqlalchemy as sa
-
 from enum import Enum
 
-from alembic.autogenerate.api import AutogenContext
-from alembic.operations import Operations, MigrateOperation
+import sqlalchemy as sa
 from alembic.autogenerate import comparators, renderers
+from alembic.autogenerate.api import AutogenContext
+from alembic.operations import MigrateOperation, Operations
 from alembic.operations.ops import UpgradeOps
 from sqlalchemy import text
 from sqlalchemy.dialects import postgresql
@@ -31,9 +30,8 @@ def process_enum_revision_directives(context, revision, directives):
     # Find all enums that will be created in this migration
     enums_being_created = set()
     for op in upgrade_ops.ops:
-        if hasattr(op, "__class__") and op.__class__.__name__ == "CreateEnumOperation":
-            if hasattr(op, "enum_name"):
-                enums_being_created.add(op.enum_name)
+        if hasattr(op, "__class__") and op.__class__.__name__ == "CreateEnumOperation" and hasattr(op, "enum_name"):
+            enums_being_created.add(op.enum_name)
 
     # Process all operations to replace sa.Enum column types with ReferenceEnum
     # (including enums that already exist in the DB and are reused by new tables)
@@ -59,10 +57,9 @@ def _replace_enum_column_types(ops, enums_being_created):
             for column in op.columns:
                 if _replace_column_enum_by_reference_enum(column, enums_being_created):
                     has_replacements = True
-        elif hasattr(op, "ops"):
-            # Recursively process nested operations (like batch operations)
-            if _replace_enum_column_types(op.ops, enums_being_created):
-                has_replacements = True
+        # Recursively process nested operations (like batch operations)
+        elif hasattr(op, "ops") and _replace_enum_column_types(op.ops, enums_being_created):
+            has_replacements = True
     return has_replacements
 
 
@@ -239,10 +236,7 @@ def _is_valid_default_value(value) -> bool:
         return False
 
     # Filter out callable defaults (functions)
-    if callable(value):
-        return False
-
-    return True
+    return not callable(value)
 
 
 def _validate_default_values(model_defaults: dict, enum_values: list[str], enum_name: str) -> None:
@@ -652,7 +646,7 @@ def render_reference_enum(_, type_):
         args.append(enum_values)
 
     if hasattr(type_, "name") and type_.name:
-        args.append(f"name={repr(type_.name)}")
+        args.append(f"name={type_.name!r}")
 
     args.append("create_type=False")
 
@@ -662,12 +656,12 @@ def render_reference_enum(_, type_):
 
 
 __all__ = [
-    "process_enum_revision_directives",
-    "compare_enums",
-    "ReplaceEnumOperation",
     "CreateEnumOperation",
     "DropEnumOperation",
-    "RenameEnumOperation",
     "ReferenceEnum",
+    "RenameEnumOperation",
+    "ReplaceEnumOperation",
+    "compare_enums",
     "create_enum_value_mapping",
+    "process_enum_revision_directives",
 ]

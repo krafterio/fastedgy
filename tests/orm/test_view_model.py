@@ -11,7 +11,6 @@ from fastedgy.dependencies import get_service
 from fastedgy.orm import Registry
 from fastedgy.orm.migration.view_model import normalize_sql
 
-
 # --- normalize_sql: parenthesis handling (no database) ---------------------
 
 

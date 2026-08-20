@@ -2,12 +2,11 @@
 # MIT License (see LICENSE file).
 
 import re
-
 from typing import Any, cast
 
 from fastedgy import context
 from fastedgy.models.base import BaseModel, BaseView
-from fastedgy.orm import Model, BaseModelType
+from fastedgy.orm import BaseModelType, Model
 from fastedgy.orm.fields import (
     BaseFieldType,
     ForeignKey,
@@ -15,10 +14,10 @@ from fastedgy.orm.fields import (
     OneToOne,
     get_searchable_fields,
 )
-from fastedgy.orm.filter import get_filter_operators, FILTER_FIELD_TYPE_NAME_MAP
+from fastedgy.orm.filter import FILTER_FIELD_TYPE_NAME_MAP, get_filter_operators
 from fastedgy.orm.utils import find_primary_key_field
-from fastedgy.schemas.dataset import MetadataModel, MetadataField
 from fastedgy.schemas import PydanticUndefined
+from fastedgy.schemas.dataset import MetadataField, MetadataModel
 
 
 class MetadataFieldError(Exception): ...
@@ -227,7 +226,7 @@ def generate_metadata_field_type(field: BaseFieldType) -> str:
     if field_type == "FieldFactoryMeta":
         field_type = field.__name__
 
-    field_type = field_type[:-5] if field_type.endswith("Field") else field_type
+    field_type = field_type.removesuffix("Field")
 
     return re.sub(r"(?<!^)(?=[A-Z])", "_", field_type).lower()
 
@@ -477,14 +476,14 @@ def _add_one_to_one_relation(
 
 __all__ = [
     "MetadataFieldError",
-    "generate_metadata_name",
-    "generate_class_name",
-    "generate_metadata_model",
-    "generate_metadata_fields",
     "add_extra_fields",
-    "get_filter_operators_for_extra_field",
-    "get_field_choices",
-    "generate_metadata_field_type",
-    "generate_metadata_field",
     "add_inverse_relations",
+    "generate_class_name",
+    "generate_metadata_field",
+    "generate_metadata_field_type",
+    "generate_metadata_fields",
+    "generate_metadata_model",
+    "generate_metadata_name",
+    "get_field_choices",
+    "get_filter_operators_for_extra_field",
 ]

@@ -1,7 +1,7 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from fastedgy.cli import argument, option, pass_cli_context, CliContext, console
+from fastedgy.cli import CliContext, argument, console, option, pass_cli_context
 from fastedgy.cli.trans import trans
 from fastedgy.config import BaseSettings
 from fastedgy.i18n import I18nExtractor

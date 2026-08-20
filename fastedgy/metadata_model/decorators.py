@@ -1,12 +1,12 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import Callable, TypeVar
+from collections.abc import Callable
+from typing import TypeVar
 
-from fastedgy.models.base import BaseModel, BaseView
 from fastedgy.dependencies import get_service
 from fastedgy.metadata_model.registry import MetadataModelRegistry
-
+from fastedgy.models.base import BaseModel, BaseView
 
 M = TypeVar("M", bound=type[BaseModel | BaseView])
 

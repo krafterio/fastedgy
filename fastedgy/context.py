@@ -1,31 +1,32 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+from collections.abc import Generator
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
-from typing import TYPE_CHECKING, Any, Generator, Union
+from typing import TYPE_CHECKING, Any
 from zoneinfo import ZoneInfo
 
 from fastedgy.timezone import get_timezone_info
 
 if TYPE_CHECKING:
     from fastedgy.http import Request
+    from fastedgy.models.user import BaseUser as User
+    from fastedgy.models.workspace import BaseWorkspace as Workspace
     from fastedgy.models.workspace_extra_field import (
         BaseWorkspaceExtraField as WorkspaceExtraField,
     )
-    from fastedgy.models.user import BaseUser as User
-    from fastedgy.models.workspace import BaseWorkspace as Workspace
     from fastedgy.models.workspace_user import BaseWorkspaceUser as WorkspaceUser
 
 
-_current_request: ContextVar[Union["Request", None]] = ContextVar("current_request", default=None)
+_current_request: "ContextVar[Request | None]" = ContextVar("current_request", default=None)
 
 
-def set_request(request: Union["Request", None]) -> Token:
+def set_request(request: "Request | None") -> Token:
     return _current_request.set(request)
 
 
-def get_request() -> Union["Request", None]:
+def get_request() -> "Request | None":
     return _current_request.get()
 
 
@@ -60,8 +61,8 @@ def set_locale(locale: str) -> None:
 
 
 def get_locale() -> str:
-    from fastedgy.dependencies import get_service
     from fastedgy.config import BaseSettings
+    from fastedgy.dependencies import get_service
 
     req = get_request()
 
@@ -71,56 +72,56 @@ def get_locale() -> str:
     return get_service(BaseSettings).fallback_locale
 
 
-def set_user(user: Union["User", None]) -> None:
+def set_user(user: "User | None") -> None:
     req = get_request()
     if req:
         req.state.user = user
 
 
-def get_user() -> Union["User", None]:
+def get_user() -> "User | None":
     req = get_request()
 
     return req.state.user if req and hasattr(req.state, "user") else None
 
 
-def get_user_id() -> Union[int, None]:
+def get_user_id() -> int | None:
     user = get_user()
     return user.id if user else None
 
 
-def set_workspace(workspace: Union["Workspace", None]) -> None:
+def set_workspace(workspace: "Workspace | None") -> None:
     req = get_request()
     if req:
         req.state.workspace = workspace
 
 
-def get_workspace() -> Union["Workspace", None]:
+def get_workspace() -> "Workspace | None":
     req = get_request()
 
     return req.state.workspace if req and hasattr(req.state, "workspace") else None
 
 
-def get_workspace_id() -> Union[int, None]:
+def get_workspace_id() -> int | None:
     workspace = get_workspace()
     return workspace.id if workspace else None
 
 
-def set_workspace_user(workspace_user: Union["WorkspaceUser", None]) -> None:
+def set_workspace_user(workspace_user: "WorkspaceUser | None") -> None:
     req = get_request()
     if req:
         req.state.workspace_user = workspace_user
 
 
-def get_workspace_user() -> Union["WorkspaceUser", None]:
+def get_workspace_user() -> "WorkspaceUser | None":
     req = get_request()
 
     return req.state.workspace_user if req and hasattr(req.state, "workspace_user") else None
 
 
 def set_workspace_extra_fields(
-    extra_fields: list["WorkspaceExtraField"] | None,
+    extra_fields: "list[WorkspaceExtraField] | None",
 ) -> None:
-    fields_map: dict[str, list["WorkspaceExtraField"]] | None = None
+    fields_map: "dict[str, list[WorkspaceExtraField]] | None" = None
 
     if extra_fields:
         fields_map = {}
@@ -143,7 +144,7 @@ def set_workspace_extra_fields(
 
 def get_workspace_extra_fields(
     model_name: str | None = None,
-) -> list["WorkspaceExtraField"]:
+) -> "list[WorkspaceExtraField]":
     req = get_request()
     all_fields = []
     current_fields = (
@@ -160,7 +161,7 @@ def get_workspace_extra_fields(
     return all_fields
 
 
-def get_map_workspace_extra_fields(model_name: str) -> dict[str, "WorkspaceExtraField"]:
+def get_map_workspace_extra_fields(model_name: str) -> "dict[str, WorkspaceExtraField]":
     fields = get_workspace_extra_fields(model_name)
 
     return {str(field.name): field for field in fields}
@@ -170,7 +171,7 @@ _params: ContextVar[dict[str, Any]] = ContextVar("context_params", default={})
 
 
 @contextmanager
-def params(**values: Any) -> Generator[None, None, None]:
+def params(**values: Any) -> Generator[None]:
     """Scope extra context parameters to a `with` block.
 
     Available anywhere via `get_param(...)` for the duration of the block
@@ -197,23 +198,23 @@ def get_params() -> dict[str, Any]:
 
 
 __all__ = [
-    "set_request",
-    "get_request",
-    "reset_request",
-    "set_timezone",
-    "get_timezone",
-    "set_locale",
     "get_locale",
-    "set_user",
-    "get_user",
-    "set_workspace",
-    "get_workspace",
-    "set_workspace_user",
-    "get_workspace_user",
-    "set_workspace_extra_fields",
-    "get_workspace_extra_fields",
     "get_map_workspace_extra_fields",
-    "params",
     "get_param",
     "get_params",
+    "get_request",
+    "get_timezone",
+    "get_user",
+    "get_workspace",
+    "get_workspace_extra_fields",
+    "get_workspace_user",
+    "params",
+    "reset_request",
+    "set_locale",
+    "set_request",
+    "set_timezone",
+    "set_user",
+    "set_workspace",
+    "set_workspace_extra_fields",
+    "set_workspace_user",
 ]

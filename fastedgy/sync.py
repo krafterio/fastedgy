@@ -1,10 +1,10 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import Any, Generic, Literal, Optional, TypeVar
-
 import asyncio
 from contextlib import AbstractAsyncContextManager
+from types import TracebackType
+from typing import Generic, Literal, TypeVar
 
 T = TypeVar("T")
 
@@ -18,7 +18,7 @@ class SyncAsyncContextManager(Generic[T]):
 
     def __init__(self, async_cm: AbstractAsyncContextManager[T]) -> None:
         self.async_cm = async_cm
-        self.loop: Optional[asyncio.AbstractEventLoop] = None
+        self.loop: asyncio.AbstractEventLoop | None = None
         self.entered = False
 
     def __enter__(self) -> T:
@@ -32,9 +32,9 @@ class SyncAsyncContextManager(Generic[T]):
 
     def __exit__(
         self,
-        exc_type: Optional[type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Any,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> Literal[False]:
         """Exit the async context manager synchronously"""
         if self.entered and self.loop is not None:

@@ -1,9 +1,9 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+from fastedgy.metadata_model.generator import generate_metadata_field
 from fastedgy.orm import Model
 from fastedgy.schemas.dataset import MetadataField
-from fastedgy.metadata_model.generator import generate_metadata_field
 
 
 def get_metadata_field_from_path(model_cls: type[Model], field_path: str) -> MetadataField | None:
@@ -94,6 +94,6 @@ def get_field_label_from_path(model_cls: type[Model], field_path: str) -> str:
 
 
 __all__ = [
-    "get_metadata_field_from_path",
     "get_field_label_from_path",
+    "get_metadata_field_from_path",
 ]

@@ -4,7 +4,6 @@
 import zlib
 
 import pytest
-
 from sqlalchemy import text
 
 from fastedgy.app import FastEdgy

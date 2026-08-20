@@ -1,19 +1,18 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-import os
+import base64
 import io
 import logging
-import uuid
 import mimetypes
-import base64
-
+import os
+import uuid
+from collections.abc import AsyncIterator
 from functools import partial
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 from anyio import to_thread
-from typing import TYPE_CHECKING, Any, AsyncIterator
-
 from starlette.datastructures import UploadFile
 
 from fastedgy import context
@@ -192,11 +191,11 @@ class Storage:
     def _compute_target_size(self, ow: int, oh: int, w: int | None, h: int | None, mode: str) -> tuple[int, int, str]:
         if w and not h:
             scale = w / ow
-            th = int(round(oh * scale))
+            th = round(oh * scale)
             return w, max(1, th), "contain"
         if h and not w:
             scale = h / oh
-            tw = int(round(ow * scale))
+            tw = round(ow * scale)
             return max(1, tw), h, "contain"
 
         if not w or not h:
@@ -205,13 +204,13 @@ class Storage:
         mode = "cover" if str(mode).lower() == "cover" else "contain"
         if mode == "contain":
             scale = min(w / ow, h / oh)
-            tw = int(round(ow * scale))
-            th = int(round(oh * scale))
+            tw = round(ow * scale)
+            th = round(oh * scale)
             return max(1, tw), max(1, th), mode
         else:
             scale = max(w / ow, h / oh)
-            tw = int(round(ow * scale))
-            th = int(round(oh * scale))
+            tw = round(ow * scale)
+            th = round(oh * scale)
             return max(1, tw), max(1, th), mode
 
     def _format_from_ext(self, ext: str | None, fallback: str) -> tuple[str, str]:

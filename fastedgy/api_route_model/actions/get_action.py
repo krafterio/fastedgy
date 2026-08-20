@@ -1,25 +1,19 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import Callable, Any, cast
+from collections.abc import Callable
+from typing import Any, cast
 
 from fastapi import APIRouter, HTTPException, Path
 
-from fastedgy.i18n import _t
-from fastedgy.schemas import ErrorMessage
-from fastedgy.models.base import BaseModel, BaseView
 from fastedgy.api_route_model.action import BaseApiRouteAction
-from fastedgy.api_route_model.types import ModelItem
 from fastedgy.api_route_model.params import FieldSelectorHeader
-from fastedgy.orm.field_selector import (
-    filter_selected_fields,
-    optimize_query_filter_fields,
-)
 from fastedgy.api_route_model.registry import (
-    TypeModel,
     RouteModelActionOptions,
+    TypeModel,
     ViewTransformerRegistry,
 )
+from fastedgy.api_route_model.types import ModelItem
 from fastedgy.api_route_model.view_transformer import (
     BaseViewTransformer,
     GetViewTransformer,
@@ -27,9 +21,16 @@ from fastedgy.api_route_model.view_transformer import (
 )
 from fastedgy.dependencies import get_service
 from fastedgy.http import Request
-from fastedgy.orm.query import QuerySet
-from fastedgy.orm.manager import BaseManager
+from fastedgy.i18n import _t
+from fastedgy.models.base import BaseModel, BaseView
 from fastedgy.orm.exceptions import ObjectNotFound
+from fastedgy.orm.field_selector import (
+    filter_selected_fields,
+    optimize_query_filter_fields,
+)
+from fastedgy.orm.manager import BaseManager
+from fastedgy.orm.query import QuerySet
+from fastedgy.schemas import ErrorMessage
 
 
 class GetApiRouteAction(BaseApiRouteAction):

@@ -1,7 +1,7 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from fastedgy.cli import command, option, pass_cli_context, CliContext
+from fastedgy.cli import CliContext, command, option, pass_cli_context
 
 
 def _build_uvicorn_log_config(settings) -> dict | None:
@@ -12,6 +12,7 @@ def _build_uvicorn_log_config(settings) -> dict | None:
     formats stay backward-compatible.
     """
     import os
+
     from fastedgy.logger import LogFormat, LogOutput
 
     if settings.log_format != LogFormat.JSON:
@@ -85,8 +86,10 @@ def serve(
     """Start the development server."""
     import logging
     import os
+
     import uvicorn
-    from fastedgy.cli import console, Table, Panel, cli_json_log
+
+    from fastedgy.cli import Panel, Table, cli_json_log, console
     from fastedgy.logger import LogFormat
 
     # watchfiles logs raw pre-filter events at INFO; the reload signal comes from uvicorn.error
@@ -98,7 +101,7 @@ def serve(
     http_limit_concurrency = int(http_limit_concurrency) if http_limit_concurrency and not reload else None
 
     if http_workers is None:
-        auto_workers = int(os.environ.get("WEB_CONCURRENCY", 1))
+        auto_workers = int(os.environ.get("WEB_CONCURRENCY", "1"))
         http_workers_display = f"auto ({auto_workers})"
     else:
         http_workers_display = str(http_workers)

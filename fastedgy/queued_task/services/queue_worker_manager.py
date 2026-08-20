@@ -2,31 +2,22 @@
 # MIT License (see LICENSE file).
 
 import asyncio
-
-import signal
-
-import socket
-
 import logging
-
+import signal
+import socket
 import time
-
 from collections import Counter
-
 from datetime import datetime, timedelta
-
 from pathlib import Path
-
-from typing import TYPE_CHECKING, Optional, Dict, Any, List, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from fastedgy import context
 from fastedgy.dependencies import Inject, get_service
 from fastedgy.orm import Database, Registry, with_transaction
 from fastedgy.queued_task.config import QueuedTaskConfig
 from fastedgy.queued_task.models.queued_task import QueuedTaskState
-from fastedgy.queued_task.services.worker_pool import WorkerPool
 from fastedgy.queued_task.scheduler.cron_scheduler import CronScheduler
-
+from fastedgy.queued_task.services.worker_pool import WorkerPool
 
 if TYPE_CHECKING:
     from fastedgy.models.queued_task import BaseQueuedTask as QueuedTask
@@ -51,8 +42,8 @@ class QueueWorkerManager:
 
     def __init__(
         self,
-        max_workers: Optional[int] = None,
-        server_name: Optional[str] = None,
+        max_workers: int | None = None,
+        server_name: str | None = None,
         registry: Registry = Inject(Registry),
         config: QueuedTaskConfig = Inject(QueuedTaskConfig),
         database: Database = Inject(Database),
@@ -68,11 +59,11 @@ class QueueWorkerManager:
         # on a graceful stop, before the SQL safety-net force-marks them. Kept
         # well under the container stop_grace_period (45s in the prod compose).
         self._shutdown_cancel_grace = 10.0
-        self.manager_tasks: List[asyncio.Task] = []
-        self.worker_status_record: Optional["QueuedTaskWorker"] = None
-        self.cron_scheduler: Optional[CronScheduler] = None
+        self.manager_tasks: list[asyncio.Task] = []
+        self.worker_status_record: "QueuedTaskWorker | None" = None
+        self.cron_scheduler: CronScheduler | None = None
         self.shutdown_event = asyncio.Event()
-        self._last_retention_purge: Optional[float] = None
+        self._last_retention_purge: float | None = None
         # Per-channel running counts on THIS container (channel capacities are
         # per manager, not cluster-wide). Guarded by _claim_lock on the
         # increment side: the saturation check and the claim must be atomic,
@@ -103,7 +94,7 @@ class QueueWorkerManager:
             "polling_cycles": 0,
         }
 
-    async def start_workers(self, max_workers: Optional[int] = None, no_scheduler: bool = False) -> None:
+    async def start_workers(self, max_workers: int | None = None, no_scheduler: bool = False) -> None:
         """
         Start the worker manager system
 
@@ -417,7 +408,7 @@ class QueueWorkerManager:
                 while not self.shutdown_event.is_set():
                     try:
                         await asyncio.wait_for(self.shutdown_event.wait(), timeout=5.0)
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         pass
                     if self.shutdown_event.is_set():
                         break
@@ -447,7 +438,7 @@ class QueueWorkerManager:
                 try:
                     await asyncio.wait_for(self.shutdown_event.wait(), timeout=backoff)
                     break  # shutdown requested during backoff
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     pass
                 backoff = min(backoff * 2, 60.0)
             finally:
@@ -478,7 +469,7 @@ class QueueWorkerManager:
         dsn = f"{scheme.split('+')[0]}://{rest}"
         return await asyncpg.connect(dsn)
 
-    async def _handle_notification(self, task_info: Dict[str, Any]) -> None:
+    async def _handle_notification(self, task_info: dict[str, Any]) -> None:
         """
         Handle notification of new task
 
@@ -575,7 +566,7 @@ class QueueWorkerManager:
         except Exception as e:
             logger.error(f"Error processing pending tasks: {e}")
 
-    async def _claim_next_ready_task(self) -> Optional["QueuedTask"]:
+    async def _claim_next_ready_task(self) -> "QueuedTask | None":
         """Atomically claim the next ready task (state=enqueued and parent done) and mark it as doing.
 
         Uses SELECT .. FOR UPDATE SKIP LOCKED to avoid double-claim across
@@ -595,7 +586,7 @@ class QueueWorkerManager:
         load happens outside the lock — the claim RETURNINGs the channel so
         the counter does not need the loaded model.
         """
-        claimed_id: Optional[int] = None
+        claimed_id: int | None = None
         claimed_channel = "default"
         try:
             async with self._claim_lock:
@@ -644,7 +635,7 @@ class QueueWorkerManager:
                         )
 
                 claim_job = asyncio.create_task(_do_claim())
-                done, pending = await asyncio.wait({claim_job}, timeout=15)
+                _done, pending = await asyncio.wait({claim_job}, timeout=15)
                 if pending:
                     # Deliberate abandon: cancel without awaiting (the rollback
                     # of a black-holed connection can itself hang). If the
@@ -999,9 +990,9 @@ class QueueWorkerManager:
             )
             if parent_state == QueuedTaskState.failed.name:
                 new_state = QueuedTaskState.failed
-                exception_name: Optional[str] = "ParentTaskFailed"
-                exception_message: Optional[str] = f"Parent task {parent_id} failed"
-                exception_info: Optional[str] = f"Parent task '{parent_name}' failed, cascading to descendants"
+                exception_name: str | None = "ParentTaskFailed"
+                exception_message: str | None = f"Parent task {parent_id} failed"
+                exception_info: str | None = f"Parent task '{parent_name}' failed, cascading to descendants"
             else:
                 new_state = QueuedTaskState.cancelled
                 exception_name = None
@@ -1087,9 +1078,9 @@ class QueueWorkerManager:
         self,
         root_task_id: int,
         new_state: QueuedTaskState,
-        exception_name: Optional[str] = None,
-        exception_message: Optional[str] = None,
-        exception_info: Optional[str] = None,
+        exception_name: str | None = None,
+        exception_message: str | None = None,
+        exception_info: str | None = None,
         max_depth: int = 100,
     ) -> int:
         """
@@ -1271,7 +1262,7 @@ class QueueWorkerManager:
                 self._notify_tasks.add(proc_task)
                 proc_task.add_done_callback(self._notify_tasks.discard)
 
-    async def get_stats(self) -> Dict[str, Any]:
+    async def get_stats(self) -> dict[str, Any]:
         """Get comprehensive manager statistics"""
         worker_stats = await self.worker_pool.get_pool_stats()
 
@@ -1442,7 +1433,7 @@ class QueueWorkerManager:
                             ),
                             timeout=20,
                         )
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         logger.warning(
                             "Heartbeat DB write timed out (20s); skipping this beat — health file stays liveness-only"
                         )
@@ -1464,7 +1455,7 @@ class QueueWorkerManager:
                     logger.error(f"Heartbeat task error: {e}")
 
     @classmethod
-    async def get_global_stats(cls) -> Dict[str, Any]:
+    async def get_global_stats(cls) -> dict[str, Any]:
         """Get global statistics across all servers"""
         try:
             # Get all alive AND running servers (heartbeat within last 2 minutes and is_running=True)

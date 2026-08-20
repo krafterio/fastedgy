@@ -5,7 +5,6 @@ import httpx
 
 from fastedgy.test.factories import authenticate, create_user
 
-
 # Users are created through the dedicated flow (ORM factory), not the generic
 # CRUD endpoint (`password` is excluded from the input model yet required). Each
 # test authenticates as one of its own seeded users to avoid polluting counts.

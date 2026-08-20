@@ -6,7 +6,6 @@ from typing import Any, Literal, TypeAlias
 from fastedgy.orm import Model
 from fastedgy.orm.query import QuerySet
 
-
 OrderByDirection: TypeAlias = Literal["asc", "desc"]
 OrderByTerm: TypeAlias = tuple[str, OrderByDirection]
 OrderByList: TypeAlias = list[OrderByTerm]
@@ -34,7 +33,8 @@ def aggregated_relation_column(model_cls: type[Model], field_path: str, descendi
     column or a forward relation, neither of which duplicates) or cannot be
     resolved.
     """
-    from sqlalchemy import func, select as sa_select
+    from sqlalchemy import func
+    from sqlalchemy import select as sa_select
 
     from fastedgy.orm.filter.builder import relation_path_source
     from fastedgy.orm.filter.utils import has_duplicating_relation_path
@@ -177,9 +177,9 @@ def _is_valid_field_path(model_cls: type[Model], field_path: str) -> bool:
 
 __all__ = [
     "OrderByDirection",
-    "OrderByTerm",
-    "OrderByList",
     "OrderByInput",
+    "OrderByList",
+    "OrderByTerm",
     "aggregated_relation_column",
     "inject_order_by",
     "parse_order_by",

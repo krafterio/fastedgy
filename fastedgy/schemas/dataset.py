@@ -2,6 +2,7 @@
 # MIT License (see LICENSE file).
 
 from typing import Any
+
 from fastedgy.schemas import BaseModel
 
 
@@ -74,8 +75,8 @@ class MetadataModel(BaseModel):
 
 
 __all__ = [
-    "ResequenceRequest",
-    "Resequence",
     "MetadataField",
     "MetadataModel",
+    "Resequence",
+    "ResequenceRequest",
 ]

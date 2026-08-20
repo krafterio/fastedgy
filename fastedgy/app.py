@@ -1,13 +1,30 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+from collections.abc import Callable, Coroutine, Sequence
+from contextlib import asynccontextmanager
+from typing import (
+    Annotated,
+    Any,
+    TypeVar,
+    cast,
+)
+from warnings import deprecated
+
 from edgy import Instance, monkay
 from fastapi import FastAPI, routing
 from fastapi.applications import AppType
 from fastapi.datastructures import Default
 from fastapi.params import Depends
-from fastapi.responses import Response, JSONResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi.utils import generate_unique_id
+from starlette.middleware import Middleware
+from starlette.requests import Request
+from starlette.routing import BaseRoute
+from starlette.types import Lifespan
+from typing_extensions import Doc
+
+import fastedgy.models.data_record  # noqa: F401
 from fastedgy.config import BaseSettings, init_settings
 from fastedgy.dependencies import (
     Token,
@@ -15,7 +32,6 @@ from fastedgy.dependencies import (
     has_service,
     register_service,
 )
-from fastedgy.logger import setup_logging
 from fastedgy.health import Health
 from fastedgy.http import (
     ContextRequestMiddleware,
@@ -24,33 +40,11 @@ from fastedgy.http import (
     TimezoneMiddleware,
 )
 from fastedgy.i18n import LocaleMiddleware
-from fastedgy.orm import Registry, Database
+from fastedgy.logger import setup_logging
+from fastedgy.orm import Database, Registry
 from fastedgy.orm.data_ref import DataRefs
 from fastedgy.orm.registry import register_lazy_models
 from fastedgy.timezone import setup_timezone
-from starlette.routing import BaseRoute
-from starlette.middleware import Middleware
-from starlette.types import Lifespan
-from starlette.requests import Request
-from contextlib import asynccontextmanager
-from typing import (
-    Annotated,
-    TypeVar,
-    Optional,
-    List,
-    Dict,
-    Any,
-    Union,
-    Type,
-    Sequence,
-    Callable,
-    Coroutine,
-    cast,
-)
-from typing_extensions import Doc, deprecated
-
-import fastedgy.models.data_record  # noqa: F401
-
 
 T = TypeVar("T")
 
@@ -72,7 +66,7 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
             ),
         ] = False,
         routes: Annotated[
-            Optional[List[BaseRoute]],
+            list[BaseRoute] | None,
             Doc(
                 """
                 **Note**: you probably shouldn't use this parameter, it is inherited
@@ -115,7 +109,7 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
             ),
         ] = "FastAPI",
         summary: Annotated[
-            Optional[str],
+            str | None,
             Doc(
                 """
                 A short summary of the API.
@@ -198,7 +192,7 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
             ),
         ] = "0.1.0",
         openapi_url: Annotated[
-            Optional[str],
+            str | None,
             Doc(
                 """
                 The URL where the OpenAPI schema will be served from.
@@ -221,7 +215,7 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
             ),
         ] = "/openapi.json",
         openapi_tags: Annotated[
-            Optional[List[Dict[str, Any]]],
+            list[dict[str, Any]] | None,
             Doc(
                 """
                 A list of tags used by OpenAPI, these are the same `tags` you can set
@@ -281,7 +275,7 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
             ),
         ] = None,
         servers: Annotated[
-            Optional[List[Dict[str, Union[str, Any]]]],
+            list[dict[str, str | Any]] | None,
             Doc(
                 """
                 A `list` of `dict`s with connectivity information to a target server.
@@ -325,7 +319,7 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
             ),
         ] = None,
         dependencies: Annotated[
-            Optional[Sequence[Depends]],
+            Sequence[Depends] | None,
             Doc(
                 """
                 A list of global dependencies, they will be applied to each
@@ -347,7 +341,7 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
             ),
         ] = None,
         default_response_class: Annotated[
-            Type[Response],
+            type[Response],
             Doc(
                 """
                 The default response class to be used.
@@ -392,7 +386,7 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
             ),
         ] = True,
         docs_url: Annotated[
-            Optional[str],
+            str | None,
             Doc(
                 """
                 The path to the automatic interactive API documentation.
@@ -416,7 +410,7 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
             ),
         ] = "/docs",
         redoc_url: Annotated[
-            Optional[str],
+            str | None,
             Doc(
                 """
                 The path to the alternative automatic interactive API documentation
@@ -440,7 +434,7 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
             ),
         ] = "/redoc",
         swagger_ui_oauth2_redirect_url: Annotated[
-            Optional[str],
+            str | None,
             Doc(
                 """
                 The OAuth2 redirect endpoint for the Swagger UI.
@@ -453,7 +447,7 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
             ),
         ] = "/docs/oauth2-redirect",
         swagger_ui_init_oauth: Annotated[
-            Optional[Dict[str, Any]],
+            dict[str, Any] | None,
             Doc(
                 """
                 OAuth2 configuration for the Swagger UI, by default shown at `/docs`.
@@ -464,7 +458,7 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
             ),
         ] = None,
         middleware: Annotated[
-            Optional[Sequence[Middleware]],
+            Sequence[Middleware] | None,
             Doc(
                 """
                 List of middleware to be added when creating the application.
@@ -478,12 +472,7 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
             ),
         ] = None,
         exception_handlers: Annotated[
-            Optional[
-                Dict[
-                    Union[int, Type[Exception]],
-                    Callable[[Request, Any], Coroutine[Any, Any, Response]],
-                ]
-            ],
+            dict[int | type[Exception], Callable[[Request, Any], Coroutine[Any, Any, Response]]] | None,
             Doc(
                 """
                 A dictionary with handlers for exceptions.
@@ -497,7 +486,7 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
             ),
         ] = None,
         on_startup: Annotated[
-            Optional[Sequence[Callable[[], Any]]],
+            Sequence[Callable[[], Any]] | None,
             Doc(
                 """
                 A list of startup event handler functions.
@@ -509,7 +498,7 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
             ),
         ] = None,
         on_shutdown: Annotated[
-            Optional[Sequence[Callable[[], Any]]],
+            Sequence[Callable[[], Any]] | None,
             Doc(
                 """
                 A list of shutdown event handler functions.
@@ -522,7 +511,7 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
             ),
         ] = None,
         lifespan: Annotated[
-            Optional[Lifespan[AppType]],
+            Lifespan[AppType] | None,
             Doc(
                 """
                 A `Lifespan` context manager handler. This replaces `startup` and
@@ -534,7 +523,7 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
             ),
         ] = None,
         terms_of_service: Annotated[
-            Optional[str],
+            str | None,
             Doc(
                 """
                 A URL to the Terms of Service for your API.
@@ -553,7 +542,7 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
             ),
         ] = None,
         contact: Annotated[
-            Optional[Dict[str, Union[str, Any]]],
+            dict[str, str | Any] | None,
             Doc(
                 """
                 A dictionary with the contact information for the exposed API.
@@ -586,7 +575,7 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
             ),
         ] = None,
         license_info: Annotated[
-            Optional[Dict[str, Union[str, Any]]],
+            dict[str, str | Any] | None,
             Doc(
                 """
                 A dictionary with the license information for the exposed API.
@@ -675,7 +664,7 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
             ),
         ] = True,
         responses: Annotated[
-            Optional[Dict[Union[int, str], Dict[str, Any]]],
+            dict[int | str, dict[str, Any]] | None,
             Doc(
                 """
                 Additional responses to be shown in OpenAPI.
@@ -691,7 +680,7 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
             ),
         ] = None,
         callbacks: Annotated[
-            Optional[List[BaseRoute]],
+            list[BaseRoute] | None,
             Doc(
                 """
                 OpenAPI callbacks that should apply to all *path operations*.
@@ -704,7 +693,7 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
             ),
         ] = None,
         webhooks: Annotated[
-            Optional[routing.APIRouter],
+            routing.APIRouter | None,
             Doc(
                 """
                 Add OpenAPI webhooks. This is similar to `callbacks` but it doesn't
@@ -720,7 +709,7 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
             ),
         ] = None,
         deprecated: Annotated[
-            Optional[bool],
+            bool | None,
             Doc(
                 """
                 Mark all *path operations* as deprecated. You probably don't need it,
@@ -748,7 +737,7 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
             ),
         ] = True,
         swagger_ui_parameters: Annotated[
-            Optional[Dict[str, Any]],
+            dict[str, Any] | None,
             Doc(
                 """
                 Parameters to configure Swagger UI, the autogenerated interactive API
@@ -806,7 +795,7 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
             ),
         ] = True,
         system_user_data_key: Annotated[
-            Optional[str],
+            str | None,
             Doc(
                 """
                 Key of the data record naming the account the application acts
@@ -995,13 +984,13 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
     def initialize(self) -> None:
         pass
 
-    def register(self, instance: T, key: Union[Type[T], Token[T], str, None] = None) -> None:
+    def register(self, instance: T, key: type[T] | Token[T] | str | None = None) -> None:
         register_service(instance, key)
 
-    def has_service(self, key: Union[Type[T], Token[T], str]) -> bool:
+    def has_service(self, key: type[T] | Token[T] | str) -> bool:
         return has_service(key)
 
-    def get_service(self, key: Union[Type[T], Token[T], str]) -> T:
+    def get_service(self, key: type[T] | Token[T] | str) -> T:
         return get_service(key)
 
 

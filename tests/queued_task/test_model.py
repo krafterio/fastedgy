@@ -1,12 +1,11 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastedgy.app import FastEdgy
 from fastedgy.queued_task.models.queued_task import QueuedTaskState
 from fastedgy.test.models.queued_task import QueuedTask
-
 
 # --- state helpers ----------------------------------------------------------
 
@@ -96,7 +95,7 @@ async def test_save_name_falls_back_for_serialized_function(setup_db: FastEdgy) 
 
 async def test_save_computes_execution_time(setup_db: FastEdgy) -> None:
     task = QueuedTask(module_name="module", function_name="func", state=QueuedTaskState.enqueued)
-    task.date_started = datetime.now(timezone.utc) - timedelta(seconds=5)
+    task.date_started = datetime.now(UTC) - timedelta(seconds=5)
     task.mark_as_done()
     await task.save()
 

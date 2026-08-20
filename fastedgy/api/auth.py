@@ -1,11 +1,15 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from fastedgy.i18n import _t
-
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, cast
 from uuid import uuid4
+
 from fastapi import APIRouter, Body, Depends, HTTPException, status
+from jose import JWTError, jwt
+
+from fastedgy import context
+from fastedgy.bus import BaseEvent, Bus
 from fastedgy.config import BaseSettings
 from fastedgy.dependencies import Inject
 from fastedgy.depends.security import (
@@ -14,6 +18,8 @@ from fastedgy.depends.security import (
     create_refresh_token,
     get_current_user,
 )
+from fastedgy.i18n import _t
+from fastedgy.mail import Mail
 from fastedgy.orm import Registry
 from fastedgy.schemas.auth import (
     ChangePasswordRequest,
@@ -26,12 +32,6 @@ from fastedgy.schemas.auth import (
     TokenRefresh,
 )
 from fastedgy.schemas.base import SimpleMessage
-from fastedgy.mail import Mail
-from fastedgy import context
-from fastedgy.bus import BaseEvent, Bus
-from jose import jwt, JWTError
-from datetime import datetime, timedelta
-
 
 if TYPE_CHECKING:
     from fastedgy.models.user import BaseUser as User
@@ -49,13 +49,9 @@ class AuthEvent(BaseEvent):
 class OnAuthLoginEvent(AuthEvent):
     """Event dispatched when a user successfully logs in"""
 
-    pass
-
 
 class OnAuthRefreshTokenEvent(AuthEvent):
     """Event dispatched when a refresh token is used to generate new tokens"""
-
-    pass
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -239,6 +235,6 @@ async def change_password(
 
 
 __all__ = [
-    "router",
     "public_router",
+    "router",
 ]

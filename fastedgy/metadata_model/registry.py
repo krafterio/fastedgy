@@ -2,8 +2,8 @@
 # MIT License (see LICENSE file).
 
 from fastedgy.metadata_model.generator import (
-    generate_metadata_model,
     add_inverse_relations,
+    generate_metadata_model,
 )
 from fastedgy.models.base import BaseModel, BaseView
 from fastedgy.schemas.dataset import MetadataModel
@@ -76,7 +76,7 @@ class MetadataModelRegistry:
 
             return self._models[model_cls]
 
-        raise ValueError(f"Model {str(model_cls)} not found in metadata registry")
+        raise ValueError(f"Model {model_cls!s} not found in metadata registry")
 
     async def get_model_from_name(self, name: str) -> type[BaseModel | BaseView] | None:
         """Resolve a model class from its metadata name or tablename."""
@@ -104,6 +104,6 @@ class MetadataModelRegistry:
 
 __all__ = [
     "MetadataModelRegistry",
-    "TypeMetadataModels",
     "TypeMapMetadataModels",
+    "TypeMetadataModels",
 ]

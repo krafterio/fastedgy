@@ -2,11 +2,11 @@
 # MIT License (see LICENSE file).
 
 import os
-
-from typing import TYPE_CHECKING, Optional, cast
+from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     from edgy import Database, Registry
+
     from fastedgy.orm import Model
 
 
@@ -47,14 +47,14 @@ class QueuedTaskConfig:
 
     # Worker configuration
     max_workers: int = int(os.environ.get("QUEUED_TASK_MAX_WORKERS", os.cpu_count() or 1))
-    worker_idle_timeout: int = int(os.environ.get("QUEUED_TASK_WORKER_IDLE_TIMEOUT", 60))  # seconds
+    worker_idle_timeout: int = int(os.environ.get("QUEUED_TASK_WORKER_IDLE_TIMEOUT", "60"))  # seconds
 
     # Manager configuration
-    polling_interval: int = int(os.environ.get("QUEUED_TASK_POLLING_INTERVAL", 2))  # seconds
-    fallback_polling_interval: int = int(os.environ.get("QUEUED_TASK_FALLBACK_POLLING_INTERVAL", 30))  # seconds
+    polling_interval: int = int(os.environ.get("QUEUED_TASK_POLLING_INTERVAL", "2"))  # seconds
+    fallback_polling_interval: int = int(os.environ.get("QUEUED_TASK_FALLBACK_POLLING_INTERVAL", "30"))  # seconds
 
     # Task execution configuration
-    task_timeout: int = int(os.environ.get("QUEUED_TASK_TIMEOUT", 300))  # 5 minutes default
+    task_timeout: int = int(os.environ.get("QUEUED_TASK_TIMEOUT", "300"))  # 5 minutes default
 
     # Bounded auto-retry budget: a task whose run fails is re-enqueued with
     # an exponential delay (30s, 2min, 8min, capped at 30min) until
@@ -63,7 +63,7 @@ class QueuedTaskConfig:
     # granted a single retry regardless (each attempt burns task_timeout
     # seconds of a worker slot). Cancelled/stopped tasks are never retried.
     # Per-task override via add_task(..., max_retries=N); 0 disables.
-    max_retries: int = int(os.environ.get("QUEUED_TASK_MAX_RETRIES", 3))
+    max_retries: int = int(os.environ.get("QUEUED_TASK_MAX_RETRIES", "3"))
 
     # Per-channel concurrency capacities ("sync:2,realtime:4"). A channel is
     # a concurrency cap, not a dedicated worker pool: the shared workers
@@ -81,8 +81,8 @@ class QueuedTaskConfig:
     # Dedicated manager DB pool sizing (bookkeeping writes: task states, logs,
     # heartbeat). Kept small and explicit — without it the pool would silently
     # fall back to SQLAlchemy defaults, ungoverned by any app configuration.
-    manager_db_pool_size: int = int(os.environ.get("QUEUED_TASK_MANAGER_DB_POOL_SIZE", 5))
-    manager_db_max_overflow: int = int(os.environ.get("QUEUED_TASK_MANAGER_DB_MAX_OVERFLOW", 5))
+    manager_db_pool_size: int = int(os.environ.get("QUEUED_TASK_MANAGER_DB_POOL_SIZE", "5"))
+    manager_db_max_overflow: int = int(os.environ.get("QUEUED_TASK_MANAGER_DB_MAX_OVERFLOW", "5"))
 
     # Liveness file for container healthchecks, touched by the manager
     # heartbeat every 30s (empty disables). Signals event-loop liveness only,
@@ -94,11 +94,11 @@ class QueuedTaskConfig:
     # (their queued_task_logs rows follow via ON DELETE CASCADE). Failed
     # tasks therefore stay inspectable/retryable within the window. 0
     # disables purging entirely.
-    retention_days: int = int(os.environ.get("QUEUED_TASK_RETENTION_DAYS", 30))
+    retention_days: int = int(os.environ.get("QUEUED_TASK_RETENTION_DAYS", "30"))
 
     # Manager registry (dedicated database connection for queue management operations)
-    _manager_registry: Optional["Registry"] = None
-    _manager_database: Optional["Database"] = None
+    _manager_registry: "Registry | None" = None
+    _manager_database: "Database | None" = None
 
     async def init_manager_registry(self) -> "Registry":
         """
@@ -113,6 +113,7 @@ class QueuedTaskConfig:
             return self._manager_registry
 
         from edgy import Database, Registry
+
         from fastedgy.dependencies import get_service
         from fastedgy.orm import Registry as MainRegistry
 
@@ -142,7 +143,7 @@ class QueuedTaskConfig:
 
         return self._manager_registry
 
-    def get_manager_registry(self) -> Optional["Registry"]:
+    def get_manager_registry(self) -> "Registry | None":
         """
         Get the manager registry if initialized.
 

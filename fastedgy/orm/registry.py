@@ -5,7 +5,6 @@ from edgy import (
     Registry,
 )
 
-
 _lazy_models: set[type] = set()
 
 

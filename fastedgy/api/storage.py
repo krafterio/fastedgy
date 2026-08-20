@@ -5,22 +5,33 @@ import json
 import re as _re
 from collections.abc import Awaitable, Callable
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, cast
 from pathlib import Path
+from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import quote
-
 
 from fastapi import APIRouter, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import ValidationError
-
-from fastedgy.http import Request
-from fastedgy.dependencies import Inject, get_service
-from fastedgy.metadata_model.registry import MetadataModelRegistry
-from starlette.responses import Response
 from starlette.datastructures import UploadFile as StarletteUploadFile
+from starlette.responses import Response
 
+from fastedgy import context
+from fastedgy.api_route_model.registry import ViewTransformerRegistry
+from fastedgy.api_route_model.view_transformer import (
+    PostDeleteFileTransformer,
+    PostDownloadTransformer,
+    PostUploadTransformer,
+    PreDeleteFileTransformer,
+    PreDownloadTransformer,
+    PreUploadTransformer,
+)
+from fastedgy.dependencies import Inject, get_service
+from fastedgy.http import Request
+from fastedgy.i18n import _t
+from fastedgy.metadata_model.registry import MetadataModelRegistry
+from fastedgy.orm import Registry
 from fastedgy.orm.exceptions import ObjectNotFound
+from fastedgy.schemas.storage import UploadedAttachments, UploadedModelField
 from fastedgy.storage import Storage
 from fastedgy.storage.routing import (
     is_global_storage_model,
@@ -28,19 +39,6 @@ from fastedgy.storage.routing import (
     resolve_workspace_for_path,
 )
 from fastedgy.sudo import SudoChecker
-from fastedgy.orm import Registry
-from fastedgy import context
-from fastedgy.schemas.storage import UploadedAttachments, UploadedModelField
-from fastedgy.i18n import _t
-from fastedgy.api_route_model.registry import ViewTransformerRegistry
-from fastedgy.api_route_model.view_transformer import (
-    PostDeleteFileTransformer,
-    PreDeleteFileTransformer,
-    PreUploadTransformer,
-    PostUploadTransformer,
-    PreDownloadTransformer,
-    PostDownloadTransformer,
-)
 
 try:
     from uuid_extensions import uuid7
@@ -203,7 +201,7 @@ def _parse_attachments_meta(raw: Any, file_keys: list[str]) -> dict[str, dict[st
 
 
 def _validated_attachment_values(
-    attachment_cls: type["BaseModel"], values: dict[str, Any] | None
+    attachment_cls: "type[BaseModel]", values: dict[str, Any] | None
 ) -> dict[str, Any] | None:
     """Validate caller-supplied attachment values against the PATCH schema.
 
@@ -240,7 +238,7 @@ def _validated_attachment_values(
     return dumped
 
 
-def _check_reference_targets(attachment_cls: type["BaseModel"], values: dict[str, Any]) -> None:
+def _check_reference_targets(attachment_cls: "type[BaseModel]", values: dict[str, Any]) -> None:
     """Reject a polymorphic reference aimed at a model the field disallows.
 
     The schema only types the reference as ``{model, id}``; the allowed targets
@@ -519,9 +517,10 @@ async def download_attachment(
         )
 
         # Check file exists
-        if not resolved_path.startswith("__cache__:"):
-            if not await storage.file_exists(resolved_path, global_storage=global_storage):
-                raise HTTPException(status_code=404, detail=_t("Attachment not found"))
+        if not resolved_path.startswith("__cache__:") and not await storage.file_exists(
+            resolved_path, global_storage=global_storage
+        ):
+            raise HTTPException(status_code=404, detail=_t("Attachment not found"))
 
         # Build filename
         served_ext = resolved_path.rsplit(".", 1)[-1] if "." in resolved_path else ""
@@ -588,9 +587,10 @@ async def download_file(
     )
 
     # Check file exists
-    if not resolved_path.startswith("__cache__:"):
-        if not await storage.file_exists(resolved_path, global_storage=global_storage):
-            raise HTTPException(status_code=404, detail=_t("File not found"))
+    if not resolved_path.startswith("__cache__:") and not await storage.file_exists(
+        resolved_path, global_storage=global_storage
+    ):
+        raise HTTPException(status_code=404, detail=_t("File not found"))
 
     for transformer in vtr.get_transformers(PostDownloadTransformer, None, None):
         resolved_path = await transformer.post_download(request, path, resolved_path, transformers_ctx)
@@ -670,6 +670,6 @@ async def _get_record(
 __all__ = [
     "attachments_router",
     "manage_attachments_router",
-    "router",
     "manage_router",
+    "router",
 ]

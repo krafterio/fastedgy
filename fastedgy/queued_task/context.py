@@ -2,10 +2,8 @@
 # MIT License (see LICENSE file).
 
 import asyncio
-
 from contextvars import ContextVar
-
-from typing import Optional, TYPE_CHECKING, Any, Dict
+from typing import TYPE_CHECKING, Any
 
 from fastedgy.dependencies import get_service
 from fastedgy.orm import Database
@@ -15,32 +13,32 @@ if TYPE_CHECKING:
 
 
 # Context variable to hold the current queues task
-current_queued_task: ContextVar[Optional["QueuedTask"]] = ContextVar("current_queued_task", default=None)
+current_queued_task: "ContextVar[QueuedTask | None]" = ContextVar("current_queued_task", default=None)
 
 
 # Context variable to hold the execution context (always available)
-current_execution_context: ContextVar[Dict[str, Any]] = ContextVar("current_execution_context", default={})
+current_execution_context: ContextVar[dict[str, Any]] = ContextVar("current_execution_context", default={})
 
 
 # Strong references to in-flight fire-and-forget context updates: the event
 # loop only keeps weak references to tasks (documented asyncio pitfall), so
 # an unreferenced update task could be garbage-collected before running.
-_pending_context_updates: "set[asyncio.Task]" = set()
+_pending_context_updates: set[asyncio.Task] = set()
 
 
-def _spawn_context_update(task: "QueuedTask", context: Dict[str, Any]) -> None:
+def _spawn_context_update(task: "QueuedTask", context: dict[str, Any]) -> None:
     """Schedule the DB context update, holding a strong reference (RUF006)."""
     t = asyncio.create_task(_update_task_context_async(task, context))
     _pending_context_updates.add(t)
     t.add_done_callback(_pending_context_updates.discard)
 
 
-def get_current_task() -> Optional["QueuedTask"]:
+def get_current_task() -> "QueuedTask | None":
     """Get the current queues task from context"""
     return current_queued_task.get()
 
 
-def set_current_task(task: Optional["QueuedTask"]) -> None:
+def set_current_task(task: "QueuedTask | None") -> None:
     """Set the current queues task in context"""
     current_queued_task.set(task)
 
@@ -120,7 +118,7 @@ def set_context(path: str, value: Any, auto_commit: bool = True) -> None:
                 pass
 
 
-async def _update_task_context_async(task: "QueuedTask", context: Dict[str, Any]) -> None:
+async def _update_task_context_async(task: "QueuedTask", context: dict[str, Any]) -> None:
     """Update task context in database asynchronously"""
     try:
         from fastedgy.queued_task.config import QueuedTaskConfig
@@ -171,12 +169,12 @@ def clear_context() -> None:
     current_execution_context.set({})
 
 
-def get_full_context() -> Dict[str, Any]:
+def get_full_context() -> dict[str, Any]:
     """Get the complete execution context as a dictionary"""
     return current_execution_context.get().copy()
 
 
-def set_full_context(context: Dict[str, Any], auto_commit: bool = True) -> None:
+def set_full_context(context: dict[str, Any], auto_commit: bool = True) -> None:
     """
     Replace the entire execution context
 
@@ -203,8 +201,8 @@ class TaskContext:
 
     def __init__(
         self,
-        task: Optional["QueuedTask"],
-        execution_context: Optional[Dict[str, Any]] = None,
+        task: "QueuedTask | None",
+        execution_context: dict[str, Any] | None = None,
     ):
         self.task = task
         self.execution_context = execution_context or (task.context if task else {})

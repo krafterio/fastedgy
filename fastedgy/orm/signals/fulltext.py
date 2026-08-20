@@ -10,8 +10,8 @@ from edgy.core.signals import post_save
 from sqlalchemy.exc import DBAPIError
 
 from fastedgy.orm.fields.field_fulltext import (
-    get_searchable_fields,
     get_pg_language,
+    get_searchable_fields,
 )
 
 logger = logging.getLogger(__name__)
@@ -41,8 +41,9 @@ async def _handle_fulltext_save(instance: Any, **kwargs: dict[str, Any]) -> None
     Recomputes tsvector inline via raw SQL.
     """
     try:
-        from fastedgy import context
         from sqlalchemy import text
+
+        from fastedgy import context
 
         model_cls = type(instance)
         searchable_fields = get_searchable_fields(model_cls)
@@ -142,7 +143,7 @@ def register_all_fulltext_signals() -> None:
 
         for model_cls in registry.models.values():
             has_fulltext = False
-            for field_name, field_info in model_cls.meta.fields.items():
+            for field_info in model_cls.meta.fields.values():
                 if getattr(field_info, "is_fulltext_field", False):
                     has_fulltext = True
                     break
@@ -157,6 +158,6 @@ def register_all_fulltext_signals() -> None:
 
 
 __all__ = [
-    "register_fulltext_signals",
     "register_all_fulltext_signals",
+    "register_fulltext_signals",
 ]

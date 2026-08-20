@@ -15,12 +15,11 @@ from typing import Any
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
-from fastedgy.app import FastEdgy
 from fastedgy.api_route_model.action import (
     generate_input_create_model,
     generate_input_patch_model,
 )
-
+from fastedgy.app import FastEdgy
 from fastedgy.test.models.product import Product  # nullable FK `category`, M2M `tags`
 
 

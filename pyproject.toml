@@ -66,7 +66,29 @@ dev = [
 line-length = 120
 
 [tool.ruff.lint]
-ignore = ["E711", "E712"]
+ignore = [
+    "ASYNC230",
+    "B039",
+    "B008",
+    "B009",
+    "B010",
+    "B023",
+    "BLE001",
+    "DTZ001",
+    "DTZ005",
+    "DTZ007",
+    "RUF012",
+    "RUF022",
+    "RUF100",
+    "S110",
+    "S112",
+    "TRY004",
+    "UP007",
+    "UP037",
+    "UP040",
+    "UP046",
+    "UP047",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

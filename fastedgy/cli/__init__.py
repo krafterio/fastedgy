@@ -1,113 +1,107 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import (
-    Any,
-    AsyncContextManager,
-    Awaitable,
-    Callable,
-    Dict,
-    Optional,
-    Type,
-    TypeVar,
-    Union,
-    cast,
-    overload,
-)
-from typing_extensions import Concatenate, ParamSpec
-
 import asyncio
 import importlib
 import inspect
 import logging
 import pkgutil
-
+from collections.abc import Awaitable, Callable
+from contextlib import AbstractAsyncContextManager
 from functools import update_wrapper
-
-# Fastedgy imports
-from fastedgy.app import FastEdgy
-from fastedgy.config import BaseSettings
-from fastedgy.dependencies import Token
-from fastedgy.sync import run_async_context_sync
+from typing import (
+    Any,
+    Concatenate,
+    ParamSpec,
+    TypeVar,
+    cast,
+    overload,
+)
 
 # Rich Click
 import rich_click as click
-from rich_click.decorators import _AnyCallable
 
 # Rich
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-# Click Core
-from rich_click import Argument as Argument, RichCommand, RichGroup
-from rich_click import Context as Context
-from rich_click import Parameter as Parameter
-
-# Click Decorators
-from rich_click import argument as argument
-from rich_click import option as option
-from rich_click import confirmation_option as confirmation_option
-from rich_click import help_option as help_option
-from rich_click import password_option as password_option
-from rich_click import version_option as version_option
+# Click Types
+from rich_click import BOOL as BOOL
+from rich_click import FLOAT as FLOAT
+from rich_click import INT as INT
+from rich_click import STRING as STRING
+from rich_click import UNPROCESSED as UNPROCESSED
+from rich_click import UUID as UUID
 
 # Click Exceptions
 from rich_click import Abort as Abort
+
+# Click Core
+from rich_click import Argument as Argument
 from rich_click import BadArgumentUsage as BadArgumentUsage
 from rich_click import BadOptionUsage as BadOptionUsage
 from rich_click import BadParameter as BadParameter
+from rich_click import Choice as Choice
 from rich_click import ClickException as ClickException
+from rich_click import Context as Context
+from rich_click import DateTime as DateTime
+from rich_click import File as File
 from rich_click import FileError as FileError
-from rich_click import MissingParameter as MissingParameter
-from rich_click import NoSuchOption as NoSuchOption
-from rich_click import UsageError as UsageError
+from rich_click import FloatRange as FloatRange
 
 # Click Formatting
 from rich_click import HelpFormatter as HelpFormatter
-from rich_click import wrap_text as wrap_text
+from rich_click import IntRange as IntRange
+from rich_click import MissingParameter as MissingParameter
+from rich_click import NoSuchOption as NoSuchOption
+from rich_click import Parameter as Parameter
+from rich_click import ParamType as ParamType
+from rich_click import Path as Path
+from rich_click import RichCommand, RichGroup
+from rich_click import Tuple as Tuple
+from rich_click import UsageError as UsageError
 
-# Click Globals
-from rich_click import get_current_context as get_current_context
+# Click Decorators
+from rich_click import argument as argument
 
 # Clck Terminal UI
 from rich_click import clear as clear
 from rich_click import confirm as confirm
+from rich_click import confirmation_option as confirmation_option
+
+# Click Utilities
+from rich_click import echo as echo
 from rich_click import echo_via_pager as echo_via_pager
 from rich_click import edit as edit
+from rich_click import format_filename as format_filename
+from rich_click import get_app_dir as get_app_dir
+from rich_click import get_binary_stream as get_binary_stream
+
+# Click Globals
+from rich_click import get_current_context as get_current_context
+from rich_click import get_text_stream as get_text_stream
 from rich_click import getchar as getchar
+from rich_click import help_option as help_option
 from rich_click import launch as launch
+from rich_click import open_file as open_file
+from rich_click import option as option
+from rich_click import password_option as password_option
 from rich_click import pause as pause
 from rich_click import progressbar as progressbar
 from rich_click import prompt as prompt
 from rich_click import secho as secho
 from rich_click import style as style
 from rich_click import unstyle as unstyle
+from rich_click import version_option as version_option
+from rich_click import wrap_text as wrap_text
+from rich_click.decorators import _AnyCallable
 
-# Click Types
-from rich_click import BOOL as BOOL
-from rich_click import Choice as Choice
-from rich_click import DateTime as DateTime
-from rich_click import File as File
-from rich_click import FLOAT as FLOAT
-from rich_click import FloatRange as FloatRange
-from rich_click import INT as INT
-from rich_click import IntRange as IntRange
-from rich_click import ParamType as ParamType
-from rich_click import Path as Path
-from rich_click import STRING as STRING
-from rich_click import Tuple as Tuple
-from rich_click import UNPROCESSED as UNPROCESSED
-from rich_click import UUID as UUID
-
-# Click Utilities
-from rich_click import echo as echo
-from rich_click import format_filename as format_filename
-from rich_click import get_app_dir as get_app_dir
-from rich_click import get_binary_stream as get_binary_stream
-from rich_click import get_text_stream as get_text_stream
-from rich_click import open_file as open_file
-
+# Fastedgy imports
+from fastedgy.app import FastEdgy
+from fastedgy.config import BaseSettings
+from fastedgy.dependencies import Token
+from fastedgy.sync import run_async_context_sync
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -117,8 +111,8 @@ CmdType = TypeVar("CmdType", bound=click.Command)
 G = TypeVar("G", bound=click.Group)
 
 
-_cli_groups: Dict[str, click.Group] = {}
-_cli_commands: Dict[str, click.Command] = {}
+_cli_groups: dict[str, click.Group] = {}
+_cli_commands: dict[str, click.Command] = {}
 
 
 logger = logging.getLogger("cli.command")
@@ -237,9 +231,9 @@ def discover_cli_commands(package_name: str) -> None:
 
 
 def find_group_name(root_group: click.Group, cmd: click.Command) -> str | None:
-    for group_name, group_command in root_group.commands.items():
+    for group_command in root_group.commands.values():
         if isinstance(group_command, click.Group):
-            for group_cmd_name, group_cmd in group_command.commands.items():
+            for group_cmd in group_command.commands.values():
                 if group_cmd is cmd:
                     return group_command.name
 
@@ -267,24 +261,24 @@ def command(name: _AnyCallable) -> Command: ...
 
 # variant: with positional name and with positional or keyword cls argument.
 @overload
-def command(name: Optional[str], cls: Type[CmdType], **attrs: Any) -> Callable[[_AnyCallable], CmdType]: ...
+def command(name: str | None, cls: type[CmdType], **attrs: Any) -> Callable[[_AnyCallable], CmdType]: ...
 
 
 # variant: name omitted, cls _must_ be a keyword argument.
 @overload
-def command(name: None = None, *, cls: Type[CmdType], **attrs: Any) -> Callable[[_AnyCallable], CmdType]: ...
+def command(name: None = None, *, cls: type[CmdType], **attrs: Any) -> Callable[[_AnyCallable], CmdType]: ...
 
 
 # variant: with optional string name, no cls argument provided -> defaults to our Command.
 @overload
-def command(name: Optional[str] = ..., cls: None = None, **attrs: Any) -> Callable[[_AnyCallable], Command]: ...
+def command(name: str | None = ..., cls: None = None, **attrs: Any) -> Callable[[_AnyCallable], Command]: ...
 
 
 def command(
-    name: Union[Optional[str], _AnyCallable] = None,
-    cls: Optional[Type[CmdType]] = None,
+    name: str | None | _AnyCallable = None,
+    cls: type[CmdType] | None = None,
     **attrs: Any,
-) -> Union[Command, Callable[[_AnyCallable], Union[RichCommand, CmdType]]]:
+) -> Command | Callable[[_AnyCallable], RichCommand | CmdType]:
     if callable(name):
         return click.command(cls=Command)(name)
 
@@ -300,8 +294,8 @@ def group(name: _AnyCallable) -> Group: ...
 # @group(namearg, GroupCls, ...) or @group(namearg, cls=GroupCls, ...)
 @overload
 def group(
-    name: Optional[str],
-    cls: Type[G],
+    name: str | None,
+    cls: type[G],
     **attrs: Any,
 ) -> Callable[[_AnyCallable], G]: ...
 
@@ -311,21 +305,21 @@ def group(
 def group(
     name: None = None,
     *,
-    cls: Type[G],
+    cls: type[G],
     **attrs: Any,
 ) -> Callable[[_AnyCallable], G]: ...
 
 
 # variant: with optional string name, no cls argument provided.
 @overload
-def group(name: Optional[str] = ..., cls: None = None, **attrs: Any) -> Callable[[_AnyCallable], Group]: ...
+def group(name: str | None = ..., cls: None = None, **attrs: Any) -> Callable[[_AnyCallable], Group]: ...
 
 
 def group(
-    name: Union[str, _AnyCallable, None] = None,
-    cls: Optional[Type[G]] = None,
+    name: str | _AnyCallable | None = None,
+    cls: type[G] | None = None,
     **attrs: Any,
-) -> Union[Group, Callable[[_AnyCallable], Union[RichGroup, G]]]:
+) -> Group | Callable[[_AnyCallable], RichGroup | G]:
     if callable(name):
         return click.group(cls=Group)(name)
 
@@ -345,19 +339,19 @@ def _current_context() -> Context:
     return ctx
 
 
-def pass_context(f: "Callable[Concatenate[Context, P], R]") -> "Callable[P, R]":
+def pass_context(f: Callable[Concatenate[Context, P], R]) -> Callable[P, R]:
     """Marks a callback as wanting to receive the current context
     object as first argument.
     """
     if inspect.iscoroutinefunction(inspect.unwrap(f)):
 
-        async def async_func(*args: "P.args", **kwargs: "P.kwargs") -> "R":
+        async def async_func(*args: P.args, **kwargs: P.kwargs) -> R:
             return await cast("Awaitable[R]", f(_current_context(), *args, **kwargs))
 
         wrapped_func = async_func
     else:
 
-        def sync_func(*args: "P.args", **kwargs: "P.kwargs") -> "R":
+        def sync_func(*args: P.args, **kwargs: P.kwargs) -> R:
             return f(_current_context(), *args, **kwargs)
 
         wrapped_func = sync_func
@@ -365,20 +359,20 @@ def pass_context(f: "Callable[Concatenate[Context, P], R]") -> "Callable[P, R]":
     return cast(Callable[P, R], update_wrapper(wrapped_func, f))
 
 
-def pass_cli_context(f: "Callable[Concatenate[CliContext, P], R]") -> "Callable[P, R]":
+def pass_cli_context(f: Callable[Concatenate[CliContext, P], R]) -> Callable[P, R]:
     """Similar to :func:`pass_context`, but only pass the object on the
     context onwards (:attr:`Context.obj`).  This is useful if that object
     represents the state of a nested system.
     """
     if inspect.iscoroutinefunction(inspect.unwrap(f)):
 
-        async def async_func(*args: "P.args", **kwargs: "P.kwargs") -> "R":
+        async def async_func(*args: P.args, **kwargs: P.kwargs) -> R:
             return await cast("Awaitable[R]", f(_current_context().obj, *args, **kwargs))
 
         wrapped_func = async_func
     else:
 
-        def sync_func(*args: "P.args", **kwargs: "P.kwargs") -> "R":
+        def sync_func(*args: P.args, **kwargs: P.kwargs) -> R:
             return f(_current_context().obj, *args, **kwargs)
 
         wrapped_func = sync_func
@@ -386,11 +380,11 @@ def pass_cli_context(f: "Callable[Concatenate[CliContext, P], R]") -> "Callable[
     return cast(Callable[P, R], update_wrapper(wrapped_func, f))
 
 
-def initialize_app(f: "Callable[P, R]") -> "Callable[P, R]":
+def initialize_app(f: Callable[P, R]) -> Callable[P, R]:
     """Automatically initialize the application."""
     if inspect.iscoroutinefunction(inspect.unwrap(f)):
 
-        async def async_func(*args: "P.args", **kwargs: "P.kwargs") -> "R":
+        async def async_func(*args: P.args, **kwargs: P.kwargs) -> R:
             ctx = _current_context().obj
             ctx.app.initialize()
             return await cast("Awaitable[R]", f(*args, **kwargs))
@@ -398,7 +392,7 @@ def initialize_app(f: "Callable[P, R]") -> "Callable[P, R]":
         wrapped_func = async_func
     else:
 
-        def sync_func(*args: "P.args", **kwargs: "P.kwargs") -> "R":
+        def sync_func(*args: P.args, **kwargs: P.kwargs) -> R:
             ctx = _current_context().obj
             ctx.app.initialize()
             return f(*args, **kwargs)
@@ -408,7 +402,7 @@ def initialize_app(f: "Callable[P, R]") -> "Callable[P, R]":
     return cast(Callable[P, R], update_wrapper(wrapped_func, f))
 
 
-def lifespan(f: "Callable[P, R]") -> "Callable[P, R]":
+def lifespan(f: Callable[P, R]) -> Callable[P, R]:
     """
     Decorator that automatically wraps the lifespan context for CLI commands.
     Allows using FastEdgy services in CLI commands without manually managing
@@ -435,7 +429,7 @@ def lifespan(f: "Callable[P, R]") -> "Callable[P, R]":
     """
     if inspect.iscoroutinefunction(inspect.unwrap(f)):
 
-        async def async_func(*args: "P.args", **kwargs: "P.kwargs") -> "R":
+        async def async_func(*args: P.args, **kwargs: P.kwargs) -> R:
             ctx = _current_context().obj
             async with ctx.lifespan():
                 return await cast("Awaitable[R]", f(*args, **kwargs))
@@ -443,7 +437,7 @@ def lifespan(f: "Callable[P, R]") -> "Callable[P, R]":
         wrapped_func = async_func
     else:
 
-        def sync_func(*args: "P.args", **kwargs: "P.kwargs") -> "R":
+        def sync_func(*args: P.args, **kwargs: P.kwargs) -> R:
             ctx = _current_context().obj
 
             with run_async_context_sync(ctx.lifespan()):
@@ -455,8 +449,8 @@ def lifespan(f: "Callable[P, R]") -> "Callable[P, R]":
 
 
 def make_pass_decorator(
-    object_type: Type[T], ensure: bool = False
-) -> Callable[["Callable[Concatenate[T, P], R]"], "Callable[P, R]"]:
+    object_type: type[T], ensure: bool = False
+) -> Callable[[Callable[Concatenate[T, P], R]], Callable[P, R]]:
     """Given an object type this creates a decorator that will work
     similar to :func:`pass_obj` but instead of passing the object of the
     current context, it will find the innermost context of type
@@ -479,10 +473,10 @@ def make_pass_decorator(
                    remembered on the context if it's not there yet.
     """
 
-    def decorator(f: "Callable[Concatenate[T, P], R]") -> "Callable[P, R]":
+    def decorator(f: Callable[Concatenate[T, P], R]) -> Callable[P, R]:
         if inspect.iscoroutinefunction(inspect.unwrap(f)):
 
-            async def async_func(*args: "P.args", **kwargs: "P.kwargs") -> "R":
+            async def async_func(*args: P.args, **kwargs: P.kwargs) -> R:
                 ctx = _current_context()
 
                 obj: T | None
@@ -503,7 +497,7 @@ def make_pass_decorator(
             wrapped_func = async_func
         else:
 
-            def sync_func(*args: "P.args", **kwargs: "P.kwargs") -> "R":
+            def sync_func(*args: P.args, **kwargs: P.kwargs) -> R:
                 ctx = _current_context()
 
                 obj: T | None
@@ -530,7 +524,7 @@ def make_pass_decorator(
 
 def pass_meta_key(
     key: str, *, doc_description: str | None = None
-) -> "Callable[[Callable[Concatenate[Any, P], R]], Callable[P, R]]":
+) -> Callable[[Callable[Concatenate[Any, P], R]], Callable[P, R]]:
     """Create a decorator that passes a key from
     :attr:`click.Context.meta` as the first argument to the decorated
     function.
@@ -543,10 +537,10 @@ def pass_meta_key(
     .. versionadded:: 8.0
     """
 
-    def decorator(f: "Callable[Concatenate[Any, P], R]") -> "Callable[P, R]":
+    def decorator(f: Callable[Concatenate[Any, P], R]) -> Callable[P, R]:
         if inspect.iscoroutinefunction(inspect.unwrap(f)):
 
-            async def async_func(*args: "P.args", **kwargs: "P.kwargs") -> R:
+            async def async_func(*args: P.args, **kwargs: P.kwargs) -> R:
                 ctx = _current_context()
                 obj = ctx.meta[key]
                 return await cast(Awaitable[R], ctx.invoke(f, obj, *args, **kwargs))
@@ -554,7 +548,7 @@ def pass_meta_key(
             wrapped_func = async_func
         else:
 
-            def sync_func(*args: "P.args", **kwargs: "P.kwargs") -> R:
+            def sync_func(*args: P.args, **kwargs: P.kwargs) -> R:
                 ctx = _current_context()
                 obj = ctx.meta[key]
                 return ctx.invoke(f, obj, *args, **kwargs)
@@ -587,13 +581,13 @@ class CliContext[S: BaseSettings = BaseSettings, A: FastEdgy = FastEdgy]:
 
         return self._app
 
-    def lifespan(self) -> AsyncContextManager:
+    def lifespan(self) -> AbstractAsyncContextManager:
         return self.app.router.lifespan_context(self.app)
 
-    def has(self, key: Union[Type[T], Token[T], str]) -> bool:
+    def has(self, key: type[T] | Token[T] | str) -> bool:
         return self.app.has_service(key)
 
-    def get(self, key: Union[Type[T], Token[T], str]) -> T:
+    def get(self, key: type[T] | Token[T] | str) -> T:
         return self.app.get_service(key)
 
 

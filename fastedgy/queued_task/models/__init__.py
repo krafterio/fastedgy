@@ -7,10 +7,9 @@ from fastedgy.queued_task.models.queued_task_log import (
     QueuedTaskLogType,
 )
 
-
 __all__ = [
-    "QueuedTaskMixin",
-    "QueuedTaskState",
     "QueuedTaskLogMixin",
     "QueuedTaskLogType",
+    "QueuedTaskMixin",
+    "QueuedTaskState",
 ]

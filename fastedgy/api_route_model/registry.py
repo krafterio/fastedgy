@@ -2,22 +2,20 @@
 # MIT License (see LICENSE file).
 
 from collections import defaultdict
-
+from collections.abc import Callable, Sequence
 from enum import Enum
+from typing import Any
 
-from typing import Type, Any, Callable, Union, Sequence
-
+from fastapi.datastructures import DefaultPlaceholder
 from fastapi.params import Depends
 from fastapi.routing import APIRoute
 from fastapi.types import IncEx
-from fastapi.datastructures import DefaultPlaceholder
-
-from fastedgy.api_route_model.view_transformer import BaseViewTransformer
-from fastedgy.dependencies import register_service, Token
-from fastedgy.models.base import BaseModel, BaseView
-
 from starlette.responses import Response
 from starlette.routing import BaseRoute
+
+from fastedgy.api_route_model.view_transformer import BaseViewTransformer
+from fastedgy.dependencies import Token, register_service
+from fastedgy.models.base import BaseModel, BaseView
 
 
 class RouteModelActionOptions(dict):
@@ -25,14 +23,14 @@ class RouteModelActionOptions(dict):
     endpoint: Callable[..., Any] | None
     response_model: Any | None
     status_code: int | None
-    tags: list[Union[str, Enum]] | None
+    tags: list[str | Enum] | None
     dependencies: Sequence[Depends] | None
     summary: str | None
     description: str | None
     response_description: str | None
-    responses: dict[Union[int, str], dict[str, Any]] | None
+    responses: dict[int | str, dict[str, Any]] | None
     deprecated: bool | None
-    methods: Union[set[str], list[str]] | None
+    methods: set[str] | list[str] | None
     operation_id: str | None
     response_model_include: IncEx | None
     response_model_exclude: IncEx | None
@@ -41,12 +39,12 @@ class RouteModelActionOptions(dict):
     response_model_exclude_defaults: bool | None
     response_model_exclude_none: bool | None
     include_in_schema: bool | None
-    response_class: Union[Type[Response], DefaultPlaceholder] | None
+    response_class: type[Response] | DefaultPlaceholder | None
     name: str | None
-    route_class_override: Type[APIRoute] | None
+    route_class_override: type[APIRoute] | None
     callbacks: list[BaseRoute] | None
     openapi_extra: dict[str, Any] | None
-    generate_unique_id_function: Union[Callable[[APIRoute], str], DefaultPlaceholder]
+    generate_unique_id_function: Callable[[APIRoute], str] | DefaultPlaceholder
 
 
 RouteModelOptionsValue = bool | RouteModelActionOptions
@@ -54,7 +52,7 @@ RouteModelOptionsValue = bool | RouteModelActionOptions
 
 class RouteModelOptions(dict):
     prefix: str | None
-    tags: list[Union[str, Enum]] | None
+    tags: list[str | Enum] | None
     dependencies: Sequence[Depends] | None
     actions: dict[str, RouteModelOptionsValue]
 
@@ -101,9 +99,9 @@ class RouteModelRegistry:
 class ViewTransformerRegistry:
     """Registry for api route view transformers."""
 
-    _transformers: defaultdict[TypeModel | None, list[BaseViewTransformer]] = defaultdict(lambda: [])
+    _transformers: defaultdict[TypeModel | None, list[BaseViewTransformer]] = defaultdict(list)
 
-    def register_transformer(self, transformer: Type[BaseViewTransformer], model_cls: TypeModel | None = None):
+    def register_transformer(self, transformer: type[BaseViewTransformer], model_cls: TypeModel | None = None):
         if not callable(transformer):
             raise ValueError("Transformer must be callable or BaseViewTransformer instance")
 
@@ -111,7 +109,7 @@ class ViewTransformerRegistry:
 
     def has_transformers[T = BaseViewTransformer](
         self,
-        transformer_cls: Type[T],
+        transformer_cls: type[T],
         model_cls: TypeModel,
         transformers: list[BaseViewTransformer] | None = None,
     ) -> bool:
@@ -119,7 +117,7 @@ class ViewTransformerRegistry:
 
     def get_transformers[T = BaseViewTransformer](
         self,
-        transformer_cls: Type[T],
+        transformer_cls: type[T],
         model_cls: TypeModel | None,
         transformers: list[BaseViewTransformer] | None = None,
     ) -> list[T]:
@@ -158,14 +156,14 @@ register_service(RouteModelRegistry, CONSOLE_ROUTE_MODEL_REGISTRY_TOKEN)
 
 
 __all__ = [
+    "ADMIN_ROUTE_MODEL_REGISTRY_TOKEN",
+    "CONSOLE_ROUTE_MODEL_REGISTRY_TOKEN",
+    "DEFAULT_ROUTE_MODEL_OPTIONS",
     "RouteModelActionOptions",
-    "RouteModelOptionsValue",
     "RouteModelOptions",
+    "RouteModelOptionsValue",
+    "RouteModelRegistry",
     "TypeModel",
     "TypeModels",
-    "CONSOLE_ROUTE_MODEL_REGISTRY_TOKEN",
-    "ADMIN_ROUTE_MODEL_REGISTRY_TOKEN",
-    "DEFAULT_ROUTE_MODEL_OPTIONS",
-    "RouteModelRegistry",
     "ViewTransformerRegistry",
 ]

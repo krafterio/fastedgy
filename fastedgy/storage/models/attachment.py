@@ -1,22 +1,21 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from enum import Enum
-from typing import TYPE_CHECKING, Union, Any, Self, cast
 import contextlib
-
-from fastedgy.models.base import BaseModel
-from fastedgy.i18n import _ts, _t
-from fastedgy.orm import Registry, fields
-from fastedgy.orm.signals import (
-    pre_save,
-    pre_update,
-    post_update,
-    pre_delete,
-    post_delete,
-)
+from enum import Enum
+from typing import TYPE_CHECKING, Any, Self, cast
 
 from fastedgy.dependencies import get_service
+from fastedgy.i18n import _t, _ts
+from fastedgy.models.base import BaseModel
+from fastedgy.orm import Registry, fields
+from fastedgy.orm.signals import (
+    post_delete,
+    post_update,
+    pre_delete,
+    pre_save,
+    pre_update,
+)
 
 try:
     from uuid_extensions import uuid7
@@ -82,7 +81,7 @@ class AttachmentMixin(BaseModel):
         label=_ts("Storage path"),
     )
 
-    parent: Union["Attachment", None] = fields.ForeignKey(
+    parent: "Attachment | None" = fields.ForeignKey(
         "Attachment",
         null=True,
         related_name="children",
@@ -444,11 +443,11 @@ __all__ = [
     "AttachmentMixin",
     "AttachmentPathMixin",
     "AttachmentType",
-    "on_pre_save",
-    "on_post_update",
-    "on_pre_update",
-    "on_pre_delete",
     "on_post_delete",
-    "register_attachment_signals",
+    "on_post_update",
+    "on_pre_delete",
+    "on_pre_save",
+    "on_pre_update",
     "register_all_attachment_signals",
+    "register_attachment_signals",
 ]

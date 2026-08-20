@@ -5,12 +5,11 @@ import logging
 from os import cpu_count
 from typing import cast
 
-from fastedgy.cli import console, Table, CliContext, cli_json_log
+from fastedgy.cli import CliContext, Table, cli_json_log, console
 from fastedgy.logger import LogFormat
-
 from fastedgy.orm import Registry
-from fastedgy.queued_task.services.queued_tasks import QueuedTasks
 from fastedgy.queued_task.services.queue_worker_manager import QueueWorkerManager
+from fastedgy.queued_task.services.queued_tasks import QueuedTasks
 
 
 async def status(ctx: CliContext):
@@ -40,7 +39,7 @@ async def status(ctx: CliContext):
             console.print(table)
 
         except Exception as e:
-            console.print(f"[red]Error checking status: {str(e)}[/red]")
+            console.print(f"[red]Error checking status: {e!s}[/red]")
 
 
 async def clear(ctx: CliContext):
@@ -60,7 +59,7 @@ async def clear(ctx: CliContext):
             console.print(f"[green]Cleared {deleted_count} pending tasks[/green]")
 
         except Exception as e:
-            console.print(f"[red]Error clearing tasks: {str(e)}[/red]")
+            console.print(f"[red]Error clearing tasks: {e!s}[/red]")
 
 
 async def start(ctx: CliContext, workers: int | None, no_scheduler: bool = False):
@@ -98,9 +97,9 @@ async def start(ctx: CliContext, workers: int | None, no_scheduler: bool = False
             # level (an info banner is filtered in error-level deployments and
             # the crash becomes invisible) and exit non-zero so the
             # orchestrator sees a failed task instead of a clean completion.
-            logging.getLogger("fastedgy.cli.queue").error(f"Error starting workers: {e}", exc_info=True)
+            logging.getLogger("fastedgy.cli.queue").exception("Error starting workers")
             if ctx.settings.log_format != LogFormat.JSON:
-                console.print(f"[red]Error starting workers: {str(e)}[/red]")
+                console.print(f"[red]Error starting workers: {e!s}[/red]")
             raise SystemExit(1)
 
 
@@ -156,7 +155,7 @@ async def stats(ctx: CliContext):
             console.print(table)
 
         except Exception as e:
-            console.print(f"[red]Error fetching statistics: {str(e)}[/red]")
+            console.print(f"[red]Error fetching statistics: {e!s}[/red]")
 
 
 async def retry(ctx: CliContext, task_ids):
@@ -174,12 +173,12 @@ async def retry(ctx: CliContext, task_ids):
                     console.print(f"[green]Task {task_id} retried with new ID: {retried_task.id}[/green]")
                     retried_count += 1
                 except Exception as e:
-                    console.print(f"[red]Failed to retry task {task_id}: {str(e)}[/red]")
+                    console.print(f"[red]Failed to retry task {task_id}: {e!s}[/red]")
 
             console.print(f"[cyan]Successfully retried {retried_count}/{len(task_ids)} tasks[/cyan]")
 
         except Exception as e:
-            console.print(f"[red]Error retrying tasks: {str(e)}[/red]")
+            console.print(f"[red]Error retrying tasks: {e!s}[/red]")
 
 
 async def servers(ctx: CliContext):
@@ -225,4 +224,4 @@ async def servers(ctx: CliContext):
             console.print(table)
 
         except Exception as e:
-            console.print(f"[red]Error fetching servers: {str(e)}[/red]")
+            console.print(f"[red]Error fetching servers: {e!s}[/red]")

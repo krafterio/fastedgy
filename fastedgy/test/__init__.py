@@ -4,10 +4,10 @@
 from typing import TYPE_CHECKING
 
 from fastedgy.test.app import (
+    API_PREFIX,
+    APP_DESCRIPTION,
     APP_TITLE,
     APP_VERSION,
-    APP_DESCRIPTION,
-    API_PREFIX,
     build_app,
     dump_openapi,
 )
@@ -37,20 +37,20 @@ _LAZY_MODELS = frozenset(
 
 if TYPE_CHECKING:
     from fastedgy.test.models import (
-        User,
-        Workspace,
-        WorkspaceUser,
-        WorkspaceExtraField,
+        ALL_MODELS,
+        DEMO_MODELS,
+        STANDARD_MODELS,
         Attachment,
+        Category,
+        Product,
         QueuedTask,
         QueuedTaskLog,
         QueuedTaskWorker,
         Tag,
-        Category,
-        Product,
-        STANDARD_MODELS,
-        DEMO_MODELS,
-        ALL_MODELS,
+        User,
+        Workspace,
+        WorkspaceExtraField,
+        WorkspaceUser,
     )
 
 
@@ -64,24 +64,24 @@ def __getattr__(name: str):
 
 
 __all__ = [
+    "ALL_MODELS",
+    "API_PREFIX",
+    "APP_DESCRIPTION",
     "APP_TITLE",
     "APP_VERSION",
-    "APP_DESCRIPTION",
-    "API_PREFIX",
-    "build_app",
-    "dump_openapi",
-    "User",
-    "Workspace",
-    "WorkspaceUser",
-    "WorkspaceExtraField",
+    "DEMO_MODELS",
+    "STANDARD_MODELS",
     "Attachment",
+    "Category",
+    "Product",
     "QueuedTask",
     "QueuedTaskLog",
     "QueuedTaskWorker",
     "Tag",
-    "Category",
-    "Product",
-    "STANDARD_MODELS",
-    "DEMO_MODELS",
-    "ALL_MODELS",
+    "User",
+    "Workspace",
+    "WorkspaceExtraField",
+    "WorkspaceUser",
+    "build_app",
+    "dump_openapi",
 ]

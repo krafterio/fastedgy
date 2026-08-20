@@ -1,22 +1,22 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from .view_model import process_view_model_revision_directives
 from .enum import process_enum_revision_directives
-from .vector import (
-    process_vector_revision_directives,
-    enable_vector_extension,
-    disable_vector_extension,
-)
-from .postgis import (
-    process_postgis_revision_directives,
-    enable_postgis_extension,
-    disable_postgis_extension,
-)
-from .unaccent import enable_unaccent_extension, disable_unaccent_extension
-from .pg_trgm import enable_pg_trgm_extension, disable_pg_trgm_extension
 from .fulltext import process_fulltext_revision_directives
+from .pg_trgm import disable_pg_trgm_extension, enable_pg_trgm_extension
+from .postgis import (
+    disable_postgis_extension,
+    enable_postgis_extension,
+    process_postgis_revision_directives,
+)
 from .system import process_system_objects_revision_directives
+from .unaccent import disable_unaccent_extension, enable_unaccent_extension
+from .vector import (
+    disable_vector_extension,
+    enable_vector_extension,
+    process_vector_revision_directives,
+)
+from .view_model import process_view_model_revision_directives
 
 
 def fastedgy_process_revision_directives(context, revision, directives):
@@ -41,18 +41,18 @@ def fastedgy_process_revision_directives(context, revision, directives):
 
 
 __all__ = [
-    "fastedgy_process_revision_directives",
-    "process_system_objects_revision_directives",
-    "process_enum_revision_directives",
-    "process_vector_revision_directives",
-    "process_postgis_revision_directives",
-    "enable_vector_extension",
-    "disable_vector_extension",
-    "enable_postgis_extension",
-    "disable_postgis_extension",
-    "process_fulltext_revision_directives",
-    "enable_unaccent_extension",
-    "disable_unaccent_extension",
-    "enable_pg_trgm_extension",
     "disable_pg_trgm_extension",
+    "disable_postgis_extension",
+    "disable_unaccent_extension",
+    "disable_vector_extension",
+    "enable_pg_trgm_extension",
+    "enable_postgis_extension",
+    "enable_unaccent_extension",
+    "enable_vector_extension",
+    "fastedgy_process_revision_directives",
+    "process_enum_revision_directives",
+    "process_fulltext_revision_directives",
+    "process_postgis_revision_directives",
+    "process_system_objects_revision_directives",
+    "process_vector_revision_directives",
 ]

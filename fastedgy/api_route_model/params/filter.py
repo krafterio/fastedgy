@@ -3,7 +3,7 @@
 
 from typing import Any
 
-from fastapi.params import Query, Header
+from fastapi.params import Header, Query
 
 
 def FilterQuery() -> Any:
@@ -24,6 +24,6 @@ def FilterHeader() -> Any:
 
 
 __all__ = [
-    "FilterQuery",
     "FilterHeader",
+    "FilterQuery",
 ]

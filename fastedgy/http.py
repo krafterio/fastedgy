@@ -5,14 +5,13 @@ import logging
 from typing import TYPE_CHECKING, cast
 
 from fastapi import Request as FastAPIRequest
-
-from fastedgy.context import set_request, reset_request, set_timezone
-from fastedgy.timezone import get_timezone
-
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import ClientDisconnect
 from starlette.responses import Response
 from starlette.types import ASGIApp
+
+from fastedgy.context import reset_request, set_request, set_timezone
+from fastedgy.timezone import get_timezone
 
 if TYPE_CHECKING:
     from fastedgy.app import FastEdgy
@@ -37,8 +36,10 @@ def is_database_unavailable(exc: BaseException) -> bool:
         AdminShutdownError,
         CannotConnectNowError,
         CrashShutdownError,
-        InterfaceError as AsyncpgInterfaceError,
         PostgresConnectionError,
+    )
+    from asyncpg.exceptions import (
+        InterfaceError as AsyncpgInterfaceError,
     )
     from sqlalchemy.exc import DBAPIError
 
@@ -190,10 +191,10 @@ class TimezoneMiddleware(BaseHTTPMiddleware):
 
 
 __all__ = [
-    "Request",
     "ContextRequestMiddleware",
     "DatabaseUnavailableMiddleware",
     "DeployAwareSerializationMiddleware",
+    "Request",
     "TimezoneMiddleware",
     "is_database_unavailable",
 ]

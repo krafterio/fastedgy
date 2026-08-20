@@ -5,7 +5,6 @@ import inspect
 import os
 import shutil
 import tempfile
-
 from collections.abc import AsyncIterator, Callable, Iterator
 from typing import Any
 
@@ -13,10 +12,8 @@ import httpx
 import pytest
 
 from fastedgy.app import FastEdgy
-
 from fastedgy.test import database
 from fastedgy.test.app import build_app, load_app
-
 
 WORKER_ID = os.environ.get("PYTEST_XDIST_WORKER", "main")
 
@@ -145,11 +142,11 @@ async def auth_http(setup_http: httpx.AsyncClient) -> httpx.AsyncClient:
 
 __all__ = [
     "anyio_backend",
-    "setup_openapi_app",
-    "setup_database",
-    "setup_app",
+    "auth_http",
     "seed_data",
+    "setup_app",
+    "setup_database",
     "setup_db",
     "setup_http",
-    "auth_http",
+    "setup_openapi_app",
 ]

@@ -1,25 +1,18 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-import os
-
-import re
-
 import importlib.util
-
+import os
+import re
 import site
-
 from dataclasses import dataclass, field
-
 from datetime import datetime
 
-from typing import Set
-
 from babel.messages import Catalog
-from babel.messages.pofile import write_po, read_po
+from babel.messages.pofile import read_po, write_po
 
-from fastedgy.config import BaseSettings
 from fastedgy import context
+from fastedgy.config import BaseSettings
 
 
 @dataclass
@@ -207,7 +200,7 @@ class I18nExtractor:
             f"Package '{package}' not found. Check the package name and ensure it's installed or available."
         )
 
-    def _extract_messages(self, server_path: str) -> Set[str]:
+    def _extract_messages(self, server_path: str) -> set[str]:
         """Extract translatable messages from Python files."""
         messages = set()
 

@@ -3,7 +3,6 @@
 
 from typing import get_args
 
-from fastedgy.app import FastEdgy
 from fastedgy.api_route_model.action import (
     generate_input_create_model,
     generate_input_patch_model,
@@ -13,7 +12,7 @@ from fastedgy.api_route_model.action.generators import (
     ForeignKeyObject,
     ForeignKeyOperation,
 )
-
+from fastedgy.app import FastEdgy
 from fastedgy.test.models.product import Product
 from fastedgy.test.models.queued_task_log import QueuedTaskLog
 

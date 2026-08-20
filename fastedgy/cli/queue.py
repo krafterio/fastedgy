@@ -8,7 +8,6 @@ from fastedgy.queued_task.cli import queue as cli_queue
 @cli.group()
 def queue():
     """Queue management commands."""
-    pass
 
 
 @queue.command()

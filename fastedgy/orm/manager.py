@@ -1,16 +1,16 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import Any
+from typing import Any, cast
 
 from edgy.core.db.models.managers import Manager, RedirectManager, BaseManager
 
-from fastedgy.orm.query import QuerySet, OrderingQuerySet
+from fastedgy.orm.query import QuerySet
 from fastedgy.orm.access_guard import ModelAction, acheck_access, check_access
 from fastedgy.orm.filter.global_filters import apply_global_filters
 
 
-class AccessControlQuerySet(OrderingQuerySet):
+class AccessControlQuerySet(QuerySet):
     """QuerySet used by the access-controlled managers: bulk writes go through
     the access guards like instance writes do. Guards receive no instance, so
     row-conditional write exemptions do not apply to bulk operations.
@@ -39,28 +39,46 @@ class AccessControlQuerySet(OrderingQuerySet):
         return await super().delete(use_models=use_models)
 
 
+class GlobalQuerySet(QuerySet):
+    """QuerySet behind ``global_query``: the query builder rules work, and they
+    reach the fields the API hides. That manager already answers for the system
+    rather than for a request, and the internal columns (subscription state,
+    sync tokens, workspace) are what a scheduler or a service filters on."""
+
+    filter_allow_excluded = True
+
+
+class GlobalManager(Manager):
+    """Manager behind ``global_query``: no access control, and no scoping, but
+    the query builder rules still work."""
+
+    queryset_class = GlobalQuerySet
+
+
 class AccessControlManager(Manager):
     queryset_class = AccessControlQuerySet
 
-    def get_queryset(self) -> QuerySet:
+    def get_queryset(self) -> AccessControlQuerySet:
         queryset = super().get_queryset()
         check_access(queryset.model_class, ModelAction.read)
-        return apply_global_filters(queryset)
+        return cast(AccessControlQuerySet, apply_global_filters(queryset))
 
 
 class AccessControlRedirectManager(RedirectManager):
     queryset_class = AccessControlQuerySet
 
-    def get_queryset(self) -> QuerySet:
+    def get_queryset(self) -> AccessControlQuerySet:
         queryset = super().get_queryset()
         check_access(queryset.model_class, ModelAction.read)
-        return apply_global_filters(queryset)
+        return cast(AccessControlQuerySet, apply_global_filters(queryset))
 
 
 __all__ = [
     "BaseManager",
     "Manager",
     "RedirectManager",
+    "GlobalManager",
+    "GlobalQuerySet",
     "AccessControlManager",
     "AccessControlQuerySet",
     "AccessControlRedirectManager",

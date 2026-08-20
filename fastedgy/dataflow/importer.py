@@ -14,6 +14,7 @@ from fastedgy.orm import transaction
 from fastedgy.schemas import BaseModel, ValidationError
 
 from fastedgy.metadata_model.utils import get_field_label_from_path
+from fastedgy.orm.filter import R
 from fastedgy.orm.query import QuerySet
 
 if TYPE_CHECKING:
@@ -549,7 +550,7 @@ async def process_row(
         # Try to find existing record
         try:
             q = query or model_cls.query
-            existing_record = await q.filter(**{identifier_field: identifier_value}).first()
+            existing_record = await q.filter(R(identifier_field, "=", identifier_value), allow_excluded=True).first()
         except (DataError, ProgrammingError) as e:
             # Handle type mismatch errors gracefully
             raise ValueError(_format_db_error_message(e, model_cls))
@@ -599,10 +600,10 @@ async def process_row(
         # UPDATE using query.update() for proper transaction handling
         try:
             q = query or model_cls.query
-            await q.filter(**{identifier_field: identifier_value}).update(**model_data)
+            await q.filter(R(identifier_field, "=", identifier_value), allow_excluded=True).update(**model_data)
 
             # Refresh the record to get updated values
-            existing_record = await q.filter(**{identifier_field: identifier_value}).first()
+            existing_record = await q.filter(R(identifier_field, "=", identifier_value), allow_excluded=True).first()
 
             # Handle relational fields
             if existing_record:

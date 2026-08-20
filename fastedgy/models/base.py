@@ -11,7 +11,7 @@ from datetime import date, datetime, time
 from fastedgy.orm import Model, Meta, fields
 from fastedgy.orm.manager import (
     BaseManager,
-    Manager,
+    GlobalManager,
     AccessControlManager,
     AccessControlRedirectManager,
 )
@@ -516,7 +516,7 @@ class BaseModel(Model, metaclass=ModelMeta):
 
     query_related = AccessControlRedirectManager(redirect_name="query")
 
-    global_query: ClassVar[BaseManager] = Manager()
+    global_query: ClassVar[BaseManager] = GlobalManager()
 
     _readonly_overrides: dict[str, Any] = PrivateAttr(default_factory=dict)
 
@@ -757,7 +757,7 @@ class BaseView(Model, metaclass=ModelMeta):
 
     query_related = AccessControlRedirectManager(redirect_name="query")
 
-    global_query: ClassVar[BaseManager] = Manager()
+    global_query: ClassVar[BaseManager] = GlobalManager()
 
     @classmethod
     def build(

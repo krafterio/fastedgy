@@ -1,10 +1,10 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import Any
+from typing import TYPE_CHECKING, Any, Self, cast
 
 from edgy.core.db.querysets import (
-    QuerySet,
+    QuerySet as BaseQuerySet,
     Q,
     and_,
     not_,
@@ -13,54 +13,92 @@ from edgy.core.db.querysets import (
 )
 
 
-class FilterQuerySet(QuerySet):
-    """Lets the query-builder rules be passed to `filter()` directly.
+class QuerySet(BaseQuerySet):
+    """The queryset every FastEdgy manager hands out.
 
-    `R`, `And` and `Or` route through `filter_query`, which validates the field
-    and the operator, resolves relation paths and dedupes the joins a to-many
-    rule would otherwise repeat. Everything else falls through to the ORM, so
-    SQLAlchemy clauses and keyword lookups keep working unchanged.
+    `filter()` takes the query-builder rules directly: `R`, `And` and `Or` route
+    through `filter_query`, which validates the field and the operator, resolves
+    relation paths and dedupes the joins a to-many rule would otherwise repeat.
+    Everything else falls through to the ORM, so SQLAlchemy clauses and keyword
+    lookups keep working unchanged.
+
+    `order_by()` also accepts a path that fans out (reverse one-to-many,
+    many-to-many). The ORM resolves every ordering term to a join, which for
+    such a path repeats the record once per related row: the page comes back
+    short and `count()` counts join rows. Those terms are kept out of the join
+    crawler and compiled to a correlated aggregate instead.
     """
 
-    def filter(self, *clauses: Any, **kwargs: Any) -> QuerySet:
+    if TYPE_CHECKING:
+        # Edgy annotates every chaining method with its own base queryset,
+        # which drops this type from the chain and makes the next `filter()`
+        # look like the ORM's. They all clone `self`, so `Self` is the honest
+        # annotation; these are declarations only, the ORM keeps the bodies.
+        def and_(self, *args: Any, **kwargs: Any) -> Self: ...
+        def batch_size(self, *args: Any, **kwargs: Any) -> Self: ...
+        def defer(self, *args: Any, **kwargs: Any) -> Self: ...
+        def distinct(self, *args: Any, **kwargs: Any) -> Self: ...
+        def exclude(self, *args: Any, **kwargs: Any) -> Self: ...
+        def exclude_secrets(self, *args: Any, **kwargs: Any) -> Self: ...
+        def extra_select(self, *args: Any, **kwargs: Any) -> Self: ...
+        def group_by(self, *args: Any, **kwargs: Any) -> Self: ...
+        def limit(self, *args: Any, **kwargs: Any) -> Self: ...
+        def local_or(self, *args: Any, **kwargs: Any) -> Self: ...
+        def lookup(self, *args: Any, **kwargs: Any) -> Self: ...
+        def not_(self, *args: Any, **kwargs: Any) -> Self: ...
+        def offset(self, *args: Any, **kwargs: Any) -> Self: ...
+        def only(self, *args: Any, **kwargs: Any) -> Self: ...
+        def or_(self, *args: Any, **kwargs: Any) -> Self: ...
+        def prefetch_related(self, *args: Any, **kwargs: Any) -> Self: ...
+        def reference_select(self, *args: Any, **kwargs: Any) -> Self: ...
+        def reverse(self, *args: Any, **kwargs: Any) -> Self: ...
+        def select_for_update(self, *args: Any, **kwargs: Any) -> Self: ...
+        def select_related(self, *args: Any, **kwargs: Any) -> Self: ...
+        def using(self, *args: Any, **kwargs: Any) -> Self: ...
+        def using_with_db(self, *args: Any, **kwargs: Any) -> Self: ...
+        def where(self, *args: Any, **kwargs: Any) -> Self: ...
+
+    filter_allow_excluded: bool = False
+    """Whether `filter()` reaches fields the API hides (`exclude=True`).
+
+    False on the scoped managers, so a rule built from request input cannot
+    name a field the model keeps off its API surface. `global_query` sets it
+    True: that manager already answers for the system, and the internal
+    columns are exactly what a scheduler or a service filters on."""
+
+    def filter(self, *clauses: Any, allow_excluded: bool | None = None, **kwargs: Any) -> "QuerySet":
         # Deferred: the filter builder imports this module.
         from fastedgy.orm.filter import FilterCondition, FilterRule, filter_query
 
         rules = [clause for clause in clauses if isinstance(clause, FilterRule | FilterCondition)]
 
         if not rules:
-            return super().filter(*clauses, **kwargs)
+            # Edgy types every chaining method as its own base queryset while it
+            # really clones `self`, so the rule-aware type survives the chain.
+            return cast(QuerySet, super().filter(*clauses, **kwargs))
 
         others = tuple(clause for clause in clauses if not isinstance(clause, FilterRule | FilterCondition))
-        queryset = super().filter(*others, **kwargs) if others or kwargs else self
+        queryset = cast(QuerySet, super().filter(*others, **kwargs)) if others or kwargs else self
+
+        excluded = self.filter_allow_excluded if allow_excluded is None else allow_excluded
 
         for rule in rules:
-            queryset = filter_query(queryset, rule)
+            queryset = filter_query(queryset, rule, allow_excluded=excluded)
 
-        return queryset
+        return cast(QuerySet, queryset)
 
-
-class OrderingQuerySet(FilterQuerySet):
-    """Adds ordering by a path that fans out (reverse one-to-many, many-to-many).
-
-    The ORM resolves every ordering term to a join, which for such a path
-    repeats the record once per related row: the page comes back short and
-    ``count()`` counts join rows. These terms are kept out of the join crawler
-    and compiled to a correlated aggregate instead, in `_prepare_order_by`.
-    """
-
-    def order_by(self, *order_by: str) -> QuerySet:
+    def order_by(self, *order_by: str) -> "QuerySet":
         aggregated = tuple(term for term in order_by if self._orders_on_aggregate(term))
 
         if not aggregated:
-            return super().order_by(*order_by)
+            return cast(QuerySet, super().order_by(*order_by))
 
         queryset = super().order_by(*(term for term in order_by if term not in aggregated))
         # The terms stay in the ordering, they just never reach the crawler that
         # would join them; `_prepare_order_by` compiles them at build time.
         queryset._order_by = order_by
 
-        return queryset
+        return cast(QuerySet, queryset)
 
     def _prepare_order_by(self, order_by: str, tables_and_models: Any) -> Any:
         column = self._rank_column(order_by)
@@ -107,9 +145,8 @@ def order_path(order_by: str) -> str:
 
 
 __all__ = [
+    "BaseQuerySet",
     "QuerySet",
-    "FilterQuerySet",
-    "OrderingQuerySet",
     "order_path",
     "Q",
     "and_",

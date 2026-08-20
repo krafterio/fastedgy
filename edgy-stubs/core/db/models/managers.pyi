@@ -1,7 +1,7 @@
 from typing import Any
 
 from edgy.core.db.models.types import BaseModelType
-from edgy.core.db.querysets.queryset import QuerySet
+from fastedgy.orm.query import QuerySet
 
 class BaseManager:
     queryset_class: type[QuerySet]

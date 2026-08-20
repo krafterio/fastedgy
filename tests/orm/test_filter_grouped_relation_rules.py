@@ -135,23 +135,51 @@ async def test_a_leaf_crossing_another_relation_joins_inside_the_subquery(setup_
     assert [row.name for row in await filter_query(FsoProduct.query, rule_split).all()] == []
 
 
-async def test_is_empty_keeps_its_own_compilation(setup_db: FastEdgy) -> None:
-    """ "is empty" over a relation means "nothing at the end of the path", which
-    has to stay the negation of an EXISTS of its own. Such a group is left on
-    the join, dedup included, and keeps that whole-relation reading rather than
-    the same-row one."""
+async def test_is_empty_folds_in_as_a_plain_null_test(setup_db: FastEdgy) -> None:
+    """The other rules already demand a related row, so "is empty" only has to
+    hold on that row. `Split` carries both values on its price-100 product, and
+    stays in; a category whose two values sit on two products does not."""
     await _seed()
+
+    await FsoProduct(name="has_sku", price=100.0, sku="SKU-9", category=await FsoCategory(name="Apart").save()).save()
+    apart = await FsoCategory.query.filter(R("name", "=", "Apart")).get()
+    await FsoProduct(name="no_sku_cheap", price=1.0, sku=None, category=apart).save()
 
     rule = And(R("products.price", "=", 100.0), R("products.sku", "is empty"))
     query = filter_query(FsoCategory.query, rule)
 
-    assert query.distinct_on == ["id"]
+    assert query.distinct_on is None
+    assert sorted(row.name for row in await query.order_by("name").all()) == ["Split", "Together", "Twice"]
 
-    # No product carries a sku, so "no product has one" holds everywhere, and
-    # `Split` comes back on the strength of its price-100 product alone. Folded
-    # into the group it would have had to be the *same* product, and `Split`
-    # would be out: that difference is why "is empty" stays on its own.
-    assert sorted(row.name for row in await query.all()) == ["Split", "Together", "Twice"]
+    # `Apart` holds price 100 and a null sku, but never on the same product.
+    assert "Apart" not in [row.name for row in await query.all()]
+
+
+async def test_a_group_of_only_is_empty_keeps_the_rows_the_path_never_reaches(setup_db: FastEdgy) -> None:
+    """The one shape where the outer join's null-extended row used to survive:
+    every rule holds on NULLs, so a record with no related row at all matched.
+    The folded EXISTS cannot express that, and gets it back as a NOT EXISTS."""
+    await _seed()
+
+    childless = await FsoCategory(name="Childless").save()
+    noted = await FsoCategory(name="Noted").save()
+    await FsoProduct(name="noted_a", price=1.0, sku=None, internal_note="kept", category=noted).save()
+    await FsoProduct(name="noted_b", price=1.0, sku="SKU-8", internal_note=None, category=noted).save()
+
+    rule = And(R("products.sku", "is empty"), R("products.internal_note", "is empty"))
+    query = filter_query(FsoCategory.query, rule, allow_excluded=True)
+
+    assert query.distinct_on is None
+
+    names = [row.name for row in await query.order_by("name").all()]
+
+    # No product at all: nothing at the end of the path, which is what every
+    # rule of the group asks for.
+    assert childless.name in names
+    assert "Empty" in names
+
+    # Both values held, but by two different products: out.
+    assert noted.name not in names
 
 
 async def test_a_group_inside_an_or_keeps_its_branch(setup_db: FastEdgy) -> None:
@@ -160,3 +188,43 @@ async def test_a_group_inside_an_or_keeps_its_branch(setup_db: FastEdgy) -> None
     rule = Or(PAIR, R("name", "=", "Empty"))
 
     assert sorted(await _categories(rule)) == ["Empty", "Together", "Twice"]
+
+
+# Every shape a relation prefix can take across a filter tree. None of them may
+# leave a DISTINCT ON behind: rules that share no AND share no join either, so
+# each compiles to its own EXISTS, and ANDed siblings to one shared EXISTS.
+SHAPES = {
+    "alone": (R("products.price", "=", 100.0), ["Split", "Together", "Twice"]),
+    "anded": (PAIR, ["Together", "Twice"]),
+    "ored": (
+        Or(R("products.price", "=", 100.0), R("products.quantity", "=", 5)),
+        ["Split", "Together", "Twice"],
+    ),
+    "and_over_or": (
+        And(R("products.price", "=", 100.0), Or(R("products.quantity", "=", 5), R("products.name", "=", "zzz"))),
+        ["Split", "Together", "Twice"],
+    ),
+    "group_inside_or": (Or(PAIR, R("name", "=", "Empty")), ["Empty", "Together", "Twice"]),
+    "group_inside_and": (And(R("name", "!=", "zzz"), PAIR), ["Together", "Twice"]),
+    "group_beside_an_or": (
+        And(
+            R("products.price", "=", 100.0),
+            R("products.quantity", "=", 5),
+            Or(R("products.name", "=", "together"), R("name", "=", "Twice")),
+        ),
+        ["Together", "Twice"],
+    ),
+}
+
+
+@pytest.mark.parametrize("shape", list(SHAPES), ids=list(SHAPES))
+async def test_no_shape_leaves_a_dedup_behind(setup_db: FastEdgy, shape: str) -> None:
+    """The regression net: a `DISTINCT ON (id)` on any of these made `order_by`
+    raise `InvalidColumnReferenceError` at the database."""
+    await _seed()
+
+    rule, expected = SHAPES[shape]
+    query = filter_query(FsoCategory.query, rule)
+
+    assert query.distinct_on is None
+    assert sorted(row.name for row in await query.order_by("-name").all()) == expected

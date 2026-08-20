@@ -59,7 +59,11 @@ from fastedgy.orm.filter.types import (
     FilterTuple,
     InvalidFilterError,
 )
-from fastedgy.orm.filter.utils import _convert_value, _has_duplicating_relation_filter
+from fastedgy.orm.filter.utils import (
+    _convert_value,
+    _has_duplicating_relation_filter,
+    has_duplicating_relation_path,
+)
 from fastedgy.orm.filter.validator import validate_filters
 from fastedgy.orm.manager import BaseManager
 from fastedgy.orm.query import QuerySet
@@ -99,7 +103,7 @@ def build_filter_expression(
     model_cls: type[Model],
     filters: FilterRule | FilterCondition | None,
     exists_paths: set[str] | None = None,
-    grouped_paths: set[str] | None = None,
+    join_paths: set[str] | None = None,
 ) -> Any | None:
     """``exists_paths`` names the fanning-out relation prefixes to compile as a
     correlated EXISTS instead of a join, so the query stops repeating a record
@@ -108,9 +112,11 @@ def build_filter_expression(
     which separate EXISTS would loosen.
 
     Several such rules are folded into one EXISTS carrying their conjunction,
-    which keeps that meaning without a join. ``grouped_paths``, when given,
-    collects the prefixes that were: what stays out of it is what still repeats
-    the record, and still needs the caller to dedupe."""
+    which keeps that meaning without a join. Rules that share no AND need share
+    no join either, so a prefix left alone in its branch compiles to its own
+    EXISTS. ``join_paths``, when given, collects the prefixes that ended up on a
+    join after all: those, and only those, still repeat the record and need the
+    caller to dedupe."""
     if filters is None:
         return None
 
@@ -144,6 +150,9 @@ def build_filter_expression(
             if expression is None:
                 raise InvalidFilterError(f"Cannot filter through the generic relation path '{field}'")
             return expression
+
+        if join_paths is not None and "." in field and has_duplicating_relation_path(model_cls, field):
+            join_paths.add(field.rsplit(".", 1)[0])
 
         use_col = field.startswith("extra_") or resolve_generic_pair(model_cls, field) is not None
         field_type = _find_field_type_in_model(model_cls, field)
@@ -185,19 +194,20 @@ def build_filter_expression(
 
     expressions = []
     grouped_rules: set[int] = set()
+    unfolded: set[str] = set()
 
     if not is_or:
         for prefix, rules in and_exists_groups(model_cls, filters).items():
             expression = _build_grouped_exists_expression(model_cls, prefix, rules)
 
             if expression is None:
+                unfolded.add(prefix)
                 continue
 
             expressions.append(expression)
             grouped_rules.update(id(rule) for rule in rules)
 
-            if grouped_paths is not None:
-                grouped_paths.add(prefix)
+    child_exists_paths = exists_paths - unfolded if exists_paths else exists_paths
 
     for rule in filters.rules:
         if id(rule) in grouped_rules:
@@ -211,7 +221,7 @@ def build_filter_expression(
             expr = None
 
         if expr is None:
-            expr = build_filter_expression(model_cls, rule, exists_paths, grouped_paths)
+            expr = build_filter_expression(model_cls, rule, child_exists_paths, join_paths)
 
         if expr is not None:
             expressions.append(expr)
@@ -431,9 +441,7 @@ def and_exists_groups(model_cls: type[Model], filters: FilterCondition) -> dict[
     """The rules of an AND that share a relation prefix which fans out, grouped by it.
 
     Only prefixes carrying two or more rules: a single one already compiles to
-    its own EXISTS. A group holding an "is empty" is left out, that operator
-    means "nothing at the end of the path" and has to stay the negation of an
-    EXISTS of its own, which a shared one cannot express.
+    its own EXISTS.
     """
     from fastedgy.orm.filter.utils import has_duplicating_relation_path
 
@@ -451,11 +459,7 @@ def and_exists_groups(model_cls: type[Model], filters: FilterCondition) -> dict[
 
         groups.setdefault(rule.field.rsplit(".", 1)[0], []).append(rule)
 
-    return {
-        prefix: rules
-        for prefix, rules in groups.items()
-        if len(rules) > 1 and not any(rule.operator == "is empty" for rule in rules)
-    }
+    return {prefix: rules for prefix, rules in groups.items() if len(rules) > 1}
 
 
 def _build_grouped_exists_expression(model_cls: type[Model], prefix: str, rules: list[FilterRule]) -> Any | None:
@@ -468,6 +472,11 @@ def _build_grouped_exists_expression(model_cls: type[Model], prefix: str, rules:
     route taking `order_by` failed at the database. One EXISTS holding the
     conjunction keeps the semantics, repeats nothing and leaves the ordering
     free.
+
+    An "is empty" reads as a plain IS NULL here: the other rules already demand
+    a related row, so the null-extended row of the outer join is out anyway. A
+    group made *only* of them is the one case where that row survives, and it
+    stands for "the path reaches nothing", added back as a NOT EXISTS.
 
     Returns ``None`` when the group cannot be compiled this way, and the caller
     falls back to the shared join.
@@ -485,7 +494,15 @@ def _build_grouped_exists_expression(model_cls: type[Model], prefix: str, rules:
         leaf = rule.field[len(prefix) + 1 :]
         field_type = _find_field_type_in_model(prefix_model, leaf)
         related_columns = getattr(field_type, "related_columns", None)
-        resolved = leaf + "." + next(iter(related_columns.keys())) if related_columns else leaf
+
+        # A nullability test on a relation leaf stays on the foreign key column:
+        # hopping to the target primary key would add a JOIN that drops the very
+        # rows "is empty" is meant to match.
+        if related_columns and rule.operator not in _NULLABILITY_OPERATORS:
+            resolved = leaf + "." + next(iter(related_columns.keys()))
+        else:
+            resolved = leaf
+
         parts = resolved.split(".")
 
         leaf_walk = walk_relation_path(
@@ -528,6 +545,11 @@ def _build_grouped_exists_expression(model_cls: type[Model], prefix: str, rules:
         .where(sa_and(*conditions))
     )
 
+    if all(rule.operator == "is empty" for rule in rules):
+        unreached = sa_select(literal_column("1")).select_from(walk.select_from()).where(walk.root_link_condition)
+
+        return sa_or(exists(subquery), sa_not(exists(unreached)))
+
     return exists(subquery)
 
 
@@ -543,7 +565,7 @@ def _exists_leaf_condition(filters: FilterRule, final_column: Any, value: Any) -
     if filters.operator in FILTER_OPERATORS_SQL_UNPACK:
         return final_column.between(*value)
 
-    if filters.operator in ("is true", "is false", "is not empty"):
+    if filters.operator in ("is true", "is false", "is empty", "is not empty"):
         return operator_method(final_column)
 
     return operator_method(final_column, value)
@@ -661,10 +683,13 @@ def filter_query[Q: (QuerySet, BaseManager)](
 
         raise
 
-    paths = _duplicating_rule_paths(built.model_class, filters)
-    solo_paths = {path for path in paths if paths.count(path) == 1}
-    grouped_paths: set[str] = set()
-    expression = build_filter_expression(built.model_class, filters, solo_paths, grouped_paths)
+    join_paths: set[str] = set()
+    expression = build_filter_expression(
+        built.model_class,
+        filters,
+        set(_duplicating_rule_paths(built.model_class, filters)),
+        join_paths,
+    )
 
     if expression is not None:
         built = built.filter(expression)
@@ -673,11 +698,7 @@ def filter_query[Q: (QuerySet, BaseManager)](
         # still need dedup. Dropping DISTINCT ON where it became pointless is
         # what lets an aggregate lead the ORDER BY (PostgreSQL requires the
         # DISTINCT ON expressions to come first).
-        if (
-            set(paths) - solo_paths - grouped_paths
-            and _has_duplicating_relation_filter(built.model_class, filters)
-            and built.distinct_on is None
-        ):
+        if join_paths and _has_duplicating_relation_filter(built.model_class, filters) and built.distinct_on is None:
             primary_key = find_primary_key_field(built.model_class)
             if primary_key:
                 built = built.distinct(primary_key)

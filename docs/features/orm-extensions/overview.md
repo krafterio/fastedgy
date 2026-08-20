@@ -29,16 +29,18 @@ from fastedgy.orm import fields
 from fastedgy.api_route_model import api_route_model
 from fastedgy.i18n import _t
 
+
 @api_route_model()
 class Product(BaseModel):
     class Meta:
         tablename = "products"
-        label = _t('Product')
-        label_plural = _t('Products')
+        label = _t("Product")
+        label_plural = _t("Products")
 
-    name = fields.CharField(max_length=255, label=_t('Product Name'))
-    price = fields.DecimalField(max_digits=10, decimal_places=2, label=_t('Price'))
-    is_active = fields.BooleanField(default=True, label=_t('Is Active'))
+    name = fields.CharField(max_length=255, label=_t("Product Name"))
+    price = fields.DecimalField(max_digits=10, decimal_places=2, label=_t("Price"))
+    is_active = fields.BooleanField(default=True, label=_t("Is Active"))
+
 
 # Usage
 product = Product(name="Laptop", price=999.99)

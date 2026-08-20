@@ -47,17 +47,11 @@ from fastapi import UploadFile, File
 
 app = FastEdgy()
 
+
 @app.post("/upload")
-async def upload_file(
-    file: UploadFile = File(...),
-    directory: str = "photos",
-    storage: Storage = Inject(Storage)
-):
+async def upload_file(file: UploadFile = File(...), directory: str = "photos", storage: Storage = Inject(Storage)):
     # Upload to workspace-specific directory
-    file_path = await storage.upload(
-        file=file,
-        directory_path=directory
-    )
+    file_path = await storage.upload(file=file, directory_path=directory)
     return {"path": file_path, "filename": file.filename}
 ```
 
@@ -65,14 +59,11 @@ async def upload_file(
 
 ```python
 @app.post("/upload-avatar")
-async def upload_avatar(
-    file: UploadFile = File(...),
-    storage: Storage = Inject(Storage)
-):
+async def upload_avatar(file: UploadFile = File(...), storage: Storage = Inject(Storage)):
     file_path = await storage.upload(
         file=file,
         directory_path="avatars",
-        filename="avatar.{ext}"  # {ext} is replaced with file extension
+        filename="avatar.{ext}",  # {ext} is replaced with file extension
     )
     return {"avatar_path": file_path}
 ```
@@ -81,17 +72,9 @@ async def upload_avatar(
 
 ```python
 @app.post("/upload-global")
-async def upload_global(
-    file: UploadFile = File(...),
-    directory: str = "shared",
-    storage: Storage = Inject(Storage)
-):
+async def upload_global(file: UploadFile = File(...), directory: str = "shared", storage: Storage = Inject(Storage)):
     # Upload to global directory (shared across workspaces)
-    file_path = await storage.upload(
-        file=file,
-        directory_path=directory,
-        global_storage=True
-    )
+    file_path = await storage.upload(file=file, directory_path=directory, global_storage=True)
     return {"path": file_path}
 ```
 
@@ -152,6 +135,7 @@ Use the built-in API endpoints to upload directly to model fields:
 ```python
 from fastedgy.orm import Model, fields
 from fastedgy.api_route_model import api_route_model
+
 
 @api_route_model()
 class User(Model):
@@ -260,15 +244,8 @@ GET /storage/download/products/456.jpg?w=250&h=250&m=cover
 
 ```python
 @app.post("/upload-from-url")
-async def upload_from_url(
-    url: str,
-    directory: str = "external",
-    storage: Storage = Inject(Storage)
-):
-    file_path = await storage.download_and_upload(
-        file_url=url,
-        directory_path=directory
-    )
+async def upload_from_url(url: str, directory: str = "external", storage: Storage = Inject(Storage)):
+    file_path = await storage.download_and_upload(file_url=url, directory_path=directory)
     return {"path": file_path}
 ```
 
@@ -279,12 +256,9 @@ async def upload_from_url(
 async def upload_base64(
     data: str,  # base64-encoded image
     directory: str = "images",
-    storage: Storage = Inject(Storage)
+    storage: Storage = Inject(Storage),
 ):
-    file_path = await storage.upload_from_base64(
-        data=data,
-        directory_path=directory
-    )
+    file_path = await storage.upload_from_base64(data=data, directory_path=directory)
     return {"path": file_path}
 ```
 
@@ -298,16 +272,9 @@ The Storage service validates files automatically:
 
 ```python
 @app.post("/safe-upload")
-async def safe_upload(
-    file: UploadFile = File(...),
-    directory: str = "files",
-    storage: Storage = Inject(Storage)
-):
+async def safe_upload(file: UploadFile = File(...), directory: str = "files", storage: Storage = Inject(Storage)):
     try:
-        file_path = await storage.upload(
-            file=file,
-            directory_path=directory
-        )
+        file_path = await storage.upload(file=file, directory_path=directory)
         return {"success": True, "path": file_path}
     except ValueError as e:
         return {"success": False, "error": str(e)}

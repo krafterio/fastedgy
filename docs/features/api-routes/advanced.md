@@ -10,6 +10,7 @@ Create custom endpoints beyond standard CRUD operations:
 from fastedgy.api_route_model.actions import BaseApiRouteAction
 from fastapi import APIRouter, HTTPException
 
+
 class ActivateApiRouteAction(BaseApiRouteAction):
     name = "activate"
 
@@ -24,12 +25,8 @@ class ActivateApiRouteAction(BaseApiRouteAction):
             await item.update()
             return item
 
-        router.add_api_route(
-            path=f"/{item_id}/activate",
-            endpoint=activate_item,
-            methods=["POST"],
-            **options
-        )
+        router.add_api_route(path=f"/{item_id}/activate", endpoint=activate_item, methods=["POST"], **options)
+
 
 # Register and use
 from fastedgy.dependencies import get_service
@@ -37,6 +34,7 @@ from fastedgy.api_route_model.actions import ApiRouteActionRegistry
 
 arar = get_service(ApiRouteActionRegistry)
 arar.register_action(ActivateApiRouteAction)
+
 
 @api_route_model(activate=True)
 class Product(Model):
@@ -68,7 +66,7 @@ Customize generated endpoints:
     delete={
         "dependencies": [Depends(super_admin_required)],
     },
-    export=False  # Disable export endpoint
+    export=False,  # Disable export endpoint
 )
 class Product(Model):
     name = fields.CharField(max_length=200)
@@ -82,10 +80,12 @@ Separate admin endpoints with different permissions:
 ```python
 from fastedgy.api_route_model import admin_api_route_model
 
+
 @admin_api_route_model()
 class AdminUser(Model):
     username = fields.CharField(max_length=150)
     is_staff = fields.BooleanField(default=False)
+
 
 # Register separately
 from fastedgy.api_route_model.router import register_admin_api_route_models

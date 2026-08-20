@@ -49,6 +49,7 @@ my_project/
 from fastedgy.models import Model
 from fastedgy.orm import fields
 
+
 class User(Model):
     name = fields.CharField(max_length=100)
     email = fields.EmailField()
@@ -80,11 +81,10 @@ from services.email import EmailService
 
 router = APIRouter()
 
+
 @router.post("/users/")
 async def create_user(
-    user_data: dict,
-    email_service: EmailService = Inject(EmailService),
-    tasks: QueuedTasks = Inject(QueuedTasks)
+    user_data: dict, email_service: EmailService = Inject(EmailService), tasks: QueuedTasks = Inject(QueuedTasks)
 ):
     user = User(**user_data)
     await user.save()
@@ -109,9 +109,11 @@ from fastedgy.api_route_model.standard_actions import register_standard_api_rout
 from api import users
 import models  # Import models to register them
 
+
 class AppSettings(BaseSettings):
     title: str = "My FastEdgy App"
     debug: bool = True
+
 
 def app():
     settings = init_settings(AppSettings)
@@ -146,6 +148,7 @@ If you need to add your own startup/shutdown logic, you can still provide a cust
 ```python
 from contextlib import asynccontextmanager
 
+
 @asynccontextmanager
 async def custom_lifespan(application: FastEdgy):
     # Your startup logic
@@ -153,6 +156,7 @@ async def custom_lifespan(application: FastEdgy):
     yield
     # Your shutdown logic
     print("Application shutting down...")
+
 
 app = FastEdgy(
     title=settings.title,

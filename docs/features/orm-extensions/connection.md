@@ -23,6 +23,7 @@ FastEdgy automatically manages the database connection through a **native lifesp
 ```python
 from fastedgy.app import FastEdgy
 
+
 def app():
     # DB connection is managed automatically - no lifespan needed
     return FastEdgy(
@@ -42,6 +43,7 @@ If you need to add your own startup/shutdown logic, you can provide a custom lif
 from contextlib import asynccontextmanager
 from fastedgy.app import FastEdgy
 
+
 @asynccontextmanager
 async def custom_lifespan(app: FastEdgy):
     # Your custom startup logic
@@ -49,6 +51,7 @@ async def custom_lifespan(app: FastEdgy):
     yield
     # Your custom shutdown logic
     print("Custom shutdown logic...")
+
 
 def app():
     # FastEdgy composes your lifespan with its native lifespan
@@ -65,6 +68,7 @@ In rare cases where you need manual control:
 ```python
 from fastedgy.dependencies import Inject
 from fastedgy.orm import Database
+
 
 async def manual_connection(db: Database = Inject(Database)):
     await db.connect()

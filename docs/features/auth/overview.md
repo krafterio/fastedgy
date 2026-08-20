@@ -17,10 +17,9 @@ FastEdgy provides a built-in JWT-based authentication system with user registrat
 from fastedgy.depends.security import get_current_user
 from fastedgy.models.user import BaseUser
 
+
 @app.get("/protected")
-async def protected_route(
-    current_user: BaseUser = Depends(get_current_user)
-):
+async def protected_route(current_user: BaseUser = Depends(get_current_user)):
     return {"user": current_user.email}
 ```
 
@@ -52,6 +51,7 @@ Extend the base user model for your needs:
 ```python
 from fastedgy.models.user import BaseUser
 from fastedgy.orm import fields
+
 
 class User(BaseUser):
     # BaseUser provides: id, name, email, password

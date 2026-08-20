@@ -11,7 +11,7 @@ class Analytics(BaseModel):
     class Meta:
         tablename = "analytics"
 
-    total_page_views = fields.BigIntegerField(label=_t('Total page views'))
+    total_page_views = fields.BigIntegerField(label=_t("Total page views"))
 ```
 
 ## Binary Data
@@ -23,7 +23,7 @@ class Attachment(BaseModel):
     class Meta:
         tablename = "attachments"
 
-    data = fields.BinaryField(label=_t('File Data'))
+    data = fields.BinaryField(label=_t("File Data"))
 ```
 
 ## Boolean
@@ -35,7 +35,7 @@ class UserAccount(BaseModel):
     class Meta:
         tablename = "user_accounts"
 
-    is_account_active = fields.BooleanField(default=True, label=_t('Is Account Active'))
+    is_account_active = fields.BooleanField(default=True, label=_t("Is Account Active"))
 ```
 
 ## Character Choice
@@ -45,16 +45,18 @@ Character-based choice field with predefined string options.
 ```python
 from enum import Enum
 
+
 class UserRole(str, Enum):
     admin = "admin"
     user = "user"
     guest = "guest"
 
+
 class User(BaseModel):
     class Meta:
         tablename = "users"
 
-    role = fields.CharChoiceField(choices=UserRole, default=UserRole.user, label=_t('User Role'))
+    role = fields.CharChoiceField(choices=UserRole, default=UserRole.user, label=_t("User Role"))
 ```
 
 ## Character
@@ -66,7 +68,7 @@ class User(BaseModel):
     class Meta:
         tablename = "users"
 
-    name = fields.CharField(max_length=100, label=_t('Name'))
+    name = fields.CharField(max_length=100, label=_t("Name"))
 ```
 
 ## Choice
@@ -76,16 +78,18 @@ Choice field for predefined options.
 ```python
 from enum import Enum
 
+
 class OrderStatus(str, Enum):
     pending = "pending"
     shipped = "shipped"
     delivered = "delivered"
 
+
 class Order(BaseModel):
     class Meta:
         tablename = "orders"
 
-    status = fields.ChoiceField(choices=OrderStatus, default=OrderStatus.pending, label=_t('Status'))
+    status = fields.ChoiceField(choices=OrderStatus, default=OrderStatus.pending, label=_t("Status"))
 ```
 
 ## Composite
@@ -97,7 +101,7 @@ class Location(BaseModel):
     class Meta:
         tablename = "locations"
 
-    coordinates = fields.CompositeField(label=_t('Coordinates'))
+    coordinates = fields.CompositeField(label=_t("Coordinates"))
 ```
 
 ## Computed
@@ -109,7 +113,7 @@ class Order(BaseModel):
     class Meta:
         tablename = "orders"
 
-    total = fields.ComputedField(label=_t('Total Amount'))
+    total = fields.ComputedField(label=_t("Total Amount"))
 ```
 
 ## Date
@@ -121,7 +125,7 @@ class Event(BaseModel):
     class Meta:
         tablename = "events"
 
-    event_date = fields.DateField(label=_t('Event Date'))
+    event_date = fields.DateField(label=_t("Event Date"))
 ```
 
 ## Date Time
@@ -133,7 +137,7 @@ class Post(BaseModel):
     class Meta:
         tablename = "posts"
 
-    created_at = fields.DateTimeField(auto_now_add=True, label=_t('Created At'))
+    created_at = fields.DateTimeField(auto_now_add=True, label=_t("Created At"))
 ```
 
 ## Decimal
@@ -145,7 +149,7 @@ class Product(BaseModel):
     class Meta:
         tablename = "products"
 
-    price = fields.DecimalField(max_digits=10, decimal_places=2, label=_t('Price'))
+    price = fields.DecimalField(max_digits=10, decimal_places=2, label=_t("Price"))
 ```
 
 ## Duration
@@ -157,7 +161,7 @@ class Task(BaseModel):
     class Meta:
         tablename = "tasks"
 
-    estimated_duration = fields.DurationField(label=_t('Estimated Duration'))
+    estimated_duration = fields.DurationField(label=_t("Estimated Duration"))
 ```
 
 ## Email
@@ -169,7 +173,7 @@ class User(BaseModel):
     class Meta:
         tablename = "users"
 
-    email = fields.EmailField(label=_t('Email Address'))
+    email = fields.EmailField(label=_t("Email Address"))
 ```
 
 ## Exclude
@@ -181,7 +185,7 @@ class InternalModel(BaseModel):
     class Meta:
         tablename = "internal_models"
 
-    internal_data = fields.ExcludeField(label=_t('Internal Data'))
+    internal_data = fields.ExcludeField(label=_t("Internal Data"))
 ```
 
 ## File
@@ -193,7 +197,7 @@ class Document(BaseModel):
     class Meta:
         tablename = "documents"
 
-    file = fields.FileField(label=_t('File Path'))
+    file = fields.FileField(label=_t("File Path"))
 ```
 
 ## Float
@@ -205,7 +209,7 @@ class Measurement(BaseModel):
     class Meta:
         tablename = "measurements"
 
-    temperature = fields.FloatField(label=_t('Temperature'))
+    temperature = fields.FloatField(label=_t("Temperature"))
 ```
 
 ## Foreign Key
@@ -217,7 +221,7 @@ class Product(BaseModel):
     class Meta:
         tablename = "products"
 
-    category = fields.ForeignKey("Category", on_delete="CASCADE", label=_t('Category'))
+    category = fields.ForeignKey("Category", on_delete="CASCADE", label=_t("Category"))
 ```
 
 ## Generic Foreign Key
@@ -232,7 +236,7 @@ class Reminder(BaseModel):
     record = fields.GenericForeignKey(
         to=["Task", "CalendarEvent"],
         related_name="reminders",
-        label=_t('Record'),
+        label=_t("Record"),
     )
 ```
 
@@ -245,7 +249,7 @@ class Article(BaseModel):
     class Meta:
         tablename = "articles"
 
-    content = fields.HTMLField(label=_t('HTML Content'))
+    content = fields.HTMLField(label=_t("HTML Content"))
 ```
 
 ## Image
@@ -257,7 +261,7 @@ class Product(BaseModel):
     class Meta:
         tablename = "products"
 
-    image = fields.ImageField(label=_t('Image'))
+    image = fields.ImageField(label=_t("Image"))
 ```
 
 ## Integer
@@ -269,7 +273,7 @@ class Product(BaseModel):
     class Meta:
         tablename = "products"
 
-    quantity = fields.IntegerField(label=_t('Quantity'))
+    quantity = fields.IntegerField(label=_t("Quantity"))
 ```
 
 ## IP Address
@@ -281,7 +285,7 @@ class Connection(BaseModel):
     class Meta:
         tablename = "connections"
 
-    ip_address = fields.IPAddressField(label=_t('IP Address'))
+    ip_address = fields.IPAddressField(label=_t("IP Address"))
 ```
 
 ## JSON
@@ -293,7 +297,7 @@ class Configuration(BaseModel):
     class Meta:
         tablename = "configurations"
 
-    settings = fields.JSONField(label=_t('Settings'))
+    settings = fields.JSONField(label=_t("Settings"))
 ```
 
 ## Many to Many
@@ -305,7 +309,7 @@ class Tag(BaseModel):
     class Meta:
         tablename = "tags"
 
-    products = fields.ManyToManyField("Product", related_name="tags", label=_t('Products'))
+    products = fields.ManyToManyField("Product", related_name="tags", label=_t("Products"))
 ```
 
 ## One to One
@@ -317,7 +321,7 @@ class UserProfile(BaseModel):
     class Meta:
         tablename = "user_profiles"
 
-    user = fields.OneToOneField("User", on_delete="CASCADE", label=_t('User'))
+    user = fields.OneToOneField("User", on_delete="CASCADE", label=_t("User"))
 ```
 
 ## Password
@@ -329,7 +333,7 @@ class User(BaseModel):
     class Meta:
         tablename = "users"
 
-    password = fields.PasswordField(label=_t('Password'))
+    password = fields.PasswordField(label=_t("Password"))
 ```
 
 ## PostgreSQL Array
@@ -341,7 +345,7 @@ class Product(BaseModel):
     class Meta:
         tablename = "products"
 
-    tags = fields.PGArrayField(base_field=fields.CharField(max_length=50), label=_t('Tags'))
+    tags = fields.PGArrayField(base_field=fields.CharField(max_length=50), label=_t("Tags"))
 ```
 
 ## Phone
@@ -353,7 +357,7 @@ class Contact(BaseModel):
     class Meta:
         tablename = "contacts"
 
-    phone = fields.PhoneField(label=_t('Phone Number'))
+    phone = fields.PhoneField(label=_t("Phone Number"))
 ```
 
 ## Point
@@ -365,7 +369,7 @@ class Store(BaseModel):
     class Meta:
         tablename = "stores"
 
-    location = fields.PointField(srid=4326, label=_t('Location'))
+    location = fields.PointField(srid=4326, label=_t("Location"))
 ```
 
 **Parameters:**
@@ -394,7 +398,7 @@ class DynamicModel(BaseModel):
     class Meta:
         tablename = "dynamic_models"
 
-    dynamic_field = fields.PlaceholderField(label=_t('Dynamic Field'))
+    dynamic_field = fields.PlaceholderField(label=_t("Dynamic Field"))
 ```
 
 ## Reference Foreign Key
@@ -406,7 +410,7 @@ class Comment(BaseModel):
     class Meta:
         tablename = "comments"
 
-    author = fields.RefForeignKey("User", on_delete="CASCADE", label=_t('Author'))
+    author = fields.RefForeignKey("User", on_delete="CASCADE", label=_t("Author"))
 ```
 
 ## Small Integer
@@ -418,7 +422,7 @@ class Settings(BaseModel):
     class Meta:
         tablename = "settings"
 
-    priority = fields.SmallIntegerField(label=_t('Priority'))
+    priority = fields.SmallIntegerField(label=_t("Priority"))
 ```
 
 ## Text
@@ -430,7 +434,7 @@ class Post(BaseModel):
     class Meta:
         tablename = "posts"
 
-    content = fields.TextField(label=_t('Content'))
+    content = fields.TextField(label=_t("Content"))
 ```
 
 Add `merge_blocks=True` to resolve concurrent edits with a line-based three-way merge during [offline sync](../offline-sync/guide.md#block-text-merge) instead of dropping a whole side:
@@ -448,7 +452,7 @@ class Schedule(BaseModel):
     class Meta:
         tablename = "schedules"
 
-    start_time = fields.TimeField(label=_t('Start Time'))
+    start_time = fields.TimeField(label=_t("Start Time"))
 ```
 
 ## URL
@@ -460,7 +464,7 @@ class Website(BaseModel):
     class Meta:
         tablename = "websites"
 
-    url = fields.URLField(label=_t('Website URL'))
+    url = fields.URLField(label=_t("Website URL"))
 ```
 
 ## UUID
@@ -472,7 +476,7 @@ class Token(BaseModel):
     class Meta:
         tablename = "tokens"
 
-    uuid = fields.UUIDField(label=_t('Unique ID'))
+    uuid = fields.UUIDField(label=_t("Unique ID"))
 ```
 
 ## Vector
@@ -484,5 +488,5 @@ class Document(BaseModel):
     class Meta:
         tablename = "documents"
 
-    embedding = fields.VectorField(dimensions=1536, label=_t('AI Embedding'))
+    embedding = fields.VectorField(dimensions=1536, label=_t("AI Embedding"))
 ```

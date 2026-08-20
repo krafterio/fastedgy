@@ -10,6 +10,7 @@ from fastedgy.orm import Model, fields
 from fastedgy.models.mixins import WorkspaceableMixin
 from fastedgy.models.base import BaseModel
 
+
 class Product(BaseModel, WorkspaceableMixin):
     name = fields.CharField(max_length=100)
     price = fields.DecimalField(max_digits=10, decimal_places=2)
@@ -36,10 +37,7 @@ FastEdgy provides specialized managers for workspace-aware queries:
 ### Create workspace-scoped records
 ```python
 # Within workspace context, records are automatically scoped
-product = await Product.query.create(
-    name="Laptop",
-    price=999.99
-)
+product = await Product.query.create(name="Laptop", price=999.99)
 ```
 
 ### Query workspace-specific data

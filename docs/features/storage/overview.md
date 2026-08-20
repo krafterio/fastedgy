@@ -24,16 +24,10 @@ from fastedgy.dependencies import Inject
 from fastedgy.storage import Storage
 from fastapi import UploadFile
 
-async def upload_file(
-    file: UploadFile,
-    directory: str,
-    storage: Storage = Inject(Storage)
-):
+
+async def upload_file(file: UploadFile, directory: str, storage: Storage = Inject(Storage)):
     # Upload to specified directory
-    file_path = await storage.upload(
-        file=file,
-        directory_path=directory
-    )
+    file_path = await storage.upload(file=file, directory_path=directory)
     return {"path": file_path}
 ```
 

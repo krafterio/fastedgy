@@ -17,24 +17,15 @@ ANALYTICS_DB = Token[DatabaseService]("analytics_db")
 CACHE_DB = Token[DatabaseService]("cache_db")
 
 # Register different database instances
-register_service(
-    DatabaseService("postgresql://primary-server/app"),
-    PRIMARY_DB
-)
-register_service(
-    DatabaseService("postgresql://analytics-server/warehouse"),
-    ANALYTICS_DB
-)
-register_service(
-    DatabaseService("redis://cache-server:6379"),
-    CACHE_DB
-)
+register_service(DatabaseService("postgresql://primary-server/app"), PRIMARY_DB)
+register_service(DatabaseService("postgresql://analytics-server/warehouse"), ANALYTICS_DB)
+register_service(DatabaseService("redis://cache-server:6379"), CACHE_DB)
+
 
 # Use specific databases in endpoints
 @router.get("/analytics")
 async def get_analytics(
-    primary_db: DatabaseService = Inject(PRIMARY_DB),
-    analytics_db: DatabaseService = Inject(ANALYTICS_DB)
+    primary_db: DatabaseService = Inject(PRIMARY_DB), analytics_db: DatabaseService = Inject(ANALYTICS_DB)
 ):
     users = primary_db.query("SELECT * FROM users")
     analytics_db.query("INSERT INTO user_analytics ...")
@@ -48,6 +39,7 @@ async def get_analytics(
 DEV_EMAIL = Token[EmailService]("dev_email")
 PROD_EMAIL = Token[EmailService]("prod_email")
 
+
 def setup_email_services():
     if os.getenv("ENVIRONMENT") == "production":
         register_service(SMTPEmailService("smtp.mailgun.org"), PROD_EMAIL)
@@ -56,9 +48,10 @@ def setup_email_services():
         register_service(ConsoleEmailService(), DEV_EMAIL)
         register_service(ConsoleEmailService(), EmailService)  # Default
 
+
 @router.post("/notify")
 async def notify_user(
-    email_service: EmailService = Inject(EmailService)  # Gets environment-appropriate service
+    email_service: EmailService = Inject(EmailService),  # Gets environment-appropriate service
 ):
     return email_service.send_email("user@example.com", "Hello", "World")
 ```
@@ -73,15 +66,12 @@ Create factories that inject other services during construction:
 def create_payment_processor(
     config: AppConfig = Inject(AppConfig),
     logger: LoggerService = Inject(LoggerService),
-    db: DatabaseService = Inject(DatabaseService)
+    db: DatabaseService = Inject(DatabaseService),
 ) -> PaymentProcessor:
     """Factory that configures payment processor based on environment."""
 
     if config.environment == "production":
-        processor = StripePaymentProcessor(
-            api_key=config.stripe_api_key,
-            logger=logger
-        )
+        processor = StripePaymentProcessor(api_key=config.stripe_api_key, logger=logger)
     else:
         processor = MockPaymentProcessor(logger=logger)
 
@@ -91,24 +81,21 @@ def create_payment_processor(
 
     return processor
 
+
 # Register the factory
 register_service(create_payment_processor, PaymentProcessor)
 
+
 # Use in endpoints
 @router.post("/payments")
-async def process_payment(
-    amount: float,
-    processor: PaymentProcessor = Inject(PaymentProcessor)
-):
+async def process_payment(amount: float, processor: PaymentProcessor = Inject(PaymentProcessor)):
     return processor.charge(amount)
 ```
 
 ### Conditional Service Creation
 
 ```python
-def create_notification_service(
-    config: AppConfig = Inject(AppConfig)
-) -> NotificationService:
+def create_notification_service(config: AppConfig = Inject(AppConfig)) -> NotificationService:
     """Create notification service with multiple channels based on config."""
 
     channels = []
@@ -124,6 +111,7 @@ def create_notification_service(
 
     return NotificationService(channels)
 
+
 register_service(create_notification_service, NotificationService)
 ```
 
@@ -136,6 +124,7 @@ Manage service initialization and cleanup using FastAPI's lifespan system:
 ```python
 from contextlib import asynccontextmanager
 from fastedgy import FastEdgy
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -165,6 +154,7 @@ async def lifespan(app: FastAPI):
         processor = get_service(TaskProcessor)
         await processor.shutdown()
 
+
 app = FastEdgy(lifespan=lifespan)
 ```
 
@@ -172,10 +162,7 @@ app = FastEdgy(lifespan=lifespan)
 
 ```python
 class HealthCheckService:
-    def __init__(self,
-                 db: DatabaseService,
-                 cache: CacheService,
-                 external_api: ExternalAPIService):
+    def __init__(self, db: DatabaseService, cache: CacheService, external_api: ExternalAPIService):
         self.db = db
         self.cache = cache
         self.external_api = external_api
@@ -206,6 +193,7 @@ class HealthCheckService:
 
         return checks
 
+
 # Auto-resolved with all dependencies
 @router.get("/health")
 async def health_check(health: HealthCheckService = Inject(HealthCheckService)):
@@ -223,6 +211,7 @@ import pytest
 from unittest.mock import Mock
 from fastedgy.dependencies import register_service, unregister_service
 
+
 class MockEmailService:
     def __init__(self):
         self.sent_emails = []
@@ -231,6 +220,7 @@ class MockEmailService:
         email = {"to": to, "subject": subject, "body": body}
         self.sent_emails.append(email)
         return {"sent": True, "id": f"mock-{len(self.sent_emails)}"}
+
 
 class MockDatabaseService:
     def __init__(self):
@@ -247,6 +237,7 @@ class MockDatabaseService:
         self.data[user_id] = user
         return user
 
+
 @pytest.fixture
 def mock_services():
     """Replace services with mocks for testing."""
@@ -259,23 +250,18 @@ def mock_services():
     register_service(mock_email, EmailService, force=True)
     register_service(mock_db, DatabaseService, force=True)
 
-    yield {
-        "email": mock_email,
-        "database": mock_db
-    }
+    yield {"email": mock_email, "database": mock_db}
 
     # Cleanup
     unregister_service(EmailService)
     unregister_service(DatabaseService)
 
+
 def test_user_registration(mock_services):
     """Test user registration with mocked services."""
 
     # Test the endpoint
-    response = client.post("/register", json={
-        "email": "test@example.com",
-        "name": "Test User"
-    })
+    response = client.post("/register", json={"email": "test@example.com", "name": "Test User"})
 
     assert response.status_code == 200
 
@@ -311,16 +297,14 @@ def test_database():
     test_db.drop_tables()
     unregister_service(DatabaseService)
 
+
 def test_user_service_integration(test_database):
     """Test UserService with real database."""
 
     user_service = get_service(UserService)  # Uses test database
 
     # Test user creation
-    user = user_service.create_user({
-        "email": "integration@test.com",
-        "name": "Integration Test"
-    })
+    user = user_service.create_user({"email": "integration@test.com", "name": "Integration Test"})
 
     assert user["id"] is not None
     assert user["email"] == "integration@test.com"
@@ -372,21 +356,24 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from services.order_service import OrderService
 
+
 class UserService:
     def __init__(self, db: DatabaseService):
         self.db = db
         self._order_service = None
 
     @property
-    def order_service(self) -> 'OrderService':
+    def order_service(self) -> "OrderService":
         if self._order_service is None:
             from fastedgy.dependencies import get_service
             from services.order_service import OrderService
+
             self._order_service = get_service(OrderService)
         return self._order_service
 
     def get_user_orders(self, user_id: str):
         return self.order_service.get_orders_for_user(user_id)
+
 
 class OrderService:
     def __init__(self, db: DatabaseService, user_service: UserService):
@@ -417,10 +404,13 @@ class ServiceRegistry:
 
         # Use Container Service to resolve handler dependencies
         from fastedgy.dependencies import get_service
+
         return get_service(handler_class)
+
 
 # Register dynamic service
 register_service(ServiceRegistry())
+
 
 # Register event handlers
 def setup_event_handlers():
@@ -429,6 +419,7 @@ def setup_event_handlers():
     registry.register_handler("user.created", UserCreatedHandler)
     registry.register_handler("order.completed", OrderCompletedHandler)
     registry.register_handler("payment.failed", PaymentFailedHandler)
+
 
 class EventProcessor:
     def __init__(self, registry: ServiceRegistry):
@@ -457,16 +448,19 @@ class ExpensiveService:
         time.sleep(2)
         return "expensive resource"
 
+
 # Don't register directly - use factory for lazy loading
 def create_expensive_service(config: AppConfig = Inject(AppConfig)):
     return ExpensiveService(config)
 
+
 register_service(create_expensive_service, ExpensiveService)
+
 
 # Service is only created when first accessed
 @router.get("/expensive-operation")
 async def expensive_operation(
-    service: ExpensiveService = Inject(ExpensiveService)  # Created here if first time
+    service: ExpensiveService = Inject(ExpensiveService),  # Created here if first time
 ):
     return service.expensive_resource
 ```
@@ -475,6 +469,7 @@ async def expensive_operation(
 
 ```python
 from functools import lru_cache
+
 
 class CacheService:
     def __init__(self):
@@ -487,6 +482,7 @@ class CacheService:
 
     def clear_cache(self):
         self.get_expensive_data.cache_clear()
+
 
 # Singleton ensures cache is shared across requests
 cached_service: CacheService = Inject(CacheService)
@@ -501,15 +497,11 @@ from contextlib import asynccontextmanager
 from fastedgy.app import FastEdgy
 from fastedgy.dependencies import get_service
 
+
 def validate_services():
     """Validate that all required services are properly registered."""
 
-    required_services = [
-        DatabaseService,
-        EmailService,
-        CacheService,
-        PaymentProcessor
-    ]
+    required_services = [DatabaseService, EmailService, CacheService, PaymentProcessor]
 
     missing_services = []
 
@@ -522,12 +514,14 @@ def validate_services():
     if missing_services:
         raise RuntimeError(f"Missing required services: {missing_services}")
 
+
 # Optional custom lifespan for service validation
 @asynccontextmanager
 async def lifespan(app: FastEdgy):
     setup_services()
     validate_services()  # Ensure all services are available
     yield
+
 
 # FastEdgy handles DB and core services automatically
 app = FastEdgy(
@@ -541,24 +535,27 @@ app = FastEdgy(
 ```python
 class ServiceError(Exception):
     """Base exception for service-related errors."""
+
     pass
+
 
 class ServiceConfigurationError(ServiceError):
     """Raised when a service is misconfigured."""
+
     pass
+
 
 def create_database_service(config: AppConfig = Inject(AppConfig)):
     """Factory with error handling."""
 
     if not config.database_url:
-        raise ServiceConfigurationError(
-            "DATABASE_URL is required but not configured"
-        )
+        raise ServiceConfigurationError("DATABASE_URL is required but not configured")
 
     try:
         return DatabaseService(config.database_url)
     except Exception as e:
         raise ServiceConfigurationError(f"Failed to create database service: {e}")
+
 
 register_service(create_database_service, DatabaseService)
 ```
@@ -582,9 +579,12 @@ PRIMARY_DB = Token[DatabaseService]("primary")
 register_service(db_instance, PRIMARY_DB)
 db: DatabaseService = Inject(PRIMARY_DB)
 
+
 # Factories with dependencies
 def create_service(dep: DepService = Inject(DepService)):
     return MyService(dep, custom_config)
+
+
 register_service(create_service, MyService)
 
 # Testing overrides

@@ -80,54 +80,51 @@ For File Download operations:
 ## Quick Example
 
 ```python
-from fastedgy.api_route_model.view_transformer import (
-    PrePaginateViewTransformer,
-    GetViewTransformer
-)
+from fastedgy.api_route_model.view_transformer import PrePaginateViewTransformer, GetViewTransformer
 from fastedgy.api_route_model.registry import ViewTransformerRegistry
 from fastedgy.dependencies import get_service
 from fastedgy.http import Request
 from fastedgy.orm.query import QuerySet
 from typing import Any, Dict
 
+
 class QueryOptimizationTransformer(PrePaginateViewTransformer):
     """Optimize queries based on requested fields."""
 
-    async def pre_paginate(
-        self, request: Request, query: QuerySet, ctx: dict[str, Any]
-    ) -> QuerySet:
+    async def pre_paginate(self, request: Request, query: QuerySet, ctx: dict[str, Any]) -> QuerySet:
         # Get requested fields from X-Fields header
-        fields_header = request.headers.get('X-Fields', '')
-        requested_fields = fields_header.split(',') if fields_header else []
-        ctx['requested_fields'] = requested_fields
+        fields_header = request.headers.get("X-Fields", "")
+        requested_fields = fields_header.split(",") if fields_header else []
+        ctx["requested_fields"] = requested_fields
 
         # Optimize query based on requested fields
-        if any('user.' in field for field in requested_fields):
-            query = query.select_related('user')
+        if any("user." in field for field in requested_fields):
+            query = query.select_related("user")
 
-        if any('category.' in field for field in requested_fields):
-            query = query.select_related('category')
+        if any("category." in field for field in requested_fields):
+            query = query.select_related("category")
 
         return query
+
 
 class DataFormattingTransformer(GetViewTransformer):
     """Format data for display purposes."""
 
-    async def get_view(
-        self, request: Request, item, item_dump: dict[str, Any], ctx: dict[str, Any]
-    ) -> dict[str, Any]:
+    async def get_view(self, request: Request, item, item_dump: dict[str, Any], ctx: dict[str, Any]) -> dict[str, Any]:
         # Format price for display
-        if 'price' in item_dump and item_dump['price'] is not None:
-            item_dump['price_formatted'] = f"${float(item_dump['price']):.2f}"
+        if "price" in item_dump and item_dump["price"] is not None:
+            item_dump["price_formatted"] = f"${float(item_dump['price']):.2f}"
 
         # Format dates for display
-        if 'created_at' in item_dump and item_dump['created_at']:
+        if "created_at" in item_dump and item_dump["created_at"]:
             from datetime import datetime
-            if isinstance(item_dump['created_at'], str):
-                dt = datetime.fromisoformat(item_dump['created_at'].replace('Z', '+00:00'))
-                item_dump['created_at_formatted'] = dt.strftime('%B %d, %Y')
+
+            if isinstance(item_dump["created_at"], str):
+                dt = datetime.fromisoformat(item_dump["created_at"].replace("Z", "+00:00"))
+                item_dump["created_at_formatted"] = dt.strftime("%B %d, %Y")
 
         return item_dump
+
 
 # Register transformers during app startup
 def setup_transformers():

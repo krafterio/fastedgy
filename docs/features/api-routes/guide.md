@@ -11,6 +11,7 @@ You can control which endpoints are generated and customize their behavior:
 ```python
 from fastedgy.api_route_model import api_route_model
 
+
 # Enable only list and get endpoints
 @api_route_model(list=True, get=True, create=False, patch=False, delete=False)
 class ReadOnlyProduct(Model):
@@ -20,13 +21,14 @@ class ReadOnlyProduct(Model):
     class Meta:
         tablename = "readonly_products"
 
+
 # Custom endpoint configuration
 @api_route_model(
     list=True,
     get=True,
     create={"status_code": 201, "summary": "Create a new product"},
     patch={"summary": "Update product details"},
-    delete=False  # Disable delete endpoint
+    delete=False,  # Disable delete endpoint
 )
 class Product(Model):
     name = fields.CharField(max_length=200)
@@ -300,10 +302,12 @@ Create separate admin endpoints with different permissions:
 ```python
 from fastedgy.api_route_model import admin_api_route_model
 
+
 @admin_api_route_model()  # Separate from regular routes
 class AdminUser(Model):
     username = fields.CharField(max_length=150)
     is_staff = fields.BooleanField(default=False)
+
 
 # Register on separate admin router
 admin_router = APIRouter(prefix="/admin/api", dependencies=[Depends(admin_required)])

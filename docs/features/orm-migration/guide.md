@@ -49,17 +49,19 @@ from fastedgy.orm import fields
 from fastedgy.i18n import _t
 from enum import Enum
 
+
 class UserStatus(str, Enum):
     active = "active"
     inactive = "inactive"
     suspended = "suspended"
 
+
 class User(BaseModel):
     class Meta:
         tablename = "users"
 
-    name = fields.CharField(max_length=100, label=_t('Name'))
-    status = fields.ChoiceField(choices=UserStatus, default=UserStatus.active, label=_t('Status'))
+    name = fields.CharField(max_length=100, label=_t("Name"))
+    status = fields.ChoiceField(choices=UserStatus, default=UserStatus.active, label=_t("Status"))
 ```
 
 The generated migration will automatically:
@@ -75,12 +77,13 @@ from fastedgy.models.base import BaseModel
 from fastedgy.orm import fields
 from fastedgy.i18n import _t
 
+
 class Document(BaseModel):
     class Meta:
         tablename = "documents"
 
-    title = fields.CharField(max_length=255, label=_t('Title'))
-    embedding = fields.VectorField(dimensions=1536, label=_t('AI Embedding'))
+    title = fields.CharField(max_length=255, label=_t("Title"))
+    embedding = fields.VectorField(dimensions=1536, label=_t("AI Embedding"))
 ```
 
 FastEdgy automatically:

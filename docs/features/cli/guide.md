@@ -36,12 +36,14 @@ Create a command in any module that gets imported:
 ```python
 from fastedgy.cli import command, option, pass_cli_context, CliContext
 
+
 @command()
 @option("--name", default="World", help="Name to greet")
 @pass_cli_context
 def hello(ctx: CliContext, name: str):
     """Say hello to someone."""
     from fastedgy.cli import console
+
     console.print(f"[green]Hello, {name}![/green]")
 ```
 
@@ -51,10 +53,12 @@ Create commands organized in groups:
 ```python
 from fastedgy.cli import group, command, option, pass_cli_context, CliContext
 
+
 @group()
 def data():
     """Data management commands."""
     pass
+
 
 @data.command()
 @option("--format", default="json", help="Output format")
@@ -62,6 +66,7 @@ def data():
 def export(ctx: CliContext, format: str):
     """Export application data."""
     from fastedgy.cli import console
+
     console.print(f"[blue]Exporting data in {format} format...[/blue]")
 ```
 
@@ -70,6 +75,7 @@ Use Rich components for beautiful terminal output:
 
 ```python
 from fastedgy.cli import command, pass_cli_context, CliContext, console, Table
+
 
 @command()
 @pass_cli_context
@@ -122,6 +128,7 @@ def risky_command():
         pass
     except Exception as e:
         from fastedgy.cli import console
+
         console.print(f"[red]Error: {str(e)}[/red]")
         raise click.Abort()
 ```

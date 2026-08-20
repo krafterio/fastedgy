@@ -37,6 +37,7 @@ The API Routes Generator automatically creates complete REST API endpoints for y
 from fastedgy.orm import Model, fields
 from fastedgy.api_route_model import api_route_model
 
+
 @api_route_model()
 class User(Model):
     name = fields.CharField(max_length=100)
@@ -45,6 +46,7 @@ class User(Model):
 
     class Meta:
         tablename = "users"
+
 
 # Automatically generates these endpoints:
 # GET /users/          - List all users (with pagination, filtering, ordering)

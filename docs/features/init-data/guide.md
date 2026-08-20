@@ -107,6 +107,7 @@ The same entry point is available in code, which is handy for test fixtures that
 ```python
 from fastedgy.orm.loader import load_data
 
+
 async def seed():
     report = await load_data()
     print(report.created, report.updated)

@@ -67,6 +67,7 @@ Configure default sort order in your model:
 from fastedgy.api_route_model.params import OrderByList
 from fastedgy.orm import Model, fields
 
+
 class Product(Model):
     name = fields.CharField(max_length=100)
     price = fields.DecimalField(max_digits=10, decimal_places=2)

@@ -27,16 +27,9 @@ If you only provide HTML, the text version is automatically generated.
 from fastedgy.dependencies import Inject
 from fastedgy.mail import Mail
 
-async def send_welcome_email(
-    user_email: str,
-    user_name: str,
-    mail: Mail = Inject(Mail)
-):
-    await mail.send_template(
-        template_name="welcome",
-        tpl_vals={"name": user_name},
-        email_parts={"To": user_email}
-    )
+
+async def send_welcome_email(user_email: str, user_name: str, mail: Mail = Inject(Mail)):
+    await mail.send_template(template_name="welcome", tpl_vals={"name": user_name}, email_parts={"To": user_email})
 ```
 
 ## Template structure

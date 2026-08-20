@@ -75,7 +75,7 @@ class Ticket(BaseModel):
     reference = fields.CharField(
         max_length=50,
         null=True,
-        read_only=True,          # no input can write it
+        read_only=True,  # no input can write it
         local_placeholder="DRAFT-{seq}",
     )
     subject = fields.CharField(max_length=200)
@@ -200,8 +200,7 @@ Tighten the policy explicitly with the `ops` option, independently of the CRUD a
 
 ```python
 @api_route_model(sync={"ops": ["update"]})  # never replay deletes, even if delete is enabled
-class Product(BaseModel):
-    ...
+class Product(BaseModel): ...
 ```
 
 An operation outside the allowed set is refused for the whole batch with a `403`.

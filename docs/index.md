@@ -64,10 +64,12 @@ from fastedgy.orm import fields
 from fastedgy.dependencies import Inject, get_service
 from fastedgy.queued_tasks import QueuedTasks
 
+
 # Your model
 class User(Model):
     name = fields.CharField(max_length=100)
     email = fields.EmailField()
+
 
 # Your service
 class EmailService:
@@ -75,14 +77,14 @@ class EmailService:
         # Send welcome email
         pass
 
+
 # Your app with dependency injection and background tasks
 app = FastEdgy()
 
+
 @app.post("/users/")
 async def create_user(
-    user_data: dict,
-    email_service: EmailService = Inject(EmailService),
-    tasks: QueuedTasks = Inject(QueuedTasks)
+    user_data: dict, email_service: EmailService = Inject(EmailService), tasks: QueuedTasks = Inject(QueuedTasks)
 ):
     user = User(**user_data)
     await user.save()

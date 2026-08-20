@@ -24,7 +24,6 @@ class QueuedTask(BaseQueuedTask):
         label = _t("Tâche en file d'attente")
         label_plural = _t("Tâches en file d'attente")
         default_order_by = [("created_at", "desc")]
-
 ```
 
 **`models/queued_task_log.py`:**
@@ -106,27 +105,22 @@ from tasks import send_welcome_email
 app = FastEdgy()
 router = APIRouter()
 
+
 @router.post("/users/register")
 async def register_user(
     email: str,
     username: str,
-    tasks: QueuedTasks = Inject(QueuedTasks)  # Inject the task queue
+    tasks: QueuedTasks = Inject(QueuedTasks),  # Inject the task queue
 ):
     # Create user in database (fast operation)
     user = {"id": 123, "email": email, "username": username}
 
     # Queue email sending (slow operation) - runs in background
-    email_task = tasks.add_task(
-        send_welcome_email,
-        user["email"],
-        user["username"]
-    )
+    email_task = tasks.add_task(send_welcome_email, user["email"], user["username"])
 
     # Return immediately - user doesn't wait for email
-    return {
-        "user": user,
-        "email_task_queued": True
-    }
+    return {"user": user, "email_task_queued": True}
+
 
 app.include_router(router)
 ```
@@ -187,10 +181,7 @@ Tasks can wait for other tasks to complete:
 
 ```python
 @router.post("/orders")
-async def process_order(
-    order_data: dict,
-    tasks: QueuedTasks = Inject(QueuedTasks)
-):
+async def process_order(order_data: dict, tasks: QueuedTasks = Inject(QueuedTasks)):
     # Process order first
     process_task = tasks.add_task(process_payment, order_data["payment_info"])
 
@@ -198,13 +189,13 @@ async def process_order(
     email_task = tasks.add_task(
         send_order_confirmation,
         order_data["user_email"],
-        parent=process_task  # Waits for process_task
+        parent=process_task,  # Waits for process_task
     )
 
     inventory_task = tasks.add_task(
         update_inventory,
         order_data["items"],
-        parent=process_task  # Also waits for process_task
+        parent=process_task,  # Also waits for process_task
     )
 
     return {"order_queued": True}

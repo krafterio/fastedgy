@@ -18,6 +18,7 @@ First, register the standard CRUD actions in your application setup:
 # main.py
 from fastedgy.api_route_model.standard_actions import register_standard_api_route_model_actions
 
+
 def app():
     # Register standard actions (list, get, create, patch, delete, export)
     register_standard_api_route_model_actions()
@@ -34,6 +35,7 @@ Add the `@api_route_model()` decorator to your Edgy models:
 from fastedgy.orm import Model, fields
 from fastedgy.api_route_model import api_route_model
 
+
 @api_route_model()
 class Product(Model):
     name = fields.CharField(max_length=200)
@@ -43,6 +45,7 @@ class Product(Model):
 
     class Meta:
         tablename = "products"
+
 
 @api_route_model()
 class Category(Model):
@@ -61,6 +64,7 @@ Include the generated routes in your FastAPI application:
 # main.py
 from fastapi import APIRouter
 from fastedgy.api_route_model.router import register_api_route_models
+
 
 def app():
     app = FastEdgy()

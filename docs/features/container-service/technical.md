@@ -22,23 +22,20 @@ Popular Python dependency injection libraries like **Dependency Injector** and *
 # Dependency Injector approach - requires configuration
 from dependency_injector import containers, providers
 
+
 class Container(containers.DeclarativeContainer):
     config = providers.Configuration()
 
-    database = providers.Singleton(
-        DatabaseService,
-        connection_string=config.database_url
-    )
+    database = providers.Singleton(DatabaseService, connection_string=config.database_url)
 
-    email_service = providers.Factory(
-        EmailService,
-        smtp_host=config.smtp_host
-    )
+    email_service = providers.Factory(EmailService, smtp_host=config.smtp_host)
+
 
 # FastEdgy approach - zero configuration
 class DatabaseService:
     def __init__(self, config: AppConfig):  # Auto-resolved
         self.connection_string = config.database_url
+
 
 # Just use it - no container setup needed
 db: DatabaseService = Inject(DatabaseService)
@@ -59,20 +56,24 @@ db: DatabaseService = Inject(DatabaseService)
 # Injector approach - different patterns
 from injector import inject, Injector
 
+
 class UserService:
     @inject
     def __init__(self, db: DatabaseService, email: EmailService):
         self.db = db
         self.email = email
 
+
 injector = Injector()
 user_service = injector.get(UserService)
+
 
 # FastEdgy approach - FastAPI-native
 class UserService:
     def __init__(self, db: DatabaseService, email: EmailService):
         self.db = db
         self.email = email
+
 
 # Works in FastAPI endpoints naturally
 @router.post("/users")
@@ -185,9 +186,11 @@ except Exception as e:
 def get_database():
     return DatabaseService("postgresql://...")  # Created each time
 
+
 @router.get("/users")
 async def get_users(db: DatabaseService = Depends(get_database)):
     pass  # db is recreated for each request
+
 
 # Container Service - singleton created once
 @router.get("/users")
@@ -266,6 +269,7 @@ class TestDatabaseService:
         # Test-specific implementation
         pass
 
+
 register_service(TestDatabaseService(), DatabaseService, force=True)
 
 # UserService automatically gets the test database
@@ -298,7 +302,7 @@ Enable debug logging to trace dependency resolution:
 import logging
 
 # Enable detailed logging
-logging.getLogger('fastedgy.dependencies').setLevel(logging.DEBUG)
+logging.getLogger("fastedgy.dependencies").setLevel(logging.DEBUG)
 
 # Now see resolution steps
 service = get_service(ComplexService)
@@ -338,16 +342,19 @@ def register_core_services():
     register_service(LoggerService)
     register_service(DatabaseService)
 
+
 def register_business_services():
     """Register business logic services."""
     register_service(UserService)
     register_service(OrderService)
     register_service(PaymentService)
 
+
 def register_external_services():
     """Register external integrations."""
     register_service(create_email_service, EmailService)
     register_service(create_notification_service, NotificationService)
+
 
 # app/main.py
 @asynccontextmanager
@@ -371,16 +378,12 @@ class ServiceHealthCheck:
     def check_service_health(self):
         health_status = {}
 
-        critical_services = [
-            DatabaseService,
-            CacheService,
-            EmailService
-        ]
+        critical_services = [DatabaseService, CacheService, EmailService]
 
         for service_type in critical_services:
             try:
                 service = get_service(service_type)
-                if hasattr(service, 'ping'):
+                if hasattr(service, "ping"):
                     await service.ping()
                 health_status[service_type.__name__] = "healthy"
             except Exception as e:
@@ -401,12 +404,10 @@ class UserService:
         self.email = EmailService(SMTP_HOST)
         self.logger = LoggerService(LOG_LEVEL)
 
+
 # After: Automatic dependency injection
 class UserService:
-    def __init__(self,
-                 db: DatabaseService,
-                 email: EmailService,
-                 logger: LoggerService):
+    def __init__(self, db: DatabaseService, email: EmailService, logger: LoggerService):
         self.db = db
         self.email = email
         self.logger = logger
@@ -419,12 +420,15 @@ class UserService:
 def get_database():
     return DatabaseService(DATABASE_URL)
 
+
 def get_user_service(db: DatabaseService = Depends(get_database)):
     return UserService(db)
+
 
 @router.get("/users")
 async def get_users(service: UserService = Depends(get_user_service)):
     pass
+
 
 # After: Clean Container Service
 @router.get("/users")
@@ -443,10 +447,12 @@ class MLModelService:
         # Load large ML model - expensive!
         self.model = load_model(config.model_path)
 
+
 # Optimize with factory and caching
 @lru_cache(maxsize=1)
 def create_ml_model(config: AppConfig = Inject(AppConfig)):
     return MLModelService(config)
+
 
 register_service(create_ml_model, MLModelService)
 ```
@@ -456,6 +462,7 @@ register_service(create_ml_model, MLModelService)
 ```python
 import sys
 import gc
+
 
 def monitor_service_memory():
     """Monitor memory usage of registered services."""
@@ -484,17 +491,17 @@ The Container Service provides a powerful, FastAPI-native approach to dependency
 ### Core Functions
 ```python
 # Service registration
-register_service(instance)                    # Auto-key from type
-register_service(instance, CustomKey)         # Custom key
-register_service(factory_fn, ServiceType)     # Factory registration
+register_service(instance)  # Auto-key from type
+register_service(instance, CustomKey)  # Custom key
+register_service(factory_fn, ServiceType)  # Factory registration
 
 # Service access
-service = get_service(ServiceType)            # Direct access
-service: ServiceType = Inject(ServiceType)    # FastAPI injection
+service = get_service(ServiceType)  # Direct access
+service: ServiceType = Inject(ServiceType)  # FastAPI injection
 
 # Service management
-unregister_service(ServiceType)              # Remove service
-has_service(ServiceType)                     # Check existence
+unregister_service(ServiceType)  # Remove service
+has_service(ServiceType)  # Check existence
 ```
 
 ### Advanced Features

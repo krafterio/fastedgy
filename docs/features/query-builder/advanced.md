@@ -73,10 +73,7 @@ from myapp.models import Product
 query = Product.query
 
 # Products that are active AND price >= 100
-filters = And(
-    R("is_active", "is true"),
-    R("price", ">=", 100)
-)
+filters = And(R("is_active", "is true"), R("price", ">=", 100))
 
 filtered_query = filter_query(query, filters)
 products = await filtered_query.all()
@@ -93,10 +90,7 @@ from myapp.models import Product
 query = Product.query
 
 # Products in electronics OR books category
-filters = Or(
-    R("category.slug", "=", "electronics"),
-    R("category.slug", "=", "books")
-)
+filters = Or(R("category.slug", "=", "electronics"), R("category.slug", "=", "books"))
 
 filtered_query = filter_query(query, filters)
 products = await filtered_query.all()
@@ -115,13 +109,7 @@ from myapp.models import Product
 query = Product.query
 
 # Active products AND (cheap OR on sale)
-filters = And(
-    R("is_active", "is true"),
-    Or(
-        R("price", "<", 50),
-        R("category.slug", "=", "sale")
-    )
-)
+filters = And(R("is_active", "is true"), Or(R("price", "<", 50), R("category.slug", "=", "sale")))
 
 filtered_query = filter_query(query, filters)
 products = await filtered_query.all()
@@ -156,6 +144,7 @@ Build filters based on runtime conditions:
 from fastedgy.api_route_model.params import R, And, filter_query
 from myapp.models import Product
 
+
 async def get_products_by_criteria(
     min_price: float | None = None,
     max_price: float | None = None,
@@ -176,6 +165,7 @@ async def get_products_by_criteria(
     filters = And(*rules) if len(rules) > 1 else rules[0]
     filtered_query = filter_query(query, filters)
     return await filtered_query.all()
+
 
 # Use it
 products = await get_products_by_criteria(min_price=50, category="electronics")
@@ -221,6 +211,7 @@ from myapp.schemas import ProductSchema
 
 router = APIRouter()
 
+
 @router.get("/api/products/featured")
 async def get_featured_products(
     category: str | None = None,
@@ -256,9 +247,9 @@ from fastedgy.api_route_model.params import R
 
 # IDE will autocomplete field names and show you the signature
 rule = R(
-    field="price",      # Autocomplete suggests field names
-    operator=">=",      # Autocomplete suggests valid operators
-    value=100
+    field="price",  # Autocomplete suggests field names
+    operator=">=",  # Autocomplete suggests valid operators
+    value=100,
 )
 ```
 
@@ -270,10 +261,7 @@ Static type checkers like mypy can validate your filter expressions:
 from fastedgy.api_route_model.params import R, And
 
 # Type checker validates this
-filters = And(
-    R("name", "=", "test"),
-    R("price", ">", 100)
-)
+filters = And(R("name", "=", "test"), R("price", ">", 100))
 
 # Type checker catches this error (wrong type)
 # filters = And("invalid", 123)  # Type error!
@@ -298,6 +286,7 @@ from fastedgy.api_route_model.params import (
 )
 from fastapi import Depends
 from myapp.models import Product
+
 
 @router.get("/api/products")
 async def list_products(
@@ -410,16 +399,10 @@ Prefer `R` over `FilterRule` for shorter, more readable code:
 
 ```python
 # Good
-filters = And(
-    R("is_active", "is true"),
-    R("price", ">=", 100)
-)
+filters = And(R("is_active", "is true"), R("price", ">=", 100))
 
 # Works but more verbose
-filters = And(
-    FilterRule("is_active", "is true"),
-    FilterRule("price", ">=", 100)
-)
+filters = And(FilterRule("is_active", "is true"), FilterRule("price", ">=", 100))
 ```
 
 ### Extract complex filters to functions
@@ -429,26 +412,20 @@ For complex filter logic, create dedicated functions:
 ```python
 from fastedgy.api_route_model.params import R, And, Or
 
+
 def get_premium_product_filter():
     """Products that are premium: high price OR featured."""
-    return Or(
-        R("price", ">=", 1000),
-        R("is_featured", "is true")
-    )
+    return Or(R("price", ">=", 1000), R("is_featured", "is true"))
+
 
 def get_available_filter():
     """Products that are available for purchase."""
-    return And(
-        R("is_active", "is true"),
-        R("stock", ">", 0)
-    )
+    return And(R("is_active", "is true"), R("stock", ">", 0))
+
 
 # Use in queries
 query = Product.query
-filters = And(
-    get_available_filter(),
-    get_premium_product_filter()
-)
+filters = And(get_available_filter(), get_premium_product_filter())
 filtered_query = filter_query(query, filters)
 products = await filtered_query.all()
 ```

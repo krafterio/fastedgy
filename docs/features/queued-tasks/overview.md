@@ -12,6 +12,7 @@ FastAPI includes an excellent `BackgroundTasks` system that's perfect for simple
 # FastAPI native approach - excellent for simple tasks
 from fastapi import BackgroundTasks
 
+
 @router.post("/register")
 async def register_user(user_data: dict, background_tasks: BackgroundTasks):
     user = create_user(user_data)
@@ -49,21 +50,16 @@ FastEdgy's Queued Tasks builds on FastAPI's foundation to provide enterprise-gra
 from fastedgy.dependencies import Inject
 from fastedgy.queued_tasks import QueuedTasks
 
+
 @router.post("/register")
-async def register_user(
-    user_data: dict,
-    tasks: QueuedTasks = Inject(QueuedTasks)
-):
+async def register_user(user_data: dict, tasks: QueuedTasks = Inject(QueuedTasks)):
     user = create_user(user_data)
 
     # Tasks are persisted in PostgreSQL and executed by dedicated workers
     task_ref = tasks.add_task(send_welcome_email, user.email)
 
     # Optional: Get task ID for tracking
-    return {
-        "user_id": user.id,
-        "email_task_id": await task_ref.get_task_id()
-    }
+    return {"user_id": user.id, "email_task_id": await task_ref.get_task_id()}
 ```
 
 **Additional capabilities for production applications:**
@@ -92,14 +88,13 @@ async def process_user_data(user_id: int):
     # Heavy processing here...
     return {"processed": True}
 
+
 # 2. Queue it in any endpoint
 @router.post("/users/{user_id}/process")
-async def trigger_processing(
-    user_id: int,
-    tasks: QueuedTasks = Inject(QueuedTasks)
-):
+async def trigger_processing(user_id: int, tasks: QueuedTasks = Inject(QueuedTasks)):
     task_ref = tasks.add_task(process_user_data, user_id)
     return {"task_queued": True, "task_id": await task_ref.get_task_id()}
+
 
 # 3. Background workers automatically pick up and execute the task
 ```

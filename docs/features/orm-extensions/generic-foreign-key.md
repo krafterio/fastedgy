@@ -16,7 +16,7 @@ class Reminder(BaseModel):
     record = fields.GenericForeignKey(
         to=["Task", "CalendarEvent"],
         related_name="reminders",
-        label=_t('Record'),
+        label=_t("Record"),
     )
 ```
 
@@ -48,12 +48,12 @@ record = await reminder.record  # Task | CalendarEvent | None
 Writing accepts a saved target instance, a `{"model": ..., "id": ...}` mapping or `None` (when nullable). Both sibling columns stay directly addressable:
 
 ```python
-reminder.record = task           # fills record_model="task", record_id=task.id
+reminder.record = task  # fills record_model="task", record_id=task.id
 reminder.record = {"model": "calendar_event", "id": 7}
-reminder.record = None           # clears the pair (nullable relations only)
+reminder.record = None  # clears the pair (nullable relations only)
 
-reminder.record_model            # "task"
-reminder.record_id               # 12
+reminder.record_model  # "task"
+reminder.record_id  # 12
 ```
 
 Target records load through `target_cls.query`, so global filters and access guards fully apply: a target the current context is denied to read resolves to `None` instead of propagating the denial.
@@ -65,7 +65,7 @@ With `related_name`, every target model exposes a standard to-many accessor:
 ```python
 await task.reminders.all()
 await task.reminders.filter(is_sent=False).count()
-await task.reminders.add(reminder)     # fills the generic pair and saves
+await task.reminders.add(reminder)  # fills the generic pair and saves
 await task.reminders.remove(reminder)  # clears the pair (nullable relations only)
 ```
 

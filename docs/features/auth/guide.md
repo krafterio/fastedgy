@@ -18,11 +18,7 @@ AUTH_REFRESH_TOKEN_EXPIRE_DAYS=30
 ```python
 # User registration happens via the built-in endpoint
 # POST /auth/register
-{
-    "name": "John Doe",
-    "email": "john@example.com",
-    "password": "secure_password"
-}
+{"name": "John Doe", "email": "john@example.com", "password": "secure_password"}
 ```
 
 Or create users programmatically:
@@ -32,20 +28,12 @@ from fastedgy.depends.security import hash_password
 from fastedgy.dependencies import Inject
 from fastedgy.orm import Registry
 
-async def create_user(
-    name: str,
-    email: str,
-    password: str,
-    registry: Registry = Inject(Registry)
-):
+
+async def create_user(name: str, email: str, password: str, registry: Registry = Inject(Registry)):
     User = registry.get_model("User")
 
     hashed_password = hash_password(password)
-    user = User(
-        name=name,
-        email=email,
-        password=hashed_password
-    )
+    user = User(name=name, email=email, password=hashed_password)
     await user.save()
     return user
 ```
@@ -57,14 +45,14 @@ async def create_user(
 # POST /auth/token
 {
     "username": "john@example.com",  # Email as username
-    "password": "secure_password"
+    "password": "secure_password",
 }
 
 # Returns:
 {
     "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
     "refresh_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
-    "token_type": "bearer"
+    "token_type": "bearer",
 }
 ```
 
@@ -75,21 +63,14 @@ from fastedgy.depends.security import get_current_user
 from fastedgy.models.user import BaseUser
 from fastapi import Depends
 
+
 @app.get("/profile")
-async def get_profile(
-    current_user: BaseUser = Depends(get_current_user)
-):
-    return {
-        "id": current_user.id,
-        "name": current_user.name,
-        "email": current_user.email
-    }
+async def get_profile(current_user: BaseUser = Depends(get_current_user)):
+    return {"id": current_user.id, "name": current_user.name, "email": current_user.email}
+
 
 @app.post("/protected-action")
-async def protected_action(
-    data: dict,
-    current_user: BaseUser = Depends(get_current_user)
-):
+async def protected_action(data: dict, current_user: BaseUser = Depends(get_current_user)):
     # Only authenticated users can access this
     return {"message": f"Hello {current_user.name}", "data": data}
 ```
@@ -99,15 +80,13 @@ async def protected_action(
 ```python
 # Refresh access token via built-in endpoint
 # POST /auth/refresh
-{
-    "refresh_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
-}
+{"refresh_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."}
 
 # Returns new access token
 {
     "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
     "refresh_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
-    "token_type": "bearer"
+    "token_type": "bearer",
 }
 ```
 
@@ -134,16 +113,11 @@ The built-in endpoints handle password reset flow:
 
 ```python
 # 1. Request password reset
-{
-    "email": "john@example.com"
-}
+{"email": "john@example.com"}
 
 # 2. User receives email with reset token
 # 3. Reset password with token
-{
-    "token": "reset-token-from-email",
-    "password": "new_secure_password"
-}
+{"token": "reset-token-from-email", "password": "new_secure_password"}
 ```
 
 ## Custom user model
@@ -154,6 +128,7 @@ Extend the base user model:
 from fastedgy.models.user import BaseUser
 from fastedgy.orm import fields
 from fastedgy.api_route_model import api_route_model
+
 
 @api_route_model()
 class User(BaseUser):

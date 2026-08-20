@@ -21,6 +21,7 @@ error = _("User not found")
 from pydantic import BaseModel
 from fastedgy import _t
 
+
 class ErrorResponse(BaseModel):
     message: str = _t("An error occurred")
     details: str = _t("Please try again later")
@@ -31,12 +32,10 @@ class ErrorResponse(BaseModel):
 from fastapi import HTTPException
 from fastedgy import _t
 
+
 async def get_user(user_id: int):
     if not user:
-        raise HTTPException(
-            status_code=404,
-            detail=str(_t("User {id} not found", id=user_id))
-        )
+        raise HTTPException(status_code=404, detail=str(_t("User {id} not found", id=user_id)))
 ```
 
 ## CLI commands
@@ -99,6 +98,7 @@ class Settings(BaseSettings):
 ```python
 from fastedgy.orm import Model, fields
 from fastedgy import _t
+
 
 class Category(Model):
     name = fields.CharField(max_length=100)

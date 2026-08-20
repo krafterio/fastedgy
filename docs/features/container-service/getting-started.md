@@ -34,12 +34,13 @@ from services.email import EmailService
 
 app = FastEdgy()
 
+
 @app.post("/send-email")
 async def send_email(
     recipient: str,
     subject: str,
     body: str,
-    email_service: EmailService = Inject(EmailService)  # Magic happens here!
+    email_service: EmailService = Inject(EmailService),  # Magic happens here!
 ):
     result = email_service.send_email(recipient, subject, body)
     return result
@@ -75,6 +76,7 @@ class DatabaseService:
     def get_user_email(self, user_id: str):
         return f"user{user_id}@example.com"
 
+
 class NotificationService:
     def __init__(self, email: EmailService, db: DatabaseService):
         self.email = email
@@ -89,11 +91,7 @@ Use it directly - no manual wiring needed:
 
 ```python
 @app.post("/notify/{user_id}")
-async def notify_user(
-    user_id: str,
-    message: str,
-    notifications: NotificationService = Inject(NotificationService)
-):
+async def notify_user(user_id: str, message: str, notifications: NotificationService = Inject(NotificationService)):
     # NotificationService automatically gets EmailService and DatabaseService
     result = notifications.notify_user(user_id, message)
     return result
@@ -133,6 +131,7 @@ class AppConfig:
         self.database_url = os.getenv("DATABASE_URL", "sqlite:///app.db")
         self.api_key = os.getenv("API_KEY", "dev-key")
 
+
 # Auto-resolved - no registration needed
 config: AppConfig = Inject(AppConfig)
 ```
@@ -143,6 +142,7 @@ class DatabaseService:
     def __init__(self, config: AppConfig):  # Depends on AppConfig
         self.connection_string = config.database_url
         # Connection logic here
+
 
 # Auto-resolved with AppConfig dependency
 db: DatabaseService = Inject(DatabaseService)

@@ -14,9 +14,11 @@ class ConfigService:
         self.database_url = os.getenv("DATABASE_URL", "postgresql://localhost/myapp")
         self.debug = os.getenv("DEBUG", "false").lower() == "true"
 
+
 class DatabaseService:
     def __init__(self, config: ConfigService):  # Auto-resolved dependency
         self.connection_string = config.database_url
+
 
 # No registration needed - use directly
 @router.get("/health")
@@ -33,18 +35,14 @@ For services requiring specific configuration:
 ```python
 # Register configured instances during app startup
 email_service = EmailService(
-    smtp_host="smtp.company.com",
-    username="noreply@company.com",
-    password=os.getenv("EMAIL_PASSWORD")
+    smtp_host="smtp.company.com", username="noreply@company.com", password=os.getenv("EMAIL_PASSWORD")
 )
 register_service(email_service)
 
+
 # Use anywhere in your application
 @router.post("/welcome")
-async def send_welcome_email(
-    user_email: str,
-    email: EmailService = Inject(EmailService)
-):
+async def send_welcome_email(user_email: str, email: EmailService = Inject(EmailService)):
     return email.send_email(user_email, "Welcome!", "Thanks for joining!")
 ```
 
@@ -61,8 +59,10 @@ def create_cache_service():
     else:
         return InMemoryCache()
 
+
 # Register the factory
 register_service(create_cache_service, CacheService)
+
 
 # Service is created on first access
 @router.get("/cached-data")
@@ -84,7 +84,7 @@ async def create_order(
     order_data: dict,
     db: DatabaseService = Inject(DatabaseService),
     email: EmailService = Inject(EmailService),
-    notifications: NotificationService = Inject(NotificationService)
+    notifications: NotificationService = Inject(NotificationService),
 ):
     # All services automatically resolved and injected
     order = db.create_order(order_data)
@@ -102,10 +102,11 @@ from fastapi.security import HTTPBearer
 
 security = HTTPBearer()
 
+
 @router.get("/protected")
 async def protected_endpoint(
     token: str = Depends(security),  # Standard FastAPI dependency
-    user_service: UserService = Inject(UserService)  # Container Service
+    user_service: UserService = Inject(UserService),  # Container Service
 ):
     user = user_service.get_user_from_token(token.credentials)
     return {"user": user.username}
@@ -154,18 +155,22 @@ class ConfigService:
         self.email_host = os.getenv("EMAIL_HOST")
         self.cache_url = os.getenv("CACHE_URL")
 
+
 class EmailService:
     def __init__(self, config: ConfigService):
         self.host = config.email_host
+
 
 class CacheService:
     def __init__(self, config: ConfigService):  # Same ConfigService instance
         self.url = config.cache_url
 
+
 class NotificationService:
     def __init__(self, email: EmailService, cache: CacheService):
         self.email = email
         self.cache = cache
+
 
 # Auto-resolution creates this tree:
 # ConfigService (singleton)
@@ -183,30 +188,31 @@ class LoggerService:
     def __init__(self, config: ConfigService):
         self.level = config.log_level
 
+
 class DatabaseService:
     def __init__(self, config: ConfigService, logger: LoggerService):
         self.connection = create_connection(config.database_url)
         self.logger = logger
+
 
 class UserService:
     def __init__(self, db: DatabaseService, cache: CacheService):
         self.db = db
         self.cache = cache
 
+
 class OrderService:
-    def __init__(self,
-                 user_service: UserService,
-                 email: EmailService,
-                 logger: LoggerService):
+    def __init__(self, user_service: UserService, email: EmailService, logger: LoggerService):
         self.users = user_service
         self.email = email
         self.logger = logger
+
 
 # Just inject the top-level service - everything else resolves automatically
 @router.post("/orders")
 async def create_order(
     order_data: dict,
-    orders: OrderService = Inject(OrderService)  # Entire tree resolved!
+    orders: OrderService = Inject(OrderService),  # Entire tree resolved!
 ):
     return orders.create_order(order_data)
 ```
@@ -220,6 +226,7 @@ Services work identically in CLI commands:
 ```python
 from fastedgy.cli import command
 from fastedgy.dependencies import get_service
+
 
 @command()
 def send_bulk_emails():
@@ -240,6 +247,7 @@ Same services available in background tasks:
 ```python
 from fastapi import BackgroundTasks
 
+
 def send_welcome_email_task(user_email: str):
     # Access services directly
     email_service = get_service(EmailService)
@@ -248,11 +256,10 @@ def send_welcome_email_task(user_email: str):
     template = template_service.get_template("welcome")
     email_service.send_email(user_email, "Welcome!", template)
 
+
 @router.post("/register")
 async def register_user(
-    user_data: dict,
-    background_tasks: BackgroundTasks,
-    user_service: UserService = Inject(UserService)
+    user_data: dict, background_tasks: BackgroundTasks, user_service: UserService = Inject(UserService)
 ):
     user = user_service.create_user(user_data)
 
@@ -272,38 +279,29 @@ from contextlib import asynccontextmanager
 from fastedgy.app import FastEdgy
 from fastedgy.dependencies import register_service
 
+
 def setup_services():
     """Configure services based on environment during startup."""
     env = os.getenv("ENVIRONMENT", "development")
 
     if env == "production":
         # Production services
-        register_service(
-            DatabaseService("postgresql://prod-db:5432/app"),
-            DatabaseService
-        )
-        register_service(
-            CacheService("redis://prod-cache:6379"),
-            CacheService
-        )
-        register_service(
-            EmailService(smtp_host="smtp.mailgun.org"),
-            EmailService
-        )
+        register_service(DatabaseService("postgresql://prod-db:5432/app"), DatabaseService)
+        register_service(CacheService("redis://prod-cache:6379"), CacheService)
+        register_service(EmailService(smtp_host="smtp.mailgun.org"), EmailService)
     else:
         # Development services
-        register_service(
-            DatabaseService("sqlite:///dev.db"),
-            DatabaseService
-        )
+        register_service(DatabaseService("sqlite:///dev.db"), DatabaseService)
         register_service(InMemoryCache(), CacheService)
         register_service(ConsoleEmailService(), EmailService)
+
 
 # Setup services during app startup (optional custom lifespan)
 @asynccontextmanager
 async def lifespan(app: FastEdgy):
     setup_services()
     yield
+
 
 # FastEdgy handles DB and service lifecycle automatically
 app = FastEdgy(
@@ -321,20 +319,18 @@ class DatabaseConfig:
         self.pool_size = int(os.getenv("DB_POOL_SIZE", "5"))
         self.echo = os.getenv("DB_ECHO", "false").lower() == "true"
 
+
 class EmailConfig:
     def __init__(self):
         self.smtp_host = os.getenv("SMTP_HOST", "localhost")
         self.username = os.getenv("SMTP_USER", "")
         self.password = os.getenv("SMTP_PASSWORD", "")
 
+
 # Use configuration classes in services
 class DatabaseService:
     def __init__(self, config: DatabaseConfig):  # Auto-injected
-        self.engine = create_engine(
-            config.url,
-            pool_size=config.pool_size,
-            echo=config.echo
-        )
+        self.engine = create_engine(config.url, pool_size=config.pool_size, echo=config.echo)
 ```
 
 ## Error Handling and Debugging
@@ -350,6 +346,7 @@ class MyService:
     def __init__(self, config: ConfigService = None):  # Default parameter
         self.config = config or ConfigService()
 
+
 # Solution 2: Register explicitly
 register_service(MyService("custom config"))
 ```
@@ -361,13 +358,16 @@ class ServiceA:
     def __init__(self, service_b: ServiceB):  # Circular!
         self.service_b = service_b
 
+
 class ServiceB:
     def __init__(self, service_a: ServiceA):  # Circular!
         self.service_a = service_a
 
+
 # Solution: Use factory pattern to break the cycle
 def create_service_a(service_b: ServiceB = Inject(ServiceB)):
     return ServiceA(service_b)
+
 
 register_service(ServiceB())  # Register first
 register_service(create_service_a, ServiceA)  # Register factory
@@ -381,7 +381,7 @@ Enable logging to see what's happening:
 import logging
 
 # Enable debug logging
-logging.getLogger('fastedgy.dependencies').setLevel(logging.DEBUG)
+logging.getLogger("fastedgy.dependencies").setLevel(logging.DEBUG)
 
 # Now you'll see service creation and resolution steps
 ```
@@ -414,6 +414,7 @@ class NotificationService:
         self.email = email
         self.logger = logger
 
+
 # Avoid: No type hints make resolution impossible
 class NotificationService:
     def __init__(self, email, logger):  # Can't auto-resolve
@@ -424,12 +425,9 @@ class NotificationService:
 ### 3. Explicit Registration for Complex Services
 ```python
 # Good: Register complex services explicitly
-database_service = DatabaseService(
-    connection_string=DATABASE_URL,
-    pool_size=20,
-    echo=DEBUG_MODE
-)
+database_service = DatabaseService(connection_string=DATABASE_URL, pool_size=20, echo=DEBUG_MODE)
 register_service(database_service)
+
 
 # Avoid: Complex constructors without defaults
 class DatabaseService:

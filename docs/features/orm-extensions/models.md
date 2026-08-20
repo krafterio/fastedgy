@@ -8,6 +8,7 @@ FastEdgy models are based on [Edgy ORM](https://edgy.dymmond.com/) and provide a
 from fastedgy.models.base import BaseModel
 from fastedgy.orm import fields
 
+
 class Product(BaseModel):
     name = fields.CharField(max_length=255)
     description = fields.TextField()
@@ -31,11 +32,7 @@ All FastEdgy models inherit from the base model, which provides:
 
 ### Create
 ```python
-product = Product(
-    name="Laptop",
-    description="High-performance laptop",
-    price=999.99
-)
+product = Product(name="Laptop", description="High-performance laptop", price=999.99)
 await product.save()
 ```
 
@@ -48,10 +45,7 @@ product = await Product.query.get(id=1)
 products = await Product.query.filter(is_active=True).all()
 
 # Complex queries
-expensive_products = await Product.query.filter(
-    price__gte=500,
-    is_active=True
-).order_by("-price").all()
+expensive_products = await Product.query.filter(price__gte=500, is_active=True).order_by("-price").all()
 ```
 
 ### Update
@@ -80,6 +74,7 @@ class Category(BaseModel):
     class Meta:
         tablename = "categories"
 
+
 class Product(BaseModel):
     name = fields.CharField(max_length=255)
     category = fields.ForeignKey(Category, on_delete="CASCADE")
@@ -87,6 +82,7 @@ class Product(BaseModel):
 
     class Meta:
         tablename = "products"
+
 
 class Tag(BaseModel):
     name = fields.CharField(max_length=50)
@@ -105,15 +101,13 @@ class Product(BaseModel):
         tablename = "products"
         # Optional configurations
         abstract = False  # True for abstract base models
-        registry = None   # Auto-set by FastEdgy
+        registry = None  # Auto-set by FastEdgy
 
         # Database table options
         indexes = [
             fields.Index(fields=["name"]),
         ]
-        constraints = [
-            fields.UniqueConstraint(fields=["name"], name="unique_product_name")
-        ]
+        constraints = [fields.UniqueConstraint(fields=["name"], name="unique_product_name")]
 ```
 
 ## Read-only fields
@@ -134,9 +128,7 @@ Read-only fields are excluded from the generated input schemas, so no `POST`, `P
 Use `apply_readonly_values(...)`, the explicit code-side escape hatch on `BaseModel`. It stages the values and the next `save()` persists them:
 
 ```python
-membership = WorkspaceUser().apply_readonly_values(
-    {"workspace": workspace, "user": user}
-)
+membership = WorkspaceUser().apply_readonly_values({"workspace": workspace, "user": user})
 membership.role = Role.admin
 await membership.save()
 ```
@@ -154,6 +146,7 @@ Integrate with FastEdgy's API route generator:
 ```python
 from fastedgy.api_route_model import api_route_model
 
+
 @api_route_model()
 class Product(BaseModel):
     name = fields.CharField(max_length=255)
@@ -161,6 +154,7 @@ class Product(BaseModel):
 
     class Meta:
         tablename = "products"
+
 
 # Automatically generates:
 # GET    /api/products/     - List products

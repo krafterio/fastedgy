@@ -186,7 +186,7 @@ async def get_queue_metrics():
         "running_tasks": await count_running_tasks(),
         "failed_tasks_today": await count_failed_tasks_today(),
         "average_task_duration": await get_average_task_duration(),
-        "active_workers": await count_active_workers()
+        "active_workers": await count_active_workers(),
     }
 ```
 
@@ -198,7 +198,7 @@ Enable detailed logging:
 import logging
 
 # Enable debug logging
-logging.getLogger('queued_task').setLevel(logging.DEBUG)
+logging.getLogger("queued_task").setLevel(logging.DEBUG)
 
 # This shows task creation, pickup, execution steps
 ```
@@ -335,6 +335,7 @@ Tasks can use dependency injection:
 ```python
 from fastedgy.dependencies import get_service
 
+
 async def service_using_task(data_id: int):
     # Get services within task
     email_service = get_service(EmailService)
@@ -398,9 +399,11 @@ Migrating from Celery or similar:
 def old_task(data):
     return process_data(data)
 
+
 # FastEdgy style
 async def new_task(data):
     return await process_data(data)
+
 
 # Usage
 # old_task.delay(data)  # Celery

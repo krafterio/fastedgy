@@ -562,6 +562,22 @@ class BaseModel(Model, metaclass=ModelMeta):
             getattr(model_instance, "_readonly_overrides", None) if isinstance(model_instance, BaseModel) else None
         )
 
+        # Edgy re-injects the default of every `read_only` field holding one on
+        # an update, so saving one column rewrites the others: an avatar upload
+        # would send a user's role back to its default. Only an explicit
+        # override writes a read_only column on an existing row, timestamps kept
+        # since they exist to be rewritten on every update.
+        if phase == "prepare_update":
+            for name, field in cls.meta.fields.items():
+                if (
+                    getattr(field, "read_only", False)
+                    and not getattr(field, "auto_now", False)
+                    and not getattr(field, "auto_now_add", False)
+                    and not (overrides and name in overrides)
+                ):
+                    for column in field.get_column_names(name):
+                        validated.pop(column, None)
+
         if overrides and phase in ("prepare_insert", "prepare_update"):
             for name, value in overrides.items():
                 field = cls.meta.fields[name]

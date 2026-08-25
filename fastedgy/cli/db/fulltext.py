@@ -28,6 +28,7 @@ async def fulltext_reindex(model, locale, filter_json, batch_size=500):
         get_fulltext_column,
         get_primary_key_field,
         get_searchable_fields,
+        is_view_model,
     )
 
     settings = get_service(BaseSettings)
@@ -41,6 +42,9 @@ async def fulltext_reindex(model, locale, filter_json, batch_size=500):
     # Find models with FulltextField
     fulltext_models = []
     for model_cls in registry.models.values():
+        if is_view_model(model_cls):
+            continue
+
         if model:
             api_name = str(model_cls.meta.tablename)
             model_name = model_cls.__name__.lower()

@@ -114,3 +114,22 @@ async def test_order_by_search_relevance(setup_db: FastEdgy) -> None:
     items = await inject_order_by(query, "search_value:desc").all()
 
     assert [item.name for item in items] == ["Laptop Pro"]
+
+
+def test_view_backed_models_are_left_alone() -> None:
+    # A view computes its tsvector in its own SELECT, and PostgreSQL refuses to
+    # update one that returns a window function. Both the reindex command and
+    # the save signal read the flag off Meta, not off meta.
+    from fastedgy.models.base import BaseView
+    from fastedgy.orm.fields.field_fulltext import is_view_model
+
+    class NotAView:
+        class Meta:
+            tablename = "products"
+
+    class AView:
+        class Meta(BaseView.Meta):
+            tablename = "candidates"
+
+    assert is_view_model(AView)
+    assert not is_view_model(NotAView)

@@ -197,6 +197,17 @@ def escape_sql(value: str) -> str:
     return value.replace("'", "''")
 
 
+def is_view_model(model_cls: type) -> bool:
+    """
+    Whether the model is mapped onto a SQL view rather than a table.
+
+    A view holding a tsvector column computes it in its own SELECT, and
+    PostgreSQL refuses to update one that is not automatically updatable, so
+    nothing here may write to it.
+    """
+    return bool(getattr(getattr(model_cls, "Meta", None), "is_view", False))
+
+
 def get_primary_key_field(model_cls: "type[BaseModel]") -> str | None:
     """Name of the model's primary key field, if it has a single one."""
     for name, field_info in model_cls.meta.fields.items():
@@ -320,6 +331,7 @@ __all__ = [
     "get_fulltext_column",
     "get_pg_language",
     "get_primary_key_field",
+    "is_view_model",
     "get_searchable_fields",
     "recompute_fulltext",
     "resolve_search_weight",

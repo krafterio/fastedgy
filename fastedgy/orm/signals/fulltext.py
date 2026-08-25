@@ -14,6 +14,7 @@ from fastedgy.orm.fields.field_fulltext import (
     get_fulltext_column,
     get_primary_key_field,
     get_searchable_fields,
+    is_view_model,
 )
 
 logger = logging.getLogger(__name__)
@@ -127,6 +128,9 @@ def register_all_fulltext_signals() -> None:
         registry = get_service(Registry)
 
         for model_cls in registry.models.values():
+            if is_view_model(model_cls):
+                continue
+
             has_fulltext = False
             for field_info in model_cls.meta.fields.values():
                 if getattr(field_info, "is_fulltext_field", False):

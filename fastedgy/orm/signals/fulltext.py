@@ -10,7 +10,9 @@ from edgy.core.signals import post_save
 from sqlalchemy.exc import DBAPIError
 
 from fastedgy.orm.fields.field_fulltext import (
-    get_pg_language,
+    build_tsvector_expression,
+    get_fulltext_column,
+    get_primary_key_field,
     get_searchable_fields,
 )
 
@@ -51,71 +53,54 @@ async def _handle_fulltext_save(instance: Any, **kwargs: dict[str, Any]) -> None
         if not searchable_fields:
             return
 
-        # Check if update_fields was provided (partial save)
-        update_fields = kwargs.get("update_fields")
-        if update_fields is not None:
-            updated_searchable = set(update_fields) & set(searchable_fields.keys())
-            if not updated_searchable:
+        # Only a create, or an update that actually wrote a searchable column,
+        # can change the tsvector. Edgy hands the written field names in
+        # `values` and the written column names in `column_values`; on anything
+        # else the statement below would be a pure round-trip for a record whose
+        # indexed text nobody touched.
+        if kwargs.get("is_update"):
+            written = set(kwargs.get("values") or ()) | set(kwargs.get("column_values") or ())
+
+            if not written & set(searchable_fields):
                 return
 
         locale = context.get_locale()
-        pg_language = get_pg_language(locale)
-        tablename = str(model_cls.meta.tablename)
+        expression = build_tsvector_expression(model_cls, locale)
 
-        # Find primary key
-        pk_field = None
-        for fname, finfo in model_cls.meta.fields.items():
-            if getattr(finfo, "primary_key", False):
-                pk_field = fname
-                break
+        if expression is None:
+            return
 
-        if not pk_field:
+        pk_field = get_primary_key_field(model_cls)
+
+        if pk_field is None:
             return
 
         record_pk = instance.__dict__.get(pk_field)
+
         if record_pk is None:
             return
 
-        # Recompute each FulltextField
+        tablename = str(model_cls.meta.tablename)
+
         for field_name, field_info in model_cls.meta.fields.items():
             if not getattr(field_info, "is_fulltext_field", False):
                 continue
 
-            column_name = f"{field_name}_{locale}"
+            column_name = get_fulltext_column(model_cls, field_name, locale)
 
-            tsvector_parts = []
-            bind_params = {"pk_value": record_pk}
-
-            for idx, (src_field, weight) in enumerate(searchable_fields.items()):
-                value = instance.__dict__.get(src_field)
-
-                if isinstance(value, dict):
-                    value = value.get(locale)
-
-                if value is None:
-                    value = ""
-                else:
-                    value = str(value)
-
-                param_name = f"val_{idx}"
-                bind_params[param_name] = value
-                tsvector_parts.append(
-                    f"setweight(to_tsvector('{pg_language}', unaccent(coalesce(:{param_name}, ''))), '{weight}')"
-                )
-
-            if not tsvector_parts:
+            if column_name is None:
                 continue
 
-            tsvector_expr = " || ".join(tsvector_parts)
+            target = f'"{column_name}"'
             # Skip the write entirely when the recomputed tsvector is unchanged:
             # a no-op UPDATE would still create a new row version (heap + every
             # index incl. the GIN) and generate WAL on every save of the record.
             sql = text(
-                f"UPDATE {tablename} SET {column_name} = {tsvector_expr} "
-                f"WHERE {pk_field} = :pk_value AND {column_name} IS DISTINCT FROM ({tsvector_expr})"
+                f"UPDATE {tablename} SET {target} = {expression} "
+                f'WHERE "{pk_field}" = :pk_value AND {target} IS DISTINCT FROM ({expression})'
             )
 
-            await model_cls.meta.registry.database.execute(sql, bind_params)
+            await model_cls.meta.registry.database.execute(sql, {"pk_value": record_pk})
 
     except DBAPIError:
         # A database error here (typically a serialization conflict 40001 under

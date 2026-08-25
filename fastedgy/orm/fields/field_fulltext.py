@@ -197,6 +197,64 @@ def escape_sql(value: str) -> str:
     return value.replace("'", "''")
 
 
+def get_primary_key_field(model_cls: "type[BaseModel]") -> str | None:
+    """Name of the model's primary key field, if it has a single one."""
+    for name, field_info in model_cls.meta.fields.items():
+        if getattr(field_info, "primary_key", False):
+            return name
+
+    return None
+
+
+def build_tsvector_expression(model_cls: "type[BaseModel]", locale: str) -> str | None:
+    """
+    Build the SQL expression computing the tsvector of a record, for one locale.
+
+    The expression reads the table's own columns, never Python values: a partial
+    save carries only the fields it loaded, and feeding those to the tsvector
+    would drop every word held by a column the instance never read. The record
+    would then flip between a complete and a truncated vector on alternating
+    saves, rewriting the GIN index each time.
+
+    Returns None when the model has nothing searchable.
+    """
+    searchable_fields = get_searchable_fields(model_cls)
+
+    if not searchable_fields:
+        return None
+
+    pg_language = get_pg_language(locale)
+    columns = model_cls.table.columns
+    parts: list[str] = []
+
+    for src_field, weight in searchable_fields.items():
+        column = columns.get(src_field)
+
+        if column is None:
+            continue
+
+        quoted = f'"{column.name}"'
+
+        if isinstance(column.type, sqlalchemy.JSON):
+            source = f"{quoted} ->> '{escape_sql(locale)}'"
+        else:
+            source = f"{quoted}::text"
+
+        parts.append(f"setweight(to_tsvector('{pg_language}', unaccent(coalesce({source}, ''))), '{weight}')")
+
+    if not parts:
+        return None
+
+    return " || ".join(parts)
+
+
+def get_fulltext_column(model_cls: "type[BaseModel]", field_name: str, locale: str) -> str | None:
+    """Resolve the tsvector column of a FulltextField for one locale, if it exists."""
+    column = model_cls.table.columns.get(f"{field_name}_{locale}")
+
+    return column.name if column is not None else None
+
+
 async def recompute_fulltext(
     model_class_path: str,
     record_pk: Any,
@@ -216,67 +274,35 @@ async def recompute_fulltext(
     import importlib
 
     try:
-        # Resolve model class from path
         parts = model_class_path.rsplit(".", 1)
         module = importlib.import_module(parts[0])
         model_cls = getattr(module, parts[1])
 
-        # Get searchable fields and their weights
-        searchable_fields = get_searchable_fields(model_cls)
-        if not searchable_fields:
+        expression = build_tsvector_expression(model_cls, locale)
+
+        if expression is None:
             return
 
-        # Load the record to get field values
-        pk_field = None
-        for fname, finfo in model_cls.meta.fields.items():
-            if getattr(finfo, "primary_key", False):
-                pk_field = fname
-                break
+        column_name = get_fulltext_column(model_cls, fulltext_field_name, locale)
 
-        if not pk_field:
+        if column_name is None:
             return
 
-        record = await model_cls.query.filter(**{pk_field: record_pk}).first()
-        if not record:
+        pk_field = get_primary_key_field(model_cls)
+
+        if pk_field is None:
             return
 
-        # Build the tsvector expression parts
-        pg_language = get_pg_language(locale)
-        tablename = str(model_cls.meta.tablename)
-        column_name = f"{fulltext_field_name}_{locale}"
-
-        tsvector_parts = []
-        bind_params = {"pk_value": record_pk}
-
-        for idx, (field_name, weight) in enumerate(searchable_fields.items()):
-            value = getattr(record, field_name, None)
-
-            # Handle translatable dict fields
-            if isinstance(value, dict):
-                value = value.get(locale)
-
-            if value is None:
-                value = ""
-            else:
-                value = str(value)
-
-            param_name = f"val_{idx}"
-            bind_params[param_name] = value
-            tsvector_parts.append(
-                f"setweight(to_tsvector('{pg_language}', unaccent(coalesce(:{param_name}, ''))), '{weight}')"
-            )
-
-        if not tsvector_parts:
-            return
-
-        tsvector_expr = " || ".join(tsvector_parts)
-
-        # Execute raw SQL update
         from sqlalchemy import text
 
-        sql = text(f"UPDATE {tablename} SET {column_name} = {tsvector_expr} WHERE {pk_field} = :pk_value")
+        tablename = str(model_cls.meta.tablename)
+        target = f'"{column_name}"'
+        sql = text(
+            f"UPDATE {tablename} SET {target} = {expression} "
+            f'WHERE "{pk_field}" = :pk_value AND {target} IS DISTINCT FROM ({expression})'
+        )
 
-        await model_cls.meta.registry.database.execute(sql, bind_params)
+        await model_cls.meta.registry.database.execute(sql, {"pk_value": record_pk})
 
     except Exception:
         logger.exception(
@@ -289,8 +315,11 @@ __all__ = [
     "SEARCH_WEIGHT_FIELD_MAP",
     "FulltextField",
     "SearchWeight",
+    "build_tsvector_expression",
     "escape_sql",
+    "get_fulltext_column",
     "get_pg_language",
+    "get_primary_key_field",
     "get_searchable_fields",
     "recompute_fulltext",
     "resolve_search_weight",

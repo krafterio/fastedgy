@@ -58,18 +58,50 @@ async def test_fulltext_unchanged_source_writes_nothing(setup_db: FastEdgy) -> N
 
 
 async def test_fulltext_changed_source_still_recomputes(setup_db: FastEdgy) -> None:
-    from fastedgy.orm.signals.fulltext import _handle_fulltext_save
-
     product = Product(name="Widget", description="A blue gadget", price="9.99")
     await product.save()
 
-    ctid_before = await _fetch_col(product.id, "ctid::text")
-
     product.name = "Sprocket"
-    await _handle_fulltext_save(product)
+    await product.save()
 
-    assert await _fetch_col(product.id, "ctid::text") != ctid_before
     assert "sprocket" in await _fetch_col(product.id, "search_value_en::text")
+
+
+async def test_fulltext_partial_save_keeps_the_fields_it_never_loaded(setup_db: FastEdgy) -> None:
+    # The vector is computed from the table, not from the instance. An instance
+    # carrying only the field it changes used to rebuild the vector out of what
+    # it happened to hold, dropping every word from a column it never read. The
+    # next full save put them back, so the record flip-flopped between two
+    # vectors and rewrote the GIN index on every single save.
+    product = Product(name="Widget", description="A blue gadget", price="9.99")
+    await product.save()
+
+    lean = Product(id=product.id, name="Sprocket", price="9.99")
+    await lean.save(values={"name": "Sprocket"})
+
+    indexed = await _fetch_col(product.id, "search_value_en::text")
+
+    assert "sprocket" in indexed
+    assert "gadget" in indexed
+
+
+async def test_fulltext_skips_an_update_touching_no_searchable_field(setup_db: FastEdgy) -> None:
+    # Nothing indexed changed, so the statement must not run at all. A stored
+    # vector that no longer matches the row is the only way to observe it: the
+    # IS DISTINCT FROM guard would hide a skip from a ctid comparison.
+    product = Product(name="Widget", description="A blue gadget", price="9.99")
+    await product.save()
+
+    database = get_service(Registry).database
+    await database.execute(
+        "UPDATE test_products SET search_value_en = to_tsvector('simple', 'stale') WHERE id = :id",
+        {"id": product.id},
+    )
+
+    product.quantity = 5
+    await product.save(values={"quantity": 5})
+
+    assert "stale" in await _fetch_col(product.id, "search_value_en::text")
 
 
 async def test_order_by_search_relevance(setup_db: FastEdgy) -> None:

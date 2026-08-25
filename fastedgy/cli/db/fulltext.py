@@ -24,7 +24,9 @@ async def fulltext_reindex(model, locale, filter_json, batch_size=500):
     from fastedgy.dependencies import get_service
     from fastedgy.orm import Registry
     from fastedgy.orm.fields.field_fulltext import (
-        get_pg_language,
+        build_tsvector_expression,
+        get_fulltext_column,
+        get_primary_key_field,
         get_searchable_fields,
     )
 
@@ -57,48 +59,37 @@ async def fulltext_reindex(model, locale, filter_json, batch_size=500):
 
     for model_cls, field_name in fulltext_models:
         tablename = str(model_cls.meta.tablename)
-        searchable_fields = get_searchable_fields(model_cls)
-
-        # Find primary key
-        pk_field = None
-        for fname, finfo in model_cls.meta.fields.items():
-            if getattr(finfo, "primary_key", False):
-                pk_field = fname
-                break
+        pk_field = get_primary_key_field(model_cls)
 
         if not pk_field:
             cli.echo(f"  Skipping {model_cls.__name__}: no primary key found")
             continue
 
         for loc in locales:
-            pg_language = get_pg_language(loc)
-            column_name = f"{field_name}_{loc}"
+            tsvector_expr = build_tsvector_expression(model_cls, loc)
+            column_name = get_fulltext_column(model_cls, field_name, loc)
 
-            # Build tsvector expression from source fields
-            tsvector_parts = []
-            for src_field, weight in searchable_fields.items():
-                tsvector_parts.append(
-                    f"setweight(to_tsvector('{pg_language}', unaccent(coalesce({src_field}::text, ''))), '{weight}')"
-                )
-
-            if not tsvector_parts:
+            if tsvector_expr is None or column_name is None:
                 continue
-
-            tsvector_expr = " || ".join(tsvector_parts)
 
             if filter_json:
                 cli.echo("  Note: --filter is not supported in batch mode, ignoring")
 
-            # Single batch SQL update — no ORM, no workspace filter
-            sql = text(f"UPDATE {tablename} SET {column_name} = {tsvector_expr}")
+            # Single batch SQL update — no ORM, no workspace filter. The
+            # IS DISTINCT FROM keeps the pass idempotent: a rerun rewrites only
+            # the rows whose vector is actually wrong, instead of every row and
+            # its GIN entries.
+            target = f'"{column_name}"'
+            sql = text(
+                f"UPDATE {tablename} SET {target} = {tsvector_expr} WHERE {target} IS DISTINCT FROM ({tsvector_expr})"
+            )
 
-            # Count total
             count_result = await model_cls.meta.registry.database.fetch_val(text(f"SELECT count(*) FROM {tablename}"))
             cli.echo(f"[{model_cls.__name__}/{loc}] Reindexing {count_result} records...")
 
-            await model_cls.meta.registry.database.execute(sql)
+            updated = await model_cls.meta.registry.database.execute(sql)
 
-            cli.echo(f"  [{model_cls.__name__}/{loc}] Done.")
+            cli.echo(f"  [{model_cls.__name__}/{loc}] Done ({updated} rewritten).")
 
     cli.echo("Fulltext reindex complete.")
 

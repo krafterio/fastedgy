@@ -44,7 +44,7 @@ from fastedgy.orm.fields import (
     generic_target_name,
     resolve_generic_pair,
 )
-from fastedgy.orm.fields.field_fulltext import get_pg_language
+from fastedgy.orm.fields.field_fulltext import escape_sql, get_pg_language
 from fastedgy.orm.filter.operators import (
     FILTER_DICT_OPERATORS_SQL,
     FILTER_OPERATORS_SQL,
@@ -808,7 +808,7 @@ def _build_fulltext_fuzzy_expression(model_cls: type[Model], field_path: str, va
     Each term is corrected via a ts_stat subquery using pg_trgm similarity,
     then used in a standard tsquery. All in one SQL query, sync, no round-trip.
     """
-    from fastedgy.orm.filter.search_parser import _tokenize
+    from fastedgy.orm.filter.search_parser import _normalize_input, _tokenize
 
     _target_cls, tablename, field_name = _resolve_fulltext_field(model_cls, field_path)
     locale = _get_fulltext_locale()
@@ -819,7 +819,9 @@ def _build_fulltext_fuzzy_expression(model_cls: type[Model], field_path: str, va
     if not raw_value:
         return None
 
-    tokens = _tokenize(raw_value)
+    # Normalize first: tokenizing the raw value let quotes and apostrophes
+    # through, and they end up in the tsquery the correction subquery builds.
+    tokens = _tokenize(_normalize_input(raw_value))
     if not tokens:
         return None
 
@@ -950,14 +952,21 @@ def _add_fulltext_rank_extra_select(query: QuerySet, filters: Filter | None) -> 
         qualified_column = f"{tablename}.{column_name}"
         label_name = f"_{field_path}_rank"
 
+        # The rank goes through literal_column, which takes no bind parameter, so
+        # every tsquery is escaped on the way in. It is built from user input:
+        # an apostrophe reaching this literal unescaped closes it, and the rest
+        # of the search box lands in the statement as SQL. That is where
+        # `syntax error at or near "olive"` came from, on every French elision.
+        escaped = [escape_sql(tq) for tq in tsqueries]
+
         # Combine multiple tsqueries with || (OR) for ranking
-        if len(tsqueries) == 1:
-            combined_tsquery = tsqueries[0]
+        if len(escaped) == 1:
+            combined_tsquery = escaped[0]
         else:
-            combined_tsquery = " || ".join(f"to_tsquery('{pg_language}', unaccent('{tq}'))" for tq in tsqueries)
+            combined_tsquery = " || ".join(f"to_tsquery('{pg_language}', unaccent('{tq}'))" for tq in escaped)
 
         try:
-            if len(tsqueries) == 1:
+            if len(escaped) == 1:
                 rank_expr = literal_column(
                     f"ts_rank({qualified_column}, to_tsquery('{pg_language}', unaccent('{combined_tsquery}')))"
                 ).label(label_name)
@@ -965,12 +974,12 @@ def _add_fulltext_rank_extra_select(query: QuerySet, filters: Filter | None) -> 
                 rank_expr = literal_column(f"ts_rank({qualified_column}, {combined_tsquery})").label(label_name)
         except Exception:
             # Fallback without unaccent
-            if len(tsqueries) == 1:
+            if len(escaped) == 1:
                 rank_expr = literal_column(
                     f"ts_rank({qualified_column}, to_tsquery('{pg_language}', '{combined_tsquery}'))"
                 ).label(label_name)
             else:
-                combined_no_unaccent = " || ".join(f"to_tsquery('{pg_language}', '{tq}')" for tq in tsqueries)
+                combined_no_unaccent = " || ".join(f"to_tsquery('{pg_language}', '{tq}')" for tq in escaped)
                 rank_expr = literal_column(f"ts_rank({qualified_column}, {combined_no_unaccent})").label(label_name)
 
         query = cast(QuerySet, query.extra_select(cast(Any, rank_expr)))

@@ -5,26 +5,36 @@ from __future__ import annotations
 
 import re
 
-# All Unicode quote characters → normalized to ASCII "
-_QUOTE_CHARS = re.compile(
-    r'["\u00AB\u00BB\u2018\u2019\u201A\u201B\u201C\u201D\u201E\u201F\u2039\u203A\u300C\u300D\u300E\u300F\uFF02]'
-)
+# Unicode DOUBLE quote characters → normalized to ASCII ", the phrase delimiter.
+# The single ones are deliberately absent: a phone keyboard types an apostrophe
+# as U+2019, so folding it here turned "huile d’olive" into a phrase opening
+# after "d" and left the rest of the query unbalanced.
+_QUOTE_CHARS = re.compile(r'["\u00AB\u00BB\u201C\u201D\u201E\u201F\u2039\u203A\u300C\u300D\u300E\u300F\uFF02]')
+
+# Apostrophes, in every form a keyboard produces them → a word separator.
+# Keeping them inside the word emitted `d'olive:*`, where tsquery reads the
+# quote as a lexeme delimiter and answers `syntax error at or near "olive"`.
+# Splitting matches what to_tsvector does with French elision anyway: "huile
+# d'olive" indexes as `huil` and `oliv`, the `d` being a stop word.
+_APOSTROPHE_CHARS = re.compile(r"['\u2018\u2019\u201A\u201B\u02B9\u02BC\u2032]")
 
 
 def _normalize_input(raw: str) -> str:
     """
     Normalize search input:
-    - Convert all Unicode quote variants to ASCII "
+    - Convert Unicode double quote variants to ASCII "
+    - Turn every apostrophe form into a separator
     - Keep +, -, alphanumeric, spaces, and ASCII "
     - Strip everything else
     """
-    # Normalize quotes
+    # Normalize quotes, then split on apostrophes
     raw = _QUOTE_CHARS.sub('"', raw)
+    raw = _APOSTROPHE_CHARS.sub(" ", raw)
 
-    # Keep only: alphanumeric, spaces, ", +, -, ', -
+    # Keep only: alphanumeric, spaces, ", +, -
     result = []
     for ch in raw:
-        if ch.isalnum() or ch in (" ", '"', "+", "-", "'", "-"):
+        if ch.isalnum() or ch in (" ", '"', "+", "-"):
             result.append(ch)
         else:
             result.append(" ")
@@ -159,11 +169,11 @@ def _tokenize(raw: str) -> list[_Token]:
 
 
 def _read_word(raw: str, start: int) -> tuple[str, int]:
-    """Read a word (alphanumeric + hyphens/apostrophes) from position start."""
+    """Read a word (alphanumeric + hyphens) from position start."""
     end = start
-    while end < len(raw) and (raw[end].isalnum() or raw[end] in ("'", "-")):
+    while end < len(raw) and (raw[end].isalnum() or raw[end] == "-"):
         end += 1
-    word = raw[start:end].strip("'-")
+    word = raw[start:end].strip("-")
     return word, end
 
 

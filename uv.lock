@@ -756,7 +756,7 @@ requires-dist = [
     { name = "click", specifier = "~=8.2" },
     { name = "cronsim", specifier = "~=2.7" },
     { name = "dill", specifier = "~=0.4" },
-    { name = "edgy", extras = ["postgres"], specifier = "~=0.35" },
+    { name = "edgy", extras = ["postgres"], specifier = ">=0.35,<0.36" },
     { name = "fastapi", specifier = "~=0.138" },
     { name = "html2text", specifier = "~=2025.4" },
     { name = "httpx", specifier = "~=0.28" },

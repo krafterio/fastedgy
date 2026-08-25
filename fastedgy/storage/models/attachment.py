@@ -56,6 +56,7 @@ class AttachmentMixin(BaseModel):
         max_length=150,
         null=True,
         label=_ts("MIME type"),
+        searchable=False,
     )
 
     size_bytes: int | None = fields.BigIntegerField(
@@ -149,6 +150,7 @@ class AttachmentPathMixin(AttachmentMixin):
         index=True,
         default="",
         label=_ts("Full path"),
+        searchable=False,
     )
 
     parent_ids: list[int] | None = fields.JSONField(

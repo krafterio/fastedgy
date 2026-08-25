@@ -47,7 +47,7 @@ class BaseWorkspace(BaseModel):
 
     slug: str | None = fields.CharField(max_length=32, unique=True, label=_ts("Slug"))
 
-    image_url: str | None = fields.CharField(max_length=255, null=True, label=_ts("Image"))
+    image_url: str | None = fields.CharField(max_length=255, null=True, label=_ts("Image"), searchable=False)
 
 
 __all__ = [

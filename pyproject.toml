@@ -16,7 +16,11 @@ dependencies = [
     "click ~= 8.2",
     "cronsim ~= 2.7",
     "dill ~= 0.4",
-    "edgy[postgres] ~= 0.35",
+    # Capped below 0.36 until the save signals are adapted: the bump changes
+    # what a handler receives as `instance`, and Edgy re-saves a foreign key
+    # target while inserting its holder, so a handler connected to one model is
+    # handed another.
+    "edgy[postgres] >=0.35,<0.36",
     "fastapi ~= 0.138",
     "html2text ~= 2025.4",
     "httpx ~= 0.28",

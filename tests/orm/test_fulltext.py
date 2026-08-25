@@ -127,9 +127,22 @@ def test_view_backed_models_are_left_alone() -> None:
         class Meta:
             tablename = "products"
 
-    class AView:
+    class AView(BaseView):
         class Meta(BaseView.Meta):
             tablename = "candidates"
 
+    class ABareMetaView(BaseView):
+        # A view is free to declare its own Meta from scratch, and then it
+        # inherits no is_view at all. The class still says what it is.
+        class Meta:
+            tablename = "bare_candidates"
+
+    class AFlaggedModel:
+        class Meta:
+            tablename = "flagged"
+            is_view = True
+
     assert is_view_model(AView)
+    assert is_view_model(ABareMetaView)
+    assert is_view_model(AFlaggedModel)
     assert not is_view_model(NotAView)

@@ -204,8 +204,18 @@ def is_view_model(model_cls: type) -> bool:
     A view holding a tsvector column computes it in its own SELECT, and
     PostgreSQL refuses to update one that is not automatically updatable, so
     nothing here may write to it.
+
+    The class is what settles it, not the Meta flag: a view is free to declare
+    a bare `class Meta:` instead of inheriting `BaseView.Meta`, and then it
+    carries no is_view at all. The flag is still honoured, for a model mapped
+    onto a view it does not subclass.
     """
-    return bool(getattr(getattr(model_cls, "Meta", None), "is_view", False))
+    from fastedgy.models.base import BaseView
+
+    if getattr(getattr(model_cls, "Meta", None), "is_view", False):
+        return True
+
+    return isinstance(model_cls, type) and issubclass(model_cls, BaseView)
 
 
 def get_primary_key_field(model_cls: "type[BaseModel]") -> str | None:

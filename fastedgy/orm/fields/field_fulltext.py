@@ -55,6 +55,9 @@ def resolve_search_weight(field_info: BaseFieldType) -> SearchWeight | None:
     if searchable is False:
         return None
 
+    if searchable is None and getattr(field_info, "exclude", False):
+        return None
+
     # searchable is True or not set → resolve from map via isinstance
     for map_type, weight in SEARCH_WEIGHT_FIELD_MAP.items():
         if isinstance(field_info, map_type):

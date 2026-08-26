@@ -70,16 +70,16 @@ class QuerySet(BaseQuerySet):
 
     def filter(self, *clauses: Any, allow_excluded: bool | None = None, **kwargs: Any) -> QuerySet:
         # Deferred: the filter builder imports this module.
-        from fastedgy.orm.filter import FilterCondition, FilterRule, filter_query
+        from fastedgy.orm.filter import filter_query
 
-        rules = [clause for clause in clauses if isinstance(clause, FilterRule | FilterCondition)]
+        rules = [clause for clause in clauses if _is_rule(clause)]
 
         if not rules:
             # Edgy types every chaining method as its own base queryset while it
             # really clones `self`, so the rule-aware type survives the chain.
             return cast(QuerySet, super().filter(*clauses, **kwargs))
 
-        others = tuple(clause for clause in clauses if not isinstance(clause, FilterRule | FilterCondition))
+        others = tuple(clause for clause in clauses if not _is_rule(clause))
         queryset = cast(QuerySet, super().filter(*others, **kwargs)) if others or kwargs else self
 
         excluded = self.filter_allow_excluded if allow_excluded is None else allow_excluded
@@ -139,6 +139,19 @@ class QuerySet(BaseQuerySet):
             return False
 
         return has_duplicating_relation_path(self.model_class, order_path(order_by))
+
+
+def _is_rule(clause: Any) -> bool:
+    """Whether `filter()` routes a clause through the query builder.
+
+    An unparsed filter payload counts, not just a built rule: it is what
+    `filter_query` takes, and a route handing its `X-Filter` header straight to
+    `filter()` would otherwise reach the ORM, which reads a bare string as
+    textual SQL and raises on the JSON.
+    """
+    from fastedgy.orm.filter import FilterCondition, FilterRule
+
+    return isinstance(clause, FilterRule | FilterCondition | str | list)
 
 
 def order_path(order_by: str) -> str:

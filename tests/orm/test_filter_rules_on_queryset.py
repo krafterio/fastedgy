@@ -115,3 +115,24 @@ async def test_filter_stays_chainable(setup_db: FastEdgy) -> None:
     query = FsoProduct.query.filter(R("price", ">", 10)).filter(R("quantity", ">", 0))
 
     assert {row.name for row in await query.all()} == {"p_alpha"}
+
+
+async def test_an_unparsed_filter_payload_is_routed_through_the_builder(setup_db: FastEdgy) -> None:
+    """A route may hand its `X-Filter` header straight to `filter()`.
+
+    The ORM reads a bare string as textual SQL, so the JSON has to be recognised
+    as a filter here rather than fall through and raise at build time.
+    """
+    await _seed()
+
+    payload = '[["price", ">", 10]]'
+
+    assert {row.name for row in await FsoProduct.query.filter(payload).all()} == {"p_alpha", "p_beta"}
+    assert {row.name for row in await FsoProduct.query.filter([["price", ">", 10]]).all()} == {"p_alpha", "p_beta"}
+
+
+async def test_an_unparsed_filter_payload_is_validated(setup_db: FastEdgy) -> None:
+    await _seed()
+
+    with pytest.raises(InvalidFilterError):
+        await FsoProduct.query.filter('[["nonexistent", "=", 1]]').all()

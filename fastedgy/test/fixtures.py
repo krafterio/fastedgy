@@ -140,9 +140,41 @@ async def auth_http(setup_http: httpx.AsyncClient) -> httpx.AsyncClient:
     return authenticate(setup_http, user)
 
 
+@pytest.fixture
+def override_settings(monkeypatch: pytest.MonkeyPatch) -> Callable[..., None]:
+    """Change application settings for the duration of one test.
+
+    The settings are a DI singleton built once from the env file, so a test
+    needing a deployment value the environment does not carry (an encryption
+    key, a provider credential) sets it here rather than reaching for the
+    service that reads it. The original value is put back when the test ends,
+    so nothing leaks into the next one.
+
+    A service caching something derived from a setting has to drop that cache
+    itself: this only touches the settings object.
+
+        async def test_x(setup_db, override_settings):
+            override_settings(external_calendar_encryption_key="test-key")
+    """
+    from fastedgy.config import BaseSettings
+    from fastedgy.dependencies import get_service
+
+    def override(**values: Any) -> None:
+        settings = get_service(BaseSettings)
+
+        for name, value in values.items():
+            if not hasattr(settings, name):
+                raise AttributeError(f"Unknown setting '{name}'")
+
+            monkeypatch.setattr(settings, name, value)
+
+    return override
+
+
 __all__ = [
     "anyio_backend",
     "auth_http",
+    "override_settings",
     "seed_data",
     "setup_app",
     "setup_database",

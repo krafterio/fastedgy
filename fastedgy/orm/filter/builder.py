@@ -186,10 +186,35 @@ def build_filter_expression(
             return operator_method(sa_cast(column, SaText()), str(filters.value))
 
         related_columns = getattr(field_type, "related_columns", None)
+        # A foreign key already holds the target's key, so comparing it needs no
+        # join. Appending that key turns the rule into an ORM lookup, which joins
+        # the target and reads the source table through it: under SERIALIZABLE
+        # that takes a predicate lock per page read, and a large table exhausts
+        # `max_pred_locks_per_transaction` before the locks escalate. Only the
+        # model's own field takes the shortcut; a relation path still needs the
+        # joins it names.
+        fk_column = None
+
+        if related_columns and "." not in field:
+            fk_column = model_cls.table.columns.get(field, None)
+
         if related_columns:
             field += "." + next(iter(related_columns.keys()))
 
-        column = _find_column_in_model(model_cls, field)
+        if fk_column is not None:
+            # The column holds a key, so a record passed as the value would only
+            # surface as a driver type error once the query runs. Refuse it here,
+            # where the builder already refuses an unknown field or operator.
+            candidates = filters.value if isinstance(filters.value, (list, tuple, set)) else (filters.value,)
+
+            if any(isinstance(candidate, Model) for candidate in candidates):
+                raise InvalidFilterError(f"Field '{field}' compares on the key it holds, not on a record")
+
+            use_col = True
+            column = fk_column
+        else:
+            column = _find_column_in_model(model_cls, field)
+
         value = _convert_value_by_field_type(model_cls, field, filters.value)
 
         if filters.operator in FILTER_OPERATORS_SQL_UNPACK:

@@ -136,3 +136,52 @@ async def test_an_unparsed_filter_payload_is_validated(setup_db: FastEdgy) -> No
 
     with pytest.raises(InvalidFilterError):
         await FsoProduct.query.filter('[["nonexistent", "=", 1]]').all()
+
+
+async def test_a_foreign_key_rule_compiles_without_a_join(setup_db: FastEdgy) -> None:
+    """A foreign key already holds the target's key.
+
+    Comparing it used to append that key and fall back to an ORM lookup, which
+    joins the target and reads the source table through it. On a large table
+    under SERIALIZABLE that costs a predicate lock per page read, and the local
+    column carries the same value.
+    """
+    await _seed()
+
+    category = await FsoCategory.query.filter(R("name", "=", "Alpha")).get()
+    sql = str(await FsoProduct.query.filter(R("category", "=", category.id)).as_select())
+
+    assert "JOIN" not in sql.upper()
+    assert {row.name for row in await FsoProduct.query.filter(R("category", "=", category.id)).all()} == {"p_alpha"}
+
+
+async def test_a_foreign_key_rule_keeps_the_other_operators(setup_db: FastEdgy) -> None:
+    await _seed()
+
+    alpha = await FsoCategory.query.filter(R("name", "=", "Alpha")).get()
+    beta = await FsoCategory.query.filter(R("name", "=", "Beta")).get()
+
+    async def names(rule):
+        return {row.name for row in await FsoProduct.query.filter(rule).all()}
+
+    assert await names(R("category", "in", [alpha.id, beta.id])) == {"p_alpha", "p_beta"}
+    assert await names(R("category", "!=", alpha.id)) == {"p_beta"}
+    assert await names(R("category", "is empty")) == {"p_orphan"}
+    assert await names(R("category", "is not empty")) == {"p_alpha", "p_beta"}
+
+
+async def test_a_foreign_key_rule_refuses_a_record(setup_db: FastEdgy) -> None:
+    """The rule carries the key the column holds, so a record is refused here.
+
+    Left to the driver it would only fail once the query runs, as a type error
+    on the bound parameter.
+    """
+    await _seed()
+
+    category = await FsoCategory.query.filter(R("name", "=", "Alpha")).get()
+
+    with pytest.raises(InvalidFilterError):
+        await FsoProduct.query.filter(R("category", "=", category)).all()
+
+    with pytest.raises(InvalidFilterError):
+        await FsoProduct.query.filter(R("category", "in", [category])).all()

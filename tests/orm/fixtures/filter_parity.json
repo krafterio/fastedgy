@@ -8,8 +8,7 @@
       "searchable": true,
       "searchable_fields": [
         "name",
-        "description",
-        "secret_code"
+        "description"
       ],
       "search_field": "search_value",
       "sortable": false,
@@ -196,6 +195,8 @@
             ">",
             ">=",
             "between",
+            "in",
+            "not in",
             "is empty",
             "is not empty"
           ],
@@ -220,6 +221,8 @@
             ">",
             ">=",
             "between",
+            "in",
+            "not in",
             "is empty",
             "is not empty"
           ],
@@ -290,6 +293,11 @@
           "filter_operators": [
             "=",
             "!=",
+            "<",
+            "<=",
+            ">",
+            ">=",
+            "between",
             "in",
             "not in",
             "is empty",
@@ -361,6 +369,8 @@
             ">",
             ">=",
             "between",
+            "in",
+            "not in",
             "is empty",
             "is not empty"
           ],
@@ -385,6 +395,8 @@
             ">",
             ">=",
             "between",
+            "in",
+            "not in",
             "is empty",
             "is not empty"
           ],
@@ -655,6 +667,8 @@
             ">",
             ">=",
             "between",
+            "in",
+            "not in",
             "is empty",
             "is not empty"
           ],
@@ -679,6 +693,8 @@
             ">",
             ">=",
             "between",
+            "in",
+            "not in",
             "is empty",
             "is not empty"
           ],
@@ -837,6 +853,8 @@
             ">",
             ">=",
             "between",
+            "in",
+            "not in",
             "is empty",
             "is not empty"
           ],
@@ -861,6 +879,8 @@
             ">",
             ">=",
             "between",
+            "in",
+            "not in",
             "is empty",
             "is not empty"
           ],
@@ -986,6 +1006,8 @@
             ">",
             ">=",
             "between",
+            "in",
+            "not in",
             "is empty",
             "is not empty"
           ],
@@ -1010,6 +1032,8 @@
             ">",
             ">=",
             "between",
+            "in",
+            "not in",
             "is empty",
             "is not empty"
           ],

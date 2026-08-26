@@ -272,6 +272,27 @@ class RelationWalk:
     from_table: Any = None
     root_link_condition: Any = None
     join_entries: list[tuple[Any, Any]] = field(default_factory=list)
+    current_table: Any = None
+    seen_tables: set[int] = field(default_factory=set)
+
+    def use(self, table: Any, outer_table: Any) -> Any:
+        """The table this hop lands on, aliased when it is already in scope.
+
+        A path may come back to a table the query already names -- the outer row's
+        own table (``workspace.workspace_users`` on the membership model) or one an
+        earlier hop joined. Unaliased, that second occurrence shadows the first, so
+        the correlation back to the outer row compares it to itself and the whole
+        EXISTS degenerates to "any such row exists at all": the filter silently
+        stops filtering.
+        """
+        key = id(table)
+
+        if table is outer_table or key in self.seen_tables:
+            return table.alias()
+
+        self.seen_tables.add(key)
+
+        return table
 
     def select_from(self) -> Any:
         select_from = self.from_table
@@ -293,9 +314,14 @@ def walk_relation_path(
     plain JOIN onto it.
     """
     walk = RelationWalk(current_model=model_cls) if walk is None else walk
+    outer_table = model_cls.table
+
+    if walk.current_table is None:
+        walk.current_table = outer_table
 
     for part in hops:
         current_model = walk.current_model
+        current_table = walk.current_table
         from_table = walk.from_table
         join_entries = walk.join_entries
         field_info = current_model.meta.fields[part]
@@ -326,17 +352,17 @@ def walk_relation_path(
             if current_pk is None or target_pk is None:
                 return None
 
-            through_table = through_model.table
-            target_table = target_model.table
+            through_table = walk.use(through_model.table, outer_table)
+            target_table = walk.use(target_model.table, outer_table)
 
             if from_table is None:
                 walk.from_table = through_table
-                walk.root_link_condition = through_table.columns[from_fk] == model_cls.table.columns[current_pk]
+                walk.root_link_condition = through_table.columns[from_fk] == outer_table.columns[current_pk]
             else:
                 join_entries.append(
                     (
                         through_table,
-                        through_table.columns[from_fk] == current_model.table.columns[current_pk],
+                        through_table.columns[from_fk] == current_table.columns[current_pk],
                     )
                 )
 
@@ -348,6 +374,7 @@ def walk_relation_path(
             )
 
             walk.current_model = target_model
+            walk.current_table = target_table
 
         elif hasattr(field_info, "related_from"):
             # Reverse relation (OneToMany): related_model has FK pointing back
@@ -370,70 +397,75 @@ def walk_relation_path(
             if current_pk is None:
                 return None
 
+            related_table = walk.use(related_model.table, outer_table)
+
             if getattr(fk_field, "is_generic_foreign_key", False):
                 # Generic reverse relation: join on the id column AND pin the
                 # model column to the current model's generic target name.
                 generic_field = cast(Any, fk_field)
                 target_name = generic_target_name(current_model)
-                source_table = model_cls.table if from_table is None else current_model.table
+                source_table = outer_table if from_table is None else current_table
                 link_condition = sa_and(
-                    related_model.table.columns[generic_field.id_column] == source_table.columns[current_pk],
-                    related_model.table.columns[generic_field.model_column] == target_name,
+                    related_table.columns[generic_field.id_column] == source_table.columns[current_pk],
+                    related_table.columns[generic_field.model_column] == target_name,
                 )
 
                 if from_table is None:
-                    walk.from_table = related_model.table
+                    walk.from_table = related_table
                     walk.root_link_condition = link_condition
                 else:
-                    join_entries.append((related_model.table, link_condition))
+                    join_entries.append((related_table, link_condition))
             elif from_table is None:
-                walk.from_table = related_model.table
-                walk.root_link_condition = (
-                    related_model.table.columns[fk_field_name] == model_cls.table.columns[current_pk]
-                )
+                walk.from_table = related_table
+                walk.root_link_condition = related_table.columns[fk_field_name] == outer_table.columns[current_pk]
             else:
                 join_entries.append(
                     (
-                        related_model.table,
-                        related_model.table.columns[fk_field_name] == current_model.table.columns[current_pk],
+                        related_table,
+                        related_table.columns[fk_field_name] == current_table.columns[current_pk],
                     )
                 )
 
             walk.current_model = related_model
+            walk.current_table = related_table
 
         elif hasattr(field_info, "target"):
             # Forward FK
             related_model = getattr(field_info, "target")
             pk_col = next(iter(getattr(field_info, "related_columns").keys()))
+            related_table = walk.use(related_model.table, outer_table)
 
             if from_table is None:
-                walk.from_table = related_model.table
-                walk.root_link_condition = related_model.table.columns[pk_col] == model_cls.table.columns[part]
+                walk.from_table = related_table
+                walk.root_link_condition = related_table.columns[pk_col] == outer_table.columns[part]
             else:
                 join_entries.append(
                     (
-                        related_model.table,
-                        related_model.table.columns[pk_col] == current_model.table.columns[part],
+                        related_table,
+                        related_table.columns[pk_col] == current_table.columns[part],
                     )
                 )
 
             walk.current_model = related_model
+            walk.current_table = related_table
 
         elif hasattr(field_info, "related_model"):
             related_model = getattr(field_info, "related_model")
+            related_table = walk.use(related_model.table, outer_table)
 
             if from_table is None:
-                walk.from_table = related_model.table
-                walk.root_link_condition = related_model.table.columns["id"] == model_cls.table.columns[part]
+                walk.from_table = related_table
+                walk.root_link_condition = related_table.columns["id"] == outer_table.columns[part]
             else:
                 join_entries.append(
                     (
-                        related_model.table,
-                        related_model.table.columns["id"] == current_model.table.columns[part],
+                        related_table,
+                        related_table.columns["id"] == current_table.columns[part],
                     )
                 )
 
             walk.current_model = related_model
+            walk.current_table = related_table
         else:
             return None
 
@@ -453,7 +485,7 @@ def relation_path_source(model_cls: type[Model], resolved_field: str) -> tuple[A
     if walk is None or walk.from_table is None or walk.root_link_condition is None:
         return None
 
-    return walk.select_from(), walk.root_link_condition, walk.current_model.table.columns[parts[-1]]
+    return walk.select_from(), walk.root_link_condition, walk.current_table.columns[parts[-1]]
 
 
 def and_exists_groups(model_cls: type[Model], filters: FilterCondition) -> dict[str, list[FilterRule]]:
@@ -531,6 +563,12 @@ def _build_grouped_exists_expression(model_cls: type[Model], prefix: str, rules:
                 current_model=prefix_model,
                 from_table=walk.from_table,
                 root_link_condition=walk.root_link_condition,
+                current_table=walk.current_table,
+                # Copied, not shared: each leaf branches off the same prefix, so a
+                # table one leaf lands on must not read as "already in scope" for
+                # the next -- they would alias apart and the join dedup below
+                # would stop matching them.
+                seen_tables=set(walk.seen_tables),
             ),
         )
 
@@ -547,7 +585,7 @@ def _build_grouped_exists_expression(model_cls: type[Model], prefix: str, rules:
                 # an alias inside the subquery. Leave the group on the join.
                 return None
 
-        column = leaf_walk.current_model.table.columns[parts[-1]]
+        column = leaf_walk.current_table.columns[parts[-1]]
         conditions.append(
             _exists_leaf_condition(rule, column, _convert_value_by_field_type(prefix_model, leaf, rule.value))
         )

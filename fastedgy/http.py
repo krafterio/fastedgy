@@ -26,6 +26,10 @@ class Request(FastAPIRequest):
         return self.scope["app"]
 
 
+# Modules whose frames mean a socket error came from reaching the database.
+DRIVER_MODULES = ("asyncpg", "sqlalchemy", "databasez")
+
+
 def is_database_unavailable(exc: BaseException) -> bool:
     """True when the exception chain shows the DATABASE ITSELF is unreachable
     — connection refused, killed or closing (restart, failover) — as opposed
@@ -52,6 +56,19 @@ def is_database_unavailable(exc: BaseException) -> bool:
             chained.append(orig)
         return [c for c in chained if c is not None]
 
+    def _raised_in_driver(err: BaseException) -> bool:
+        """Opening a connection fails OUTSIDE any DBAPIError: sqlalchemy only
+        wraps what a statement raises, so a pool that cannot reach the server
+        propagates the bare socket error. The traceback still names the driver,
+        which the same error from an outbound HTTP call never does.
+        """
+        tb = err.__traceback__
+        while tb is not None:
+            if tb.tb_frame.f_globals.get("__name__", "").startswith(DRIVER_MODULES):
+                return True
+            tb = tb.tb_next
+        return False
+
     dbapi_seen = False
     seen: set[int] = set()
     stack: list[BaseException] = [exc]
@@ -73,10 +90,11 @@ def is_database_unavailable(exc: BaseException) -> bool:
             return True
         if isinstance(e, DBAPIError):
             dbapi_seen = True
-        elif isinstance(e, OSError) and dbapi_seen:
-            # A raw socket error (connection refused/reset) chained under a
-            # DBAPI error is the driver failing to reach the server. Bare
-            # OSErrors without that context (external HTTP calls...) are not.
+        elif isinstance(e, OSError) and (dbapi_seen or _raised_in_driver(e)):
+            # A raw socket error (connection refused/reset, connect timeout)
+            # under a DBAPI error, or raised inside the driver itself, is it
+            # failing to reach the server. Bare OSErrors without either context
+            # (external HTTP calls...) are not.
             return True
         stack.extend(_links(e))
     return False

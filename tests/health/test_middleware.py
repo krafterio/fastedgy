@@ -68,3 +68,52 @@ async def test_normal_traffic_is_untouched_during_the_window(
 
     assert response.status_code == 200
     assert response.json() == {"ok": True}
+
+
+def _connect_timeout() -> TimeoutError:
+    """asyncpg's own timeout on opening a connection: raised from a frame that
+    belongs to the driver, with no DBAPIError around it. Built by exec so the
+    frame really carries the driver's module name, which is what the predicate
+    reads.
+    """
+    namespace: dict = {"__name__": "asyncpg.connect_utils"}
+    exec("def _connect():\n    raise TimeoutError()", namespace)
+
+    try:
+        namespace["_connect"]()
+    except TimeoutError as e:
+        return e
+
+    raise AssertionError("unreachable")
+
+
+async def test_a_connect_timeout_inside_the_driver_is_maintenance(
+    setup_db: FastEdgy, setup_http: httpx.AsyncClient
+) -> None:
+    """A pool that cannot open a connection raises outside any DBAPIError, so
+    the wrapper the rest of the predicate keys on is absent.
+    """
+
+    async def cannot_connect() -> None:
+        raise _connect_timeout()
+
+    setup_db.add_api_route("/api/test-connect-timeout", cannot_connect, methods=["GET"])
+
+    response = await setup_http.get("/api/test-connect-timeout")
+
+    assert response.status_code == 503
+    assert response.headers["Retry-After"] == "5"
+
+
+async def test_a_timeout_outside_the_driver_stays_an_error(
+    setup_db: FastEdgy, setup_http: httpx.AsyncClient
+) -> None:
+    """The same exception from an outbound HTTP call is not a database outage."""
+
+    async def slow_partner() -> None:
+        raise TimeoutError()
+
+    setup_db.add_api_route("/api/test-partner-timeout", slow_partner, methods=["GET"])
+
+    with pytest.raises(TimeoutError):
+        await setup_http.get("/api/test-partner-timeout")

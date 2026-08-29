@@ -28,6 +28,14 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("queued_task.manager")
 
+# Wall clock, not an attempt count: a single connect attempt can hold for the
+# driver's own connect timeout, so counting attempts bounds nothing. Kept well
+# under the healthcheck's staleness window (90s) even though the wait touches
+# the liveness file, and short enough that a database that is down for real
+# still falls through to the container restart, where the entrypoint waits it out.
+BOOT_DB_RETRY_BUDGET = 60.0
+BOOT_DB_RETRY_DELAY = 3.0
+
 
 class QueueWorkerManager:
     """
@@ -124,7 +132,7 @@ class QueueWorkerManager:
 
         # Initialize database triggers and functions
         try:
-            await self._init_db()
+            await self._init_db_with_retry()
         except Exception as e:
             self.is_running = False
             logger.error(f"Failed to initialize database, aborting worker startup: {e}")
@@ -1157,6 +1165,33 @@ class QueueWorkerManager:
             )
         )
         return len(rows)
+
+    async def _init_db_with_retry(self) -> None:
+        """Wait out a database that is momentarily unreachable at startup.
+
+        The entrypoint already waits for the db before handing over, and keeps
+        the liveness file fresh while it waits. Its check can still succeed and
+        the name go away again right after, a deploy recreating the db task
+        taking it out of the overlay DNS: aborting there costs a container
+        restart and two error lines for a condition that clears in seconds.
+        Same treatment here, liveness file included, so the healthcheck does
+        not replace the container mid-wait. Anything that is not an outage
+        aborts on the first try.
+        """
+        deadline = time.monotonic() + BOOT_DB_RETRY_BUDGET
+
+        while True:
+            self._touch_health_file()
+            try:
+                await self._init_db()
+                return
+            except Exception as e:
+                from fastedgy.http import is_database_unavailable
+
+                if not is_database_unavailable(e) or time.monotonic() >= deadline:
+                    raise
+                logger.warning(f"Database unavailable at startup, retrying in {BOOT_DB_RETRY_DELAY:.0f}s: {e}")
+                await asyncio.sleep(BOOT_DB_RETRY_DELAY)
 
     async def _init_db(self) -> None:
         """

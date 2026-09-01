@@ -142,7 +142,6 @@ async def get_current_workspace(
         return None
 
     db_reg = get_service(Registry)
-    Workspace = cast(type["Workspace"], db_reg.get_model("Workspace"))
     WorkspaceUser = cast(type["WorkspaceUser"], db_reg.get_model("WorkspaceUser"))
     workspace_user = (
         await WorkspaceUser.query.select_related("workspace")
@@ -156,7 +155,9 @@ async def get_current_workspace(
             detail="Aucun workspace trouvé",
         )
 
-    workspace = await Workspace.query.get(id=workspace_user.workspace.id)
+    # The join above already carries the row, whole: reading it back by id was a
+    # second query on the tenant, once per request of every session.
+    workspace = workspace_user.workspace
     context.set_workspace(workspace)
     context.set_workspace_user(workspace_user)
 

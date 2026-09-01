@@ -3,6 +3,7 @@
 
 from jose import jwt
 
+from fastedgy import context
 from fastedgy.app import FastEdgy
 from fastedgy.config import BaseSettings
 from fastedgy.dependencies import get_service
@@ -10,10 +11,13 @@ from fastedgy.depends.security import (
     authenticate_user,
     create_access_token,
     create_refresh_token,
+    get_current_workspace,
     hash_password,
     verify_password,
 )
-from fastedgy.test.factories import create_user
+from fastedgy.http import Request
+from fastedgy.test.factories import create_user, create_workspace
+from fastedgy.test.models.workspace_user import WorkspaceUser
 
 
 def test_hash_and_verify_password() -> None:
@@ -76,3 +80,34 @@ async def test_authenticate_user(setup_db: FastEdgy) -> None:
     assert authenticated.id == user.id
     assert await authenticate_user("sec@example.io", "wrong") is False
     assert await authenticate_user("nobody@example.io", "secret") is False
+
+
+async def test_current_workspace_comes_from_the_membership_join(setup_db: FastEdgy) -> None:
+    user = await create_user(email="ada@example.io")
+    workspace = await create_workspace(slug="acme", name="Acme")
+    await WorkspaceUser(user=user, workspace=workspace).save()
+
+    # The tenant context lives on the request, so the assertions below run while
+    # it is still the current one.
+    request = Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "path": "/acme/products",
+            "query_string": b"",
+            "headers": [],
+            "path_params": {"workspace": "acme"},
+        }
+    )
+    token = context.set_request(request)
+
+    try:
+        resolved = await get_current_workspace(current_user=user)
+
+        assert resolved is not None
+        assert resolved.slug == "acme"
+        # The join carries the row: reading it back by id was a second query on
+        # the tenant, paid once per request of every session.
+        assert resolved is getattr(context.get_workspace_user(), "workspace", None)
+    finally:
+        context.reset_request(token)

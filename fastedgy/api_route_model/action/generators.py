@@ -149,7 +149,6 @@ def _is_json_serializable(value: Any) -> bool:
         return False
 
 
-@cache
 def _has_extra(model_cls: Any) -> bool:
     from fastedgy.orm.extra_fields import has_extra_fields
 
@@ -165,6 +164,7 @@ def _extra_config(model_cls: Any) -> dict[str, Any]:
     return {"__config__": ConfigDict(extra="allow")}
 
 
+@cache
 def generate_input_create_model[M: BaseModel | BaseView](model_cls: type[M]) -> type[M]:
     """Generate Pydantic input model for POST with M2M/O2M support."""
     from edgy.core.db.fields.foreign_keys import ForeignKey
@@ -173,8 +173,6 @@ def generate_input_create_model[M: BaseModel | BaseView](model_cls: type[M]) -> 
     from fastedgy.orm.fields import resolve_registry_generic_references
     from fastedgy.schemas import Field as PydanticField
 
-    # The result is cached: generic reverse relations must be installed first,
-    # whichever consumer (route registration, AI tools, admin) comes first.
     resolve_registry_generic_references(model_cls)
 
     fields = {}
@@ -291,8 +289,6 @@ def generate_input_patch_model[M: BaseModel | BaseView](model_cls: type[M]) -> t
     from fastedgy.orm.fields import resolve_registry_generic_references
     from fastedgy.schemas import Field as PydanticField
 
-    # The result is cached: generic reverse relations must be installed first,
-    # whichever consumer (route registration, AI tools, admin) comes first.
     resolve_registry_generic_references(model_cls)
 
     fields = {}

@@ -126,6 +126,25 @@ def parse_field_selector_input(
     return result
 
 
+def selection_includes(fields: str | list[str] | None, *names: str) -> bool:
+    """Whether a read asking for `fields` carries any of `names`.
+
+    For what a payload is enriched with after the fact rather than read from a
+    column, which a view transformer is the usual place for: a count or a flag
+    nobody selected is a query per row that nothing reads, and a sync manifest
+    asking for `id,updated_at` is exactly such a read.
+
+    Nothing selected, and the `+` wildcard, both mean everything.
+    """
+    if not fields:
+        return True
+
+    parts = fields.split(",") if isinstance(fields, str) else fields
+    selected = {part.strip() for part in parts}
+
+    return "+" in selected or not selected.isdisjoint(names)
+
+
 def clean_field_names_from_input(model_cls: type[BaseModelType], fields: str | list[str] | None) -> list[str]:
     """
     Clean and validate field paths, returning a flat list.
@@ -756,4 +775,5 @@ __all__ = [
     "optimize_query_filter_fields",
     "parse_field_selector_input",
     "prefetch_generic_references",
+    "selection_includes",
 ]

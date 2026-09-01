@@ -102,6 +102,7 @@ async def list_items_action[M: BaseModel | BaseView](
     transformers_ctx: dict[str, Any] | None = None,
 ) -> Pagination[M | dict[str, Any]]:
     transformers_ctx = transformers_ctx or {}
+    transformers_ctx["fields"] = fields
     vtr = get_service(ViewTransformerRegistry)
 
     try:

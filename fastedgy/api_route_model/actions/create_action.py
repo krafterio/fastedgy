@@ -93,6 +93,7 @@ async def create_item_action[M: BaseModel | BaseView](
     )
 
     transformers_ctx = transformers_ctx or {}
+    transformers_ctx["fields"] = fields
 
     from fastedgy.orm.extra_fields import merge_extra_field_values, pop_extra_field_values
     from fastedgy.orm.fields import validate_generic_reference_payload

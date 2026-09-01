@@ -77,7 +77,9 @@ def _connect_timeout() -> TimeoutError:
     reads.
     """
     namespace: dict = {"__name__": "asyncpg.connect_utils"}
-    exec("def _connect():\n    raise TimeoutError()", namespace)
+    # S102: a literal, compiled into a namespace of our own. That is what gives
+    # the frame a module name, and the module name is the whole point here.
+    exec("def _connect():\n    raise TimeoutError()", namespace)  # noqa: S102
 
     try:
         namespace["_connect"]()
@@ -105,9 +107,7 @@ async def test_a_connect_timeout_inside_the_driver_is_maintenance(
     assert response.headers["Retry-After"] == "5"
 
 
-async def test_a_timeout_outside_the_driver_stays_an_error(
-    setup_db: FastEdgy, setup_http: httpx.AsyncClient
-) -> None:
+async def test_a_timeout_outside_the_driver_stays_an_error(setup_db: FastEdgy, setup_http: httpx.AsyncClient) -> None:
     """The same exception from an outbound HTTP call is not a database outage."""
 
     async def slow_partner() -> None:

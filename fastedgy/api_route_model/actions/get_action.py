@@ -109,6 +109,7 @@ async def view_item_action[M: BaseModel | BaseView](
     transformers_ctx: dict[str, Any] | None = None,
 ) -> M | dict[str, Any]:
     transformers_ctx = transformers_ctx or {}
+    transformers_ctx["fields"] = fields
     item_dump = await filter_selected_fields(item, fields)
     vtr = get_service(ViewTransformerRegistry)
 

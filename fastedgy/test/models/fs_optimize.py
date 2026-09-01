@@ -12,8 +12,17 @@ class FsoBrand(BaseModel):
     motto = fields.CharField(max_length=200, null=True)
     rank = fields.IntegerField(default=0)
 
+    # An ORM ComputedField, read through a relation: the flavour that has no
+    # property for the mark to sit on.
+    tagline: str | None = fields.ComputedField(getter="get_tagline", exclude=False, read_only=True)
+
     class Meta(BaseModel.Meta):
         tablename = "test_fso_brands"
+
+    @classmethod
+    @computed_field_deps("name", "motto")
+    def get_tagline(cls, field, instance, owner=None) -> str:
+        return f"{instance.name}: {instance.motto}"
 
 
 class FsoCategory(BaseModel):
@@ -43,8 +52,23 @@ class FsoProduct(BaseModel):
     category = fields.ForeignKey(FsoCategory, null=True, related_name="products")
     tags = fields.ManyToMany(FsoTag, related_name="fso_products")
 
+    # The ORM flavour of the two Pydantic cases below: one marked with what its
+    # getter reads, one left unmarked.
+    stock_label: str | None = fields.ComputedField(getter="get_stock_label", exclude=False, read_only=True)
+
+    undeclared_label: str | None = fields.ComputedField(getter="get_undeclared_label", exclude=False, read_only=True)
+
     class Meta(BaseModel.Meta):
         tablename = "test_fso_products"
+
+    @classmethod
+    @computed_field_deps("price", "quantity")
+    def get_stock_label(cls, field, instance, owner=None) -> str:
+        return f"{instance.price} x {instance.quantity}"
+
+    @classmethod
+    def get_undeclared_label(cls, field, instance, owner=None) -> str:
+        return f"{instance.name} ({instance.sku})"
 
     @computed_field
     @computed_field_deps("price", "quantity")

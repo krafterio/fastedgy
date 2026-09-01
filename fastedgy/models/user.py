@@ -7,6 +7,7 @@ from datetime import datetime
 from fastedgy.i18n import _ts
 from fastedgy.models.base import BaseModel
 from fastedgy.orm import fields
+from fastedgy.schemas.base import computed_field_deps
 
 
 class BaseUser(BaseModel):
@@ -60,11 +61,13 @@ class BaseUser(BaseModel):
     )
 
     @classmethod
+    @computed_field_deps("name", "email")
     def get_display_name(cls, field, instance, owner=None) -> str:
         """What names the user: their name, or their email until they set one."""
         return instance.name or instance.email or ""
 
     @classmethod
+    @computed_field_deps("name", "email")
     def get_initials(cls, field, instance, owner=None) -> str:
         """Initials of the name, or of the email's local part when there is none.
 

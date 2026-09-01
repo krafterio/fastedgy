@@ -119,6 +119,41 @@ async def test_prune_columns_false_keeps_all_columns(setup_db: FastEdgy) -> None
     assert "motto" in select_part
 
 
+async def test_orm_computed_field_deps_are_selected(setup_db: FastEdgy) -> None:
+    query = optimize_query_filter_fields(FsoProduct.query.all(), "stock_label")
+    sql = await _sql(query)
+
+    select_part = _select_part(sql)
+    assert "price" in select_part
+    assert "quantity" in select_part
+    assert "sku" not in select_part
+
+
+async def test_orm_computed_field_deps_survive_a_relation(setup_db: FastEdgy) -> None:
+    # What a list of records reading a related computed value asks for. Left to
+    # be taken for a column of its own, the columns its getter reads are pruned
+    # away and every row goes back for them one by one.
+    query = optimize_query_filter_fields(FsoProduct.query.all(), "name,category.brand.tagline")
+    sql = await _sql(query)
+
+    # `motto` is read by the getter and by nothing else, so its presence is the
+    # whole point; `rank` is the brand column no one asked for.
+    select_part = _select_part(sql)
+    assert "motto" in select_part
+    assert "rank" not in select_part
+    assert "summary" not in select_part
+    assert "sku" not in select_part
+
+
+async def test_orm_computed_field_without_deps_disables_level_pruning(setup_db: FastEdgy) -> None:
+    query = optimize_query_filter_fields(FsoProduct.query.all(), "undeclared_label")
+    sql = await _sql(query)
+
+    select_part = _select_part(sql)
+    assert "sku" in select_part
+    assert "price" in select_part
+
+
 async def test_wildcard_keeps_all_root_columns(setup_db: FastEdgy) -> None:
     query = optimize_query_filter_fields(FsoProduct.query.all(), "+")
     sql = await _sql(query)
@@ -246,6 +281,17 @@ async def test_apply_field_map_optimizations_from_parsed_map(setup_db: FastEdgy)
 
     assert sql.count("JOIN") == 2
     assert "sku" not in _select_part(sql)
+
+
+async def test_orm_computed_field_deps_in_a_to_many_sub_query(setup_db: FastEdgy) -> None:
+    # A to-many relation is not joined: its rows are read by their own query,
+    # built from the sub-map. Same pruning, so the same columns have to survive.
+    query = apply_field_map_optimizations(FsoBrand.query.all(), {"id": True, "tagline": True})
+    sql = await _sql(query)
+
+    select_part = _select_part(sql)
+    assert "motto" in select_part
+    assert "rank" not in select_part
 
 
 async def test_list_endpoint_with_x_fields(auth_http: httpx.AsyncClient) -> None:

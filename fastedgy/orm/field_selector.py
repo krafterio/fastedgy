@@ -234,16 +234,51 @@ def apply_field_map_optimizations(query: QuerySet, map_fields: dict[str, Any], p
     return query
 
 
+def is_computed_field(model_cls: type, field_name: str) -> bool:
+    """Whether the name is a computed value rather than a stored column.
+
+    Two flavours answer yes. A Pydantic ``@computed_field`` property, absent
+    from ``meta.fields`` altogether. And an ORM ``ComputedField``, which *is* in
+    ``meta.fields`` yet maps to no column: taken for one, the columns its getter
+    reads are deferred away, and every instance then reloads its own row.
+    """
+    real_model_cls = _real_model_cls(model_cls)
+
+    if field_name in getattr(real_model_cls, "model_computed_fields", {}):
+        return True
+
+    field = real_model_cls.meta.fields.get(field_name)
+
+    if field is None:
+        return False
+
+    try:
+        return not field.get_columns(field_name)
+    except Exception:
+        # A field that cannot say what it maps to is not read as a column: the
+        # caller then keeps every column, which is the safe answer.
+        return True
+
+
 def get_computed_field_deps(model_cls: type, field_name: str) -> tuple[str, ...] | None:
-    info = getattr(_real_model_cls(model_cls), "model_computed_fields", {}).get(field_name)
+    real_model_cls = _real_model_cls(model_cls)
+    info = getattr(real_model_cls, "model_computed_fields", {}).get(field_name)
 
-    if info is None:
-        return None
+    if info is not None:
+        prop = getattr(info, "wrapped_property", None)
+        fget = getattr(prop, "fget", None) or prop
 
-    prop = getattr(info, "wrapped_property", None)
-    fget = getattr(prop, "fget", None) or prop
+        return getattr(fget, "__computed_field_deps__", None)
 
-    return getattr(fget, "__computed_field_deps__", None)
+    # An ORM ComputedField has no property to carry the mark: it names its getter
+    # as a method of the owner, and the mark sits on that method.
+    getter = getattr(real_model_cls.meta.fields.get(field_name), "getter", None)
+
+    if isinstance(getter, str):
+        getter = getattr(real_model_cls, getter, None)
+
+    # Whether it was marked under @classmethod or above it.
+    return getattr(getattr(getter, "__func__", getter), "__computed_field_deps__", None)
 
 
 def _collect_query_optimizations(
@@ -284,7 +319,7 @@ def _collect_query_optimizations(
             _collect_query_optimizations(target, field_value, path, select_paths, levels)
             continue
 
-        if field_name in getattr(model_cls, "model_computed_fields", {}):
+        if is_computed_field(model_cls, field_name):
             deps = get_computed_field_deps(model_cls, field_name)
 
             if deps is None:
@@ -323,7 +358,7 @@ def _merge_computed_dep(
     for i, part in enumerate(parts):
         is_last = i == len(parts) - 1
 
-        if part in getattr(current_model, "model_computed_fields", {}):
+        if is_computed_field(current_model, part):
             sub_deps = get_computed_field_deps(current_model, part)
 
             if sub_deps is None:
@@ -717,6 +752,7 @@ __all__ = [
     "filter_selected_fields",
     "flatten_extra_fields",
     "get_computed_field_deps",
+    "is_computed_field",
     "optimize_query_filter_fields",
     "parse_field_selector_input",
     "prefetch_generic_references",

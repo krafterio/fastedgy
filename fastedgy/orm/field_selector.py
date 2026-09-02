@@ -1,11 +1,13 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import Any
+from collections.abc import Iterable
+from typing import Any, cast
 
 from fastedgy.orm import BaseModelType, Model
 from fastedgy.orm.access_guard import AccessDeniedError
 from fastedgy.orm.fields import BaseFieldType
+from fastedgy.orm.order_by import OrderByList
 from fastedgy.orm.query import QuerySet
 from fastedgy.orm.utils import extract_field_names, find_primary_key_field
 
@@ -198,7 +200,12 @@ def optimize_query_filter_fields(
     return apply_field_map_optimizations(query, map_fields, prune_columns=prune_columns)
 
 
-def apply_field_map_optimizations(query: QuerySet, map_fields: dict[str, Any], prune_columns: bool = True) -> QuerySet:
+def apply_field_map_optimizations(
+    query: QuerySet,
+    map_fields: dict[str, Any],
+    prune_columns: bool = True,
+    keep_fields: Iterable[str] | None = None,
+) -> QuerySet:
     """
     Apply select_related() and defer() to a query from a parsed fields map.
 
@@ -213,6 +220,12 @@ def apply_field_map_optimizations(query: QuerySet, map_fields: dict[str, Any], p
 
     Relation querysets (m2m through models) embed their target at the
     embed_parent path: the map is then applied at that prefix.
+
+    ``keep_fields`` names columns of that level the caller needs in the SELECT
+    whatever the map asked for. An ordering is the reason it exists: a relation
+    read is a ``SELECT DISTINCT`` over the link table, and Postgres refuses one
+    ordered by a column the selection dropped. They are read from the database
+    and never serialized: the response still carries only what was asked.
     """
     model_cls = query.model_class
     base_prefix = ""
@@ -231,6 +244,10 @@ def apply_field_map_optimizations(query: QuerySet, map_fields: dict[str, Any], p
     levels: dict[str, tuple[type[BaseModelType], set[str] | None]] = {}
 
     _collect_query_optimizations(model_cls, map_fields, base_prefix, select_paths, levels)
+
+    for field_name in keep_fields or ():
+        if field_name in model_cls.meta.fields:
+            _keep_field(levels, model_cls, base_prefix, field_name)
 
     for path in sorted(select_paths):
         try:
@@ -589,9 +606,16 @@ async def filter_fields(data: dict, data_obj: Model | None, fields: dict, target
 
                 if nested_obj is not None:
                     target[field_name] = []
+                    order_by = _relation_default_order(data_obj, field_name, nested_obj)
                     queryset = nested_obj.limit(1000).all()
-                    queryset = apply_field_map_optimizations(queryset, field_value[0])
-                    queryset = _inject_relation_default_order(queryset, data_obj, field_name, nested_obj)
+                    # The ordering is resolved before the pruning so its columns
+                    # survive it: deferred, they leave the SELECT, and the
+                    # `SELECT DISTINCT` of a link-table read is then ordered by
+                    # a column it does not carry, which Postgres refuses.
+                    queryset = apply_field_map_optimizations(
+                        queryset, field_value[0], keep_fields=_relation_order_fields(order_by)
+                    )
+                    queryset = _inject_relation_default_order(queryset, order_by)
 
                     items = [item async for item in queryset]
 
@@ -613,8 +637,14 @@ async def filter_fields(data: dict, data_obj: Model | None, fields: dict, target
                     target[field_name] = getattr(data_obj, field_name)
 
 
-def _inject_relation_default_order(queryset: Any, data_obj: Model, field_name: str, nested_obj: Any) -> Any:
-    from fastedgy.orm.order_by import inject_order_by, parse_order_by
+def _relation_default_order(data_obj: Model, field_name: str, nested_obj: Any) -> OrderByList:
+    """The default ordering a to-many relation is read in, parsed.
+
+    The target model owns it; a relation queryset with no resolvable target
+    (a through model reached by its own accessor) falls back to the queryset's
+    own Meta.
+    """
+    from fastedgy.orm.order_by import parse_order_by
 
     field = _real_model_cls(type(data_obj)).meta.fields.get(field_name)
     target_model = None
@@ -623,20 +653,30 @@ def _inject_relation_default_order(queryset: Any, data_obj: Model, field_name: s
         target_model = getattr(field, "target", None) or getattr(field, "related_from", None)
 
     if target_model is None or not hasattr(target_model, "Meta"):
-        if hasattr(nested_obj, "Meta"):
-            order_by_input = getattr(nested_obj.Meta, "default_order_by", None)
+        order_by_input = getattr(getattr(nested_obj, "Meta", None), "default_order_by", None)
 
-            if order_by_input:
-                return inject_order_by(queryset, order_by_input)
+        model_cls = cast("type[Model]", _real_model_cls(type(nested_obj)))
 
-        return queryset
+        return parse_order_by(model_cls, order_by_input) if order_by_input else []
 
     order_by_input = getattr(target_model.Meta, "default_order_by", None)
 
-    if not order_by_input:
-        return queryset
+    return parse_order_by(target_model, order_by_input) if order_by_input else []
 
-    return inject_order_by(queryset, parse_order_by(target_model, order_by_input))
+
+def _relation_order_fields(order_by: OrderByList) -> set[str]:
+    """The local columns an ordering names, for the selection to keep.
+
+    A dotted term orders through a join, which brings its own columns: only the
+    ones read off the relation's own table are the selection's business.
+    """
+    return {field_name for field_name, _ in order_by if "." not in field_name}
+
+
+def _inject_relation_default_order(queryset: Any, order_by: OrderByList) -> Any:
+    from fastedgy.orm.order_by import inject_order_by
+
+    return inject_order_by(queryset, order_by) if order_by else queryset
 
 
 def _real_model_cls(model_cls: type[BaseModelType]) -> type[BaseModelType]:

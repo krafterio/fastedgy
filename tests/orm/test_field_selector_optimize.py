@@ -346,3 +346,27 @@ async def test_patch_endpoint_saves_fully_and_filters_response(auth_http: httpx.
     reloaded = await Product.query.get(id=product["id"])
     assert reloaded.quantity == 7
     assert reloaded.description == "Steel head"
+
+
+async def test_a_to_many_read_carries_the_columns_its_ordering_names(setup_db: FastEdgy) -> None:
+    """A relation read is a `SELECT DISTINCT` over the link table, and the
+    target's `default_order_by` is injected into it. Pruned away, the ordering
+    column leaves the SELECT and Postgres refuses the statement outright.
+
+    `FsoTag` orders itself by `name`, so asking for the colour alone is what
+    used to answer `for SELECT DISTINCT, ORDER BY expressions must appear in
+    select list`.
+    """
+    product = await _create_product_graph()
+    red = await FsoTag.query.create(name="Red", color="#f00")
+    blue = await FsoTag.query.create(name="Blue", color="#00f")
+    await product.tags.add(red)
+    await product.tags.add(blue)
+
+    item = await FsoProduct.query.filter(id=product.id).get()
+    dump = await filter_selected_fields(item, "name,tags.color")
+
+    # Ordered by a name the response never carries: the column is read, not
+    # serialized.
+    assert [tag["color"] for tag in dump["tags"]] == ["#00f", "#f00"]
+    assert all(set(tag) == {"id", "color"} for tag in dump["tags"])

@@ -184,6 +184,7 @@ class BaseSettings(PydanticBaseSettings):
 
     # Images
     image_quality: int = 80
+    image_max_pixels: int | None = None
 
     # Mail
     mail_adapter: str = "smtp"

@@ -26,8 +26,10 @@ from fastedgy.storage.adapters.filesystem import FilesystemAdapter
 
 try:
     from PIL import Image
+    from PIL.Image import DecompressionBombError
 except Exception:
     Image = None
+    DecompressionBombError = OSError
 
 logger = logging.getLogger("fastedgy.storage")
 
@@ -168,6 +170,44 @@ class Storage:
         except Exception:
             q = 80
         return max(1, min(100, q))
+
+    def _get_max_image_pixels(self) -> int | None:
+        """Optional budget, stricter than Pillow's own ceiling. A value above it
+        changes nothing: Image.open refuses the file first."""
+        try:
+            value = getattr(self.settings, "image_max_pixels", None)
+            return int(value) if value else None
+        except Exception:
+            return None
+
+    def _probe_image(self, content: bytes) -> tuple[int | None, int | None]:
+        """Read the header without decoding: Image.open parses the dimensions
+        only, and is where Pillow's own decompression-bomb ceiling fires. Bytes
+        that are not an image open with an error and are stored untouched, so
+        the budget holds whatever extension or mime type the caller announced."""
+        if Image is None:
+            return None, None
+
+        try:
+            with Image.open(io.BytesIO(content)) as img:
+                width, height = img.size
+        except DecompressionBombError:
+            raise ValueError(_t("This image holds too many pixels to be processed"))
+        except Exception:
+            return None, None
+
+        limit = self._get_max_image_pixels()
+        if limit and width * height > limit:
+            raise ValueError(
+                _t(
+                    "This image is too large: {width}x{height} pixels, {limit} maximum",
+                    width=width,
+                    height=height,
+                    limit=limit,
+                )
+            )
+
+        return width, height
 
     def _get_cache_path(self, path: str, global_storage: bool = False) -> str:
         """Return the cache-relative path for a given path."""
@@ -389,12 +429,14 @@ class Storage:
                 mode=mode,
                 out_ext=out_ext if out_ext else src_ext,
             )
-        except OSError as e:
+        except (OSError, DecompressionBombError) as e:
             # The stored bytes cannot be decoded as an image (corrupt upload,
             # exotic format, truncated file — UnidentifiedImageError is an
-            # OSError). Serving the original is this method's contract and
-            # the client may still render it; a warning on the fallback beats
-            # a 500 on every display of that file.
+            # OSError), or they hold more pixels than Pillow agrees to expand
+            # (DecompressionBombError derives from Exception, not OSError).
+            # Serving the original is this method's contract and the client may
+            # still render it; a warning on the fallback beats a 500 on every
+            # display of that file.
             logger.warning(f"Cannot optimize image {source_relative_path}, serving the original: {e!r}")
             mime = mimetypes.guess_type(source_name)[0] or "application/octet-stream"
             return source_relative_path, mime
@@ -669,6 +711,8 @@ class Storage:
     ) -> str:
         from fastedgy.storage.models.attachment import AttachmentType
 
+        img_width, img_height = self._probe_image(content)
+
         safe_filename = self._ensure_filename(filename, ext)
         relative_path = f"{directory_path.strip('/')}/{safe_filename}"
 
@@ -692,16 +736,6 @@ class Storage:
         try:
             if "Attachment" in registry.models:
                 AttachmentModel: Any = registry.get_model("Attachment")
-                img_width: int | None = None
-                img_height: int | None = None
-                if (mime_type or "").startswith("image/"):
-                    try:
-                        from PIL import Image
-
-                        with Image.open(io.BytesIO(content)) as img:
-                            img_width, img_height = img.size
-                    except Exception:
-                        pass
                 base_name = (
                     os.path.splitext(os.path.basename(original_name))[0]
                     if original_name

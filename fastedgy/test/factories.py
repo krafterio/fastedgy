@@ -76,6 +76,15 @@ async def create_workspace(slug: str = "acme", name: str | None = None, **extra)
     return workspace
 
 
+async def create_workspace_user(user, workspace, **extra):
+    from fastedgy.test.models.workspace_user import WorkspaceUser
+
+    workspace_user = WorkspaceUser(user=user, workspace=workspace, **extra)
+    await workspace_user.save()
+
+    return workspace_user
+
+
 async def create_category(name: str = "Books", **extra):
     from fastedgy.test.models.category import Category
 
@@ -125,6 +134,7 @@ __all__ = [
     "create_tag",
     "create_user",
     "create_workspace",
+    "create_workspace_user",
     "make_request",
     "use_request",
 ]

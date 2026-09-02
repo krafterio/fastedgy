@@ -13,6 +13,12 @@ def lazy_register_model(model_class: type) -> None:
         _lazy_models.add(model_class)
 
 
+def has_lazy_model(base: type) -> bool:
+    """True when a concrete model deriving from `base` is already declared, so
+    a framework default can stand down in favour of the app's own."""
+    return any(issubclass(model_class, base) for model_class in _lazy_models)
+
+
 def register_lazy_models(registry: Registry) -> None:
     """
     Register all models registered with the `lazy_register_model` function.
@@ -41,6 +47,7 @@ def register_lazy_models(registry: Registry) -> None:
 
 
 __all__ = [
+    "has_lazy_model",
     "lazy_register_model",
     "register_lazy_models",
 ]

@@ -41,6 +41,7 @@ from fastedgy.http import (
 )
 from fastedgy.i18n import LocaleMiddleware
 from fastedgy.logger import setup_logging
+from fastedgy.models.user_api_token import register_default_user_api_token_model
 from fastedgy.orm import Database, Registry
 from fastedgy.orm.data_ref import DataRefs
 from fastedgy.orm.registry import register_lazy_models
@@ -818,6 +819,27 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
                 """
             ),
         ] = None,
+        user_api_tokens: Annotated[
+            bool,
+            Doc(
+                """
+                Whether the application declares personal API keys.
+
+                Off by default: an application only gets a key-based way in
+                when it asks for one. Turned on, a concrete `UserApiToken`
+                model is registered unless the application declared its own,
+                and a `fet_...` key stands in for a JWT everywhere a bearer
+                token is read - which is what a machine client, the MCP server
+                included, connects with.
+
+                **Example**
+
+                ```python
+                app = FastEdgy(user_api_tokens=True)
+                ```
+                """
+            ),
+        ] = False,
         **extra: Annotated[
             Any,
             Doc(
@@ -893,6 +915,10 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
         register_service(DataRefs(system_user_data_key))
 
         monkay.set_instance(Instance(registry=registry, app=self))
+
+        if user_api_tokens:
+            register_default_user_api_token_model()
+
         register_lazy_models(registry)
 
         from fastedgy.orm.signals.fulltext import register_all_fulltext_signals

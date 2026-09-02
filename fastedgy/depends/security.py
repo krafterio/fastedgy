@@ -6,12 +6,13 @@ from typing import TYPE_CHECKING, cast
 
 import bcrypt
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
 from jose import JWTError, jwt
 
 from fastedgy import context
 from fastedgy.config import BaseSettings
 from fastedgy.dependencies import get_service
+from fastedgy.models.user_api_token import resolve_api_token
 from fastedgy.orm import Registry
 
 if TYPE_CHECKING:
@@ -22,6 +23,12 @@ if TYPE_CHECKING:
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
 oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/api/auth/token", auto_error=False)
+
+# Hosts that reserve `Authorization` for their own OAuth token still let the
+# user set one extra header: an API key travels there instead. The name is one
+# of those Claude's connector dialog offers.
+API_TOKEN_HEADER = "X-Api-Token"
+api_token_scheme = APIKeyHeader(name=API_TOKEN_HEADER, auto_error=False)
 
 
 def _bcrypt_bytes(raw: str) -> bytes:
@@ -80,7 +87,10 @@ async def authenticate_user(email: str, password: str):
     return user
 
 
-async def get_current_user(token: str = Depends(oauth2_scheme)) -> "User":
+async def get_current_user(
+    token: str | None = Depends(oauth2_scheme_optional),
+    api_token: str | None = Depends(api_token_scheme),
+) -> "User":
     user = context.get_user()
     if user:
         return user
@@ -91,6 +101,28 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> "User":
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    token = token or api_token
+
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # A personal API key stands in for a JWT everywhere a bearer is read, so a
+    # machine client reaches every route the user reaches, and no entry point
+    # has to resolve credentials by hand.
+    if settings.api_token_prefix and token.startswith(settings.api_token_prefix):
+        user = await resolve_api_token(token)
+
+        if user is None:
+            raise credentials_exception
+
+        context.set_user(user)
+
+        return user
+
     try:
         payload = jwt.decode(token, settings.auth_secret_key, algorithms=[settings.auth_algorithm])
         email: str = str(payload.get("sub"))
@@ -119,9 +151,10 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> "User":
 
 async def get_optional_current_user(
     token: str | None = Depends(oauth2_scheme_optional),
+    api_token: str | None = Depends(api_token_scheme),
 ) -> "User | None":
     try:
-        return await get_current_user(token) if token else None
+        return await get_current_user(token, api_token) if token or api_token else None
     except HTTPException:
         return None
 
@@ -164,7 +197,7 @@ async def get_current_workspace(
     return workspace
 
 
-def _find_workspace_user_model() -> "type[WorkspaceUser] | None":
+def find_workspace_user_model() -> "type[WorkspaceUser] | None":
     """The concrete workspace-user model of the app (e.g. HouseholdUser) is not
     necessarily registered under the generic 'WorkspaceUser' name — resolve it
     by base class."""
@@ -260,7 +293,7 @@ async def get_workspace_shared_record(current_user=Depends(get_current_user)):
             context.set_workspace(workspace)
 
             workspace_user = None
-            workspace_user_model = _find_workspace_user_model()
+            workspace_user_model = find_workspace_user_model()
 
             if workspace_user_model is not None:
                 workspace_user = await workspace_user_model.global_query.filter(

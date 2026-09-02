@@ -41,8 +41,21 @@ def build_app() -> FastEdgy:
 
     from fastapi import Depends
 
-    from fastedgy.api import auth, auth_simple_registration, dataset, health, storage
+    from fastedgy.api import (
+        auth,
+        auth_simple_registration,
+        dataset,
+        health,
+        storage,
+    )
+    from fastedgy.api.user_api_tokens import create_user_api_tokens_router
     from fastedgy.depends.security import get_current_user
+
+    try:
+        from fastedgy.mcp import create_mcp_router
+    except ImportError:
+        # The `mcp` extra is optional: the rest of the test app stands without it.
+        create_mcp_router = None
 
     # Imported here (not at module top) for its registration side effect: merely
     # importing fastedgy.test must not register the synthetic models, so a
@@ -51,7 +64,7 @@ def build_app() -> FastEdgy:
 
     _ensure_standard_actions()
 
-    app = FastEdgy(version=APP_VERSION)
+    app = FastEdgy(version=APP_VERSION, user_api_tokens=True)
 
     get_service(Registry).init_models()
 
@@ -70,10 +83,15 @@ def build_app() -> FastEdgy:
     router.include_router(storage.manage_attachments_router)
     router.include_router(storage.router)
     router.include_router(storage.manage_router)
+    router.include_router(create_user_api_tokens_router())
     register_api_route_models(router)
 
     app.include_router(public_router)
     app.include_router(router)
+
+    if create_mcp_router is not None:
+        # At the root, not under /api: the MCP endpoint authenticates itself.
+        app.include_router(create_mcp_router())
 
     app.title = APP_TITLE
     app.summary = None

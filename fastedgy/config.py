@@ -158,6 +158,7 @@ class BaseSettings(PydanticBaseSettings):
     auth_algorithm: str = "HS256"
     auth_access_token_expire_minutes: int = 15
     auth_refresh_token_expire_days: int = 30
+    api_token_prefix: str = "fet_"
 
     # Storage
     data_path: str | None = None

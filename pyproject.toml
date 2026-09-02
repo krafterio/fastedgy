@@ -45,6 +45,9 @@ dataflow-ods = [
 dataflow-xlsx = [
     "openpyxl ~= 3.1",
 ]
+mcp = [
+    "mcp ~= 2.1",
+]
 storage-s3 = [
     "aioboto3 ~= 15.5",
 ]
@@ -52,6 +55,7 @@ storage-s3 = [
 [dependency-groups]
 dev = [
     "aioboto3 ~= 15.5",
+    "mcp ~= 2.1",
     "openpyxl ~= 3.1",
     "pyexcel-ods ~= 0.6",
     "mkdocs-material >= 9.5",
@@ -98,6 +102,10 @@ ignore = [
 testpaths = ["tests"]
 pythonpath = ["."]
 anyio_mode = "auto"
+filterwarnings = [
+    # rich_click still imports what Click 9 will drop: nothing here to fix.
+    "ignore:'click\\.utils\\..*' is deprecated:DeprecationWarning:rich_click.*",
+]
 
 [project.scripts]
 fastedgy = "fastedgy.cli:main"

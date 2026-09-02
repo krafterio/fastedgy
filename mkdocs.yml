@@ -206,6 +206,10 @@ nav:
       - Authentication:
         - Overview: features/auth/overview.md
         - Usage Guide: features/auth/guide.md
+      - MCP Server:
+        - Overview: features/mcp-server/overview.md
+        - Usage Guide: features/mcp-server/guide.md
+        - Advanced Usage: features/mcp-server/advanced.md
   - Vue.js:
     - Getting Started: vue/getting-started.md
     - Basic Usage: vue/basic-usage.md

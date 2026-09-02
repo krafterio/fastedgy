@@ -9,6 +9,11 @@ FastEdgy is compatible with MCP (Model Context Protocol) through a local MCP ser
 documentation. This section explains how to configure and use this MCP server to access FastEdgy documentation from
 your AI assistant.
 
+!!! note
+
+    This page is about reading the FastEdgy documentation from your AI assistant. To expose *your own application* over
+    MCP, see the [MCP Server](features/mcp-server/overview.md) feature.
+
 ## What is MCP?
 
 The Model Context Protocol (MCP) is a protocol developed by Anthropic that allows AI assistants to access external

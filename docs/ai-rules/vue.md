@@ -59,7 +59,7 @@ alwaysApply: true
    2. Never embed secrets; config comes from `import.meta.env`.
 
 6) FastEdgy integration (MCP-first)
-   1. If a task involves FastEdgy concepts (API Routes Generator, Query Builder, Fields Selector, Metadata Generator, Queued Tasks, i18n, Multi Tenant, Email, Storage, Authentication, settings) OR **vue-fastedgy features** (fetcher, bus, composables):
+   1. If a task involves FastEdgy concepts (API Routes Generator, Query Builder, Fields Selector, Metadata Generator, Queued Tasks, i18n, Multi Tenant, Email, Storage, Authentication, MCP Server, settings) OR **vue-fastedgy features** (fetcher, bus, composables):
       - MUST first call MCP **fastedgy-docs** → `search("keywords")` or `search("Vue.js [concept]")` for vue-fastedgy, then `read(uri)` for the top result **before coding**.
       - In PRs, reference the consulted doc section (file/heading or link).
    2. If docs don't cover the need, create a minimal wrapper and add a TODO with a link to the doc gap.

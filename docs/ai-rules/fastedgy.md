@@ -48,7 +48,7 @@ alwaysApply: true
   - **stop** and request the spec export before coding endpoints
 
 ## Rules
-1. WHEN a question concerns FastEdgy concepts (ORM Edgy, DI, API Routes Generator, Query Builder, Fields Selector, Metadata Generator, ORM Extensions, Database Migration, Queued Tasks, CLI, i18n, Multi Tenant, Email, Storage, Authentication, settings) OR vue-fastedgy features (fetcher, bus, composables):
+1. WHEN a question concerns FastEdgy concepts (ORM Edgy, DI, API Routes Generator, Query Builder, Fields Selector, Metadata Generator, ORM Extensions, Database Migration, Queued Tasks, CLI, i18n, Multi Tenant, Email, Storage, Authentication, MCP Server, settings) OR vue-fastedgy features (fetcher, bus, composables):
    - MUST first call MCP `search` with 3–6 keywords (use "Vue.js [concept]" for vue-fastedgy features)
    - THEN call MCP `read` on the top-1 relevant doc to confirm API/constraints before coding
 
@@ -68,6 +68,7 @@ alwaysApply: true
 - **Configuration**: Settings management and environment handling
 - **Database**: ORM patterns with Edgy and migration conventions
 - **CLI**: Click-based command patterns
+- **MCP Server**: Tools and resources exposed to an AI assistant, and personal API keys
 - **Project Structure**: Recommended file organization
 
 ## Usage with Different AI Tools

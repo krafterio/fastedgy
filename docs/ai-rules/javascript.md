@@ -115,7 +115,7 @@ alwaysApply: true
    1. Never log tokens or sensitive data
    2. Sanitize/allowlist user-provided filters before sending to the API
    3. MUST consult MCP (`search` → `read`) to confirm exact payload shapes, status codes, and error envelopes **before** adding/changing a service
-   4. When working with FastEdgy concepts (API Routes Generator, Query Builder, Fields Selector, Metadata Generator, Queued Tasks, i18n, Multi Tenant, Email, Storage, Authentication, settings) or vue-fastedgy features (fetcher config, bus, composables), MUST consult MCP **fastedgy-docs** → `search("keywords")` or `search("Vue.js [concept]")` for official patterns
+   4. When working with FastEdgy concepts (API Routes Generator, Query Builder, Fields Selector, Metadata Generator, Queued Tasks, i18n, Multi Tenant, Email, Storage, Authentication, MCP Server, settings) or vue-fastedgy features (fetcher config, bus, composables), MUST consult MCP **fastedgy-docs** → `search("keywords")` or `search("Vue.js [concept]")` for official patterns
 
 7) Developer experience
    1. Use **JSDoc** to document function params/returns and shared shapes in `src/api/types.js` (or alongside each service)

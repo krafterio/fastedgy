@@ -128,6 +128,14 @@ Essential framework features that make FastEdgy a complete development platform.
 
     [Learn more →](multi-tenant/overview.md)
 
+-   **:material-robot-outline: MCP Server**
+
+    ---
+
+    Expose the API to an AI assistant over the Model Context Protocol, with personal API keys.
+
+    [Learn more →](mcp-server/overview.md)
+
 </div>
 
 ## Services

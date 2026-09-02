@@ -120,6 +120,19 @@ The built-in endpoints handle password reset flow:
 {"token": "reset-token-from-email", "password": "new_secure_password"}
 ```
 
+## Personal API keys
+
+A JWT expires in minutes, which is no use to a script or an agent. An application built with
+`FastEdgy(user_api_tokens=True)` also accepts a personal API key, on either header:
+
+```bash
+curl https://app.example.com/api/products -H "Authorization: Bearer acme_A1b2..."
+curl https://app.example.com/api/products -H "X-Api-Token: acme_A1b2..."
+```
+
+A key authenticates every route with the rights of its owner, exactly where a JWT would. See the
+[MCP Server guide](../mcp-server/guide.md) for creating, listing and revoking them.
+
 ## Custom user model
 
 Extend the base user model:

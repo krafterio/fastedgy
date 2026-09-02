@@ -112,9 +112,7 @@ identical for everyone and static per deployment. A model's metadata is not, sin
 ```python
 from mcp.server.caching import CacheHint
 
-app.include_router(
-    create_mcp_router(cache_hints={"tools/list": CacheHint(ttl_ms=60_000, scope="public")})
-)
+app.include_router(create_mcp_router(cache_hints={"tools/list": CacheHint(ttl_ms=60_000, scope="public")}))
 ```
 
 ## Naming and instructions
@@ -137,7 +135,11 @@ app.include_router(
 
 ```python
 app.include_router(create_mcp_router())
-app.include_router(create_mcp_router(path="/mcp-readonly", disabled_tools=["create_record", "update_record", "delete_record", "request"]))
+app.include_router(
+    create_mcp_router(
+        path="/mcp-readonly", disabled_tools=["create_record", "update_record", "delete_record", "request"]
+    )
+)
 ```
 
 Both still authenticate the same way, and a key reaches whatever its owner reaches: an endpoint without the write tools

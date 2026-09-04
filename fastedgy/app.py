@@ -43,7 +43,7 @@ from fastedgy.http import (
 from fastedgy.i18n import LocaleMiddleware
 from fastedgy.logger import setup_logging
 from fastedgy.models.user_api_token import register_default_user_api_token_model
-from fastedgy.orm import Database, Registry
+from fastedgy.orm import Database, Registry, set_default_isolation_level
 from fastedgy.orm.data_ref import DataRefs
 from fastedgy.orm.registry import register_lazy_models
 from fastedgy.timezone import setup_timezone
@@ -899,6 +899,8 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
             format=settings.log_format,
             log_file=settings.log_path,
         )
+
+        set_default_isolation_level(settings.database_isolation_level)
 
         register_service(HasherRegistry)
 

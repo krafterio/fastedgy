@@ -2,6 +2,7 @@
 # MIT License (see LICENSE file).
 
 import asyncio
+import contextlib
 import logging
 import random
 from collections.abc import Awaitable, Callable, Coroutine
@@ -9,6 +10,7 @@ from contextvars import ContextVar
 from functools import wraps
 from typing import Any, TypeVar, overload
 
+from databasez.sqlalchemy import SQLAlchemyTransaction
 from sqlalchemy.exc import DBAPIError
 
 from fastedgy.dependencies import get_service
@@ -35,6 +37,79 @@ _ISOLATION_LEVELS = frozenset({"READ UNCOMMITTED", "READ COMMITTED", "REPEATABLE
 # so concurrent requests/workers never see each other's flag.
 _in_retrying_transaction: ContextVar[bool] = ContextVar("fastedgy_in_retrying_transaction", default=False)
 _after_commit_callbacks: ContextVar[list[Callable[[], Any]] | None] = ContextVar("after_commit_callbacks", default=None)
+
+
+async def _start_without_isolation_shortcut(self: SQLAlchemyTransaction, is_root: bool, **extra_options: Any) -> None:
+    """databasez's ``start``, minus the shortcut that skips applying the
+    isolation level when it already matches the connection's.
+
+    The engine runs in AUTOCOMMIT, and applying ``isolation_level`` through
+    ``execution_options`` is what takes a connection out of it. Vendor code
+    drops that call when the requested level equals what the connection
+    reports, which is exactly the case for the level PostgreSQL already
+    defaults to: ``begin()`` then hands back a transaction that never started,
+    and the first ``SAVEPOINT`` fails with ``NoActiveSQLTransactionError``.
+    Invisible while the default was ``SERIALIZABLE``, fatal the moment it is
+    ``READ COMMITTED``. The rest is the vendor sequence.
+    """
+    connection = self.async_connection
+    assert connection is not None, "Connection is not acquired"
+    assert self.raw_transaction is None, "Transaction is already initialized"
+    in_transaction = connection.in_transaction()
+
+    self.old_transaction_level = await connection.get_isolation_level()
+
+    if "isolation_level" not in extra_options and not in_transaction:
+        extra_options["isolation_level"] = self.get_default_transaction_isolation_level(is_root, **extra_options)
+
+    if extra_options.get("isolation_level") is None:
+        extra_options.pop("isolation_level", None)
+        self.old_transaction_level = ""
+
+    if extra_options:
+        await connection.execution_options(**extra_options)
+
+    try:
+        if in_transaction:
+            self.raw_transaction = await connection.begin_nested()
+        else:
+            self.raw_transaction = await connection.begin()
+    except BaseException:
+        if self.old_transaction_level:
+            with contextlib.suppress(Exception):
+                await connection.execution_options(isolation_level=self.old_transaction_level)
+            self.old_transaction_level = ""
+        raise
+
+
+def _configured_isolation_level(self: SQLAlchemyTransaction, is_root: bool, **extra_options: Any) -> str | None:
+    return self.default_isolation_level  # type: ignore[attr-defined]
+
+
+def set_default_isolation_level(level: str) -> None:
+    """Set the isolation level every transaction starts with, process-wide.
+
+    databasez hard-codes ``SERIALIZABLE`` as its default, so every concurrent
+    read-modify-write touching the same rows becomes a 40001 that the caller
+    has to replay, and a replay costs whatever the whole callable costs. That
+    applies to a plain ``model.save()`` too, not only to the transactions
+    opened through :func:`with_transaction`: those are the ones nothing can
+    retry. ``READ COMMITTED`` makes the second writer wait for the first to
+    commit instead of aborting; a unit that genuinely needs SSI asks for it per
+    transaction through ``isolation_level=``.
+
+    Call it once at application setup. It patches the backend class in place
+    rather than swapping it: databasez resolves that class by name from its own
+    module and may already hold a reference by the time settings are read.
+    """
+    level = level.upper()
+
+    if level not in _ISOLATION_LEVELS:
+        raise ValueError(f"Invalid isolation level: {level!r}")
+
+    SQLAlchemyTransaction.default_isolation_level = level  # type: ignore[attr-defined]
+    SQLAlchemyTransaction.get_default_transaction_isolation_level = _configured_isolation_level  # type: ignore[method-assign]
+    SQLAlchemyTransaction.start = _start_without_isolation_shortcut  # type: ignore[method-assign]
 
 
 def defer_after_commit(callback: Callable[[], Any]) -> None:
@@ -176,8 +251,10 @@ async def with_transaction(
         retries: Extra attempts after the first (total tries = ``retries + 1``).
         base_delay: Base backoff in seconds (exponential, with jitter).
         isolation_level: Optional Postgres isolation level for the transaction
-            (e.g. ``"READ COMMITTED"`` to avoid the conflict instead of retrying
-            it). Defaults to the databasez default (``SERIALIZABLE``). Ignored
+            (e.g. ``"SERIALIZABLE"`` to get SSI on a unit that needs it).
+            Defaults to the process-wide level set by
+            :func:`set_default_isolation_level` from the
+            ``database_isolation_level`` setting. Ignored
             for a nested call — a savepoint inherits the outer level. Applied
             via ``SET TRANSACTION`` as the first statement of the transaction:
             databasez's own ``transaction(isolation_level=...)`` yields a

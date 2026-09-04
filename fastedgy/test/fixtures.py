@@ -94,11 +94,15 @@ async def setup_app(setup_database: bool) -> AsyncIterator[FastEdgy]:
 def seed_data() -> Callable[[], Any] | None:
     """Reference-data seeder run after each truncate.
 
-    Override in a project to return a zero-argument callable (sync or async) —
-    e.g. one that runs the project's ``init-data`` logic — so every test starts
-    from a freshly populated database. Returns ``None`` (no seeding) by default.
+    Defaults to :func:`fastedgy.orm.loader.load_data`, so a project's
+    ``server/data`` records are reloaded before every test exactly as
+    ``kt db init-data`` would. A project with no ``data`` directory gets a
+    no-op. Override to return another zero-argument callable, or ``None`` to
+    skip seeding entirely.
     """
-    return None
+    from fastedgy.orm.loader import load_data
+
+    return load_data
 
 
 @pytest.fixture

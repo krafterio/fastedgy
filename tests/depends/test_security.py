@@ -24,11 +24,26 @@ def test_hash_and_verify_password() -> None:
     hashed = hash_password("secret")
 
     assert hashed != "secret"
-    assert hashed.startswith("$2b$")
+    assert hashed.startswith("$argon2id$")
     assert verify_password(hashed, "secret") is True
     assert verify_password(hashed, "wrong") is False
     assert verify_password("", "secret") is False
     assert verify_password(hashed, "") is False
+
+
+def test_a_bcrypt_hash_is_flagged_for_an_upgrade() -> None:
+    """What lets a base migrate off bcrypt without a password reset: the stored
+    hash names its own scheme, and a login on an older one can rehash in place.
+    """
+    from fastedgy.depends.hasher import get_hasher_registry
+
+    registry = get_hasher_registry()
+    legacy_hash = "$2b$12$0GnN9bwwrzSImYer4BiNu.izB7eAJnt2uzkCAj5lFelyFM3.LlpKi"
+
+    assert registry.is_hashed(legacy_hash)
+    assert registry.needs_rehash(legacy_hash)
+    assert not registry.needs_rehash(hash_password("secret"))
+    assert not registry.is_hashed("secret")
 
 
 def test_verify_password_accepts_a_preexisting_bcrypt_hash() -> None:

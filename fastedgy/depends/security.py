@@ -1,10 +1,11 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+import logging
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, cast
 
-import bcrypt
+from anyio import CapacityLimiter, to_thread
 from fastapi import Depends, HTTPException, status
 from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
 from jose import JWTError, jwt
@@ -12,6 +13,7 @@ from jose import JWTError, jwt
 from fastedgy import context
 from fastedgy.config import BaseSettings
 from fastedgy.dependencies import get_service
+from fastedgy.depends.hasher import get_hasher_registry
 from fastedgy.models.user_api_token import resolve_api_token
 from fastedgy.orm import Registry
 
@@ -20,6 +22,8 @@ if TYPE_CHECKING:
     from fastedgy.models.workspace import BaseWorkspace as Workspace
     from fastedgy.models.workspace_user import BaseWorkspaceUser as WorkspaceUser
 
+
+logger = logging.getLogger("fastedgy.security")
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
 oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/api/auth/token", auto_error=False)
@@ -31,24 +35,43 @@ API_TOKEN_HEADER = "X-Api-Token"
 api_token_scheme = APIKeyHeader(name=API_TOKEN_HEADER, auto_error=False)
 
 
-def _bcrypt_bytes(raw: str) -> bytes:
-    # bcrypt only considers the first 72 bytes; truncating keeps hashes produced
-    # by the previous passlib-based implementation verifiable.
-    return raw.encode("utf-8")[:72]
+# Hashing is CPU-bound and, with argon2id, holds its memory cost for the whole
+# call. Beyond one hash per core there is nothing to gain and a footprint to
+# pay, so the threads are bounded here rather than left to anyio's default of
+# 40 per loop: 8 concurrent argon2id hashes are 152 MiB, 40 would be 760 MiB
+# per worker process.
+_hash_limiter = CapacityLimiter(8)
 
 
 def hash_password(password: str) -> str:
-    return bcrypt.hashpw(_bcrypt_bytes(password), bcrypt.gensalt()).decode("utf-8")
+    return get_hasher_registry().hash(password)
 
 
 def verify_password(password: str | None, verify_password: str | None) -> bool:
-    if not password or not verify_password:
-        return False
+    """``password`` is the stored hash, ``verify_password`` the clear candidate.
 
-    try:
-        return bcrypt.checkpw(_bcrypt_bytes(verify_password), password.encode("utf-8"))
-    except ValueError:
-        return False
+    The scheme is chosen from the stored hash's own prefix, so a base holding
+    both bcrypt and argon2id keeps working.
+    """
+    return get_hasher_registry().verify(verify_password, password)
+
+
+async def hash_password_async(password: str) -> str:
+    """Hash in a worker thread rather than on the event loop.
+
+    A KDF costs tens to hundreds of milliseconds of CPU by design, and a
+    synchronous call freezes every other request served by the same uvicorn
+    worker for that whole time. The thread does not make it cheaper, it makes
+    it concurrent: argon2 and bcrypt both release the GIL.
+    """
+    return await to_thread.run_sync(hash_password, password, limiter=_hash_limiter)
+
+
+async def verify_password_async(password: str | None, plain_password: str | None) -> bool:
+    """Same reason as :func:`hash_password_async`: verifying costs as much as
+    hashing, and it runs on every login.
+    """
+    return await to_thread.run_sync(verify_password, password, plain_password, limiter=_hash_limiter)
 
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None):
@@ -81,10 +104,30 @@ async def authenticate_user(email: str, password: str):
     else:
         user = await User.query.filter(email=email).first()
 
-    if not user or not verify_password(user.password, password):
+    if not user or not await verify_password_async(user.password, password):
         return False
 
+    await rehash_password_if_needed(user, password)
+
     return user
+
+
+async def rehash_password_if_needed(user: "User", raw_password: str) -> None:
+    """Upgrade a hash left over from an older scheme, on the login that proved
+    the password.
+
+    This is what migrates a base off bcrypt without asking anyone to reset
+    anything. Only the password column is written, and a failure here must
+    never turn a valid login into an error.
+    """
+    if not get_hasher_registry().needs_rehash(user.password):
+        return
+
+    try:
+        user.password = await hash_password_async(raw_password)
+        await user.save(values={"password": user.password})
+    except Exception:
+        logger.exception(f"Could not upgrade the password hash of user {user.pk}")
 
 
 async def get_current_user(
@@ -318,8 +361,12 @@ __all__ = [
     "get_current_workspace",
     "get_optional_current_user",
     "get_workspace_shared_record",
+    "get_hasher_registry",
     "hash_password",
+    "hash_password_async",
     "oauth2_scheme",
     "oauth2_scheme_optional",
+    "rehash_password_if_needed",
     "verify_password",
+    "verify_password_async",
 ]

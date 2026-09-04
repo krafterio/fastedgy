@@ -32,6 +32,7 @@ from fastedgy.dependencies import (
     has_service,
     register_service,
 )
+from fastedgy.depends.hasher import HasherRegistry
 from fastedgy.health import Health
 from fastedgy.http import (
     ContextRequestMiddleware,
@@ -898,6 +899,8 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
             format=settings.log_format,
             log_file=settings.log_path,
         )
+
+        register_service(HasherRegistry)
 
         db = Database(
             settings.database_url,

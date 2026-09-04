@@ -17,6 +17,8 @@ from fastedgy.depends.security import (
     create_access_token,
     create_refresh_token,
     get_current_user,
+    hash_password_async,
+    verify_password_async,
 )
 from fastedgy.i18n import _t
 from fastedgy.mail import Mail
@@ -152,7 +154,7 @@ async def password_reset(data: ResetPasswordRequest, registry: Registry = Inject
     if not user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_t("Token invalid or expired"))
 
-    user.set_password(data.password)
+    user.password = await hash_password_async(data.password)
     user.reset_pwd_token = None
     user.reset_pwd_expires_at = None
     await user.save()
@@ -222,13 +224,13 @@ async def change_password(
     data: ChangePasswordRequest,
     current_user: "User" = Depends(get_current_user),
 ) -> SimpleMessage:
-    if not current_user.verify_password(data.current_password):
+    if not await verify_password_async(current_user.password, data.current_password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=_t("Current password is incorrect"),
         )
 
-    current_user.set_password(data.new_password)
+    current_user.password = await hash_password_async(data.new_password)
     await current_user.save()
 
     return SimpleMessage(message=_t("Password changed successfully"))

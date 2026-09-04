@@ -79,14 +79,14 @@ async def restore_workspace_context(task) -> None:
         WorkspaceUser = cast(type["WorkspaceUser"], registry.get_model(workspace_user_model_name))
 
     if workspace_id and Workspace:
-        context.set_workspace(await Workspace.query.filter(Workspace.columns.id == workspace_id).get_or_none())
+        context.set_workspace(await Workspace.global_query.filter(Workspace.columns.id == workspace_id).get_or_none())
 
     if user_id and User:
-        context.set_user(await User.query.filter(User.columns.id == user_id).get_or_none())
+        context.set_user(await User.global_query.filter(User.columns.id == user_id).get_or_none())
 
     if workspace_id and user_id and Workspace and User and WorkspaceUser:
         context.set_workspace_user(
-            await WorkspaceUser.query.filter(
+            await WorkspaceUser.global_query.filter(
                 (WorkspaceUser.columns.user == user_id) & (WorkspaceUser.columns.workspace == workspace_id)
             ).get_or_none()
         )

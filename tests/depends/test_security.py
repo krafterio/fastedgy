@@ -126,3 +126,36 @@ async def test_current_workspace_comes_from_the_membership_join(setup_db: FastEd
         assert resolved is getattr(context.get_workspace_user(), "workspace", None)
     finally:
         context.reset_request(token)
+
+
+async def test_an_unhashed_password_is_repaired_outside_strict_mode(setup_db: FastEdgy) -> None:
+    """Production keeps working rather than failing a signup, but never stores
+    the clear value, and says loudly that a call site has to be fixed.
+    """
+    from fastedgy.config import BaseSettings
+    from fastedgy.depends.hasher import get_hasher_registry
+    from fastedgy.test.models.user import User
+
+    settings = get_service(BaseSettings)
+    settings.strict_password_hash = False
+
+    try:
+        user = User(email="lenient@example.io", name="Lenient", password="secret")
+        await user.save()
+    finally:
+        settings.strict_password_hash = True
+
+    stored = await User.query.get(email="lenient@example.io")
+
+    assert stored.password != "secret"
+    assert get_hasher_registry().is_hashed(stored.password)
+    assert verify_password(stored.password, "secret") is True
+
+
+async def test_an_unhashed_password_raises_in_strict_mode(setup_db: FastEdgy) -> None:
+    import pytest
+
+    from fastedgy.test.models.user import User
+
+    with pytest.raises(ValueError, match="not a password hash"):
+        await User(email="strict@example.io", name="Strict", password="secret").save()

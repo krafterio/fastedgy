@@ -160,6 +160,9 @@ class BaseSettings(PydanticBaseSettings):
     auth_refresh_token_expire_days: int = 30
     api_token_prefix: str = "fet_"
 
+    # Password
+    strict_password_hash: bool = False
+
     # Storage
     data_path: str | None = None
     storage_adapter: str = "filesystem"

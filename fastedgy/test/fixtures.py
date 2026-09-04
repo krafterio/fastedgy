@@ -25,6 +25,9 @@ os.environ.setdefault("AUTH_SECRET_KEY", "fastedgy-test-secret-key")
 # Emails are captured in-memory (no SMTP) and rendered from the bundled test
 # templates, so the mail-sending endpoints stay exercisable in tests.
 os.environ.setdefault("MAIL_ADAPTER", "mock")
+# A call site that stores a password unhashed must fail the suite, not be
+# repaired silently the way production does.
+os.environ.setdefault("STRICT_PASSWORD_HASH", "true")
 os.environ.setdefault("MAIL_TEMPLATES_PATH", os.path.join(os.path.dirname(__file__), "templates"))
 
 # Each worker gets an isolated storage root under the system temp directory so

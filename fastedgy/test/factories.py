@@ -10,6 +10,7 @@ that never touch the HTTP layer.
 
 from collections.abc import Generator
 from contextlib import contextmanager
+from functools import cache
 from typing import Any
 
 import httpx
@@ -52,6 +53,22 @@ def use_request(*, locale: str | None = None, timezone: str | None = None, user:
         context.reset_request(token)
 
 
+@cache
+def hashed_password(raw: str) -> str:
+    """The stored form of ``raw``, hashed once per distinct value.
+
+    The password column only accepts a hash, and a KDF costs tens of
+    milliseconds by design: hashing per test would dominate the suite runtime.
+    A value that is already a hash is returned untouched, so a caller can pass
+    either a clear password or one it hashed itself.
+    """
+    from fastedgy.depends.hasher import get_hasher_registry
+
+    registry = get_hasher_registry()
+
+    return raw if registry.is_hashed(raw) else registry.hash(raw)
+
+
 async def create_user(
     email: str = "user@example.io",
     name: str | None = "John Doe",
@@ -61,7 +78,7 @@ async def create_user(
     """Create and persist a User through the ORM (the dedicated user flow)."""
     from fastedgy.test.models.user import User
 
-    user = User(email=email, name=name, password=password, **extra)
+    user = User(email=email, name=name, password=hashed_password(password), **extra)
     await user.save()
 
     return user
@@ -133,6 +150,7 @@ __all__ = [
     "create_product",
     "create_tag",
     "create_user",
+    "hashed_password",
     "create_workspace",
     "create_workspace_user",
     "make_request",

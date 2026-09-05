@@ -27,17 +27,12 @@ def manager(monkeypatch: pytest.MonkeyPatch, delay: int = 0) -> QueueWorkerManag
 
 
 async def _done(auto_remove: bool = True, **kwargs: Any) -> Any:
-    created = await queue().create_task(
+    task = await queue().create_task(
         module_name="fastedgy.test.tasks",
         function_name="add_numbers",
         auto_remove=auto_remove,
         **kwargs,
     )
-
-    # create_task hands back an instance whose state was restored from the
-    # pre-insert snapshot, so saving it again writes nothing: reload it.
-    task = await queue().get_task_by_id(created.id)
-    assert task is not None
     task.mark_as_done()
     await task.save()
 
@@ -85,6 +80,8 @@ async def test_sweep_keeps_a_task_that_is_not_done(setup_db: FastEdgy, monkeypat
         function_name="add_numbers",
         auto_remove=True,
     )
+
+    assert task.id is not None
 
     await manager(monkeypatch)._sweep_auto_removable_tasks()
 

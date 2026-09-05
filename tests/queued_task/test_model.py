@@ -128,3 +128,23 @@ async def test_drain_pending_db_logs_waits_then_cancels(setup_db) -> None:
 
     assert done == ["short"]
     assert hung_task.cancelled()
+
+
+async def test_save_keeps_the_changes_made_on_an_unloaded_instance(setup_db: FastEdgy) -> None:
+    from .helpers import queue
+
+    # Built in memory with a subset of the fields, so the dates it never
+    # received are unloaded: reading one through hasattr would lazy-load the
+    # row and discard the state set just above.
+    task = QueuedTask(name="x", module_name="m", function_name="f", state=QueuedTaskState.enqueued)
+    await task.save()
+
+    task.state = QueuedTaskState.cancelled
+    task.date_cancelled = datetime.now(UTC)
+    await task.save()
+
+    assert task.id is not None
+    reloaded = await queue().get_task_by_id(task.id)
+    assert reloaded is not None
+    assert reloaded.state == QueuedTaskState.cancelled
+    assert reloaded.date_ended == reloaded.date_cancelled

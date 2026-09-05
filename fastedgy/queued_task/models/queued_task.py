@@ -137,43 +137,38 @@ class QueuedTaskMixin(BaseModel):
         force_save: bool | None = None,
     ) -> Self:
         """Override save to auto-generate name and compute dates"""
-        if not hasattr(self, "name") or not self.name:
-            if (
-                hasattr(self, "module_name")
-                and self.module_name
-                and hasattr(self, "function_name")
-                and self.function_name
-            ):
-                self.name = f"{self.module_name}.{self.function_name}"
-            else:
-                self.name = "local_function"
-        if not hasattr(self, "date_enqueued") or not self.date_enqueued and self.state == QueuedTaskState.enqueued:
+        # Read through extract_db_fields rather than off the instance: an
+        # attribute the instance never loaded is lazy-loaded on access, which
+        # refreshes the whole row from the database and silently discards the
+        # changes the caller made before calling save. `getattr` with a default
+        # does not help, it swallows the error but the reload already happened.
+        loaded = self.extract_db_fields()
+
+        if not loaded.get("name"):
+            module_name = loaded.get("module_name")
+            function_name = loaded.get("function_name")
+            self.name = f"{module_name}.{function_name}" if module_name and function_name else "local_function"
+
+        if not loaded.get("date_enqueued") and loaded.get("state") == QueuedTaskState.enqueued:
             self.date_enqueued = datetime.now(UTC)
 
-        self._compute_date_ended()
-        self._compute_execution_time()
+        self._compute_dates(loaded)
 
         return await super().save(force_insert, values, force_save)
 
-    def _compute_date_ended(self):
-        """Automatically compute end date based on the last significant date"""
-        if hasattr(self, "date_done") and self.date_done:
-            self.date_ended = self.date_done
-        elif hasattr(self, "date_cancelled") and self.date_cancelled:
-            self.date_ended = self.date_cancelled
-        elif hasattr(self, "date_failed") and self.date_failed:
-            self.date_ended = self.date_failed
-        elif hasattr(self, "date_stopped") and self.date_stopped:
-            self.date_ended = self.date_stopped
-        else:
-            self.date_ended = None
+    def _compute_dates(self, loaded: dict[str, Any]) -> None:
+        """Derive the end date from the last significant one, then the duration"""
+        self.date_ended = (
+            loaded.get("date_done")
+            or loaded.get("date_cancelled")
+            or loaded.get("date_failed")
+            or loaded.get("date_stopped")
+        )
 
-    def _compute_execution_time(self):
-        """Automatically compute execution time"""
-        if hasattr(self, "date_started") and self.date_started and hasattr(self, "date_ended") and self.date_ended:
-            delta = self.date_ended - self.date_started
-            self.execution_time = delta.total_seconds()
-        elif hasattr(self, "execution_time") and self.execution_time is None:
+        date_started = loaded.get("date_started")
+        if date_started and self.date_ended:
+            self.execution_time = (self.date_ended - date_started).total_seconds()
+        elif loaded.get("execution_time") is None:
             self.execution_time = 0.0
 
     def mark_as_doing(self):
@@ -248,7 +243,7 @@ class QueuedTaskMixin(BaseModel):
     @property
     def is_finished(self) -> bool:
         """Check if task is in a final state"""
-        return hasattr(self, "state") and self.state in [
+        return getattr(self, "state", None) in [
             QueuedTaskState.done,
             QueuedTaskState.failed,
             QueuedTaskState.cancelled,
@@ -257,7 +252,7 @@ class QueuedTaskMixin(BaseModel):
     @property
     def is_active(self) -> bool:
         """Check if task is active (running or waiting)"""
-        return hasattr(self, "state") and self.state in [
+        return getattr(self, "state", None) in [
             QueuedTaskState.enqueued,
             QueuedTaskState.waiting,
             QueuedTaskState.doing,
@@ -266,7 +261,7 @@ class QueuedTaskMixin(BaseModel):
     @property
     def can_be_restarted(self) -> bool:
         """Check if task can be restarted"""
-        return hasattr(self, "state") and self.state in [
+        return getattr(self, "state", None) in [
             QueuedTaskState.stopped,
             QueuedTaskState.failed,
         ]
@@ -274,7 +269,7 @@ class QueuedTaskMixin(BaseModel):
     @property
     def can_be_cancelled(self) -> bool:
         """Check if task can be cancelled"""
-        return hasattr(self, "state") and self.state in [
+        return getattr(self, "state", None) in [
             QueuedTaskState.enqueued,
             QueuedTaskState.waiting,
             QueuedTaskState.doing,

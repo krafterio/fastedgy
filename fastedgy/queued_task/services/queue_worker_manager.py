@@ -522,6 +522,7 @@ class QueueWorkerManager:
                     stats = await self.get_stats()
                     logger.debug(f"Worker stats: {stats['worker_pool']}")
                     await self._reap_stale_tasks()
+                    await self._sweep_auto_removable_tasks()
                     await self._purge_expired_tasks()
 
             except Exception as e:
@@ -1041,6 +1042,58 @@ class QueueWorkerManager:
         if dead:
             names = [row[0] for row in dead]
             logger.warning(f"Removed {len(names)} dead queue worker row(s) (stale heartbeat): {names}")
+
+    async def _sweep_auto_removable_tasks(self) -> None:
+        """Remove completed tasks carrying auto_remove, once their grace period is over.
+
+        The worker no longer deletes a task the instant it completes. A row
+        that vanishes that fast can be read by a producer and gone by the time
+        the producer chains onto it, and the resulting parent_task reference
+        is a foreign key violation PostgreSQL logs whatever the producer then
+        does with it. Holding the row for `auto_remove_delay` outlasts that
+        round trip by orders of magnitude.
+
+        Both keep rules live in the DELETE itself, so they are evaluated
+        atomically with the removal instead of being separate checks that can
+        go stale in between: a row with children stays (the FK is ON DELETE
+        CASCADE, deleting a parent would silently take its subtree), and a row
+        carrying an error or critical log stays so the failure remains
+        inspectable until the retention purge.
+
+        Chains unwind leaf-first, which is why the statement repeats until it
+        removes nothing: each pass makes the parents of the rows it deleted
+        childless, and therefore collectable by the next one.
+        """
+        delay = max(int(self.config.auto_remove_delay or 0), 0)
+
+        from sqlalchemy import text
+
+        sql = text(
+            "DELETE FROM queued_tasks t "
+            "WHERE t.state = 'done'::queuedtaskstate "
+            "  AND t.auto_remove IS TRUE "
+            "  AND COALESCE(t.date_done, t.date_ended, t.updated_at) "
+            "      < NOW() - make_interval(secs => :delay) "
+            "  AND NOT EXISTS ("
+            "    SELECT 1 FROM queued_tasks c WHERE c.parent_task = t.id"
+            "  ) "
+            "  AND NOT EXISTS ("
+            "    SELECT 1 FROM queued_task_logs l "
+            "    WHERE l.task = t.id "
+            "      AND l.log_type IN ('error', 'critical')"
+            "  ) "
+            "RETURNING t.id"
+        )
+
+        removed = 0
+        for _ in range(32):
+            rows = await self.database.fetch_all(sql.bindparams(delay=delay))
+            if not rows:
+                break
+            removed += len(rows)
+
+        if removed:
+            logger.info(f"Auto-remove sweep: removed {removed} completed task(s)")
 
     async def _purge_expired_tasks(self) -> None:
         """Hourly purge of terminal tasks past the retention window.

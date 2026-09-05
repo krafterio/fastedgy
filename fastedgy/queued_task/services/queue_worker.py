@@ -160,108 +160,15 @@ class QueueWorker:
 
             await self._run_write_with_retry(_op_mark_done)
 
-            # Auto-remove task if enabled
+            # Auto-removal is deferred to the manager sweep: a task that
+            # deleted itself the instant it completed could vanish between a
+            # producer reading it and chaining onto it, which surfaces as a
+            # foreign key violation on parent_task, logged by PostgreSQL
+            # whatever the producer then does. The sweep leaves the row in
+            # place for `auto_remove_delay`, far beyond that round trip, and
+            # applies the same keep rules in a single set-based DELETE.
             if task.auto_remove:
-                removed = False
-                removed_ancestors: list = []
-
-                async def _op_auto_remove():
-                    nonlocal removed
-                    removed = False  # reset on retry after rollback
-                    removed_ancestors.clear()
-                    from sqlalchemy import text
-
-                    database = self._get_manager_database()
-
-                    # Check task state is not failed
-                    check_state_sql = text("SELECT state FROM queued_tasks WHERE id = :id").bindparams(id=task.id)
-                    result = await database.fetch_all(check_state_sql)
-                    if result and len(result) > 0 and result[0][0] == QueuedTaskState.failed:
-                        logger.warning(
-                            f"Worker {self.worker_id} skipping auto-remove for task {task.id}: state is 'failed'"
-                        )
-                        return
-
-                    # Check for error or critical logs
-                    check_logs_sql = text(
-                        "SELECT COUNT(*) FROM queued_task_logs WHERE task = :id AND log_type IN ('error', 'critical')"
-                    ).bindparams(id=task.id)
-                    log_result = await database.fetch_all(check_logs_sql)
-                    if log_result and len(log_result) > 0 and log_result[0][0] > 0:
-                        logger.warning(
-                            f"Worker {self.worker_id} skipping auto-remove for task {task.id}: found {log_result[0][0]} error/critical log(s)"
-                        )
-                        return
-
-                    # All checks passed, proceed with deletion — but never
-                    # while child rows remain: the parent_task FK is ON DELETE
-                    # CASCADE, so deleting the parent would silently take its
-                    # children with it (an enqueued child never executed, a
-                    # doing one deleted under a running worker's feet, a
-                    # failed one lost before inspection). A kept row is
-                    # collected by the cascade-up below when its last child
-                    # removes itself, or by the retention purge.
-                    sql = text(
-                        "DELETE FROM queued_tasks t "
-                        "WHERE t.id = :id "
-                        "  AND NOT EXISTS ("
-                        "    SELECT 1 FROM queued_tasks c "
-                        "    WHERE c.parent_task = t.id"
-                        "  ) "
-                        "RETURNING t.parent_task"
-                    )
-                    rows = await database.fetch_all(sql.bindparams(id=task.id))
-                    if not rows:
-                        logger.info(
-                            f"Worker {self.worker_id} kept task {task.id} despite "
-                            f"auto_remove: child task(s) still present (removed "
-                            f"when the last child completes, or by the retention "
-                            f"purge)"
-                        )
-                        return
-                    removed = True
-
-                    # Cascade up the chain: an ancestor kept earlier because
-                    # this row was still pending can be collectable now that
-                    # its last child is gone (chained tasks would otherwise
-                    # leave their head row in 'done' forever). Same keep
-                    # rules as above, all guards inside one idempotent DELETE.
-                    parent_id = rows[0][0]
-                    ancestor_sql = text(
-                        "DELETE FROM queued_tasks t "
-                        "WHERE t.id = :id "
-                        "  AND t.state = 'done'::queuedtaskstate "
-                        "  AND t.auto_remove IS TRUE "
-                        "  AND NOT EXISTS ("
-                        "    SELECT 1 FROM queued_tasks c "
-                        "    WHERE c.parent_task = t.id"
-                        "  ) "
-                        "  AND NOT EXISTS ("
-                        "    SELECT 1 FROM queued_task_logs l "
-                        "    WHERE l.task = t.id "
-                        "      AND l.log_type IN ('error', 'critical')"
-                        "  ) "
-                        "RETURNING t.parent_task"
-                    )
-                    hops = 0
-                    while parent_id is not None and hops < 32:
-                        up_rows = await database.fetch_all(ancestor_sql.bindparams(id=parent_id))
-                        if not up_rows:
-                            break
-                        removed_ancestors.append(parent_id)
-                        parent_id = up_rows[0][0]
-                        hops += 1
-
-                await self._run_write_with_retry(_op_auto_remove)
-                if removed:
-                    logger.info(f"Worker {self.worker_id} completed and auto-removed task {task.id}")
-                    if removed_ancestors:
-                        logger.info(
-                            f"Worker {self.worker_id} auto-removed completed "
-                            f"ancestor task(s) {removed_ancestors} (chain cleanup)"
-                        )
-                else:
-                    logger.info(f"Worker {self.worker_id} completed task {task.id} (auto-remove skipped)")
+                logger.info(f"Worker {self.worker_id} completed task {task.id}, queued for auto-removal")
             elif task.state == QueuedTaskState.failed:
                 logger.info(f"Worker {self.worker_id} failed task {task.id}, keeping it")
             else:

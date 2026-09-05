@@ -96,6 +96,14 @@ class QueuedTaskConfig:
     # disables purging entirely.
     retention_days: int = int(os.environ.get("QUEUED_TASK_RETENTION_DAYS", "30"))
 
+    # Grace period (seconds) between a task completing and the manager sweep
+    # removing it, for tasks carrying auto_remove. It has to outlast the round
+    # trip a producer takes between reading a task and chaining onto it:
+    # a row that disappears inside that window makes the child's parent_task
+    # reference a gone id, which PostgreSQL logs as a foreign key violation.
+    # 0 removes the grace period, restoring the immediate removal.
+    auto_remove_delay: int = int(os.environ.get("QUEUED_TASK_AUTO_REMOVE_DELAY", "60"))
+
     # Manager registry (dedicated database connection for queue management operations)
     _manager_registry: "Registry | None" = None
     _manager_database: "Database | None" = None

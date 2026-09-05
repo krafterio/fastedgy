@@ -83,9 +83,26 @@ async def test_create_task_replays_serialization_conflict_from_pristine_state(
     assert await QueuedTask.query.filter(QueuedTask.columns.id == task.id).count() == 1
 
 
-async def test_create_task_with_vanished_parent_enqueues_unchained(setup_db: FastEdgy) -> None:
+async def test_create_task_with_vanished_parent_enqueues_unchained(
+    setup_db: FastEdgy, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from typing import Any
+
+    from fastedgy.dependencies import get_service
+    from fastedgy.orm import Registry
+
     parent = await queue().create_task(module_name="fastedgy.test.tasks", function_name="add_numbers")
     await parent.delete()
+
+    QueuedTask = get_service(Registry).get_model("QueuedTask")
+    real_save = QueuedTask.save
+    inserts = {"n": 0}
+
+    async def counting_save(self: Any, *args: Any, **kwargs: Any) -> Any:
+        inserts["n"] += 1
+        return await real_save(self, *args, **kwargs)
+
+    monkeypatch.setattr(QueuedTask, "save", counting_save)
 
     task = await queue().create_task(
         module_name="fastedgy.test.tasks",
@@ -96,3 +113,30 @@ async def test_create_task_with_vanished_parent_enqueues_unchained(setup_db: Fas
     assert task.id
     assert task.parent_task is None
     assert task.state == QueuedTaskState.enqueued
+    # One insert, not an insert that violates the foreign key followed by an
+    # unchained replay: the violation is logged by PostgreSQL even when the
+    # caller recovers from it.
+    assert inserts["n"] == 1
+
+
+async def test_create_task_persists_the_parent_link(setup_db: FastEdgy) -> None:
+    from sqlalchemy import text
+
+    from fastedgy.dependencies import get_service
+    from fastedgy.orm import Registry
+
+    parent = await queue().create_task(module_name="fastedgy.test.tasks", function_name="add_numbers")
+
+    task = await queue().create_task(
+        module_name="fastedgy.test.tasks",
+        function_name="add_numbers",
+        parent_task=parent,
+    )
+
+    assert task.parent_task is not None
+    assert task.parent_task.id == parent.id
+
+    stored = await get_service(Registry).database.fetch_val(
+        text("SELECT parent_task FROM queued_tasks WHERE id = :id").bindparams(id=task.id)
+    )
+    assert stored == parent.id

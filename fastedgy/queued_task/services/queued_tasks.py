@@ -384,18 +384,38 @@ class QueuedTasks:
 
         await self.hook_registry.trigger_pre_create(task)
 
-        # Isolated transaction with serialization-conflict retry (databasez
-        # defaults to SERIALIZABLE): a transient 40001 must neither bubble up
-        # to the producer nor lose a cron fire. A rolled-back INSERT leaves its
-        # pk and column defaults on the instance, turning the replay into an
-        # UPDATE of a nonexistent row (silently lost task) and any bookkeeping
-        # read into a lazy-load of it (ObjectNotFound) — so every attempt
-        # restarts from the pristine pre-insert state.
+        # Isolated transaction with serialization-conflict retry: a transient
+        # 40001 must neither bubble up to the producer nor lose a cron fire. A
+        # rolled-back INSERT leaves its pk and column defaults on the instance,
+        # turning the replay into an UPDATE of a nonexistent row (silently lost
+        # task) and any bookkeeping read into a lazy-load of it
+        # (ObjectNotFound), so every attempt restarts from the pristine
+        # pre-insert state.
+        from sqlalchemy import text
         from sqlalchemy.exc import IntegrityError
 
         from fastedgy.orm import with_transaction
 
+        # The row is inserted unchained and linked afterwards, in the same
+        # transaction. A chained parent runs to completion and auto-removes
+        # itself on its own schedule, so the id the producer read can already
+        # be gone by the time this insert reaches the server: carrying it in
+        # the INSERT turns that race into a foreign key violation, logged by
+        # PostgreSQL whatever the caller then does with the exception. The
+        # link resolves the parent in the statement that writes it, where a
+        # scalar subquery with no match is NULL, so a parent that vanished
+        # leaves the task unchained instead of raising. That is the right
+        # outcome anyway: the chain exists to order the child after the
+        # parent, and a removed parent has already run.
+        parent_id = getattr(parent_task, "id", None)
+        task.parent_task = None
         pristine_state = dict(vars(task))
+
+        link_sql = text(
+            "UPDATE queued_tasks SET parent_task = "
+            "(SELECT p.id FROM queued_tasks p WHERE p.id = :parent) "
+            "WHERE id = :id RETURNING parent_task"
+        )
 
         async def _persist() -> None:
             state = vars(task)
@@ -403,20 +423,24 @@ class QueuedTasks:
             state.update(pristine_state)
             await task.save()
 
+            if parent_id is None:
+                return
+
+            linked = await self.registry.database.fetch_val(link_sql.bindparams(parent=parent_id, id=task.id))
+            if linked is None:
+                logger.info(f"Task {task.id} enqueued unchained: parent {parent_id} is gone")
+            else:
+                task.parent_task = parent_task
+
         try:
             await with_transaction(_persist)
         except IntegrityError as e:
-            # A chained parent can complete and be auto-removed between the
-            # producer's lookup and this insert. The chain is then moot (the
-            # parent already ran), so enqueue unchained instead of bubbling
-            # the FK violation up to the producer.
-            if parent_task is None or "parent_task" not in str(e):
+            # Last resort: the parent can still be deleted between the
+            # subquery and the deferred foreign key check of the same
+            # statement. Retry unchained rather than bubble it up.
+            if parent_id is None or "parent_task" not in str(e):
                 raise
-            state = vars(task)
-            state.clear()
-            state.update(pristine_state)
-            task.parent_task = None
-            pristine_state = dict(vars(task))
+            parent_id = None
             await with_transaction(_persist)
 
         await self.hook_registry.trigger_post_create(task)

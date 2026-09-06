@@ -104,8 +104,9 @@ testpaths = ["tests"]
 pythonpath = ["."]
 anyio_mode = "auto"
 filterwarnings = [
-    # rich_click still imports what Click 9 will drop: nothing here to fix.
-    "ignore:'click\\.utils\\..*' is deprecated:DeprecationWarning:rich_click.*",
+    # rich_click reads at import what Click 9 will drop, and Click names the
+    # attribute differently from one release to the next: match on the module.
+    "ignore::DeprecationWarning:rich_click",
 ]
 
 [project.scripts]

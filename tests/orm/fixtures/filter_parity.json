@@ -301,7 +301,9 @@
             "in",
             "not in",
             "is empty",
-            "is not empty"
+            "is not empty",
+            "any",
+            "not any"
           ],
           "target": "category",
           "targets": null,
@@ -320,7 +322,9 @@
             "in",
             "not in",
             "is empty",
-            "is not empty"
+            "is not empty",
+            "any",
+            "not any"
           ],
           "target": "tag",
           "targets": null,
@@ -434,7 +438,9 @@
             "in",
             "not in",
             "is empty",
-            "is not empty"
+            "is not empty",
+            "any",
+            "not any"
           ],
           "target": "annotation",
           "targets": null,
@@ -453,7 +459,9 @@
             "in",
             "not in",
             "is empty",
-            "is not empty"
+            "is not empty",
+            "any",
+            "not any"
           ],
           "target": "attachment",
           "targets": null,
@@ -472,7 +480,9 @@
             "in",
             "not in",
             "is empty",
-            "is not empty"
+            "is not empty",
+            "any",
+            "not any"
           ],
           "target": "note",
           "targets": null,
@@ -715,7 +725,9 @@
             "in",
             "not in",
             "is empty",
-            "is not empty"
+            "is not empty",
+            "any",
+            "not any"
           ],
           "target": "annotation",
           "targets": null,
@@ -734,7 +746,9 @@
             "in",
             "not in",
             "is empty",
-            "is not empty"
+            "is not empty",
+            "any",
+            "not any"
           ],
           "target": "note",
           "targets": null,
@@ -753,7 +767,9 @@
             "in",
             "not in",
             "is empty",
-            "is not empty"
+            "is not empty",
+            "any",
+            "not any"
           ],
           "target": "product",
           "targets": null,
@@ -1903,7 +1919,9 @@
           ]
         ]
       ],
-      "expected_ids": [],
+      "expected_ids": [
+        1
+      ],
       "ordered": false
     },
     {
@@ -2062,6 +2080,147 @@
       ],
       "expected_ids": [
         1
+      ],
+      "ordered": false
+    },
+    {
+      "model": "category",
+      "filter": [
+        "products",
+        "any",
+        [
+          "&",
+          [
+            [
+              "name",
+              "=",
+              "Laptop Pro"
+            ],
+            [
+              "is_active",
+              "is false"
+            ]
+          ]
+        ]
+      ],
+      "expected_ids": [
+        1
+      ],
+      "ordered": false
+    },
+    {
+      "model": "category",
+      "filter": [
+        [
+          "products.name",
+          "=",
+          "Laptop Pro"
+        ],
+        [
+          "products.is_active",
+          "is true"
+        ]
+      ],
+      "expected_ids": [
+        1
+      ],
+      "ordered": false
+    },
+    {
+      "model": "category",
+      "filter": [
+        "products",
+        "any",
+        [
+          "&",
+          [
+            [
+              "name",
+              "=",
+              "Laptop Pro"
+            ],
+            [
+              "is_active",
+              "is true"
+            ]
+          ]
+        ]
+      ],
+      "expected_ids": [],
+      "ordered": false
+    },
+    {
+      "model": "category",
+      "filter": [
+        "products",
+        "not any",
+        [
+          "is_active",
+          "is false"
+        ]
+      ],
+      "expected_ids": [
+        2,
+        3
+      ],
+      "ordered": false
+    },
+    {
+      "model": "category",
+      "filter": [
+        "products",
+        "any",
+        null
+      ],
+      "expected_ids": [
+        1,
+        2
+      ],
+      "ordered": false
+    },
+    {
+      "model": "category",
+      "filter": [
+        "products",
+        "not any",
+        null
+      ],
+      "expected_ids": [
+        3
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "tags",
+        "any",
+        [
+          "name",
+          "=",
+          "urgent"
+        ]
+      ],
+      "expected_ids": [
+        1
+      ],
+      "ordered": false
+    },
+    {
+      "model": "product",
+      "filter": [
+        "tags",
+        "not any",
+        [
+          "name",
+          "=",
+          "urgent"
+        ]
+      ],
+      "expected_ids": [
+        2,
+        4,
+        3
       ],
       "ordered": false
     },

@@ -120,11 +120,33 @@ CASES: list[dict[str, Any]] = [
     {"model": "category", "filter": ["products.is_active", "is true"]},
     {"model": "category", "filter": ["products.name", "ilike", "%novel%"]},
     {
-        # Same-related-row semantics: rules on one to-many path must
-        # constrain the same product (joined lookups, not independent EXISTS).
+        # Rules on one to-many path are independent: each asks for some related
+        # record of its own, and their conjunction is the intersection of the
+        # two. `any` below is what asks for a single record satisfying both.
         "model": "category",
         "filter": [["products.name", "=", "Laptop Pro"], ["products.is_active", "is false"]],
     },
+    {
+        "model": "category",
+        "filter": ["products", "any", ["&", [["name", "=", "Laptop Pro"], ["is_active", "is false"]]]],
+    },
+    # The pair that tells the two readings apart: Electronics holds a product
+    # named "Laptop Pro" and an active one, never on the same record.
+    {
+        "model": "category",
+        "filter": [["products.name", "=", "Laptop Pro"], ["products.is_active", "is true"]],
+    },
+    {
+        "model": "category",
+        "filter": ["products", "any", ["&", [["name", "=", "Laptop Pro"], ["is_active", "is true"]]]],
+    },
+    {"model": "category", "filter": ["products", "not any", ["is_active", "is false"]]},
+    # An empty sub-filter asks only what the relation carries, so `not any` of
+    # one matches a record with nothing related.
+    {"model": "category", "filter": ["products", "any", None]},
+    {"model": "category", "filter": ["products", "not any", None]},
+    {"model": "product", "filter": ["tags", "any", ["name", "=", "urgent"]]},
+    {"model": "product", "filter": ["tags", "not any", ["name", "=", "urgent"]]},
     {
         "model": "product",
         "filter": ["|", [["category.name", "=", "Books"], ["price", "<", 10]]],

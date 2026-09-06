@@ -199,10 +199,10 @@ async def test_list_filter_and_order_on_the_same_reverse_relation(auth_http: htt
     assert [item["name"] for item in payload["items"]] == ["Big", "Small"]
 
 
-async def test_list_filter_twice_on_one_relation_keeps_the_shared_join(auth_http: httpx.AsyncClient) -> None:
-    # Two rules over the same relation mean one related row has to satisfy both,
-    # which only a shared join expresses: it keeps its DISTINCT ON, and the
-    # ordering stays on the join rather than becoming an aggregate.
+async def test_list_filter_twice_on_one_relation_orders_on_the_aggregate(auth_http: httpx.AsyncClient) -> None:
+    # Two rules over the same relation are two EXISTS, so the record is never
+    # repeated and nothing dedupes the page: the ordering is free to rank it by
+    # an aggregate of the far side.
     tagged = await make_product(auth_http, name="Tagged", price="10.00")
     urgent = await make_tag(auth_http, "urgent")
     unfiled = await make_tag(auth_http, "unfiled")

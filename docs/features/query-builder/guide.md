@@ -32,6 +32,8 @@
 | `is false` | Boolean field is false |
 | `is empty` | Field is null or empty |
 | `is not empty` | Field has a value |
+| `any` | The relation carries a record matching the sub-filter |
+| `not any` | The relation carries no record matching the sub-filter |
 
 ### Vector field operators
 
@@ -141,7 +143,7 @@ X-Filter: ["status", "in", ["pending", "processing"]]
 ```
 
 ### ForeignKey, OneToOne
-**Operators**: `=`, `!=`, `in`, `not in`, `is empty`, `is not empty`
+**Operators**: `=`, `!=`, `in`, `not in`, `is empty`, `is not empty`, `any`, `not any`
 
 **Example**:
 ```bash
@@ -149,8 +151,8 @@ GET /api/products/
 X-Filter: ["category.name", "=", "Electronics"]
 ```
 
-### ManyToMany
-**Operators**: `in`, `not in`, `is empty`, `is not empty`
+### ManyToMany, OneToMany
+**Operators**: `in`, `not in`, `is empty`, `is not empty`, `any`, `not any`
 
 **Example**:
 ```bash
@@ -195,6 +197,38 @@ X-Filter: ["location", "spatial distance <", [[2.3522, 48.8566], 10000]]
 ```
 
 **Note**: Distance operators require a tuple with the reference point and distance value: `[[longitude, latitude], distance_in_meters]`
+
+## Filtering on a relation
+
+Two rules over the same relation are independent, each satisfied by a related
+record of its own: `A & B` is the intersection of `A` and `B`, whatever rules
+sit next to them. This product matches as soon as it carries a red tag and an
+urgent tag, the same one or not:
+
+```bash
+GET /api/products/
+X-Filter: ["&", [["tags.color", "=", "red"], ["tags.name", "=", "urgent"]]]
+```
+
+`any` is the other reading: a single related record satisfying a whole
+sub-filter. Its value is a filter of the model the relation reaches, written
+against that model's own fields:
+
+```bash
+GET /api/products/
+X-Filter: ["tags", "any", ["&", [["color", "=", "red"], ["name", "=", "urgent"]]]]
+```
+
+`not any` negates it, and a record carrying nothing related satisfies it:
+
+```bash
+GET /api/orders/
+X-Filter: ["lines", "not any", ["state", "=", "out_of_stock"]]
+```
+
+An empty sub-filter asks only what the relation carries, so `["tags", "any",
+null]` reads as `is not empty` and `["tags", "not any", null]` as `is empty`
+(the short forms read better, and stay).
 
 ## Complex filtering
 

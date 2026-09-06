@@ -2,7 +2,7 @@
 # MIT License (see LICENSE file).
 
 from fastedgy.orm import Model
-from fastedgy.orm.filter.operators import get_filter_operators
+from fastedgy.orm.filter.operators import ANY_OPERATORS, get_filter_operators
 from fastedgy.orm.filter.types import (
     And,
     Filter,
@@ -10,6 +10,7 @@ from fastedgy.orm.filter.types import (
     FilterRule,
     InvalidFilterError,
     Or,
+    R,
 )
 
 
@@ -23,6 +24,14 @@ def validate_filters(
 
     # Filter Rule
     if isinstance(filters, FilterRule):
+        # A sub-filter rule names a relation, not a value: what it may read is
+        # checked field by field on the model that relation reaches.
+        if filters.operator in ANY_OPERATORS:
+            if not validate_filter_operator(model_cls, filters.field, filters.operator):
+                raise InvalidFilterError(f"Invalid operator {filters.operator} for field {filters.field}")
+
+            return _validate_any_rule(model_cls, filters, allow_excluded=allow_excluded)
+
         if not validate_filter_field(model_cls, filters.field, allow_excluded=allow_excluded):
             raise InvalidFilterError(f"Invalid filter field: {filters.field}")
 
@@ -48,6 +57,55 @@ def validate_filters(
                 return Or(*validated_rules)
 
     raise InvalidFilterError("Invalid filter expression")
+
+
+def _validate_any_rule(model_cls: type[Model], rule: FilterRule, allow_excluded: bool = False) -> FilterRule:
+    """Validate the sub-filter an ``any`` rule carries against the model it reaches.
+
+    The descent is what keeps the field checks honest: without it the sub-filter
+    names columns nobody looked at, and a caller reads a field it may not see by
+    bisecting on it.
+    """
+    from fastedgy.orm.filter.parser import parse_filter_input
+
+    target_cls = resolve_relation_target(model_cls, rule.field)
+
+    if target_cls is None:
+        raise InvalidFilterError(f"Operator {rule.operator} needs a relation, {rule.field} is not one")
+
+    sub_filters = rule.value
+
+    if sub_filters and not isinstance(sub_filters, (FilterRule, FilterCondition)):
+        sub_filters = parse_filter_input(sub_filters)
+
+        if sub_filters is None:
+            raise InvalidFilterError(f"Operator {rule.operator} on {rule.field} takes a filter as value")
+
+    return R(rule.field, rule.operator, validate_filters(target_cls, sub_filters, allow_excluded=allow_excluded))
+
+
+def resolve_relation_target(model_cls: type[Model], field_path: str) -> type[Model] | None:
+    """The model a relation path reaches, or ``None`` when a hop is not a relation.
+
+    A generic foreign key is not one: it points at any model, so it names no
+    single one to resolve a sub-filter against. Its reverse side does.
+    """
+    current_cls = model_cls
+
+    for part in field_path.split("."):
+        field_info = current_cls.meta.fields.get(part)
+
+        if field_info is None or getattr(field_info, "is_generic_foreign_key", False):
+            return None
+
+        if hasattr(field_info, "target"):
+            current_cls = field_info.target
+        elif hasattr(field_info, "related_from"):
+            current_cls = field_info.related_from
+        else:
+            return None
+
+    return current_cls
 
 
 def validate_filter_field(model_cls: type[Model], field_path: str, allow_excluded: bool = False) -> bool:
@@ -170,6 +228,7 @@ def validate_filter_operator(model_cls: type[Model], field_path: str, operator: 
 
 
 __all__ = [
+    "resolve_relation_target",
     "validate_filter_field",
     "validate_filter_operator",
     "validate_filters",

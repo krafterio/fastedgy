@@ -70,6 +70,9 @@ FilterOperator: TypeAlias = Literal[
     "is false",
     "is empty",
     "is not empty",
+    # Relation sub-filter operators
+    "any",
+    "not any",
     # Distance operators
     "l1 distance",
     "l1 distance <",
@@ -112,6 +115,11 @@ FilterOperator: TypeAlias = Literal[
 ]
 
 
+# The relation sub-filter operators: their value is a filter of the model the
+# field reaches, not a value to compare a column with.
+ANY_OPERATORS = frozenset({"any", "not any"})
+
+
 FilterConditionType: TypeAlias = Literal[
     "&",
     "|",
@@ -146,7 +154,10 @@ FILTER_OPERATORS_SQL = {
     "is false": lambda c, v=None: c.is_(False),
     "is empty": lambda c, v=None: c.is_(null()),
     "is not empty": lambda c, v=None: c.is_not(null()),
-    # Fulltext search — handled as special case in builder
+    # Relation sub-filters and fulltext search — handled as special cases in
+    # the builder: neither compiles to a predicate on a single column.
+    "any": None,
+    "not any": None,
     "search": None,
     "search_fuzzy": None,
     # Distance operators
@@ -216,6 +227,9 @@ FILTER_DICT_OPERATORS_SQL = {
     "is false": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__is": False}),
     "is empty": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__is": None}),
     "is not empty": lambda qs, f, v: qs.not_(Q(**{f"{f.replace('.', '__')}__is": None})),
+    # Relation sub-filters — handled as a special case in the builder
+    "any": None,
+    "not any": None,
     # Distance operators
     "l1 distance": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__l1_distance": v}),
     "l1 distance <": lambda qs, f, v: Q(**{f"{f.replace('.', '__')}__l1_distance_lt": v}),
@@ -467,6 +481,8 @@ FILTER_OPERATORS_FIELD_MAP = {
         "not in",
         "is empty",
         "is not empty",
+        "any",
+        "not any",
     ],
     RefForeignKey: [
         "=",
@@ -481,6 +497,8 @@ FILTER_OPERATORS_FIELD_MAP = {
         "not in",
         "is empty",
         "is not empty",
+        "any",
+        "not any",
     ],
     GenericForeignKey: [
         "=",
@@ -495,6 +513,8 @@ FILTER_OPERATORS_FIELD_MAP = {
         "not in",
         "is empty",
         "is not empty",
+        "any",
+        "not any",
     ],
     IPAddressField: [
         "=",
@@ -532,6 +552,8 @@ FILTER_OPERATORS_FIELD_MAP = {
         "not in",
         "is empty",
         "is not empty",
+        "any",
+        "not any",
     ],
     TimeField: [
         "=",
@@ -612,6 +634,8 @@ FILTER_OPERATORS_FIELD_MAP = {
         "not in",
         "is empty",
         "is not empty",
+        "any",
+        "not any",
     ],
     FulltextField: [
         "search",
@@ -659,10 +683,17 @@ def get_filter_operators(
         if not isinstance(map_field_type, str) and isinstance(field_info, map_field_type):
             return allowed_operators
 
+    # A reverse one-to-many is an ORM relation descriptor, not a field class the
+    # map can name: it is recognized by the model it points back to, and the
+    # metadata already describes it under the same key.
+    if hasattr(field_info, "related_from"):
+        return FILTER_OPERATORS_FIELD_MAP["OneToMany"]
+
     return []
 
 
 __all__ = [
+    "ANY_OPERATORS",
     "FILTER_DICT_OPERATORS_SQL",
     "FILTER_FIELD_TYPE_NAME_MAP",
     "FILTER_OPERATORS_FIELD_MAP",

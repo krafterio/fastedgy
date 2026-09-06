@@ -46,6 +46,7 @@ from fastedgy.orm.fields import (
 )
 from fastedgy.orm.fields.field_fulltext import escape_sql, get_pg_language
 from fastedgy.orm.filter.operators import (
+    ANY_OPERATORS,
     FILTER_DICT_OPERATORS_SQL,
     FILTER_OPERATORS_SQL,
     FILTER_OPERATORS_SQL_UNPACK,
@@ -61,7 +62,6 @@ from fastedgy.orm.filter.types import (
 )
 from fastedgy.orm.filter.utils import (
     _convert_value,
-    _has_duplicating_relation_filter,
     has_duplicating_relation_path,
 )
 from fastedgy.orm.filter.validator import validate_filters
@@ -108,28 +108,26 @@ _NULLABILITY_OPERATORS = {
 def build_filter_expression(
     model_cls: type[Model],
     filters: FilterRule | FilterCondition | None,
-    exists_paths: set[str] | None = None,
-    join_paths: set[str] | None = None,
 ) -> Any | None:
-    """``exists_paths`` names the fanning-out relation prefixes to compile as a
-    correlated EXISTS instead of a join, so the query stops repeating a record
-    per related row. Only sound for a prefix carried by a single rule: ANDed
-    rules over one relation mean "the same related row satisfies all of them",
-    which separate EXISTS would loosen.
+    """Compile a filter into what ``QuerySet.filter()`` takes.
 
-    Several such rules are folded into one EXISTS carrying their conjunction,
-    which keeps that meaning without a join. Rules that share no AND need share
-    no join either, so a prefix left alone in its branch compiles to its own
-    EXISTS. ``join_paths``, when given, collects the prefixes that ended up on a
-    join after all: those, and only those, still repeat the record and need the
-    caller to dedupe."""
+    A rule whose path crosses a relation that fans out compiles to its own
+    correlated EXISTS: a join would repeat the source record once per related
+    row, and sharing that join between two ANDed rules would quietly make them
+    mean "the same related row satisfies both". ``A & B`` stays the
+    intersection of A and B, whatever their neighbours; ``any`` is the operator
+    that asks for one related record satisfying a whole sub-filter.
+    """
     if filters is None:
         return None
 
     if isinstance(filters, FilterRule):
         field = filters.field
 
-        if exists_paths and "." in field and field.rsplit(".", 1)[0] in exists_paths:
+        if filters.operator in ANY_OPERATORS:
+            return _build_any_expression(_root_scope(model_cls), filters)
+
+        if "." in field and has_duplicating_relation_path(model_cls, field):
             expression = _build_exists_expression(model_cls, filters)
 
             if expression is not None:
@@ -156,9 +154,6 @@ def build_filter_expression(
             if expression is None:
                 raise InvalidFilterError(f"Cannot filter through the generic relation path '{field}'")
             return expression
-
-        if join_paths is not None and "." in field and has_duplicating_relation_path(model_cls, field):
-            join_paths.add(field.rsplit(".", 1)[0])
 
         field_type = _find_field_type_in_model(model_cls, field)
 
@@ -235,28 +230,9 @@ def build_filter_expression(
         return None
 
     is_or = filters.condition == "|"
-
     expressions = []
-    grouped_rules: set[int] = set()
-    unfolded: set[str] = set()
-
-    if not is_or:
-        for prefix, rules in and_exists_groups(model_cls, filters).items():
-            expression = _build_grouped_exists_expression(model_cls, prefix, rules)
-
-            if expression is None:
-                unfolded.add(prefix)
-                continue
-
-            expressions.append(expression)
-            grouped_rules.update(id(rule) for rule in rules)
-
-    child_exists_paths = exists_paths - unfolded if exists_paths else exists_paths
 
     for rule in filters.rules:
-        if id(rule) in grouped_rules:
-            continue
-
         # For OR conditions, use EXISTS subqueries for relation-based rules
         # to ensure each branch evaluates independently with its own JOIN context
         if is_or and isinstance(rule, FilterRule) and "." in rule.field:
@@ -265,7 +241,7 @@ def build_filter_expression(
             expr = None
 
         if expr is None:
-            expr = build_filter_expression(model_cls, rule, child_exists_paths, join_paths)
+            expr = build_filter_expression(model_cls, rule)
 
         if expr is not None:
             expressions.append(expr)
@@ -284,16 +260,31 @@ def build_filter_expression(
     return cond_query.and_(*expressions)
 
 
-@dataclass
-class RelationWalk:
-    """How far a dotted relation path has been compiled into joins.
+@dataclass(frozen=True)
+class ExistsScope:
+    """The row a correlated subquery hangs from.
 
-    Carried from one hop to the next so a walk can be resumed: the rules of an
-    AND that share a relation prefix walk it once, then each continues from
-    here with its own leaf.
+    ``model`` and ``table`` name it (the table is an alias whenever the path
+    came back to one the query already used), and ``seen`` carries the tables
+    the enclosing query names, so a nested subquery knows what it has to alias
+    apart.
     """
 
+    model: Any
+    table: Any
+    seen: set[int] = field(default_factory=set)
+
+
+def _root_scope(model_cls: type[Model]) -> ExistsScope:
+    return ExistsScope(model_cls, model_cls.table)
+
+
+@dataclass
+class RelationWalk:
+    """How far a dotted relation path has been compiled into joins."""
+
     current_model: Any
+    outer_table: Any = None
     from_table: Any = None
     root_link_condition: Any = None
     join_entries: list[tuple[Any, Any]] = field(default_factory=list)
@@ -311,13 +302,10 @@ class RelationWalk:
         stops filtering.
         """
         key = id(table)
-
-        if table is outer_table or key in self.seen_tables:
-            return table.alias()
-
+        aliased = table is outer_table or key in self.seen_tables
         self.seen_tables.add(key)
 
-        return table
+        return table.alias() if aliased else table
 
     def select_from(self) -> Any:
         select_from = self.from_table
@@ -334,12 +322,12 @@ def walk_relation_path(
     """Compile the relation hops of a path into joins, or ``None`` if one cannot
     be resolved.
 
-    ``walk`` resumes an earlier call: the first hop of a fresh walk correlates
-    back to ``model_cls`` and becomes the subquery's FROM, every later one is a
-    plain JOIN onto it.
+    The first hop correlates back to the walk's outer table (the model's own,
+    unless a scope named another) and becomes the subquery's FROM, every later
+    one is a plain JOIN onto it.
     """
     walk = RelationWalk(current_model=model_cls) if walk is None else walk
-    outer_table = model_cls.table
+    outer_table = walk.outer_table if walk.outer_table is not None else model_cls.table
 
     if walk.current_table is None:
         walk.current_table = outer_table
@@ -349,7 +337,10 @@ def walk_relation_path(
         current_table = walk.current_table
         from_table = walk.from_table
         join_entries = walk.join_entries
-        field_info = current_model.meta.fields[part]
+        field_info = current_model.meta.fields.get(part)
+
+        if field_info is None:
+            return None
 
         if isinstance(field_info, ManyToMany):
             # Many-to-many: hop through the intermediate table, then to the target.
@@ -497,6 +488,20 @@ def walk_relation_path(
     return walk
 
 
+def _scope_walk(scope: ExistsScope, hops: list[str]) -> RelationWalk | None:
+    """Walk ``hops`` from the scope's row, correlating the first one back to it."""
+    return walk_relation_path(
+        scope.model,
+        hops,
+        RelationWalk(
+            current_model=scope.model,
+            outer_table=scope.table,
+            current_table=scope.table,
+            seen_tables=set(scope.seen) | {id(scope.model.table)},
+        ),
+    )
+
+
 def relation_path_source(model_cls: type[Model], resolved_field: str) -> tuple[Any, Any, Any] | None:
     """Compile a dotted relation path into the pieces a correlated subquery needs.
 
@@ -504,135 +509,17 @@ def relation_path_source(model_cls: type[Model], resolved_field: str) -> tuple[A
     source for the far side of the path, the condition correlating it back to
     ``model_cls``, and the column the leaf names. Returns ``None`` when a hop
     cannot be resolved."""
+    return _scoped_relation_path_source(_root_scope(model_cls), resolved_field)
+
+
+def _scoped_relation_path_source(scope: ExistsScope, resolved_field: str) -> tuple[Any, Any, Any] | None:
     parts = resolved_field.split(".")
-    walk = walk_relation_path(model_cls, parts[:-1])
+    walk = _scope_walk(scope, parts[:-1])
 
     if walk is None or walk.from_table is None or walk.root_link_condition is None:
         return None
 
     return walk.select_from(), walk.root_link_condition, walk.current_table.columns[parts[-1]]
-
-
-def and_exists_groups(model_cls: type[Model], filters: FilterCondition) -> dict[str, list[FilterRule]]:
-    """The rules of an AND that share a relation prefix which fans out, grouped by it.
-
-    Only prefixes carrying two or more rules: a single one already compiles to
-    its own EXISTS.
-    """
-    from fastedgy.orm.filter.utils import has_duplicating_relation_path
-
-    if filters.condition != "&":
-        return {}
-
-    groups: dict[str, list[FilterRule]] = {}
-
-    for rule in filters.rules:
-        if not isinstance(rule, FilterRule) or "." not in rule.field:
-            continue
-
-        if not has_duplicating_relation_path(model_cls, rule.field):
-            continue
-
-        groups.setdefault(rule.field.rsplit(".", 1)[0], []).append(rule)
-
-    return {prefix: rules for prefix, rules in groups.items() if len(rules) > 1}
-
-
-def _build_grouped_exists_expression(model_cls: type[Model], prefix: str, rules: list[FilterRule]) -> Any | None:
-    """One correlated EXISTS carrying every rule of an AND that shares ``prefix``.
-
-    ANDed rules over one relation mean "the same related row satisfies all of
-    them". Separate EXISTS would loosen that, so they used to stay on a shared
-    join, which repeats the record and needs a ``DISTINCT ON (pk)`` to undo --
-    and PostgreSQL then refuses any ORDER BY not leading with it, so a list
-    route taking `order_by` failed at the database. One EXISTS holding the
-    conjunction keeps the semantics, repeats nothing and leaves the ordering
-    free.
-
-    An "is empty" reads as a plain IS NULL here: the other rules already demand
-    a related row, so the null-extended row of the outer join is out anyway. A
-    group made *only* of them is the one case where that row survives, and it
-    stands for "the path reaches nothing", added back as a NOT EXISTS.
-
-    Returns ``None`` when the group cannot be compiled this way, and the caller
-    falls back to the shared join.
-    """
-    walk = walk_relation_path(model_cls, prefix.split("."))
-
-    if walk is None or walk.from_table is None or walk.root_link_condition is None:
-        return None
-
-    prefix_model = walk.current_model
-    joins = list(walk.join_entries)
-    conditions = []
-
-    for rule in rules:
-        leaf = rule.field[len(prefix) + 1 :]
-        field_type = _find_field_type_in_model(prefix_model, leaf)
-        related_columns = getattr(field_type, "related_columns", None)
-
-        # A nullability test on a relation leaf stays on the foreign key column:
-        # hopping to the target primary key would add a JOIN that drops the very
-        # rows "is empty" is meant to match.
-        if related_columns and rule.operator not in _NULLABILITY_OPERATORS:
-            resolved = leaf + "." + next(iter(related_columns.keys()))
-        else:
-            resolved = leaf
-
-        parts = resolved.split(".")
-
-        leaf_walk = walk_relation_path(
-            prefix_model,
-            parts[:-1],
-            RelationWalk(
-                current_model=prefix_model,
-                from_table=walk.from_table,
-                root_link_condition=walk.root_link_condition,
-                current_table=walk.current_table,
-                # Copied, not shared: each leaf branches off the same prefix, so a
-                # table one leaf lands on must not read as "already in scope" for
-                # the next -- they would alias apart and the join dedup below
-                # would stop matching them.
-                seen_tables=set(walk.seen_tables),
-            ),
-        )
-
-        if leaf_walk is None:
-            return None
-
-        for entry in leaf_walk.join_entries:
-            existing = next((join for join in joins if join[0] is entry[0]), None)
-
-            if existing is None:
-                joins.append(entry)
-            elif str(existing[1]) != str(entry[1]):
-                # The same table reached by two different conditions would need
-                # an alias inside the subquery. Leave the group on the join.
-                return None
-
-        column = leaf_walk.current_table.columns[parts[-1]]
-        conditions.append(
-            _exists_leaf_condition(rule, column, _convert_value_by_field_type(prefix_model, leaf, rule.value))
-        )
-
-    select_from = walk.from_table
-
-    for table, condition in joins:
-        select_from = select_from.join(table, condition)
-
-    subquery = (
-        sa_select(literal_column("1"))
-        .select_from(select_from)
-        .where(walk.root_link_condition)
-        .where(sa_and(*conditions))
-    )
-
-    if all(rule.operator == "is empty" for rule in rules):
-        unreached = sa_select(literal_column("1")).select_from(walk.select_from()).where(walk.root_link_condition)
-
-        return sa_or(exists(subquery), sa_not(exists(unreached)))
-
-    return exists(subquery)
 
 
 def _exists_leaf_condition(filters: FilterRule, final_column: Any, value: Any) -> Any:
@@ -653,14 +540,16 @@ def _exists_leaf_condition(filters: FilterRule, final_column: Any, value: Any) -
     return operator_method(final_column, value)
 
 
-def _build_exists_expression(model_cls: type[Model], filters: FilterRule) -> Any | None:
-    """
-    Build an EXISTS subquery for a relation-based filter rule.
+def _build_exists_expression(
+    model_cls: type[Model], filters: FilterRule, scope: ExistsScope | None = None
+) -> Any | None:
+    """A correlated EXISTS for a rule whose field crosses a relation path.
 
-    Used for relation-based rules in OR conditions to ensure each branch
-    evaluates independently with its own JOIN context, instead of sharing
-    JOINs with other branches.
+    ``scope`` names the row to correlate back to: the queried model at the top
+    level, the related row of an enclosing ``any`` inside one.
     """
+    scope = _root_scope(model_cls) if scope is None else scope
+    model_cls = scope.model
     field = filters.field
     operator_method = FILTER_OPERATORS_SQL.get(filters.operator, None)
 
@@ -682,7 +571,7 @@ def _build_exists_expression(model_cls: type[Model], filters: FilterRule) -> Any
     if related_columns and filters.operator not in _NULLABILITY_OPERATORS:
         resolved_field += "." + next(iter(related_columns.keys()))
 
-    source = relation_path_source(model_cls, resolved_field)
+    source = _scoped_relation_path_source(scope, resolved_field)
 
     if source is None:
         return None
@@ -708,24 +597,99 @@ def _build_exists_expression(model_cls: type[Model], filters: FilterRule) -> Any
     return exists(subq)
 
 
-def _duplicating_rule_paths(model_cls: type[Model], filters: Any) -> list[str]:
-    """Relation prefix of every rule whose path fans out, one entry per rule.
+def _build_any_expression(scope: ExistsScope, filters: FilterRule) -> Any:
+    """``any`` / ``not any``: one EXISTS carrying a whole sub-filter.
 
-    Repeats on purpose: a prefix listed twice is carried by two rules, which
-    have to keep sharing one join to keep meaning "the same related row".
+    The field names a relation, the value a filter of the model it reaches, and
+    the pair asks for a related record satisfying all of it at once -- the
+    reading a conjunction of separate rules deliberately does not have. An
+    empty sub-filter asks only that the relation carries something, so
+    ``not any`` of one matches a record with nothing related.
     """
-    from fastedgy.orm.filter.utils import has_duplicating_relation_path
+    walk = _scope_walk(scope, filters.field.split("."))
 
-    if isinstance(filters, FilterRule):
-        if "." not in filters.field or not has_duplicating_relation_path(model_cls, filters.field):
-            return []
+    if walk is None or walk.from_table is None or walk.root_link_condition is None:
+        raise InvalidFilterError(f"Operator '{filters.operator}' needs a relation, '{filters.field}' is not one")
 
-        return [filters.field.rsplit(".", 1)[0]]
+    sub_filters = filters.value
+
+    if sub_filters and not isinstance(sub_filters, (FilterRule, FilterCondition)):
+        sub_filters = parse_filter_input(cast(Any, sub_filters))
+
+    condition = (
+        _build_scoped_expression(ExistsScope(walk.current_model, walk.current_table, walk.seen_tables), sub_filters)
+        if sub_filters
+        else None
+    )
+
+    subquery = sa_select(literal_column("1")).select_from(walk.select_from()).where(walk.root_link_condition)
+
+    if condition is not None:
+        subquery = subquery.where(condition)
+
+    return exists(subquery) if filters.operator == "any" else sa_not(exists(subquery))
+
+
+def _build_scoped_expression(scope: ExistsScope, filters: FilterRule | FilterCondition | None) -> Any | None:
+    """Compile a sub-filter into plain SQL conditions on the scope's row.
+
+    The top-level builder hands most rules to the ORM lookups, which need a
+    queryset to hang from; inside a subquery there is none. Every rule lands on
+    a column of the scope's table, and every rule leaving it on its own nested
+    EXISTS -- the same law as the top level, one hop down.
+    """
+    if filters is None:
+        return None
 
     if isinstance(filters, FilterCondition):
-        return [path for rule in filters.rules for path in _duplicating_rule_paths(model_cls, rule)]
+        expressions = [
+            expression
+            for expression in (_build_scoped_expression(scope, rule) for rule in filters.rules)
+            if expression is not None
+        ]
 
-    return []
+        if not expressions:
+            return None
+
+        if len(expressions) == 1:
+            return expressions[0]
+
+        return sa_or(*expressions) if filters.condition == "|" else sa_and(*expressions)
+
+    if filters.operator in ANY_OPERATORS:
+        return _build_any_expression(scope, filters)
+
+    if FILTER_OPERATORS_SQL.get(filters.operator, None) is None:
+        raise InvalidFilterError(f"Operator '{filters.operator}' is not supported inside a sub-filter")
+
+    if "." in filters.field:
+        expression = _build_exists_expression(scope.model, filters, scope)
+
+        if expression is None:
+            raise InvalidFilterError(f"Cannot filter on '{filters.field}' inside a sub-filter")
+
+        return expression
+
+    field_type = _find_field_type_in_model(scope.model, filters.field)
+
+    if getattr(field_type, "is_generic_foreign_key", False):
+        return _build_generic_reference_expression(scope.model, cast(Any, field_type), filters, scope.table)
+
+    return _exists_leaf_condition(
+        filters,
+        _scope_column(scope, filters.field),
+        _convert_value_by_field_type(scope.model, filters.field, filters.value),
+    )
+
+
+def _scope_column(scope: ExistsScope, field: str) -> Any:
+    """The scope's own column for a leaf, read off the alias when there is one."""
+    column = _find_column_in_model(scope.model, field)
+
+    if scope.table is scope.model.table:
+        return column
+
+    return scope.table.columns.get(getattr(column, "key", None), column)
 
 
 def filter_query[Q: (QuerySet, BaseManager)](
@@ -765,25 +729,14 @@ def filter_query[Q: (QuerySet, BaseManager)](
 
         raise
 
-    join_paths: set[str] = set()
-    expression = build_filter_expression(
-        built.model_class,
-        filters,
-        set(_duplicating_rule_paths(built.model_class, filters)),
-        join_paths,
-    )
+    expression = build_filter_expression(built.model_class, filters)
 
     if expression is not None:
+        # No dedup to add: a path that fans out compiles to an EXISTS, which
+        # tests the outer row instead of joining rows onto it. Nothing repeats
+        # the record, so `count()` counts records and the ORDER BY stays free
+        # (PostgreSQL requires a DISTINCT ON expression to lead it).
         built = built.filter(expression)
-
-        # Only the paths left on a join still repeat the record, and only those
-        # still need dedup. Dropping DISTINCT ON where it became pointless is
-        # what lets an aggregate lead the ORDER BY (PostgreSQL requires the
-        # DISTINCT ON expressions to come first).
-        if join_paths and _has_duplicating_relation_filter(built.model_class, filters) and built.distinct_on is None:
-            primary_key = find_primary_key_field(built.model_class)
-            if primary_key:
-                built = built.distinct(primary_key)
 
     # Add ts_rank extra_select for fulltext search fields
     built = _add_fulltext_rank_extra_select(built, filters)
@@ -1050,12 +1003,15 @@ def _add_fulltext_rank_extra_select(query: QuerySet, filters: Filter | None) -> 
     return query
 
 
-def _build_generic_reference_expression(model_cls: type[Model], generic_field: Any, filters: FilterRule) -> Any:
+def _build_generic_reference_expression(
+    model_cls: type[Model], generic_field: Any, filters: FilterRule, table: Any = None
+) -> Any:
     """Filter on a GenericForeignKey field itself: references are ``[model, id]``
     pairs (or ``{model, id}`` objects), compiled onto the underlying column pair
     (``in`` groups the ids per target model)."""
-    model_col = model_cls.table.columns[generic_field.model_column]
-    id_col = model_cls.table.columns[generic_field.id_column]
+    table = model_cls.table if table is None else table
+    model_col = table.columns[generic_field.model_column]
+    id_col = table.columns[generic_field.id_column]
     operator = filters.operator
     value = filters.value
 

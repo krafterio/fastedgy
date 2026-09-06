@@ -130,11 +130,10 @@ class QuerySet(BaseQuerySet):
     def _orders_on_aggregate(self, order_by: str) -> bool:
         from fastedgy.orm.filter.utils import has_duplicating_relation_path
 
-        # A filter keeps its join when several of its rules share one relation,
-        # and dedupes with DISTINCT ON (pk). PostgreSQL wants those expressions
-        # to lead the ORDER BY, so the aggregate cannot: that query keeps the
-        # join-based ordering. A single rule per relation compiles to EXISTS,
-        # leaves no DISTINCT ON behind, and takes the aggregate.
+        # PostgreSQL wants the DISTINCT ON expressions to lead the ORDER BY, so
+        # the aggregate cannot: a query the caller deduped keeps the join-based
+        # ordering. Filters leave no DISTINCT ON behind (a fanning-out path
+        # compiles to an EXISTS), so the aggregate is normally free.
         if self.distinct_on:
             return False
 

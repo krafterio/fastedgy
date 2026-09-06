@@ -352,6 +352,11 @@ R("description", "is not empty")
 R("category.name", "=", "Electronics")
 R("tags", "in", [1, 2, 3])
 
+# Relations, one related record satisfying a whole sub-filter (ANDed rules on
+# one relation stay independent: each is satisfied by a record of its own)
+R("tags", "any", And(R("color", "=", "red"), R("name", "=", "urgent")))
+R("lines", "not any", R("state", "=", "out_of_stock"))
+
 # Spatial (PostGIS)
 R("location", "spatial within distance", [[2.3522, 48.8566], 5000])
 R("location", "spatial distance <", [[2.3522, 48.8566], 10000])

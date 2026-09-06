@@ -352,3 +352,38 @@ async def test_a_started_pool_reports_its_missing_workers(setup_db: FastEdgy) ->
     workers[0].alive = False
 
     assert pool.all_workers_alive is False
+
+
+async def test_the_liveness_file_survives_the_database_wait(
+    setup_db: FastEdgy,
+    tmp_path: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manager = get_service(QueueWorkerManager)
+    health = tmp_path / "health"
+    monkeypatch.setattr(manager.config, "health_file", str(health))
+    monkeypatch.setattr(manager, "is_running", True)
+    monkeypatch.setattr(manager, "worker_pool", WorkerPool(workers=6, concurrency=2))
+
+    manager._touch_health_file()
+
+    assert health.exists()
+
+
+async def test_the_liveness_file_is_withheld_once_a_started_pool_is_empty(
+    setup_db: FastEdgy,
+    tmp_path: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manager = get_service(QueueWorkerManager)
+    health = tmp_path / "health"
+    pool, workers = build_pool(workers_count=1)
+    pool._started = True
+    workers[0].alive = False
+    monkeypatch.setattr(manager.config, "health_file", str(health))
+    monkeypatch.setattr(manager, "is_running", True)
+    monkeypatch.setattr(manager, "worker_pool", pool)
+
+    manager._touch_health_file()
+
+    assert not health.exists()

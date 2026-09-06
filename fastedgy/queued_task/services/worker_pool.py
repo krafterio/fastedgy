@@ -142,6 +142,7 @@ class WorkerPool:
         self._next_run_id = 0
         self._workers: dict[int, WorkerProcess] = {}
         self._shutting_down = False
+        self._started = False
         self._mp = multiprocessing.get_context("spawn")
 
     @property
@@ -154,6 +155,8 @@ class WorkerPool:
         for index in range(self.workers):
             self._spawn(index)
 
+        self._started = True
+
     @property
     def idle_workers(self) -> int:
         return len(self._idle_slots)
@@ -164,7 +167,9 @@ class WorkerPool:
 
     @property
     def all_workers_alive(self) -> bool:
-        return self.live_workers >= self.workers
+        """A pool that has not started yet is not missing anything: the manager
+        keeps the liveness file fresh while it waits for the database."""
+        return not self._started or self.live_workers >= self.workers
 
     def next_run_id(self) -> int:
         self._next_run_id += 1

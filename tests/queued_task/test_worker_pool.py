@@ -335,3 +335,20 @@ async def test_a_heartbeat_message_refreshes_the_worker(setup_db: FastEdgy) -> N
     pool._handle(workers[0], (MSG_HEARTBEAT, 0))
 
     assert pool.reap_wedged_workers() == 0
+
+
+async def test_a_pool_that_has_not_started_reports_no_missing_worker(setup_db: FastEdgy) -> None:
+    pool = WorkerPool(workers=6, concurrency=2)
+
+    assert pool.all_workers_alive is True
+
+
+async def test_a_started_pool_reports_its_missing_workers(setup_db: FastEdgy) -> None:
+    pool, workers = build_pool(workers_count=2)
+    pool._started = True
+
+    assert pool.all_workers_alive is True
+
+    workers[0].alive = False
+
+    assert pool.all_workers_alive is False

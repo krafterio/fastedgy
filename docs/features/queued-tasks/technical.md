@@ -30,8 +30,11 @@ Enqueued → Picked up → Running → Completed/Failed
 # Check queue status
 fastedgy queue status
 
-# Start workers
+# Start 3 worker processes
 fastedgy queue start --workers=3
+
+# 3 worker processes running up to 5 tasks each (15 concurrent tasks)
+fastedgy queue start --workers=3 --concurrency=5
 
 # Clear pending tasks (development only)
 fastedgy queue clear
@@ -65,8 +68,8 @@ fastedgy serve --workers=3 --no-http
 
 ```bash
 # Worker settings
-QUEUE_MAX_WORKERS=4                    # Default: CPU count
-QUEUE_WORKER_IDLE_TIMEOUT=60          # Seconds before idle worker shutdown
+QUEUED_TASK_WORKERS=4                  # Worker processes (default: 1)
+QUEUED_TASK_CONCURRENCY=4              # Tasks per worker (default: CPU count)
 QUEUE_POLLING_INTERVAL=2              # Seconds between queue polls
 QUEUE_FALLBACK_POLLING_INTERVAL=30    # Fallback when NOTIFY fails
 
@@ -87,10 +90,79 @@ from fastedgy.queued_task import QueuedTaskConfig
 
 # Modify settings at runtime
 config = get_service(QueuedTaskConfig)
-config.max_workers = 8
-config.worker_idle_timeout = 120
+config.workers = 4
+config.concurrency = 5
 config.task_timeout = 600
 ```
+
+## Worker processes
+
+The manager is a supervisor, not an executor. It claims tasks, dispatches them
+to `QUEUED_TASK_WORKERS` worker processes over a pipe, and is the only one to
+hold the per-container singletons: cron scheduler, stuck-task reaper, retention
+purge, auto-remove sweep, heartbeat and the NOTIFY listener. Each worker runs up
+to `QUEUED_TASK_CONCURRENCY` tasks at once on its own event loop, with database
+pools of its own.
+
+Concurrency of a container is `workers x concurrency`. Cores come from the
+worker count alone: one event loop never exceeds one core, whatever the cgroup
+allows.
+
+### Why processes rather than replicas
+
+Both buy cores, but a replica also duplicates the entire manager: notification
+listener, fallback polling, stuck-task reaper, retention purge, auto-remove
+sweep, heartbeat and the cron scheduler (deduplicated by advisory lock, i.e.
+work done and thrown away on every replica but one), plus a full set of
+database pools. Workers buy the same cores for one manager, and the channel
+capacities keep their meaning since the manager remains the only claimant.
+
+### Failure of a worker
+
+A worker that dies mid-task is respawned, and the manager recovers what it was
+holding immediately, without waiting for the `claimed_by` lease to expire:
+
+- a task the worker never started goes straight back to `enqueued`, no attempt
+  burned
+- a task it had started counts as an attempt: re-enqueued with the usual
+  exponential delay, then failed as `WorkerProcessDied` once the retry budget is
+  spent
+
+Every recovery statement is guarded on `state = 'doing'`, so a task that
+finalized itself just before its worker died is never resurrected.
+
+### A worker whose event loop stops turning
+
+Each worker pushes a heartbeat from its own event loop every 10s, so a loop that
+stops turning stops beating. What the manager does with a missed beat depends on
+what the worker holds, because the two cases are not equally decidable:
+
+- **idle** (nothing in flight): no task body can be holding the loop, so silence
+  is unambiguous. Killed after 60s.
+- **busy**: a CPU-bound async body legitimately blocks the loop and is
+  indistinguishable from a wedge, so the only honest bound is the one the rest
+  of the system already treats as impossible for a legitimate run: twice
+  `task_timeout`, the stale-`doing` reaper criterion.
+- **never started**: a worker that has not beaten once within 120s never
+  finished importing the application.
+
+A long *sync* task is not affected: it runs in an executor thread, its worker
+keeps beating. Killing is all the manager has to do, the closed pipe then drives
+the usual death path, which recovers the tasks and respawns the worker.
+
+On `SIGTERM`, the manager tells every worker to stop over the pipe (not by
+signal, so an application `SIGTERM` handler meant for HTTP draining is not
+triggered in a worker), each cancels its in-flight tasks, which mark themselves
+`stopped` with `resume_requested`, and workers still alive at the end of the
+grace period are killed. If the manager itself dies hard, workers notice the
+closed pipe and exit on their own rather than lingering as orphans.
+
+### Applications
+
+`fastedgy.queued_task.services.worker_process.is_worker_process()` tells an
+application lifespan it is running inside a worker, so it can skip what only the
+manager or an HTTP process needs: listeners of its own, warm-up writes,
+background loops that must stay singletons per container.
 
 ## Database Schema
 
@@ -209,7 +281,7 @@ logging.getLogger("queued_task").setLevel(logging.DEBUG)
 
 **Tasks stuck in "enqueued" state:**
 - Check workers are running: `fastedgy queue status`
-- Start workers: `fastedgy queue start --workers=3`
+- Start workers: `fastedgy queue start --workers=3` (3 processes)
 - Check database connectivity
 
 **Tasks failing silently:**
@@ -218,8 +290,7 @@ logging.getLogger("queued_task").setLevel(logging.DEBUG)
 - Review worker logs for Python errors
 
 **High memory usage:**
-- Reduce `QUEUE_MAX_WORKERS`
-- Increase `QUEUE_WORKER_IDLE_TIMEOUT`
+- Reduce `QUEUED_TASK_WORKERS` or `QUEUED_TASK_CONCURRENCY`
 - Check for memory leaks in task functions
 
 **Database connection issues:**
@@ -421,7 +492,8 @@ fastedgy queue clear           # Clear tasks (dev)
 
 ### Key Environment Variables
 ```bash
-QUEUE_MAX_WORKERS=4           # Worker count
+QUEUED_TASK_WORKERS=4         # Worker processes
+QUEUED_TASK_CONCURRENCY=4     # Tasks per worker
 QUEUE_TASK_TIMEOUT=300        # Task timeout
 QUEUE_MAX_RETRIES=3           # Retry count
 ```

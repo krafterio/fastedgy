@@ -436,15 +436,6 @@ class QueueWorker:
 
             return result
 
-    @property
-    def is_idle_timeout(self) -> bool:
-        """Check if worker has been idle for too long"""
-        if self.is_busy:
-            return False
-
-        idle_duration = (datetime.now(context.get_timezone()) - self.last_activity).total_seconds()
-        return idle_duration > self.config.worker_idle_timeout
-
     def __str__(self):
         return f"QueueWorker({self.worker_id}, busy={self.is_busy})"
 

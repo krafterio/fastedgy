@@ -242,8 +242,8 @@ Customize worker behavior:
 
 ```bash
 # .env
-QUEUE_MAX_WORKERS=4              # Default: CPU count
-QUEUE_WORKER_IDLE_TIMEOUT=60     # Shutdown idle workers after 60s
+QUEUED_TASK_WORKERS=2            # Worker processes (default: 1)
+QUEUED_TASK_CONCURRENCY=4        # Tasks per worker (default: CPU count)
 QUEUE_TASK_TIMEOUT=300           # Max 5 minutes per task
 ```
 
@@ -279,7 +279,8 @@ You now know the basics! For more advanced features:
 - Verify async function syntax
 
 **Performance issues?**
-- Increase worker count: `fastedgy queue start --workers=6`
+- Increase worker processes: `fastedgy queue start --workers=6`
+- Or tasks per worker: `fastedgy queue start --workers=2 --concurrency=8`
 - Check database connection pool settings
 
 ## Quick Reference

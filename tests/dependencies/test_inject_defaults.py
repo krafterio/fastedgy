@@ -5,7 +5,7 @@ from fastedgy.dependencies import Inject, get_service, unregister_service
 
 
 class _UnregisteredConfig:
-    max_workers: int = 7
+    workers: int = 7
 
 
 class _Manager:
@@ -18,7 +18,7 @@ def test_inject_default_resolves_unregistered_type() -> None:
         manager = get_service(_Manager)
 
         assert isinstance(manager.config, _UnregisteredConfig)
-        assert manager.config.max_workers == 7
+        assert manager.config.workers == 7
     finally:
         unregister_service(_Manager)
         unregister_service(_UnregisteredConfig)

@@ -41,12 +41,13 @@ async def servers(ctx: cli.CliContext):
 
 
 @queue.command()
-@cli.option("--workers", default=-1, help="Number of workers to start (-1 = auto detect)")
+@cli.option("--workers", default=-1, help="Number of worker processes to start (-1 = config)")
+@cli.option("--concurrency", default=-1, help="Tasks a single worker runs at once (-1 = config)")
 @cli.option("--no-scheduler", is_flag=True, default=False, help="Disable the cron scheduler")
 @cli.pass_cli_context
-async def start(ctx: cli.CliContext, workers: int, no_scheduler: bool):
+async def start(ctx: cli.CliContext, workers: int, concurrency: int, no_scheduler: bool):
     """Start queue workers only (no HTTP server)."""
-    await cli_queue.start(ctx, workers, no_scheduler)
+    await cli_queue.start(ctx, workers, no_scheduler, concurrency)
 
 
 @queue.command()

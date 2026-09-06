@@ -18,6 +18,7 @@ from fastedgy.queued_task.config import QueuedTaskConfig
 from fastedgy.queued_task.models.queued_task import QueuedTaskState
 from fastedgy.queued_task.scheduler.cron_scheduler import CronScheduler
 from fastedgy.queued_task.services.worker_pool import WorkerPool
+from fastedgy.queued_task.services.worker_process import STATUS_WORKER_DIED
 
 if TYPE_CHECKING:
     from fastedgy.models.queued_task import BaseQueuedTask as QueuedTask
@@ -50,7 +51,8 @@ class QueueWorkerManager:
 
     def __init__(
         self,
-        max_workers: int | None = None,
+        workers: int | None = None,
+        concurrency: int | None = None,
         server_name: str | None = None,
         registry: Registry = Inject(Registry),
         config: QueuedTaskConfig = Inject(QueuedTaskConfig),
@@ -59,14 +61,16 @@ class QueueWorkerManager:
         self.registry = registry
         self.config = config
         self.database = database
-        self.max_workers = max_workers or self.config.max_workers
+        self.workers = max(workers or self.config.workers, 1)
+        self.concurrency = max(concurrency or self.config.concurrency, 1)
         self.server_name = server_name or socket.gethostname()
-        self.worker_pool = WorkerPool(self.max_workers)
+        self.worker_pool = WorkerPool(self.workers, self.concurrency)
         self.is_running = False
         # Seconds given to in-flight task coroutines to unwind after cancel
         # on a graceful stop, before the SQL safety-net force-marks them. Kept
         # well under the container stop_grace_period (45s in the prod compose).
         self._shutdown_cancel_grace = 10.0
+        self.worker_pool.shutdown_grace = self._shutdown_cancel_grace
         self.manager_tasks: list[asyncio.Task] = []
         self.worker_status_record: "QueuedTaskWorker | None" = None
         self.cron_scheduler: CronScheduler | None = None
@@ -102,12 +106,23 @@ class QueueWorkerManager:
             "polling_cycles": 0,
         }
 
-    async def start_workers(self, max_workers: int | None = None, no_scheduler: bool = False) -> None:
+    @property
+    def max_slots(self) -> int:
+        return self.workers * self.concurrency
+
+    async def start_workers(
+        self,
+        workers: int | None = None,
+        no_scheduler: bool = False,
+        concurrency: int | None = None,
+    ) -> None:
         """
         Start the worker manager system
 
         Args:
-            max_workers: Override max workers for this session
+            workers: Override the worker process count for this session
+            no_scheduler: Disable the cron scheduler
+            concurrency: Override the per-worker task concurrency
         """
         if self.is_running:
             logger.warning("Worker manager is already running")
@@ -115,9 +130,13 @@ class QueueWorkerManager:
 
         self._configure_logging()
 
-        if max_workers:
-            self.max_workers = max_workers
-            self.worker_pool.max_workers = max_workers
+        if workers:
+            self.workers = max(workers, 1)
+            self.worker_pool.workers = self.workers
+
+        if concurrency:
+            self.concurrency = max(concurrency, 1)
+            self.worker_pool.concurrency = self.concurrency
 
         self.is_running = True
         self.stats["started_at"] = datetime.now(context.get_timezone())
@@ -128,7 +147,9 @@ class QueueWorkerManager:
         # end in a non-graceful kill.
         self._setup_signal_handlers()
 
-        logger.info(f"Starting QueueWorkerManager with {self.max_workers} max workers")
+        logger.info(
+            f"Starting QueueWorkerManager with {self.workers} worker(s) running up to {self.concurrency} task(s) each"
+        )
 
         # Initialize database triggers and functions
         try:
@@ -162,6 +183,8 @@ class QueueWorkerManager:
                 logger.error(f"Error closing manager registry after failed startup: {close_err}")
             raise
 
+        await self.worker_pool.start()
+
         # Liveness signal available as early as possible for healthchecks
         self._touch_health_file()
 
@@ -175,7 +198,7 @@ class QueueWorkerManager:
         self.manager_tasks = [
             asyncio.create_task(self._notification_listener(), name="notification_listener"),
             asyncio.create_task(self._fallback_polling(), name="fallback_polling"),
-            asyncio.create_task(self._cleanup_idle_workers(), name="cleanup_idle_workers"),
+            asyncio.create_task(self._maintenance_loop(), name="maintenance_loop"),
             asyncio.create_task(self._heartbeat_task(), name="heartbeat_task"),
         ]
 
@@ -247,16 +270,13 @@ class QueueWorkerManager:
             self.cron_scheduler.stop()
             self.cron_scheduler = None
 
-        # Actually cancel the in-flight execution coroutines. This is what
-        # makes the graceful path honest: run_task's CancelledError handler
-        # marks each row 'stopped' (resume_requested=TRUE, set below) and the
-        # async bodies stop at their next await instead of running to the end.
-        # Bounded so a coroutine that swallows cancellation can never hold the
-        # whole stop past stop_grace_period; whatever is left is force-marked
-        # by the SQL net below and recovered by the reaper if even that is lost.
-        # (Sync tasks in run_in_executor cannot be killed by asyncio — their
-        # thread keeps running; the drain-before-deploy in deploy.sh is what
-        # bounds that case.)
+        # Snapshot before the pool tears down: the SQL net below needs these.
+        in_flight_tasks = [worker.current_task for worker in self.worker_pool.get_busy_workers() if worker.current_task]
+
+        # Workers first: only they can cancel the task coroutines, whose
+        # CancelledError handler marks each row 'stopped' (resume_requested).
+        await self.worker_pool.shutdown()
+
         running = [t for t in self._execution_tasks if not t.done()]
         if running:
             logger.info(f"Cancelling {len(running)} in-flight task(s) for graceful shutdown")
@@ -273,26 +293,25 @@ class QueueWorkerManager:
         # resume_requested flag distinguishes a process shutdown (deploy /
         # restart → resume on the next boot) from a deliberate per-task stop
         # (QueuedTaskRef.stop → stays terminal), see _reap_stale_tasks.
-        for worker in self.worker_pool.get_busy_workers():
-            if worker.current_task:
-                try:
-                    from sqlalchemy import text
+        for in_flight in in_flight_tasks:
+            try:
+                from sqlalchemy import text
 
-                    sql = text(
-                        "UPDATE queued_tasks SET state = 'stopped'::queuedtaskstate, "
-                        "resume_requested = TRUE, "
-                        "date_stopped = NOW(), date_ended = NOW(), "
-                        "execution_time = EXTRACT(EPOCH FROM (NOW() - COALESCE(date_started, NOW()))), "
-                        "updated_at = NOW() "
-                        "WHERE id = :id AND state = 'doing'::queuedtaskstate"
-                    )
-                    await self._bounded_stop_write(
-                        self.database.execute(sql.bindparams(id=worker.current_task.id)),
-                        f"mark task {worker.current_task.id} stopped",
-                    )
-                    logger.info(f"Marked task {worker.current_task.id} as stopped (graceful shutdown)")
-                except Exception as e:
-                    logger.error(f"Failed to mark task {worker.current_task.id} as stopped: {e}")
+                sql = text(
+                    "UPDATE queued_tasks SET state = 'stopped'::queuedtaskstate, "
+                    "resume_requested = TRUE, "
+                    "date_stopped = NOW(), date_ended = NOW(), "
+                    "execution_time = EXTRACT(EPOCH FROM (NOW() - COALESCE(date_started, NOW()))), "
+                    "updated_at = NOW() "
+                    "WHERE id = :id AND state = 'doing'::queuedtaskstate"
+                )
+                await self._bounded_stop_write(
+                    self.database.execute(sql.bindparams(id=in_flight.id)),
+                    f"mark task {in_flight.id} stopped",
+                )
+                logger.info(f"Marked task {in_flight.id} as stopped (graceful shutdown)")
+            except Exception as e:
+                logger.error(f"Failed to mark task {in_flight.id} as stopped: {e}")
 
         # Cancel all manager tasks
         for task in self.manager_tasks:
@@ -304,9 +323,6 @@ class QueueWorkerManager:
                 await asyncio.wait(self.manager_tasks, timeout=2)
             except Exception:
                 pass
-
-        # Shutdown worker pool
-        await self.worker_pool.shutdown()
 
         # Mark server as stopped in database
         await self._unregister_server()
@@ -346,26 +362,9 @@ class QueueWorkerManager:
     def _configure_logging(self) -> None:
         """Configure logging levels for queued task loggers."""
         from fastedgy.config import BaseSettings
+        from fastedgy.queued_task.logging import configure_queued_task_logging
 
-        settings = get_service(BaseSettings)
-
-        if settings.queued_task_log_level is not None:
-            target_level = getattr(logging, settings.queued_task_log_level.value.upper())
-        else:
-            root_level = logging.getLogger().level
-
-            if root_level == logging.NOTSET:
-                target_level = getattr(logging, settings.log_level.value.upper())
-            else:
-                target_level = root_level
-
-        logging.getLogger("queued_task.context").setLevel(target_level)
-        logging.getLogger("queued_task.hooks").setLevel(target_level)
-        logging.getLogger("queued_task.manager").setLevel(target_level)
-        logging.getLogger("queued_task.worker").setLevel(target_level)
-        logging.getLogger("queued_task.worker_pool").setLevel(target_level)
-        logging.getLogger("queued_tasks").setLevel(target_level)
-        logging.getLogger("queued_task.scheduler").setLevel(target_level)
+        configure_queued_task_logging(get_service(BaseSettings))
 
     async def _notification_listener(self) -> None:
         """Listen for PostgreSQL notifications and trigger processing outside the LISTEN connection.
@@ -512,8 +511,8 @@ class QueueWorkerManager:
             except Exception as e:
                 logger.error(f"Fallback polling error: {e}")
 
-    async def _cleanup_idle_workers(self) -> None:
-        """Periodic cleanup of idle workers, stale task reaping and stats logging"""
+    async def _maintenance_loop(self) -> None:
+        """Periodic stale-task reaping, auto-remove sweep and retention purge"""
         while self.is_running:
             try:
                 await asyncio.sleep(60)  # Check every minute
@@ -798,6 +797,24 @@ class QueueWorkerManager:
                 f"Recovered {len(ids)} own task(s) orphaned in 'doing' by a "
                 f"previous incarnation of this server, re-enqueued: {ids}"
             )
+
+        # (1b) Own rows stopped by a previous incarnation: same reasoning, a
+        # fresh boot holds no claims. The periodic reaper cannot do this one,
+        # its dead-owner guard sees this very server alive.
+        own_resume_sql = text(
+            "UPDATE queued_tasks "
+            "SET state = 'enqueued'::queuedtaskstate, "
+            "    resume_requested = FALSE, retry_count = 0, claimed_by = NULL, "
+            "    date_started = NULL, date_stopped = NULL, date_ended = NULL, "
+            "    execution_time = 0, date_enqueued = NOW(), updated_at = NOW() "
+            "WHERE state = 'stopped'::queuedtaskstate "
+            "  AND resume_requested IS TRUE AND claimed_by = :self_name "
+            "RETURNING id"
+        )
+        rows = await self.database.fetch_all(own_resume_sql.bindparams(self_name=self.server_name))
+        if rows:
+            ids = [row[0] for row in rows]
+            logger.warning(f"Resumed {len(ids)} own task(s) stopped by a previous incarnation: {ids}")
 
         # (2) Ownerless legacy rows: conservative alive-server guard.
         QueuedTaskWorker = cast(
@@ -1314,6 +1331,13 @@ class QueueWorkerManager:
             if result["status"] == "success":
                 self.stats["tasks_processed"] += 1
                 logger.info(f"Task {task.id} completed by worker {worker.worker_id}")
+            elif result["status"] == STATUS_WORKER_DIED:
+                assert task.id is not None
+
+                if self.is_running:
+                    await self._requeue_after_worker_death(task.id, bool(result.get("started")))
+                else:
+                    logger.info(f"Task {task.id} left to the shutdown path: its worker is gone")
             elif result["status"] == "retry":
                 # Attempt handled, not failed: run_task already re-enqueued the
                 # task and logged the auto-retry warning with the backoff delay.
@@ -1350,6 +1374,63 @@ class QueueWorkerManager:
                 self._notify_tasks.add(proc_task)
                 proc_task.add_done_callback(self._notify_tasks.discard)
 
+    async def _requeue_after_worker_death(self, task_id: int, started: bool) -> None:
+        """Recover a task whose worker died mid-flight: a run that never started
+        burns no attempt, one that did counts as a failed run. Every statement is
+        guarded on 'doing' so a task that finalized itself is never resurrected."""
+        from sqlalchemy import text
+
+        if not started:
+            await self._release_claimed_task(task_id)
+            logger.warning(f"Task {task_id} re-enqueued: its worker died before the run started")
+
+            return
+
+        default_max_retries = max(int(self.config.max_retries or 0), 0)
+
+        retry_sql = text(
+            "UPDATE queued_tasks "
+            "SET state = 'enqueued'::queuedtaskstate, "
+            "    retry_count = retry_count + 1, "
+            "    claimed_by = NULL, "
+            "    date_started = NULL, date_ended = NULL, date_failed = NULL, "
+            "    execution_time = 0, "
+            "    exception_name = NULL, exception_message = NULL, "
+            "    exception_info = NULL, "
+            "    date_enqueued = NOW() + make_interval(secs => LEAST(30 * power(4, retry_count), 1800)), "
+            "    updated_at = NOW() "
+            "WHERE id = :id AND state = 'doing'::queuedtaskstate "
+            "  AND retry_count < COALESCE(max_retries, :default_max) "
+            "RETURNING id"
+        )
+
+        try:
+            row = await self.database.fetch_one(retry_sql.bindparams(id=task_id, default_max=default_max_retries))
+
+            if row:
+                logger.warning(f"Task {task_id} re-enqueued with delay: its worker died while running it")
+
+                return
+
+            failed_sql = text(
+                "UPDATE queued_tasks "
+                "SET state = 'failed'::queuedtaskstate, "
+                "    exception_name = 'WorkerProcessDied', "
+                "    exception_message = 'The worker died while running this task', "
+                "    date_failed = NOW(), date_ended = NOW(), "
+                "    execution_time = EXTRACT(EPOCH FROM (NOW() - COALESCE(date_started, NOW()))), "
+                "    updated_at = NOW() "
+                "WHERE id = :id AND state = 'doing'::queuedtaskstate "
+                "  AND retry_count >= COALESCE(max_retries, :default_max) "
+                "RETURNING id"
+            )
+            row = await self.database.fetch_one(failed_sql.bindparams(id=task_id, default_max=default_max_retries))
+
+            if row:
+                logger.error(f"Task {task_id} failed: its worker died and the retry budget is spent")
+        except Exception as e:
+            logger.error(f"Failed to recover task {task_id} after its worker process died: {e}")
+
     async def get_stats(self) -> dict[str, Any]:
         """Get comprehensive manager statistics"""
         worker_stats = await self.worker_pool.get_pool_stats()
@@ -1361,7 +1442,7 @@ class QueueWorkerManager:
         return {
             "is_running": self.is_running,
             "uptime_seconds": uptime,
-            "max_workers": self.max_workers,
+            "max_workers": self.max_slots,
             "worker_pool": worker_stats,
             "tasks_processed": self.stats["tasks_processed"],
             "tasks_failed": self.stats["tasks_failed"],
@@ -1371,7 +1452,6 @@ class QueueWorkerManager:
                 "use_postgresql_notify": self.config.use_postgresql_notify,
                 "polling_interval": self.config.polling_interval,
                 "fallback_polling_interval": self.config.fallback_polling_interval,
-                "worker_idle_timeout": self.config.worker_idle_timeout,
             },
         }
 
@@ -1390,13 +1470,13 @@ class QueueWorkerManager:
 
             if self.worker_status_record:
                 # Update existing record
-                self.worker_status_record.mark_as_started(self.max_workers)
+                self.worker_status_record.mark_as_started(self.max_slots)
                 await with_transaction(self.worker_status_record.save)
             else:
                 # Create new record
                 queued_task_worker = QueuedTaskWorker(
                     server_name=self.server_name,
-                    max_workers=self.max_workers,
+                    max_workers=self.max_slots,
                     is_running=True,
                     started_at=datetime.now(context.get_timezone()),
                     last_heartbeat=datetime.now(context.get_timezone()),
@@ -1415,6 +1495,7 @@ class QueueWorkerManager:
 
         def signal_handler(signum, frame):
             logger.info(f"Received signal {signum}, initiating graceful shutdown...")
+            self.worker_pool.draining = True
             if not self.shutdown_event.is_set():
                 self.shutdown_event.set()
 
@@ -1476,9 +1557,20 @@ class QueueWorkerManager:
         that the event loop and the heartbeat task are alive, not DB health —
         a DB outage must not flap the container (polling/listener already
         log and survive it). Disabled when QUEUED_TASK_HEALTH_FILE is empty.
+
+        Also covers the workers: a manager that cannot respawn its pool
+        executes nothing, so it must not report itself healthy.
         """
         health_file = self.config.health_file
         if not health_file:
+            return
+
+        if self.is_running and not self.worker_pool.all_workers_alive:
+            logger.error(
+                f"Only {self.worker_pool.live_workers}/{self.worker_pool.workers} worker(s) alive, "
+                f"health file left stale"
+            )
+
             return
         try:
             Path(health_file).touch()
@@ -1495,10 +1587,13 @@ class QueueWorkerManager:
 
                 self._touch_health_file()
 
+                if self.is_running:
+                    self.worker_pool.reap_wedged_workers()
+
                 if self.is_running and self.worker_status_record:
                     # Update worker statistics
                     busy_workers = len(self.worker_pool.busy_workers)
-                    idle_workers = self.worker_pool.idle_workers.qsize()
+                    idle_workers = self.worker_pool.idle_workers
 
                     self.worker_status_record.update_stats(active=busy_workers, idle=idle_workers, is_running=True)
                     # Retry on serialization conflicts (databasez defaults to

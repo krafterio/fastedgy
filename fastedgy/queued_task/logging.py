@@ -4,12 +4,15 @@
 import asyncio
 import logging
 from datetime import datetime
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from fastedgy import context
 from fastedgy.dependencies import get_service
 from fastedgy.queued_task.config import QueuedTaskConfig
 from fastedgy.queued_task.context import get_current_task
+
+if TYPE_CHECKING:
+    from fastedgy.config import BaseSettings
 
 
 class QueuedTaskLogger(logging.Logger):
@@ -248,3 +251,28 @@ def getLogger(name: str | None = None) -> QueuedTaskLogger:
         logger.__class__ = QueuedTaskLogger
 
     return cast(QueuedTaskLogger, logger)
+
+
+def configure_queued_task_logging(settings: "BaseSettings") -> None:
+    """Apply the configured log level to every queued task logger."""
+    if settings.queued_task_log_level is not None:
+        target_level = getattr(logging, settings.queued_task_log_level.value.upper())
+    else:
+        root_level = logging.getLogger().level
+
+        if root_level == logging.NOTSET:
+            target_level = getattr(logging, settings.log_level.value.upper())
+        else:
+            target_level = root_level
+
+    for name in (
+        "queued_task.context",
+        "queued_task.hooks",
+        "queued_task.manager",
+        "queued_task.worker",
+        "queued_task.worker_pool",
+        "queued_task.worker_process",
+        "queued_tasks",
+        "queued_task.scheduler",
+    ):
+        logging.getLogger(name).setLevel(target_level)

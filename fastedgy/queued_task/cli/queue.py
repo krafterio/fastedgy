@@ -2,12 +2,12 @@
 # MIT License (see LICENSE file).
 
 import logging
-from os import cpu_count
 from typing import cast
 
 from fastedgy.cli import CliContext, Table, cli_json_log, console
 from fastedgy.logger import LogFormat
 from fastedgy.orm import Registry
+from fastedgy.queued_task.config import QueuedTaskConfig
 from fastedgy.queued_task.services.queue_worker_manager import QueueWorkerManager
 from fastedgy.queued_task.services.queued_tasks import QueuedTasks
 
@@ -62,9 +62,16 @@ async def clear(ctx: CliContext):
             console.print(f"[red]Error clearing tasks: {e!s}[/red]")
 
 
-async def start(ctx: CliContext, workers: int | None, no_scheduler: bool = False):
+async def start(
+    ctx: CliContext,
+    workers: int | None,
+    no_scheduler: bool = False,
+    concurrency: int | None = None,
+):
     """Start queue workers only (no HTTP server)"""
-    resolved_workers = cpu_count() or 1 if workers is None or workers < 0 else workers
+    config = ctx.get(QueuedTaskConfig)
+    resolved_workers = max(config.workers, 1) if workers is None or workers < 0 else max(workers, 1)
+    resolved_concurrency = max(config.concurrency, 1) if concurrency is None or concurrency < 0 else max(concurrency, 1)
 
     if ctx.settings.log_format == LogFormat.JSON:
         cli_json_log(
@@ -72,12 +79,16 @@ async def start(ctx: CliContext, workers: int | None, no_scheduler: bool = False
             "Starting queue workers",
             config={
                 "workers": resolved_workers,
+                "concurrency": resolved_concurrency,
                 "mode": "queue-only",
                 "scheduler": not no_scheduler,
             },
         )
     else:
-        console.print(f"[yellow]Starting {resolved_workers} queue workers...[/yellow]")
+        console.print(
+            f"[yellow]Starting {resolved_workers} queue worker(s), "
+            f"{resolved_concurrency} concurrent task(s) each...[/yellow]"
+        )
         console.print("[green]Starting workers in queue-only mode[/green]")
         console.print("[yellow]Press Ctrl+C to stop workers[/yellow]")
 
@@ -85,12 +96,11 @@ async def start(ctx: CliContext, workers: int | None, no_scheduler: bool = False
         try:
             worker_service = ctx.get(QueueWorkerManager)
 
-            # Override max workers if specified
-            if resolved_workers != worker_service.max_workers:
-                worker_service.max_workers = resolved_workers
-                worker_service.worker_pool.max_workers = resolved_workers
-
-            await worker_service.start_workers(resolved_workers, no_scheduler=no_scheduler)
+            await worker_service.start_workers(
+                resolved_workers,
+                no_scheduler=no_scheduler,
+                concurrency=resolved_concurrency,
+            )
 
         except Exception as e:
             # A queue that cannot start is a hard failure: log it at error

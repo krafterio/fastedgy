@@ -164,7 +164,8 @@ async def api_task(data: dict):
 Set environment variables:
 
 ```bash
-QUEUE_MAX_WORKERS=4         # Number of workers
+QUEUED_TASK_WORKERS=2       # Worker processes
+QUEUED_TASK_CONCURRENCY=4   # Tasks per worker
 QUEUE_TASK_TIMEOUT=300      # Max time per task (seconds)
 QUEUE_MAX_RETRIES=3         # Retry attempts
 ```

@@ -10,6 +10,13 @@ if TYPE_CHECKING:
     from fastedgy.orm import Model
 
 
+def _optional_int(name: str) -> int | None:
+    """Read an optional integer setting, treating an empty value as unset."""
+    value = os.environ.get(name, "").strip()
+
+    return int(value) if value else None
+
+
 def _parse_channel_capacities(raw: str) -> dict[str, int]:
     """Parse the QUEUED_TASK_CHANNELS env value ("sync:2,realtime:4").
 
@@ -45,9 +52,17 @@ class QueuedTaskConfig:
     enable_db_logging: bool = True
     enable_dual_logging: bool = True
 
-    # Worker configuration
-    max_workers: int = int(os.environ.get("QUEUED_TASK_MAX_WORKERS", os.cpu_count() or 1))
-    worker_idle_timeout: int = int(os.environ.get("QUEUED_TASK_WORKER_IDLE_TIMEOUT", "60"))  # seconds
+    # Worker processes; the manager itself never runs a task body.
+    workers: int = _optional_int("QUEUED_TASK_WORKERS") or 1
+
+    # Tasks per worker; container concurrency is workers x concurrency.
+    concurrency: int = _optional_int("QUEUED_TASK_CONCURRENCY") or os.cpu_count() or 1
+
+    # Per-worker pool overrides; unset means the worker inherits the manager's.
+    worker_db_pool_size: int | None = _optional_int("QUEUED_TASK_WORKER_DB_POOL_SIZE")
+    worker_db_max_overflow: int | None = _optional_int("QUEUED_TASK_WORKER_DB_MAX_OVERFLOW")
+    worker_manager_db_pool_size: int | None = _optional_int("QUEUED_TASK_WORKER_MANAGER_DB_POOL_SIZE")
+    worker_manager_db_max_overflow: int | None = _optional_int("QUEUED_TASK_WORKER_MANAGER_DB_MAX_OVERFLOW")
 
     # Manager configuration
     polling_interval: int = int(os.environ.get("QUEUED_TASK_POLLING_INTERVAL", "2"))  # seconds
@@ -66,10 +81,10 @@ class QueuedTaskConfig:
     max_retries: int = int(os.environ.get("QUEUED_TASK_MAX_RETRIES", "3"))
 
     # Per-channel concurrency capacities ("sync:2,realtime:4"). A channel is
-    # a concurrency cap, not a dedicated worker pool: the shared workers
-    # simply never claim a task whose channel is already running `capacity`
-    # tasks ON THIS CONTAINER (counting is per manager — with N replicas the
-    # effective cap is N x capacity). Channels absent from the mapping are
+    # a concurrency cap, not a dedicated worker pool: the manager simply never
+    # claims a task whose channel is already running `capacity` tasks ON THIS
+    # CONTAINER (counted across every worker — with N replicas the effective
+    # cap is N x capacity). Channels absent from the mapping are
     # unbounded (limited by the worker count); capacity 0 pauses a channel
     # (its tasks stay enqueued). Priority orders globally across channels.
     channels: dict[str, int] = _parse_channel_capacities(os.environ.get("QUEUED_TASK_CHANNELS", ""))

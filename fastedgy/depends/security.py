@@ -16,6 +16,7 @@ from fastedgy.dependencies import get_service
 from fastedgy.depends.hasher import get_hasher_registry
 from fastedgy.models.user_api_token import resolve_api_token
 from fastedgy.orm import Registry
+from fastedgy.orm.extra_fields import load_workspace_extra_fields
 
 if TYPE_CHECKING:
     from fastedgy.models.user import BaseUser as User
@@ -236,6 +237,7 @@ async def get_current_workspace(
     workspace = workspace_user.workspace
     context.set_workspace(workspace)
     context.set_workspace_user(workspace_user)
+    await load_workspace_extra_fields()
 
     return workspace
 
@@ -344,6 +346,7 @@ async def get_workspace_shared_record(current_user=Depends(get_current_user)):
                 ).first()
 
             context.set_workspace_user(workspace_user)
+            await load_workspace_extra_fields()
 
     with context.params(
         workspace_shared_record=(key, record_id),

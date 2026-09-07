@@ -51,6 +51,35 @@ from fastedgy.timezone import setup_timezone
 T = TypeVar("T")
 
 
+async def _start_extra_field_invalidator():
+    """Open the channel that keeps every process's copy of the declared fields
+    in step, and only where it is worth anything.
+
+    No model open to custom fields, no cache asked for, or no concrete model to
+    read: nothing is opened, and reading on every entry stays the behaviour."""
+    from fastedgy.orm.extra_fields import (
+        find_workspace_extra_field_model,
+        has_extendable_models,
+        watch_workspace_extra_fields,
+    )
+
+    settings = get_service(BaseSettings)
+
+    if settings.workspace_extra_field_cache_seconds <= 0 or not has_extendable_models():
+        return None
+
+    if find_workspace_extra_field_model() is None:
+        return None
+
+    from fastedgy.orm.extra_field_invalidator import ExtraFieldInvalidator
+
+    invalidator = ExtraFieldInvalidator(settings.workspace_extra_field_notify_channel)
+    await invalidator.start()
+    watch_workspace_extra_fields(invalidator)
+
+    return invalidator
+
+
 class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
     def __init__(
         self: AppType,
@@ -974,9 +1003,13 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
         """FastEdgy native lifespan: DB + services"""
         db = get_service(Database)
         await db.connect()
+        invalidator = await _start_extra_field_invalidator()
         try:
             yield
         finally:
+            if invalidator is not None:
+                await invalidator.stop()
+
             await app._flush_pending_services()
 
             # Deferred signal side effects are free-floating tasks holding

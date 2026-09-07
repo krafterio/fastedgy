@@ -3,14 +3,14 @@
 
 from fastedgy.api_route_model import api_route_model
 from fastedgy.models.base import BaseModel
-from fastedgy.models.mixins import SearchableMixin
+from fastedgy.models.mixins import ExtendableMixin, SearchableMixin
 from fastedgy.orm import fields
 from fastedgy.test.models.category import Category
 from fastedgy.test.models.tag import Tag
 
 
 @api_route_model(sync=True)
-class Product(BaseModel, SearchableMixin):
+class Product(BaseModel, SearchableMixin, ExtendableMixin):
     name = fields.CharField(max_length=200)
     description = fields.TextField(null=True, merge_blocks=True)
     price = fields.DecimalField(max_digits=10, decimal_places=2)
@@ -21,12 +21,11 @@ class Product(BaseModel, SearchableMixin):
     published_at = fields.DateTimeField(null=True)
     reference = fields.UUIDField(null=True)
     details = fields.JSONField(null=True)
-    extra = fields.JSONField(null=True)
     secret_code = fields.CharField(max_length=64, null=True, exclude=True)
     category = fields.ForeignKey(Category, null=True, related_name="products")
     tags = fields.ManyToMany(Tag, related_name="products")
 
-    class Meta(BaseModel.Meta, SearchableMixin.Meta):
+    class Meta(BaseModel.Meta, SearchableMixin.Meta, ExtendableMixin.Meta):
         tablename = "test_products"
 
 

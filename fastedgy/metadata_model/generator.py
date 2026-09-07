@@ -33,6 +33,8 @@ def generate_class_name(metadata_name: str) -> str:
 
 
 async def generate_metadata_model(model_cls: type[BaseModel | BaseView]) -> MetadataModel:
+    from fastedgy.orm.extra_fields import has_extra_fields
+
     class_name = model_cls.__name__
     name = generate_metadata_name(model_cls)
     api_name = str(model_cls.meta.tablename)
@@ -51,7 +53,7 @@ async def generate_metadata_model(model_cls: type[BaseModel | BaseView]) -> Meta
     elif "sequence" in model_cls.meta.fields:
         sortable_field = "sequence"
 
-    fields = await generate_metadata_fields(model_cls)
+    fields = generate_metadata_fields(model_cls)
 
     # Resolve searchable_fields and search_field from FulltextField discovery
     searchable_fields_map = get_searchable_fields(model_cls)
@@ -83,6 +85,7 @@ async def generate_metadata_model(model_cls: type[BaseModel | BaseView]) -> Meta
         sortable_field=sortable_field,
         synchronizable=synchronizable_mode != "none",
         synchronizable_mode=synchronizable_mode,
+        has_extra_fields=has_extra_fields(model_cls),
         fields=fields,
     )
 
@@ -137,14 +140,14 @@ def _ordered_model_fields(model_cls: type[BaseModel | BaseView]) -> list[tuple[s
     return declared + sorted(generic_reverse, key=lambda field: field[0])
 
 
-async def generate_metadata_fields(model_cls: type[BaseModel | BaseView]) -> dict[str, MetadataField]:
+def generate_metadata_fields(model_cls: type[BaseModel | BaseView]) -> dict[str, MetadataField]:
     from fastedgy.orm.extra_fields import has_extra_fields
 
     hide_extra_column = has_extra_fields(model_cls)
     fields = {}
     for field_name, field_info in _ordered_model_fields(model_cls):
         # The storage of the extra fields, never a field of its own: the API
-        # exposes the `extra_<name>` entries add_extra_fields appends below.
+        # exposes the `extra_<name>` entries apply_workspace_extra_fields adds on read.
         if field_name == "extra" and hide_extra_column:
             continue
 
@@ -152,17 +155,34 @@ async def generate_metadata_fields(model_cls: type[BaseModel | BaseView]) -> dic
         if not field_info.exclude or getattr(field_info, "is_m2m", False) or is_filterable:
             fields[field_name] = generate_metadata_field(model_cls, field_info)
 
-    await add_extra_fields(model_cls, fields)
-
     return fields
 
 
-async def add_extra_fields(model_cls: type[BaseModel | BaseView], fields: dict[str, MetadataField]) -> None:
+def apply_workspace_extra_fields(metadata: MetadataModel, declared: list[Any] | None = None) -> MetadataModel:
+    """A copy of the metadata carrying the fields the *current* workspace declared.
+
+    Generated metadata is built once and cached for the whole process, while
+    extra fields belong to one workspace and change without a restart: baking
+    them into the cache would both leak them across tenants and freeze them at
+    the first read. They are applied here instead, on every read, on a copy.
+
+    `declared` is what the caller already read out of the context, so walking
+    the whole catalogue opens it once rather than once per model."""
     from fastedgy.models.workspace_extra_field import EXTRA_FIELDS_MAP
+    from fastedgy.orm.extra_fields import has_extendable_models
 
-    model_name = generate_metadata_name(model_cls)
+    if not has_extendable_models():
+        return metadata
 
-    for extra_field in context.get_workspace_extra_fields(model_name):
+    if declared is None:
+        declared = context.get_workspace_extra_fields(metadata.name)
+
+    if not declared:
+        return metadata
+
+    fields = dict(metadata.fields)
+
+    for extra_field in declared:
         field_type = extra_field.field_type
 
         if field_type is None:
@@ -183,7 +203,10 @@ async def add_extra_fields(model_cls: type[BaseModel | BaseView], fields: dict[s
             extra=True,
             filter_operators=get_filter_operators_for_extra_field(field_type),
             target=None,
+            choices=extra_field.metadata_choices(),
         )
+
+    return metadata.model_copy(update={"fields": fields})
 
 
 def get_filter_operators_for_extra_field(field_type) -> list[str]:
@@ -476,8 +499,8 @@ def _add_one_to_one_relation(
 
 __all__ = [
     "MetadataFieldError",
-    "add_extra_fields",
     "add_inverse_relations",
+    "apply_workspace_extra_fields",
     "generate_class_name",
     "generate_metadata_field",
     "generate_metadata_field_type",

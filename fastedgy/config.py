@@ -131,6 +131,22 @@ class BaseSettings(PydanticBaseSettings):
     # Workspace Shareable
     workspace_shared_record_header: str = "X-Workspace-Shared-Record"
 
+    # Workspace Extra Field
+    # The palette an option of a "List of values" custom field indexes into,
+    # defined by the application. The option stores the index, never the colour,
+    # so a change of shade is made in one place. Empty leaves it unbounded.
+    workspace_extra_field_option_colors: list[str] = []
+    # Seconds a worker reuses the fields it read for a workspace, rather than
+    # reading them again on every request that enters one.
+    #
+    # This is only the safety net: a write is announced on a Postgres channel
+    # and every listener drops that workspace at once, so the window matters
+    # only for a notification nobody received. 0 reads every time.
+    workspace_extra_field_cache_seconds: float = 300.0
+    # The Postgres channel a write announces itself on, so every other process
+    # forgets what it read for that workspace.
+    workspace_extra_field_notify_channel: str = "fastedgy_extra_fields"
+
     # Health / graceful shutdown
     # Seconds a worker keeps serving after SIGTERM before the real shutdown:
     # /health answers 503 during the drain so the orchestrator stops routing

@@ -232,6 +232,7 @@ async def truncate_all_tables() -> None:
     # over the actual tables sidesteps that and resets identities.
     from fastedgy.dependencies import get_service
     from fastedgy.orm import Registry
+    from fastedgy.orm.extra_fields import invalidate_workspace_extra_fields
 
     registry = get_service(Registry)
     rows = await registry.database.fetch_all(
@@ -244,6 +245,10 @@ async def truncate_all_tables() -> None:
 
     quoted = ", ".join(f'"{name}"' for name in tables)
     await registry.database.execute(f"TRUNCATE {quoted} RESTART IDENTITY CASCADE")
+
+    # What a worker read for a workspace outlives the rows it read: emptied
+    # with them, or the next test would be served the previous one's fields.
+    invalidate_workspace_extra_fields()
 
 
 __all__ = [

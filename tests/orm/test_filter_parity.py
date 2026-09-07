@@ -372,11 +372,9 @@ async def _build_parity() -> dict[str, Any]:
 
 def _declare_extra_fields() -> None:
     from fastedgy import context
+    from fastedgy.models.extra_field_model import WorkspaceExtraFieldModel
     from fastedgy.models.workspace_extra_field import WorkspaceExtraFieldType
-    from fastedgy.test.models.workspace_extra_field import (
-        WorkspaceExtraField,
-        WorkspaceExtraFieldModel,
-    )
+    from fastedgy.test.models.workspace_extra_field import WorkspaceExtraField
 
     context.set_workspace_extra_fields(
         [

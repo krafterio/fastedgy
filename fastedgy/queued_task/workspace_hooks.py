@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, cast
 from fastedgy import context
 from fastedgy.dependencies import get_service
 from fastedgy.orm import Registry
+from fastedgy.orm.extra_fields import load_workspace_extra_fields
 from fastedgy.queued_task.services.queue_hooks import (
     on_post_run,
     on_pre_create,
@@ -90,6 +91,8 @@ async def restore_workspace_context(task) -> None:
                 (WorkspaceUser.columns.user == user_id) & (WorkspaceUser.columns.workspace == workspace_id)
             ).get_or_none()
         )
+
+    await load_workspace_extra_fields()
 
     logger.debug(f"Restored workspace context for task {task.id}")
 

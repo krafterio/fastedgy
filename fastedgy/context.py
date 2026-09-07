@@ -142,14 +142,20 @@ def set_workspace_extra_fields(
         req.state.workspace_extra_fields = fields_map
 
 
+def get_workspace_extra_fields_by_model() -> "dict[str, list[WorkspaceExtraField]]":
+    """Every declared field, grouped by the model it extends.
+
+    Read once by whoever walks the whole catalogue, rather than once per model."""
+    req = get_request()
+
+    return (req.state.workspace_extra_fields if req and hasattr(req.state, "workspace_extra_fields") else None) or {}
+
+
 def get_workspace_extra_fields(
     model_name: str | None = None,
 ) -> "list[WorkspaceExtraField]":
-    req = get_request()
     all_fields = []
-    current_fields = (
-        req.state.workspace_extra_fields if req and hasattr(req.state, "workspace_extra_fields") else None
-    ) or {}
+    current_fields = get_workspace_extra_fields_by_model()
 
     if not model_name:
         for fields in current_fields.values():
@@ -200,6 +206,7 @@ def get_params() -> dict[str, Any]:
 __all__ = [
     "get_locale",
     "get_map_workspace_extra_fields",
+    "get_workspace_extra_fields_by_model",
     "get_param",
     "get_params",
     "get_request",

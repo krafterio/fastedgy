@@ -3,7 +3,7 @@
 msgid ""
 msgstr ""
 "POT-Creation-Date: 2026-06-24 20:38+0000\n\n"
-"PO-Revision-Date: 2026-06-24 20:38+0000\n\n"
+"PO-Revision-Date: 2026-09-07 13:18+0000\n\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Language: fr\n"
 "nplurals=2; plural=(n > 1);\n"
@@ -57,7 +57,7 @@ msgid "Automatic retry count"
 msgstr "Nombre de tentatives automatiques"
 
 msgid "Boolean"
-msgstr "Booléen"
+msgstr "Case à cocher"
 
 msgid "Cancellation date"
 msgstr "Date d'annulation"
@@ -66,7 +66,7 @@ msgid "Cancelled"
 msgstr "Annulé"
 
 msgid "Char"
-msgstr "Chaîne"
+msgstr "Texte court"
 
 msgid "Content is not a data URL"
 msgstr "Le contenu n'est pas une data URL"
@@ -186,7 +186,7 @@ msgid "File not found"
 msgstr "Fichier introuvable"
 
 msgid "Float"
-msgstr "Décimal"
+msgstr "Nombre décimal"
 
 msgid "Full path"
 msgstr "Chemin complet"
@@ -229,7 +229,7 @@ msgid "Initials"
 msgstr "Initiales"
 
 msgid "Integer"
-msgstr "Entier"
+msgstr "Nombre entier"
 
 msgid "Invalid data format. Please check the values in your file."
 msgstr ""
@@ -406,7 +406,7 @@ msgid "Technical name"
 msgstr "Nom technique"
 
 msgid "Text"
-msgstr "Texte"
+msgstr "Texte long"
 
 msgid "The data format is invalid. Please check your values."
 msgstr "Le format des données est invalide. Veuillez vérifier vos valeurs."
@@ -519,4 +519,126 @@ msgstr "La bibliothèque pyexcel-ods n'est pas installée"
 #, python-brace-format
 msgid "{model} not found"
 msgstr "{model} introuvable"
+
+msgid "Expiration"
+msgstr ""
+
+msgid "Display name"
+msgstr ""
+
+msgid "API token"
+msgstr ""
+
+msgid "API tokens"
+msgstr ""
+
+msgid "Key"
+msgstr ""
+
+msgid "Phone"
+msgstr "Téléphone"
+
+msgid "Preview"
+msgstr ""
+
+msgid "a non-empty text"
+msgstr "un texte non vide"
+
+msgid "API token not found"
+msgstr ""
+
+#, python-brace-format
+msgid "a colour from 0 to {last}"
+msgstr "une couleur de 0 à {last}"
+
+msgid "This image holds too many pixels to be processed"
+msgstr ""
+
+#, python-brace-format
+msgid "This image is too large: {width}x{height} pixels, {limit} maximum"
+msgstr ""
+
+msgid "a colour index"
+msgstr "un indice de couleur"
+
+msgid "strings or objects carrying a value and a colour"
+msgstr "des chaînes ou des objets portant une valeur et une couleur"
+
+msgid "Rich text"
+msgstr "Texte enrichi"
+
+msgid "IP address"
+msgstr "Adresse IP"
+
+msgid "Resume requested after shutdown"
+msgstr ""
+
+msgid "Fingerprint"
+msgstr ""
+
+msgid "Duration"
+msgstr "Durée"
+
+msgid "Link"
+msgstr "Lien"
+
+msgid "UUID"
+msgstr "UUID"
+
+msgid "You do not have access to this resource."
+msgstr ""
+
+msgid "You do not have access to the referenced resource."
+msgstr ""
+
+msgid "List of values"
+msgstr "Liste de valeurs"
+
+msgid "This resource is not available in a shared record context."
+msgstr ""
+
+msgid "Last used"
+msgstr ""
+
+msgid "Time"
+msgstr "Heure"
+
+msgid "at least one value"
+msgstr "au moins une valeur"
+
+msgid "Values"
+msgstr "Valeurs"
+
+#, python-brace-format
+msgid "one of these values: {values}"
+msgstr "l'une de ces valeurs : {values}"
+
+msgid "a value"
+msgstr "une valeur"
+
+msgid "Model"
+msgstr "Modèle"
+
+msgid "Record ID"
+msgstr ""
+
+#, python-brace-format
+msgid "a colour on all of them or on none: {value} has none"
+msgstr "une couleur sur toutes ou sur aucune : {value} n'en a pas"
+
+#, python-brace-format
+msgid "The field {field} expects {expected}."
+msgstr "Le champ {field} attend {expected}."
+
+#, python-brace-format
+msgid "The values of field {field} expect {expected}."
+msgstr "Les valeurs du champ {field} attendent {expected}."
+
+#, python-brace-format
+msgid "The model {model} does not accept custom fields."
+msgstr ""
+
+#, python-brace-format
+msgid "distinct values: {value} appears twice"
+msgstr "des valeurs distinctes : {value} revient deux fois"
 

@@ -28,6 +28,7 @@ from fastedgy.http import Request
 from fastedgy.mcp.registry import McpRegistry, McpTool
 from fastedgy.metadata_model import MetadataModelRegistry
 from fastedgy.models.base import BaseModel, BaseView
+from fastedgy.orm.extra_fields import load_workspace_extra_fields
 from fastedgy.orm.filter import And, R
 
 # A response body the model cannot be handed as text comes back as a base64
@@ -268,6 +269,7 @@ async def enter_workspace(slug: str | None, required: bool = True) -> None:
 
     context.set_workspace(workspace)
     context.set_workspace_user(workspace_user)
+    await load_workspace_extra_fields()
 
 
 async def _resolve_model(name: str) -> type[BaseModel | BaseView]:

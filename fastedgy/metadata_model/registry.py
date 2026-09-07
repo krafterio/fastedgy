@@ -3,6 +3,7 @@
 
 from fastedgy.metadata_model.generator import (
     add_inverse_relations,
+    apply_workspace_extra_fields,
     generate_metadata_model,
 )
 from fastedgy.models.base import BaseModel, BaseView
@@ -44,10 +45,13 @@ class MetadataModelRegistry:
 
     async def get_map_models(self) -> TypeMapMetadataModels:
         """Get all registered models with their options."""
+        from fastedgy import context
+
         maps = {}
+        by_model = context.get_workspace_extra_fields_by_model()
 
         for metadata in (await self.get_models()).values():
-            maps[metadata.name] = metadata
+            maps[metadata.name] = apply_workspace_extra_fields(metadata, by_model.get(metadata.name, []))
 
         return maps
 
@@ -74,7 +78,7 @@ class MetadataModelRegistry:
             if isinstance(model_cls, str):
                 model_cls = self._map_names[model_cls]
 
-            return self._models[model_cls]
+            return apply_workspace_extra_fields(self._models[model_cls])
 
         raise ValueError(f"Model {model_cls!s} not found in metadata registry")
 
@@ -92,7 +96,7 @@ class MetadataModelRegistry:
 
         model = self._map_names.get(metadata.name)
 
-        if model is not None and self._models.get(model) is metadata:
+        if model is not None:
             return model
 
         for model, model_metadata in self._models.items():

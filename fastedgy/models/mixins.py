@@ -276,8 +276,28 @@ class SearchableMixin(Model):
     )
 
 
+class ExtendableMixin(Model):
+    """
+    Mixin bringing the `extra` JSON column a workspace stores its own fields in.
+
+    Holding that column is what opens a model to custom fields, and this mixin
+    is only the shortest way to bring it: a model declaring it by hand is
+    exactly as extendable.
+
+    Usage:
+        class Company(BaseModel, WorkspaceableMixin, ExtendableMixin):
+            name = fields.CharField(max_length=200)
+    """
+
+    class Meta(Meta):
+        abstract = True
+
+    extra: dict[str, Any] | None = fields.JSONField(null=True, label=_ts("Custom fields"))
+
+
 __all__ = [
     "BlameableMixin",
+    "ExtendableMixin",
     "SearchableMixin",
     "WorkspaceShareableMemberMixin",
     "WorkspaceShareableMixin",

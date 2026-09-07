@@ -1915,6 +1915,11 @@
             "title": "Fields",
             "type": "object"
           },
+          "has_extra_fields": {
+            "default": false,
+            "title": "Has Extra Fields",
+            "type": "boolean"
+          },
           "label": {
             "title": "Label",
             "type": "string"
@@ -7056,6 +7061,15 @@
             "title": "Name",
             "type": "string"
           },
+          "options": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Options"
+          },
           "required": {
             "default": false,
             "title": "Required",
@@ -7103,6 +7117,15 @@
             "maxLength": 40,
             "title": "Name",
             "type": "string"
+          },
+          "options": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Options"
           },
           "required": {
             "default": false,
@@ -7211,6 +7234,15 @@
             ],
             "title": "Name"
           },
+          "options": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Options"
+          },
           "required": {
             "anyOf": [
               {
@@ -7237,11 +7269,20 @@
         "enum": [
           "boolean",
           "char",
+          "choice",
           "date",
           "datetime",
+          "duration",
+          "email",
           "float",
+          "html",
           "integer",
-          "text"
+          "ip_address",
+          "phone",
+          "text",
+          "time",
+          "url",
+          "uuid"
         ],
         "title": "WorkspaceExtraFieldType",
         "type": "string"

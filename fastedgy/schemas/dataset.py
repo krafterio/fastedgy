@@ -44,7 +44,14 @@ class Resequence(BaseModel):
     records: list[dict[str, Any]]
 
 
-class MetadataField(BaseModel):
+# Frozen: generated once and cached for the whole process, so an instance is
+# shared by every workspace reading that model, and mutating one would change
+# what all the others see. Said in a comment rather than a docstring, which
+# would land in the OpenAPI schema as a public description.
+#
+# Pyright reads `frozen=True` through its dataclass rule, which forbids a frozen
+# class over a non-frozen base. Pydantic has no such rule.
+class MetadataField(BaseModel, frozen=True):  # pyright: ignore[reportGeneralTypeIssues]
     name: str
     label: str
     type: str
@@ -59,7 +66,9 @@ class MetadataField(BaseModel):
     local_placeholder: str | None = None
 
 
-class MetadataModel(BaseModel):
+# Frozen for the same reason as its fields. A read carrying the extra fields of
+# a workspace gets a copy, made by `apply_workspace_extra_fields`.
+class MetadataModel(BaseModel, frozen=True):  # pyright: ignore[reportGeneralTypeIssues]
     name: str
     api_name: str
     label: str
@@ -71,6 +80,7 @@ class MetadataModel(BaseModel):
     sortable_field: str | None = None
     synchronizable: bool = False
     synchronizable_mode: str = "none"
+    has_extra_fields: bool = False
     fields: dict[str, MetadataField]
 
 

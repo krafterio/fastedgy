@@ -1,6 +1,7 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+import logging
 from abc import abstractmethod
 from datetime import date, datetime, time
 from typing import TYPE_CHECKING, Any, ClassVar, Self
@@ -19,6 +20,8 @@ from fastedgy.orm.manager import (
 from fastedgy.orm.registry import lazy_register_model
 from fastedgy.orm.view import create_view
 from fastedgy.schemas import ConfigDict, PrivateAttr
+
+logger = logging.getLogger("fastedgy.models")
 
 
 def _optimize_edgy_field_extraction() -> None:
@@ -140,11 +143,50 @@ class ModelMeta(BaseModelMeta):
         _fix_meta_abstract_before_build(attrs)
         new_class = super().__new__(mcs, name, bases, attrs, **kwargs)
         _rebuild_for_embedded_fields(new_class)
+        _register_extendable_model(new_class)
         return new_class
 
     if TYPE_CHECKING:
 
         def __hash__(self) -> int: ...
+
+
+def _register_extendable_model(cls: type) -> None:
+    """A model holding the ``extra`` JSON column joins the choices a custom
+    field is declared against.
+
+    The column is the whole declaration, whether it comes from
+    ``ExtendableMixin`` or is written by hand. Placed by name rather than
+    appended: the order members arrive in is the order the models are imported,
+    and a Postgres enum keeps the order it was declared in."""
+    meta = getattr(cls, "meta", None)
+    fields = getattr(meta, "fields", None)
+
+    if not fields or "extra" not in fields:
+        return
+
+    if getattr(meta, "abstract", False) or getattr(cls, "__is_proxy_model__", False):
+        return
+
+    from fastedgy.metadata_model.generator import generate_metadata_name
+    from fastedgy.models.extra_field_model import WorkspaceExtraFieldModel
+
+    name = generate_metadata_name(cls)
+    members = WorkspaceExtraFieldModel.__members__
+
+    if name in members:
+        logger.warning(
+            "Two models answer to the metadata name '%s': only the first accepts custom fields.",
+            name,
+        )
+
+        return
+
+    WorkspaceExtraFieldModel.extend(
+        name,
+        getattr(getattr(cls, "Meta", None), "label", None) or cls.__name__,
+        before=next((one for one in members if one > name), None),
+    )
 
 
 def _rebuild_for_embedded_fields(cls: type) -> None:

@@ -180,6 +180,48 @@ class BaseSettings(PydanticBaseSettings):
     # Password
     strict_password_hash: bool = False
 
+    # Realtime
+    # The Postgres channel workspace events travel on. A worker listens on this
+    # one for what belongs to no workspace, and on `<channel>_<workspace id>`
+    # for each workspace it actually holds a socket for.
+    realtime_channel: str = "fastedgy_realtime"
+    # Seconds an unauthenticated socket is held open. A browser cannot set
+    # headers on a WebSocket handshake, so the bearer arrives as the first
+    # frame, and the socket waits for it.
+    realtime_auth_timeout: float = 30.0
+    # Seconds one socket may hold up an event before it is treated as gone. A
+    # client that cannot take a frame in this long is not reading: dropping it
+    # lets it reconnect, and lets everyone else hear the event now.
+    realtime_send_timeout: float = 5.0
+    # Concurrent consumers draining the NOTIFY queue, so one slow delivery does
+    # not hold the rest behind it.
+    realtime_consumer_pool_size: int = 4
+    # Payloads a worker may hold before it starts dropping them.
+    realtime_notify_queue_size: int = 10_000
+    # Seconds between probes on the LISTEN connection. It sits idle between
+    # NOTIFYs, and a Docker Swarm overlay (IPVS/conntrack) evicts an idle flow
+    # after a few minutes, leaving a half-open socket that delivers nothing and
+    # says nothing. A probe well inside that window keeps the flow warm and
+    # surfaces a dead connection so it can be re-established. Lower it on a
+    # network that is less patient than that.
+    realtime_heartbeat_interval: float = 30.0
+    # Seconds to wait for a probe before treating the LISTEN connection as dead.
+    realtime_heartbeat_timeout: float = 10.0
+    # First delay before re-establishing LISTEN, and the cap the exponential
+    # backoff climbs to.
+    realtime_reconnect_backoff_start: float = 1.0
+    realtime_reconnect_backoff_max: float = 30.0
+    # Seconds between the checks that restart a listener or a consumer that died
+    # on its own, and that reconcile what this worker listens to with what it
+    # actually holds.
+    realtime_supervise_interval: float = 15.0
+    # TCP keepalive on the LISTEN socket: the same idle eviction, guarded
+    # against a second way. The Linux default idle of two hours is far longer
+    # than an overlay network's patience.
+    realtime_tcp_keepidle: int = 30
+    realtime_tcp_keepintvl: int = 10
+    realtime_tcp_keepcnt: int = 3
+
     # Storage
     data_path: str | None = None
     storage_adapter: str = "filesystem"

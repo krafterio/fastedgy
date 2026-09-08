@@ -23,6 +23,7 @@ from fastedgy.test.models.product import Product
 from fastedgy.test.models.queued_task import QueuedTask
 from fastedgy.test.models.queued_task_log import QueuedTaskLog
 from fastedgy.test.models.queued_task_worker import QueuedTaskWorker
+from fastedgy.test.models.realtime import RtChild, RtNote, RtOwned, RtRecord
 from fastedgy.test.models.tag import Tag
 from fastedgy.test.models.ticket import Ticket
 from fastedgy.test.models.user import User
@@ -76,6 +77,10 @@ __all__ = [
     "QueuedTask",
     "QueuedTaskLog",
     "QueuedTaskWorker",
+    "RtChild",
+    "RtNote",
+    "RtOwned",
+    "RtRecord",
     "Tag",
     "Ticket",
     "User",

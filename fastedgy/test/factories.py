@@ -33,9 +33,15 @@ def make_request(headers: list[tuple[bytes, bytes]] | None = None) -> Request:
 
 
 @contextmanager
-def use_request(*, locale: str | None = None, timezone: str | None = None, user: Any = None) -> Generator[Request]:
-    """Run a block within a request context, optionally seeding locale/timezone/user."""
-    request = make_request()
+def use_request(
+    *,
+    locale: str | None = None,
+    timezone: str | None = None,
+    user: Any = None,
+    headers: list[tuple[bytes, bytes]] | None = None,
+) -> Generator[Request]:
+    """Run a block within a request context, optionally seeding locale/timezone/user/headers."""
+    request = make_request(headers)
     token = context.set_request(request)
 
     try:

@@ -133,8 +133,11 @@ async def resolve_api_token(token: str) -> "User | None":
         return None
 
     # The fingerprint is an excluded column: a chained filter has to say so.
+    # Through the unscoped manager, because this resolves who the caller is:
+    # there is no user to scope by yet, and a realtime socket carries no request
+    # for the scoped one to read a context from.
     record = (
-        await UserApiToken.query.select_related("user")
+        await UserApiToken.global_query.select_related("user")
         .filter(R("token_hash", "=", hash_api_token(token)), allow_excluded=True)
         .first()
     )

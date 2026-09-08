@@ -5451,6 +5451,58 @@
         "title": "ResetPasswordRequest",
         "type": "object"
       },
+      "RtOwned": {
+        "description": "Belongs to a person rather than to a space, and never announces a delete.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "user": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/User"
+              },
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User"
+          }
+        },
+        "required": [
+          "created_at",
+          "updated_at"
+        ],
+        "title": "RtOwned",
+        "type": "object"
+      },
       "SimpleMessage": {
         "properties": {
           "message": {
@@ -6167,6 +6219,28 @@
             ],
             "title": "Name"
           },
+          "rt_owned": {
+            "anyOf": [
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/RtOwned"
+                    },
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rt Owned"
+          },
           "updated_at": {
             "format": "date-time",
             "title": "Updated At",
@@ -6222,6 +6296,66 @@
               }
             ],
             "title": "Name"
+          },
+          "rt_owned": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "$ref": "#/components/schemas/RelationOperation"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Relations for rt_owned.\n\n**Simple mode:** Array of IDs: `[1, 2, 3]`\n\n**Advanced mode:** Array of operations `[[\"action\", value], ...]`\n\nAvailable actions:\n- `create` - Create new record and link (value=object)\n- `update` - Update record and ensure link (value={id:X,...})\n- `link` - Link existing record (value=id)\n- `unlink` - Remove link without deleting (value=id)\n- `delete` - Delete record and remove link (value=id)\n- `set` - Replace all links (value=[ids])\n- `clear` - Remove all links (no value)",
+            "examples": [
+              [
+                1,
+                2,
+                3
+              ],
+              [
+                [
+                  "link",
+                  1
+                ],
+                [
+                  "create",
+                  {
+                    "name": "New"
+                  }
+                ]
+              ],
+              [
+                [
+                  "clear"
+                ],
+                [
+                  "set",
+                  [
+                    1,
+                    2,
+                    3
+                  ]
+                ]
+              ]
+            ],
+            "title": "Rt Owned"
           },
           "workspace_memberships": {
             "anyOf": [
@@ -6361,6 +6495,66 @@
               }
             ],
             "title": "Name"
+          },
+          "rt_owned": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "$ref": "#/components/schemas/RelationOperation"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Relations for rt_owned.\n\n**Simple mode:** Array of IDs: `[1, 2, 3]`\n\n**Advanced mode:** Array of operations `[[\"action\", value], ...]`\n\nAvailable actions:\n- `create` - Create new record and link (value=object)\n- `update` - Update record and ensure link (value={id:X,...})\n- `link` - Link existing record (value=id)\n- `unlink` - Remove link without deleting (value=id)\n- `delete` - Delete record and remove link (value=id)\n- `set` - Replace all links (value=[ids])\n- `clear` - Remove all links (no value)",
+            "examples": [
+              [
+                1,
+                2,
+                3
+              ],
+              [
+                [
+                  "link",
+                  1
+                ],
+                [
+                  "create",
+                  {
+                    "name": "New"
+                  }
+                ]
+              ],
+              [
+                [
+                  "clear"
+                ],
+                [
+                  "set",
+                  [
+                    1,
+                    2,
+                    3
+                  ]
+                ]
+              ]
+            ],
+            "title": "Rt Owned"
           },
           "workspace_memberships": {
             "anyOf": [

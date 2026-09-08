@@ -46,6 +46,7 @@ def build_app() -> FastEdgy:
         auth_simple_registration,
         dataset,
         health,
+        realtime,
         storage,
     )
     from fastedgy.api.user_api_tokens import create_user_api_tokens_router
@@ -64,7 +65,7 @@ def build_app() -> FastEdgy:
 
     _ensure_standard_actions()
 
-    app = FastEdgy(version=APP_VERSION, user_api_tokens=True)
+    app = FastEdgy(version=APP_VERSION, user_api_tokens=True, realtime=True)
 
     get_service(Registry).init_models()
 
@@ -77,6 +78,7 @@ def build_app() -> FastEdgy:
     # mirroring how a real FastEdgy application is wired.
     router = APIRouter(prefix=API_PREFIX, dependencies=[Depends(get_current_user)])
     public_router.include_router(health.router)
+    public_router.include_router(realtime.router)
     router.include_router(auth.router)
     router.include_router(dataset.router)
     router.include_router(storage.attachments_router)

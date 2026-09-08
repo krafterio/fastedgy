@@ -17,6 +17,7 @@ from fastedgy.depends.hasher import get_hasher_registry
 from fastedgy.models.user_api_token import resolve_api_token
 from fastedgy.orm import Registry
 from fastedgy.orm.extra_fields import load_workspace_extra_fields
+from fastedgy.orm.filter import Or, R
 
 if TYPE_CHECKING:
     from fastedgy.models.user import BaseUser as User
@@ -139,7 +140,6 @@ async def get_current_user(
     if user:
         return user
 
-    settings = get_service(BaseSettings)
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -154,36 +154,7 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # A personal API key stands in for a JWT everywhere a bearer is read, so a
-    # machine client reaches every route the user reaches, and no entry point
-    # has to resolve credentials by hand.
-    if settings.api_token_prefix and token.startswith(settings.api_token_prefix):
-        user = await resolve_api_token(token)
-
-        if user is None:
-            raise credentials_exception
-
-        context.set_user(user)
-
-        return user
-
-    try:
-        payload = jwt.decode(token, settings.auth_secret_key, algorithms=[settings.auth_algorithm])
-        email: str = str(payload.get("sub"))
-        token_type: str = str(payload.get("type"))
-
-        if email is None or token_type != "access":
-            raise credentials_exception
-    except JWTError:
-        raise credentials_exception
-
-    db_reg = get_service(Registry)
-    User = cast(type["User"], db_reg.get_model("User"))
-
-    if hasattr(User, "username") or "username" in User.model_fields:
-        user = await User.query.filter((User.columns.email == email) | (User.columns.username == email)).first()
-    else:
-        user = await User.query.filter(email=email).first()
+    user = await resolve_bearer_token(token)
 
     if user is None:
         raise credentials_exception
@@ -191,6 +162,45 @@ async def get_current_user(
     context.set_user(user)
 
     return user
+
+
+async def resolve_bearer_token(token: str) -> "User | None":
+    """The account a bearer stands for, or None when it stands for nobody.
+
+    A personal API key and a JWT both answer here, so a machine client reaches
+    every way in that a person reaches. Every entry point resolves credentials
+    through this one function: an HTTP route through [get_current_user], and the
+    realtime socket, which reads its bearer from its own first frame because a
+    browser cannot put a header on a WebSocket handshake. Resolving in one place
+    is what keeps a key that opens every route from being refused by the socket
+    alone.
+
+    Through the unscoped manager throughout: this answers who the caller is, so
+    there is no user to scope by yet, and a socket carries no request for the
+    scoped manager to read a context from.
+    """
+    settings = get_service(BaseSettings)
+
+    if settings.api_token_prefix and token.startswith(settings.api_token_prefix):
+        return await resolve_api_token(token)
+
+    try:
+        payload = jwt.decode(token, settings.auth_secret_key, algorithms=[settings.auth_algorithm])
+        email = payload.get("sub")
+        token_type = payload.get("type")
+    except JWTError:
+        return None
+
+    if not email or token_type != "access":
+        return None
+
+    db_reg = get_service(Registry)
+    User = cast(type["User"], db_reg.get_model("User"))
+
+    if hasattr(User, "username") or "username" in User.model_fields:
+        return await User.global_query.filter(Or(R("email", "=", email), R("username", "=", email))).first()
+
+    return await User.global_query.filter(R("email", "=", email)).first()
 
 
 async def get_optional_current_user(
@@ -370,6 +380,7 @@ __all__ = [
     "oauth2_scheme",
     "oauth2_scheme_optional",
     "rehash_password_if_needed",
+    "resolve_bearer_token",
     "verify_password",
     "verify_password_async",
 ]

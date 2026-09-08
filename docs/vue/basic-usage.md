@@ -127,6 +127,7 @@ Now that Vue-FastEdgy is set up, explore the available features:
 - **[I18n Directive](i18n-directive/overview.md)** - Vue directive for simplified translations
 - **[Metadata Store](metadata-store/overview.md)** - Dynamic form and UI generation
 - **[Auth Store](auth-store/overview.md)** - Authentication state management
+- **[Realtime](realtime/overview.md)** - One stream for what changed, wherever the change came from
 - **[Validation Helpers](validations/overview.md)** - API error formatting utilities
 - **[Router Helpers](routers/overview.md)** - Route manipulation utilities
 - **[Logger](logger/overview.md)** - Console logging management

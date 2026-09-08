@@ -136,6 +136,14 @@ Essential framework features that make FastEdgy a complete development platform.
 
     [Learn more →](mcp-server/overview.md)
 
+-   **:material-lightning-bolt-outline: Realtime**
+
+    ---
+
+    Announce a model's writes to the clients watching them, over WebSocket, across every worker.
+
+    [Learn more →](realtime/overview.md)
+
 </div>
 
 ## Services

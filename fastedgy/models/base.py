@@ -24,6 +24,41 @@ from fastedgy.schemas import ConfigDict, PrivateAttr
 logger = logging.getLogger("fastedgy.models")
 
 
+def _stored_key(value: Any) -> Any:
+    """The primary key a saved model instance already carries, else ``None``.
+
+    Read from ``__dict__`` so an unloaded column stays unloaded: the question is
+    what the instance holds, never what the database could give.
+    """
+    if not isinstance(value, Model):
+        return None
+
+    columns = type(value).pkcolumns
+
+    if len(columns) != 1:
+        return None
+
+    return value.__dict__.get(columns[0])
+
+
+def _relations_as_keys(values: dict[str, Any]) -> dict[str, Any]:
+    """The same values, with every stored model instance replaced by its key."""
+    keyed: dict[str, Any] | None = None
+
+    for name, value in values.items():
+        key = _stored_key(value)
+
+        if key is None:
+            continue
+
+        if keyed is None:
+            keyed = dict(values)
+
+        keyed[name] = key
+
+    return values if keyed is None else keyed
+
+
 def _optimize_edgy_field_extraction() -> None:
     """Make Edgy's field/manager extraction visit each class only once.
 
@@ -626,6 +661,27 @@ class BaseModel(Model, metaclass=ModelMeta):
                 validated.update(field.clean(name, value))
 
         return validated
+
+    async def execute_pre_save_hooks(
+        self, column_values: dict[str, Any], original: dict[str, Any], is_update: bool
+    ) -> dict[str, Any]:
+        """Point a relation at the row it already has instead of saving it again.
+
+        Edgy saves whatever a foreign key holds before saving its owner, so a
+        relation given as an unsaved instance gets a primary key to point at. It
+        saves a stored target too, and that write is never harmless: it rewrites
+        every column of the target row from the instance in memory. A relation
+        the query never selected is a proxy carrying its key alone, so every
+        column it did not load goes back to its field default.
+
+        Handing the key over instead keeps the relation intact, leaves the
+        target row alone and reads nothing: the key is already in memory.
+        """
+        return await super().execute_pre_save_hooks(
+            _relations_as_keys(column_values),
+            _relations_as_keys(original),
+            is_update,
+        )
 
     async def save(
         self,

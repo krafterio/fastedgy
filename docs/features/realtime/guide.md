@@ -101,11 +101,11 @@ What belongs to a person rather than to a space reaches every socket that accoun
 no one else's, in whichever workspace they are reading:
 
 ```python
-@realtime_model(user_field="id")     # the account itself
+@realtime_model(user_field="id")  # the account itself
 class User(BaseUser): ...
 
 
-@realtime_model(user_field="user")   # something of theirs
+@realtime_model(user_field="user")  # something of theirs
 class UserApiToken(BaseUserApiToken): ...
 ```
 

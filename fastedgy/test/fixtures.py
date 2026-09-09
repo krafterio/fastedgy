@@ -105,6 +105,29 @@ def seed_data() -> Callable[[], Any] | None:
     return load_data
 
 
+@pytest.fixture(autouse=True)
+def fresh_context() -> Iterator[None]:
+    """Start every test on an empty request context.
+
+    The request carries the user, the workspace, its membership, the timezone
+    and the locale, and the runner shares one contextvar context per worker:
+    what a test leaves behind is what the next one reads. That test then runs
+    scoped to a workspace it never chose, and its own rows fall out of its own
+    queries. The further apart the two tests run, the harder it is to see.
+
+    Autouse, so a suite is covered without asking and no test file carries a
+    reset of its own.
+    """
+    from fastedgy import context
+
+    token = context.set_request(None)
+
+    try:
+        yield
+    finally:
+        context.reset_request(token)
+
+
 @pytest.fixture
 async def setup_db(setup_app: FastEdgy, seed_data: Callable[[], Any] | None) -> FastEdgy:
     """A truncated (then optionally re-seeded) database before each test."""
@@ -181,6 +204,7 @@ def override_settings(monkeypatch: pytest.MonkeyPatch) -> Callable[..., None]:
 __all__ = [
     "anyio_backend",
     "auth_http",
+    "fresh_context",
     "override_settings",
     "seed_data",
     "setup_app",

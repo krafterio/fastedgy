@@ -91,10 +91,11 @@ async def _authenticate(websocket: WebSocket, timeout: float) -> "tuple[User, Wo
 
         return None
 
-    workspace = await workspace_of(user, data.get("workspace"))
+    asked = _scope(data)
+    workspace = await workspace_of(user, asked)
 
-    if data.get("workspace") and workspace is None:
-        await _refuse(websocket, "Workspace not found")
+    if asked and workspace is None:
+        await _refuse(websocket, "Scope not found")
 
         return None
 
@@ -103,7 +104,7 @@ async def _authenticate(websocket: WebSocket, timeout: float) -> "tuple[User, Wo
             "type": "auth_success",
             "data": {
                 "user_id": user.id,
-                "workspace": workspace.slug if workspace else None,
+                "scope": workspace.slug if workspace else None,
             },
         }
     )
@@ -120,8 +121,8 @@ async def _listen(
 ) -> None:
     """Take what the client says about itself, and nothing else.
 
-    `watch` says which workspace this tab is reading, `subscribe` and
-    `unsubscribe` say which records of it to hear about.
+    `watch` says which scope this tab is reading, `subscribe` and `unsubscribe`
+    say which records of it to hear about.
     """
     while True:
         try:
@@ -140,7 +141,7 @@ async def _listen(
             continue
 
         if event_type == "watch":
-            workspace = await workspace_of(user, data.get("workspace"))
+            workspace = await workspace_of(user, _scope(data))
             await _apply(broadcaster, manager.watch(connection, workspace.id if workspace else None))
         elif event_type == "subscribe":
             manager.subscribe(connection, _channels(data))
@@ -159,6 +160,17 @@ async def _apply(broadcaster: WebSocketBroadcaster, change: WorkspaceChange) -> 
 
     await broadcaster.follow(change.added)
     await broadcaster.unfollow(change.removed)
+
+
+def _scope(data: dict[str, Any]) -> Any:
+    """What a frame says this socket is reading, whatever the tenant is called.
+
+    The protocol names it `scope`, the application decides what it addresses:
+    here a workspace, since that is what a socket is scoped by. `workspace` is
+    what clients built against the earlier name send, and is read while they
+    are still out there.
+    """
+    return data.get("scope", data.get("workspace"))
 
 
 def _channels(data: dict[str, Any]) -> list[str]:

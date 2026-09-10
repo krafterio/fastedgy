@@ -22,6 +22,7 @@ from typing import Any
 
 import pytest
 
+from fastedgy.api.realtime import _scope
 from fastedgy.config import BaseSettings
 from fastedgy.dependencies import get_service
 from fastedgy.orm import Database
@@ -751,3 +752,14 @@ async def test_a_write_reaches_a_watching_socket_the_whole_way_through(ws_manage
         "type": "rt_record.created",
         "data": {"model": "rt_record", "id": record.id},
     }
+
+
+def test_a_frame_names_what_it_reads_generically() -> None:
+    """The protocol says `scope`, whatever the application addresses with it.
+
+    `workspace` is what a client built against the earlier name sends, and is
+    read while those are still out there.
+    """
+    assert _scope({"scope": "studio-nord"}) == "studio-nord"
+    assert _scope({"workspace": "studio-nord"}) == "studio-nord"
+    assert _scope({}) is None

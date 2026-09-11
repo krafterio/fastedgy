@@ -231,8 +231,13 @@ async def truncate_all_tables() -> None:
     # foreign keys, which breaks ``metadata.sorted_tables``. ``TRUNCATE … CASCADE``
     # over the actual tables sidesteps that and resets identities.
     from fastedgy.dependencies import get_service
-    from fastedgy.orm import Registry
+    from fastedgy.orm import Registry, drain_signal_side_effects
     from fastedgy.orm.extra_fields import invalidate_workspace_extra_fields
+
+    # What the previous test committed may still be writing its side effects
+    # on the loop the runner shares: a TRUNCATE taken under one of them waits
+    # on its lock while it waits on the TRUNCATE's, and Postgres kills one.
+    await drain_signal_side_effects()
 
     registry = get_service(Registry)
     rows = await registry.database.fetch_all(

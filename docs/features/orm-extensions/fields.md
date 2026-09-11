@@ -413,6 +413,18 @@ class Comment(BaseModel):
     author = fields.RefForeignKey("User", on_delete="CASCADE", label=_t("Author"))
 ```
 
+## Rich Text
+
+Markdown text field, typed `rich_text` in the metadata so that clients open it in a rich text editor.
+
+```python
+class Article(BaseModel):
+    class Meta:
+        tablename = "articles"
+
+    body = fields.RichTextField(label=_t("Body"))
+```
+
 ## Small Integer
 
 16-bit integer field for small numbers.

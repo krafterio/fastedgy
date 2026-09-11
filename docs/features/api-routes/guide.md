@@ -286,6 +286,28 @@ X-Filter: ["is_active", "=", true]
 X-Fields: name,price,category.name
 ```
 
+## Record Siblings
+
+A detail screen opened from a list steps to the previous and the next record of that list. Enable the action per model:
+
+```python
+@api_route_model(siblings=True)
+class Product(Model): ...
+```
+
+The client sends the filter and the ordering of the list it comes from, and gets the neighbouring ids back, `null` at an end of the list or when the record is outside it:
+
+```bash
+GET /api/products/42/siblings?order_by=name:asc
+X-Filter: ["category", "=", 3]
+```
+
+```json
+{"previous": 17, "next": 58}
+```
+
+The order is the one the list route returns, `id` breaking the ties, whatever field it sorts on.
+
 ## Error Handling
 
 Generated endpoints provide consistent error responses:

@@ -5181,6 +5181,35 @@
         "title": "QueuedTaskWorker-Update",
         "type": "object"
       },
+      "RecordSiblings": {
+        "description": "The ids either side of a record, null at an end of the list or outside it.",
+        "properties": {
+          "next": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next"
+          },
+          "previous": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous"
+          }
+        },
+        "title": "RecordSiblings",
+        "type": "object"
+      },
       "ReferenceObject": {
         "description": "Polymorphic reference input: the target model metadata name and the\nrecord id. Declared as a shared model so the OpenAPI schema documents it\nonce instead of inlining it on every generic reference field.\n\nThe target accepts both spellings: ``model`` (the write form) and\n``$model`` (the key a serialized reference carries), so a client can send\nback a reference it just read without rewriting it.",
         "properties": {
@@ -14903,6 +14932,95 @@
           }
         ],
         "summary": "Update Product",
+        "tags": [
+          "test_products"
+        ]
+      }
+    },
+    "/api/test_products/{item_id}/siblings": {
+      "get": {
+        "description": "Retrieve the Product before and after one, in the list the filter and the ordering describe",
+        "operationId": "siblings_item_api_test_products__item_id__siblings_get",
+        "parameters": [
+          {
+            "description": "Item ID",
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "description": "Item ID",
+              "title": "Item Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Order the list of items by field(s) separated by commas (ex. 'created_at:desc,name:asc')",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Order the list of items by field(s) separated by commas (ex. 'created_at:desc,name:asc')",
+              "title": "Order by"
+            }
+          },
+          {
+            "description": "Filter the list of items with the filter expression build with rules and conditions",
+            "in": "header",
+            "name": "X-Filter",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter the list of items with the filter expression build with rules and conditions",
+              "title": "Filter"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordSiblings"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Get Product siblings",
         "tags": [
           "test_products"
         ]

@@ -108,6 +108,26 @@ A create or a delete always counts: a row appearing or going changes a list what
 columns are. And an update that did not say what it moved counts too, an event that says
 nothing meaning everything.
 
+## Holding a record's neighbours
+
+A detail screen opened from a list steps to the previous and the next record of that list. It
+hands the filter and the ordering of the list to the holder, which asks the model's
+[`siblings` route](../../features/api-routes/guide.md#record-siblings), opt-in on the server:
+
+```javascript
+import { useApiSiblings } from 'vue-fastedgy';
+
+const { previous, next, status } = useApiSiblings('company', () => route.params.id, () => ({
+    filter: ['country', '=', 'FR'],
+    orderBy: 'name:asc',
+}));
+```
+
+It follows the id and the query, keeping only the answer of the last id asked when steps
+outrun the server, and re-reads after a write on the model anywhere, a burst collapsed like a
+list's. The previous neighbours stay until the new ones arrive: a pager disables itself while
+`status` is `loading`.
+
 ## Listening without holding
 
 A view that already owns its loading uses the primitive the holders are built on:

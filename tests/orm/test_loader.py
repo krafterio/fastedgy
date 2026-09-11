@@ -88,5 +88,5 @@ async def test_file_uploads_and_stores_relative_path(setup_db: FastEdgy, tmp_pat
 
     category = await Category.query.get(name="Books")
 
-    assert category.description.startswith("test_categories/")
+    assert category.description.startswith("category/")
     assert os.path.exists(stored_file_path(category.description))

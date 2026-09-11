@@ -157,7 +157,7 @@ async def _upload_file(model_cls: type[BaseModel], file_ref: FileRef, server_pat
     upload = UploadFile(file=io.BytesIO(content), filename=filename, headers=Headers({"content-type": content_type}))
 
     return await storage.upload(
-        upload, str(model_cls.meta.tablename), global_storage=is_global_storage_model(model_cls)
+        upload, generate_metadata_name(model_cls), global_storage=is_global_storage_model(model_cls)
     )
 
 

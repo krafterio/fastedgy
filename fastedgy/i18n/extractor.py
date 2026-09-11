@@ -266,7 +266,7 @@ class I18nExtractor:
         pot_creation_date = pot_creation_match.group(1) if pot_creation_match else None
         po_revision_date = po_revision_match.group(1) if po_revision_match else None
 
-        first_msg_match = re.search(r'\n\n((?:#[^\n]*\n)*msgid "[^"])', content)
+        first_msg_match = re.search(r'\n\n((?:#[^\n]*\n)*msgid ")', content)
 
         if first_msg_match:
             first_msg_start = content.find(first_msg_match.group(1))

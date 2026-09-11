@@ -370,3 +370,48 @@ async def test_a_to_many_read_carries_the_columns_its_ordering_names(setup_db: F
     # serialized.
     assert [tag["color"] for tag in dump["tags"]] == ["#00f", "#f00"]
     assert all(set(tag) == {"id", "color"} for tag in dump["tags"])
+
+
+async def test_a_join_keeps_the_to_many_in_a_single_read(setup_db: FastEdgy) -> None:
+    """Every model built from a row is handed the prefetch, the joined ones
+    included, and it is baked for whichever arrives first: keyed by a joined
+    model, the rows that own the relation find nothing under their own keys and
+    read it again, one by one. A row whose relation is empty is never in the
+    batch, and that read is what a many-to-many cannot express.
+    """
+    from sqlalchemy import event
+    from sqlalchemy.engine import Engine
+
+    tagged = await _create_product_graph()
+    category = await FsoCategory.query.get()
+    await tagged.tags.add(await FsoTag.query.create(name="promo"))
+
+    fields = "name,category.brand.name,tags.name"
+
+    async def read():
+        statements: list[str] = []
+
+        def record(conn, cursor, statement, parameters, context, executemany) -> None:
+            statements.append(statement)
+
+        event.listen(Engine, "before_cursor_execute", record)
+
+        try:
+            items = await optimize_query_filter_fields(FsoProduct.query.all(), fields).all()
+            dumps = [await filter_selected_fields(item, fields) for item in items]
+        finally:
+            event.remove(Engine, "before_cursor_execute", record)
+
+        return {dump["name"]: dump for dump in dumps}, len(statements)
+
+    _, alone = await read()
+
+    for index in range(4):
+        await FsoProduct.query.create(name=f"More {index}", category=category)
+
+    dumps, many = await read()
+
+    assert many == alone
+    assert [tag["name"] for tag in dumps["Hammer"]["tags"]] == ["promo"]
+    assert dumps["More 0"]["tags"] == []
+    assert dumps["More 0"]["category"]["brand"]["name"] == "Acme"

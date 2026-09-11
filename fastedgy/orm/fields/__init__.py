@@ -57,6 +57,7 @@ from .field_phone import PhoneField
 from .field_placeholder import PlaceholderField
 from .field_point import Point, PointField
 from .field_ref_foreign_key import RefForeignKey
+from .field_rich_text import RichTextField
 from .field_small_integer import SmallIntegerField
 from .field_text import TextField
 from .field_time import TimeField
@@ -111,6 +112,7 @@ __all__ = [
     "Point",
     "PointField",
     "RefForeignKey",
+    "RichTextField",
     "SearchWeight",
     "SmallIntegerField",
     "TextField",

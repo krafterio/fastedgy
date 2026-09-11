@@ -7473,6 +7473,7 @@
           "integer",
           "ip_address",
           "phone",
+          "rich_text",
           "text",
           "time",
           "url",

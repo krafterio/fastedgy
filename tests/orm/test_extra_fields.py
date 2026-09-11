@@ -219,6 +219,22 @@ async def test_metadata_carries_the_extra_fields_of_the_current_workspace(setup_
         assert "extra_priority" in (await registry.get_map_models())["product"].fields
 
 
+async def test_metadata_types_a_rich_text_extra_field_and_filters_it_as_text(setup_db: FastEdgy) -> None:
+    registry = get_service(MetadataModelRegistry)
+
+    with use_request():
+        context.set_workspace_extra_fields(
+            [
+                _extra_field("summary", WorkspaceExtraFieldType.rich_text),
+                _extra_field("notes", WorkspaceExtraFieldType.text),
+            ]
+        )
+        fields = (await registry.get_metadata("product")).fields
+
+        assert fields["extra_summary"].type == "rich_text"
+        assert fields["extra_summary"].filter_operators == fields["extra_notes"].filter_operators != []
+
+
 async def test_metadata_never_keeps_the_extra_fields_of_another_workspace(setup_db: FastEdgy) -> None:
     """The generated metadata is cached for the whole process: a workspace that
     left its fields in it would hand them to every other one, and to itself

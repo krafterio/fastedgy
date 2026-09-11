@@ -23,10 +23,11 @@ class WorkspaceExtraFieldType(ExtendableChoiceEnum):
     duration = _ts("Duration")
     email = _ts("Email")
     float = _ts("Float")
-    html = _ts("Rich text")
+    html = _ts("HTML")
     integer = _ts("Integer")
     ip_address = _ts("IP address")
     phone = _ts("Phone")
+    rich_text = _ts("Rich text")
     text = _ts("Text")
     time = _ts("Time")
     url = _ts("Link")
@@ -46,6 +47,7 @@ EXTRA_FIELDS_MAP = {
     WorkspaceExtraFieldType.integer: fields.IntegerField,
     WorkspaceExtraFieldType.ip_address: fields.IPAddressField,
     WorkspaceExtraFieldType.phone: fields.PhoneField,
+    WorkspaceExtraFieldType.rich_text: fields.RichTextField,
     WorkspaceExtraFieldType.text: fields.TextField,
     WorkspaceExtraFieldType.time: fields.TimeField,
     WorkspaceExtraFieldType.url: fields.URLField,
@@ -74,6 +76,9 @@ EXTRA_FIELD_TYPE_OPTIONS = {
     WorkspaceExtraFieldType.ip_address: {},
     WorkspaceExtraFieldType.phone: {
         "max_length": 50,
+    },
+    WorkspaceExtraFieldType.rich_text: {
+        "max_length": 65535,
     },
     WorkspaceExtraFieldType.text: {
         "max_length": 255,

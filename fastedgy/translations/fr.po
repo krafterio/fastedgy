@@ -564,6 +564,9 @@ msgstr "un indice de couleur"
 msgid "strings or objects carrying a value and a colour"
 msgstr "des chaînes ou des objets portant une valeur et une couleur"
 
+msgid "HTML"
+msgstr "HTML"
+
 msgid "Rich text"
 msgstr "Texte enrichi"
 

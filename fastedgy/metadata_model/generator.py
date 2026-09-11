@@ -217,7 +217,9 @@ def get_filter_operators_for_extra_field(field_type) -> list[str]:
     if not field_class:
         return []
 
-    return FILTER_OPERATORS_FIELD_MAP.get(field_class, [])
+    return next(
+        (FILTER_OPERATORS_FIELD_MAP[cls] for cls in field_class.__mro__ if cls in FILTER_OPERATORS_FIELD_MAP), []
+    )
 
 
 def get_field_choices(field: BaseFieldType) -> dict[str, str] | None:

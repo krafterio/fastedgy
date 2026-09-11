@@ -8,6 +8,7 @@ from fastedgy.orm import BaseModelType, Model
 from fastedgy.orm.access_guard import AccessDeniedError
 from fastedgy.orm.fields import BaseFieldType
 from fastedgy.orm.order_by import OrderByList
+from fastedgy.orm.prefetch import Prefetch
 from fastedgy.orm.query import QuerySet
 from fastedgy.orm.utils import extract_field_names, find_primary_key_field
 
@@ -197,7 +198,20 @@ def optimize_query_filter_fields(
     if not map_fields:
         return query
 
-    return apply_field_map_optimizations(query, map_fields, prune_columns=prune_columns)
+    query = apply_field_map_optimizations(query, map_fields, prune_columns=prune_columns)
+
+    # A to-many relation rides on the queryset as a prefetch: one query per
+    # relation for all the rows read, instead of one per row at serialization.
+    # Only the rows asked for carry one; a relation of a relation stays with
+    # the per-row read.
+    for field_name, field_value in map_fields.items():
+        if isinstance(field_value, list):
+            prefetch = _to_many_prefetch(query.model_class, field_name, field_value[0])
+
+            if prefetch is not None:
+                query = query.prefetch_related(prefetch)
+
+    return query
 
 
 def apply_field_map_optimizations(
@@ -268,6 +282,50 @@ def apply_field_map_optimizations(
                 pass
 
     return query
+
+
+def _prefetch_attr(field_name: str) -> str:
+    return f"fs_prefetch_{field_name}"
+
+
+def _to_many_prefetch(model_cls: type[BaseModelType], field_name: str, fields_map: dict[str, Any]) -> Prefetch | None:
+    from edgy.core.db.relationships.related_field import RelatedField
+
+    field = model_cls.meta.fields.get(field_name)
+
+    # The key a reverse relation hangs on is what Edgy joins back through to
+    # hand each row its share: pruned away, the join has nothing to read.
+    back: set[str] = set()
+
+    # What Edgy itself prefetches: a many-to-many, or the reverse side of a
+    # foreign key. A generic inverse relation is resolved by a reader of its own.
+    if getattr(field, "is_m2m", False):
+        target = getattr(field, "target", None)
+    elif isinstance(field, RelatedField):
+        target = field.related_from
+        back = {field.foreign_key_name}
+    else:
+        return None
+
+    if target is None:
+        return None
+
+    order_by = _target_default_order(target)
+    queryset = target.meta.managers["query_related"].get_queryset()
+    queryset = apply_field_map_optimizations(queryset, fields_map, keep_fields=_relation_order_fields(order_by) | back)
+
+    for name, value in fields_map.items():
+        if isinstance(value, list):
+            nested = _to_many_prefetch(target, name, value[0])
+
+            if nested is not None:
+                queryset = queryset.prefetch_related(nested)
+
+    return Prefetch(
+        related_name=field_name,
+        to_attr=_prefetch_attr(field_name),
+        queryset=_inject_relation_default_order(queryset, order_by),
+    )
 
 
 def is_computed_field(model_cls: type, field_name: str) -> bool:
@@ -606,18 +664,21 @@ async def filter_fields(data: dict, data_obj: Model | None, fields: dict, target
 
                 if nested_obj is not None:
                     target[field_name] = []
-                    order_by = _relation_default_order(data_obj, field_name, nested_obj)
-                    queryset = nested_obj.limit(1000).all()
-                    # The ordering is resolved before the pruning so its columns
-                    # survive it: deferred, they leave the SELECT, and the
-                    # `SELECT DISTINCT` of a link-table read is then ordered by
-                    # a column it does not carry, which Postgres refuses.
-                    queryset = apply_field_map_optimizations(
-                        queryset, field_value[0], keep_fields=_relation_order_fields(order_by)
-                    )
-                    queryset = _inject_relation_default_order(queryset, order_by)
+                    items = _get_loaded_relation(data_obj, _prefetch_attr(field_name))
 
-                    items = [item async for item in queryset]
+                    if items is None:
+                        order_by = _relation_default_order(data_obj, field_name, nested_obj)
+                        queryset = nested_obj.limit(1000).all()
+                        # The ordering is resolved before the pruning so its columns
+                        # survive it: deferred, they leave the SELECT, and the
+                        # `SELECT DISTINCT` of a link-table read is then ordered by
+                        # a column it does not carry, which Postgres refuses.
+                        queryset = apply_field_map_optimizations(
+                            queryset, field_value[0], keep_fields=_relation_order_fields(order_by)
+                        )
+                        queryset = _inject_relation_default_order(queryset, order_by)
+
+                        items = [item async for item in queryset]
 
                     for obj_item in items:
                         item_data = _dump_selected(obj_item, field_value[0])
@@ -658,6 +719,12 @@ def _relation_default_order(data_obj: Model, field_name: str, nested_obj: Any) -
         model_cls = cast("type[Model]", _real_model_cls(type(nested_obj)))
 
         return parse_order_by(model_cls, order_by_input) if order_by_input else []
+
+    return _target_default_order(target_model)
+
+
+def _target_default_order(target_model: Any) -> OrderByList:
+    from fastedgy.orm.order_by import parse_order_by
 
     order_by_input = getattr(target_model.Meta, "default_order_by", None)
 

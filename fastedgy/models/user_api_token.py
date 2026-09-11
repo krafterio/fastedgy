@@ -55,6 +55,9 @@ class UserApiTokenMixin(BaseModel):
         abstract = True
         label = _ts("API token")
         label_plural = _ts("API tokens")
+        indexes = [
+            fields.Index(fields=["user"], suffix="idx_user_api_tokens"),
+        ]
 
     name: str = fields.CharField(max_length=255, label=_ts("Name"))
 

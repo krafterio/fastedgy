@@ -110,6 +110,9 @@ class BaseWorkspaceExtraField(BaseModel, WorkspaceableMixin):
         unique_together = [
             ("workspace", "model", "name"),
         ]
+        indexes = [
+            fields.Index(fields=["workspace", "model"], suffix="idx_workspace_extra_fields"),
+        ]
 
     label: str | None = fields.CharField(max_length=255, label=_ts("Label"))
 

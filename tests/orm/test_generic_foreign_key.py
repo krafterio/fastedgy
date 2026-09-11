@@ -179,7 +179,7 @@ async def test_inverse_remove_required_reference_raises(setup_db: FastEdgy) -> N
 async def test_denied_target_loads_as_none(setup_db: FastEdgy) -> None:
     from fastedgy.dependencies import get_service
     from fastedgy.orm.access_guard import AccessDeniedError, ModelAccessGuardRegistry, ModelAction
-    from fastedgy.orm.field_selector import prefetch_generic_references
+    from fastedgy.orm.field_selector import optimize_query_filter_fields
 
     product = await _create_product()
     note = Note(content="guarded", subject=product)
@@ -196,9 +196,8 @@ async def test_denied_target_loads_as_none(setup_db: FastEdgy) -> None:
         fresh = await Note.query.get(id=note.id)
         assert await fresh.subject is None
 
-        items = await Note.query.filter(id=note.id).all()
-        await prefetch_generic_references(items, "subject.name")
-        assert items[0].__dict__["_gfk_cache_subject"] is None
+        items = await optimize_query_filter_fields(Note.query.filter(id=note.id), "subject.name").all()
+        assert await items[0].subject is None
     finally:
         registry._guards.pop(Product, None)
         registry._resolved.clear()

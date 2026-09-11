@@ -1,6 +1,8 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+"""A list reads each relation it serializes once, whatever the page holds."""
+
 import httpx
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
@@ -55,6 +57,37 @@ async def test_a_relation_of_a_relation_is_read_once_as_well(auth_http: httpx.As
     _, many = await _list(auth_http, "/api/test_categories", fields)
 
     assert many == alone
+
+
+async def test_a_reference_no_join_resolves_is_read_once_too(auth_http: httpx.AsyncClient) -> None:
+    """A generic reference names its target model in the row, so no join reaches
+    it: the rows of a page resolve theirs together or one by one."""
+    named = await make_product(auth_http, name="Batched")
+    other = await make_product(auth_http, name="Other")
+
+    async def note(index: int, target: dict) -> None:
+        await auth_http.post(
+            "/api/test_notes",
+            json={"content": f"n{index}", "subject": {"model": "product", "id": target["id"]}},
+        )
+
+    await note(0, named)
+
+    _, alone = await _list(auth_http, "/api/test_notes", "content,subject.name")
+
+    for index in range(1, 5):
+        await note(index, named if index % 2 == 0 else other)
+
+    listed, many = await _list(auth_http, "/api/test_notes", "content,subject.name")
+
+    assert many == alone
+    assert {item["content"]: item["subject"]["name"] for item in listed} == {
+        "n0": "Batched",
+        "n1": "Other",
+        "n2": "Batched",
+        "n3": "Other",
+        "n4": "Batched",
+    }
 
 
 async def test_a_batched_relation_answers_what_the_item_read_answers(auth_http: httpx.AsyncClient) -> None:

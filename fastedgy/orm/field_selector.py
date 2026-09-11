@@ -5,7 +5,6 @@ from collections.abc import Iterable
 from typing import Any, cast
 
 from fastedgy.orm import BaseModelType, Model
-from fastedgy.orm.access_guard import AccessDeniedError
 from fastedgy.orm.fields import BaseFieldType
 from fastedgy.orm.order_by import OrderByList
 from fastedgy.orm.prefetch import Prefetch
@@ -269,19 +268,20 @@ def apply_field_map_optimizations(
         except Exception:
             pass
 
+    from fastedgy.orm.deferred_batch import enable_deferred_batch_loading
+
     if prune_columns:
         defer_paths = _build_defer_paths(select_paths, levels)
 
         if defer_paths:
-            from fastedgy.orm.deferred_batch import enable_deferred_batch_loading
-
             try:
                 query = query.defer(*sorted(defer_paths))
-                query = enable_deferred_batch_loading(query)
             except Exception:
                 pass
 
-    return query
+    # The rows read together share a batch: a deferred column reloads for all
+    # of them at once, and so does a reference no join can resolve.
+    return enable_deferred_batch_loading(query)
 
 
 def _prefetch_attr(field_name: str) -> str:
@@ -542,63 +542,6 @@ def _build_defer_paths(
             defer_paths.add(field_path)
 
     return defer_paths
-
-
-async def prefetch_generic_references(items: list[Model], fields_expr: str | list[str] | None) -> None:
-    """Batch-load the generic references requested by the field selector: one
-    query per (field, target model) over the whole item list, priming each
-    instance's cache so the per-item serialization does no extra query."""
-    if not items:
-        return
-
-    model_cls = _real_model_cls(type(items[0]))
-    map_fields = parse_field_selector_input(model_cls, fields_expr)
-
-    if not map_fields:
-        return
-
-    for field_name, field in model_cls.meta.fields.items():
-        if not getattr(field, "is_generic_foreign_key", False) or not isinstance(map_fields.get(field_name), dict):
-            continue
-
-        generic_field: Any = field
-        cache_key = f"_gfk_cache_{field_name}"
-        by_model: dict[str, dict[Any, list[Model]]] = {}
-
-        for item in items:
-            instance_dict: Any = item.__dict__
-            if cache_key in instance_dict:
-                continue
-
-            model_name = instance_dict.get(generic_field.model_column)
-            record_id = instance_dict.get(generic_field.id_column)
-
-            if not model_name or record_id is None:
-                instance_dict[cache_key] = None
-                continue
-
-            by_model.setdefault(model_name, {}).setdefault(record_id, []).append(item)
-
-        targets = generic_field.targets()
-
-        for model_name, id_map in by_model.items():
-            target_cls = targets.get(model_name)
-
-            if target_cls is None:
-                records: dict[Any, Any] = {}
-            else:
-                pk_name = find_primary_key_field(target_cls) or "id"
-                try:
-                    rows = await target_cls.query.filter(**{f"{pk_name}__in": list(id_map.keys())}).all()
-                except AccessDeniedError:
-                    rows = []
-                records = {getattr(row, pk_name, None): row for row in rows}
-
-            for record_id, instances in id_map.items():
-                record = records.get(record_id)
-                for instance in instances:
-                    instance_dict = instance.__dict__
-                    instance_dict[cache_key] = record
 
 
 async def filter_selected_fields(item: Model, fields_expr: str | list[str] | None) -> dict:
@@ -881,6 +824,5 @@ __all__ = [
     "is_computed_field",
     "optimize_query_filter_fields",
     "parse_field_selector_input",
-    "prefetch_generic_references",
     "selection_includes",
 ]

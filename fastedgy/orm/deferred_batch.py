@@ -28,11 +28,15 @@ class _DeferredBatchQuerySetMixin:
     async def _execute_all(self) -> list[Any]:
         items = await super()._execute_all()  # type: ignore[misc]
 
-        if items and getattr(self, "_defer", None):
+        if items:
             batch: dict[str, Any] = {
                 "model_cls": self.model_class,  # type: ignore[attr-defined]
                 "instances": list(items),
                 "future": None,
+                # Reloading the batch answers for a column left out of the
+                # SELECT, and for nothing else: a row read whole that misses an
+                # attribute is missing it for another reason.
+                "deferred": bool(getattr(self, "_defer", None)),
             }
 
             for item in items:
@@ -60,13 +64,20 @@ def enable_deferred_batch_loading(query: QuerySet) -> QuerySet:
     return query
 
 
+def batch_of(instance: Any) -> dict[str, Any] | None:
+    """The batch ``instance`` was read with, for a reader that resolves what a
+    join cannot: it holds every instance of that read. ``None`` for a row read
+    on its own."""
+    return instance.__dict__.get(_BATCH_ATTR)
+
+
 async def consume_batch_load(instance: Any) -> bool:
     """Reload the deferred columns for the whole batch of ``instance`` in one
     query. Returns True when the instance was hydrated this way; False when the
     caller must fall back to the regular per-row load."""
     batch = instance.__dict__.get(_BATCH_ATTR)
 
-    if batch is None:
+    if batch is None or not batch.get("deferred"):
         return False
 
     future = batch.get("future")
@@ -120,6 +131,7 @@ async def _fetch_and_merge(batch: dict[str, Any]) -> set[Any]:
 
 
 __all__ = [
+    "batch_of",
     "consume_batch_load",
     "enable_deferred_batch_loading",
 ]

@@ -32,7 +32,6 @@ from fastedgy.models.base import BaseModel, BaseView
 from fastedgy.orm.field_selector import (
     filter_selected_fields,
     optimize_query_filter_fields,
-    prefetch_generic_references,
 )
 from fastedgy.orm.filter import (
     InvalidFilterError,
@@ -140,8 +139,6 @@ async def list_items_action[M: BaseModel | BaseView](
 
     for transformer in vtr.get_transformers(GetViewsTransformer, model_cls, transformers):
         await transformer.get_views(request, items, transformers_ctx)
-
-    await prefetch_generic_references(items, fields)
 
     result_items = []
 

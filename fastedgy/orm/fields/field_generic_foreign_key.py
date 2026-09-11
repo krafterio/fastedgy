@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import re
 from collections.abc import Callable, Iterable, Sequence
 from typing import Any, cast
@@ -427,6 +428,12 @@ class GenericForeignKey(BaseField):
         if cache_key in instance.__dict__:
             return instance.__dict__[cache_key]
 
+        # No join resolves a reference whose target model is a value in the row:
+        # the rows read together resolve as one, a query per target model, so
+        # serializing a page costs what serializing one row costs.
+        if await self._load_batch(instance):
+            return instance.__dict__[cache_key]
+
         model_name = instance.__dict__.get(self.model_column)
         record_id = instance.__dict__.get(self.id_column)
 
@@ -444,6 +451,73 @@ class GenericForeignKey(BaseField):
 
         instance.__dict__[cache_key] = record
         return record
+
+    async def _load_batch(self, instance: Any) -> bool:
+        """Resolve this reference for every row ``instance`` was read with.
+
+        Returns whether it answered for ``instance``: a row read on its own
+        belongs to no batch and is left to the single read.
+        """
+        from fastedgy.orm.deferred_batch import batch_of
+
+        batch = batch_of(instance)
+
+        if batch is None:
+            return False
+
+        lock_key = f"_gfk_lock_{self.name}"
+        lock = batch.get(lock_key)
+
+        if lock is None:
+            lock = asyncio.Lock()
+            batch[lock_key] = lock
+
+        cache_key = self._cache_key()
+
+        async with lock:
+            if cache_key not in instance.__dict__:
+                await self._resolve_batch(batch["instances"])
+
+        return cache_key in instance.__dict__
+
+    async def _resolve_batch(self, instances: Sequence[Any]) -> None:
+        from fastedgy.orm.utils import find_primary_key_field
+
+        cache_key = self._cache_key()
+        by_model: dict[str, dict[Any, list[Any]]] = {}
+
+        for item in instances:
+            if cache_key in item.__dict__:
+                continue
+
+            model_name = item.__dict__.get(self.model_column)
+            record_id = item.__dict__.get(self.id_column)
+
+            if not model_name or record_id is None:
+                item.__dict__[cache_key] = None
+                continue
+
+            by_model.setdefault(model_name, {}).setdefault(record_id, []).append(item)
+
+        targets = self.targets()
+
+        for model_name, id_map in by_model.items():
+            target_cls = targets.get(model_name)
+            records: dict[Any, Any] = {}
+
+            if target_cls is not None:
+                pk_name = find_primary_key_field(target_cls) or "id"
+
+                try:
+                    rows = await target_cls.query.filter(**{f"{pk_name}__in": list(id_map)}).all()
+                except AccessDeniedError:
+                    rows = []
+
+                records = {getattr(row, pk_name, None): row for row in rows}
+
+            for record_id, holders in id_map.items():
+                for item in holders:
+                    item.__dict__[cache_key] = records.get(record_id)
 
     def __set__(self, instance: Any, value: Any) -> None:
         values = self._decompose(value)

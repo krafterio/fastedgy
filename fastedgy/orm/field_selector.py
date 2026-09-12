@@ -176,7 +176,10 @@ def clean_field_names_from_input(model_cls: type[BaseModelType], fields: str | l
 
 
 def optimize_query_filter_fields(
-    query: QuerySet, fields_expr: str | list[str] | None, prune_columns: bool = True
+    query: QuerySet,
+    fields_expr: str | list[str] | None,
+    prune_columns: bool = True,
+    keep_fields: Iterable[str] | None = None,
 ) -> QuerySet:
     """
     Optimize query by preloading requested relationships and pruning unselected columns.
@@ -197,7 +200,7 @@ def optimize_query_filter_fields(
     if not map_fields:
         return query
 
-    query = apply_field_map_optimizations(query, map_fields, prune_columns=prune_columns)
+    query = apply_field_map_optimizations(query, map_fields, prune_columns=prune_columns, keep_fields=keep_fields)
 
     # A to-many relation rides on the queryset as a prefetch: one query per
     # relation for all the rows read, instead of one per row at serialization.
@@ -234,11 +237,13 @@ def apply_field_map_optimizations(
     Relation querysets (m2m through models) embed their target at the
     embed_parent path: the map is then applied at that prefix.
 
-    ``keep_fields`` names columns of that level the caller needs in the SELECT
-    whatever the map asked for. An ordering is the reason it exists: a relation
-    read is a ``SELECT DISTINCT`` over the link table, and Postgres refuses one
-    ordered by a column the selection dropped. They are read from the database
-    and never serialized: the response still carries only what was asked.
+    ``keep_fields`` names what the caller needs in the SELECT whatever the map
+    asked for, a column of this level or a dotted path, which is joined the way
+    a computed field's dependency is. An ordering is the reason it exists: a
+    relation read is a ``SELECT DISTINCT`` over the link table, and Postgres
+    refuses one ordered by a column the selection dropped. They are read from
+    the database and never serialized: the response still carries only what was
+    asked.
     """
     model_cls = query.model_class
     base_prefix = ""
@@ -259,8 +264,8 @@ def apply_field_map_optimizations(
     _collect_query_optimizations(model_cls, map_fields, base_prefix, select_paths, levels)
 
     for field_name in keep_fields or ():
-        if field_name in model_cls.meta.fields:
-            _keep_field(levels, model_cls, base_prefix, field_name)
+        if field_name.split(".", 1)[0] in model_cls.meta.fields:
+            _merge_read_path(model_cls, field_name, base_prefix, select_paths, levels)
 
     for path in sorted(select_paths):
         try:
@@ -420,7 +425,7 @@ def _collect_query_optimizations(
                 _opt_out_column_pruning(levels, model_cls, prefix)
             else:
                 for dep in deps:
-                    _merge_computed_dep(model_cls, dep, prefix, select_paths, levels)
+                    _merge_read_path(model_cls, dep, prefix, select_paths, levels)
             continue
 
         if field_name.startswith("extra_") and "extra" in model_cls.meta.fields:
@@ -433,7 +438,7 @@ def _collect_query_optimizations(
             _opt_out_column_pruning(levels, model_cls, prefix)
 
 
-def _merge_computed_dep(
+def _merge_read_path(
     model_cls: type[BaseModelType],
     dep: str,
     prefix: str,
@@ -459,7 +464,7 @@ def _merge_computed_dep(
                 _opt_out_column_pruning(levels, current_model, current_prefix)
             else:
                 for sub_dep in sub_deps:
-                    _merge_computed_dep(current_model, sub_dep, current_prefix, select_paths, levels, depth + 1)
+                    _merge_read_path(current_model, sub_dep, current_prefix, select_paths, levels, depth + 1)
             return
 
         if part.startswith("extra_") and "extra" in current_model.meta.fields:

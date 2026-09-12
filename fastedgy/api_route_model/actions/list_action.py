@@ -17,6 +17,7 @@ from fastedgy.api_route_model.registry import (
     TypeModel,
     ViewTransformerRegistry,
 )
+from fastedgy.api_route_model.row_read import plan_row_read
 from fastedgy.api_route_model.types import ModelList
 from fastedgy.api_route_model.view_transformer import (
     BaseViewTransformer,
@@ -111,7 +112,9 @@ async def list_items_action[M: BaseModel | BaseView](
             query = query.get_queryset()
         transformers_ctx["filters"] = filters
         transformers_ctx["order_by"] = order_by
-        query = optimize_query_filter_fields(query, fields)
+
+        rows_read = plan_row_read(model_cls, fields, transformers)
+        query = optimize_query_filter_fields(query, fields, keep_fields=rows_read.keep_fields if rows_read else None)
 
         for transformer in vtr.get_transformers(PrePaginateViewTransformer, model_cls, transformers):
             query = await transformer.pre_paginate(request, query, transformers_ctx)
@@ -120,13 +123,20 @@ async def list_items_action[M: BaseModel | BaseView](
         query = inject_order_by(query, transformers_ctx.get("order_by"))
 
         total = await query.count()
+        rows: list[dict[str, Any]] | None = None
+
         if limit == 0:
             items = []
         else:
             paged = query.offset(offset)
             if limit is not None:
                 paged = paged.limit(limit)
-            items = await paged.all()
+
+            if rows_read:
+                items = []
+                rows = await rows_read.read(request, paged, transformers_ctx)
+            else:
+                items = await paged.all()
     except InvalidFilterError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except HTTPException:
@@ -140,7 +150,7 @@ async def list_items_action[M: BaseModel | BaseView](
     for transformer in vtr.get_transformers(GetViewsTransformer, model_cls, transformers):
         await transformer.get_views(request, items, transformers_ctx)
 
-    result_items = []
+    result_items: list[Any] = rows if rows is not None else []
 
     for item in items:
         item_dump = await filter_selected_fields(item, fields)

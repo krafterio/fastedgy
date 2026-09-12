@@ -13,6 +13,7 @@ from fastedgy.api_route_model.registry import (
     TypeModel,
     ViewTransformerRegistry,
 )
+from fastedgy.api_route_model.row_read import plan_row_read
 from fastedgy.api_route_model.types import ModelItem
 from fastedgy.api_route_model.view_transformer import (
     BaseViewTransformer,
@@ -83,7 +84,8 @@ async def get_item_action[M: BaseModel | BaseView](
     transformers_ctx: dict[str, Any] | None = None,
 ) -> M | dict[str, Any]:
     query = cast(QuerySet, query or model_cls.query)
-    query = optimize_query_filter_fields(query, fields)
+    row_read = plan_row_read(model_cls, fields, transformers, views=False)
+    query = optimize_query_filter_fields(query, fields, keep_fields=row_read.keep_fields if row_read else None)
     transformers_ctx = transformers_ctx or {}
     vtr = get_service(ViewTransformerRegistry)
 
@@ -93,6 +95,16 @@ async def get_item_action[M: BaseModel | BaseView](
             query = await transformer.pre_load_record(request, query, transformers_ctx)
 
         resolved_id = transformers_ctx.get("item_id", item_id)
+
+        if row_read:
+            transformers_ctx["fields"] = fields
+            reads = await row_read.read(request, query.filter(id=resolved_id).limit(1), transformers_ctx)
+
+            if not reads:
+                raise ObjectNotFound()
+
+            return reads[0]
+
         item = await query.filter(id=resolved_id).get()
 
         return await view_item_action(request, model_cls, item, fields, transformers, transformers_ctx)

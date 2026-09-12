@@ -2,6 +2,7 @@
 # MIT License (see LICENSE file).
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from fastedgy.http import Request
@@ -11,6 +12,33 @@ from fastedgy.schemas import Pagination
 
 if TYPE_CHECKING:
     from fastapi import UploadFile
+
+
+def view_transformer_reads[F: Callable[..., Any]](*fields: str) -> Callable[[F], F]:
+    """Name what a hook reads off the item it receives.
+
+    A read that only reads is answered by its rows, without a model built for
+    each of them. A hook receiving an item is what stands in the way, since
+    nothing can know what it will reach for. Said here, it is handed a view of
+    the row carrying these fields, and the read keeps its speed. Left unsaid,
+    the models are built as they always were: this is an optimisation to opt
+    into, never a declaration to maintain.
+
+        @view_transformer_reads("id")
+        async def get_view(self, request, item, item_dump, ctx): ...
+    """
+
+    def mark(hook: F) -> F:
+        hook.__view_transformer_reads__ = tuple(fields)  # type: ignore[attr-defined]
+
+        return hook
+
+    return mark
+
+
+def view_transformer_reads_of(transformer: Any, hook: str) -> tuple[str, ...] | None:
+    """What that hook said it reads, or None when it said nothing."""
+    return getattr(getattr(transformer, hook, None), "__view_transformer_reads__", None)
 
 
 class BaseViewTransformer(ABC):
@@ -268,6 +296,8 @@ class PostImportTransformer(BaseViewTransformer):
 
 __all__ = [
     "BaseViewTransformer",
+    "view_transformer_reads",
+    "view_transformer_reads_of",
     "GetViewTransformer",
     "GetViewsTransformer",
     "PostDeleteTransformer",

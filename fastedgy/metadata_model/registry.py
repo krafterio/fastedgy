@@ -15,21 +15,35 @@ TypeMapMetadataModels = dict[str, MetadataModel]
 
 class MetadataModelRegistry:
     def __init__(self):
-        self._models: TypeMetadataModels = {}
+        self._model_classes: list[type[BaseModel | BaseView]] = []
+        self._models_by_locale: dict[str, TypeMetadataModels] = {}
         self._map_names: dict[str, type[BaseModel | BaseView]] = {}
         self._lazy_models: list[type[BaseModel | BaseView]] = []
 
-    async def load_models(self) -> None:
-        if not self._lazy_models:
-            return
+    async def load_models(self) -> TypeMetadataModels:
+        from fastedgy.context import get_locale
 
-        for model_cls in self._lazy_models:
-            self._models[model_cls] = await generate_metadata_model(model_cls)
-            self._map_names[str(model_cls.meta.tablename)] = model_cls
-            self._map_names[self._models[model_cls].name] = model_cls
+        if self._lazy_models:
+            self._model_classes.extend(self._lazy_models)
+            self._lazy_models = []
+            self._models_by_locale = {}
 
-        self._lazy_models = []
-        add_inverse_relations(self._models)
+        # Labels are rendered while the metadata is generated, so each locale needs its own copy.
+        locale = get_locale()
+        models = self._models_by_locale.get(locale)
+
+        if models is None:
+            models = {}
+
+            for model_cls in self._model_classes:
+                models[model_cls] = await generate_metadata_model(model_cls)
+                self._map_names[str(model_cls.meta.tablename)] = model_cls
+                self._map_names[models[model_cls].name] = model_cls
+
+            add_inverse_relations(models)
+            self._models_by_locale[locale] = models
+
+        return models
 
     def register_model(self, model_cls: type[BaseModel | BaseView]):
         """
@@ -39,9 +53,7 @@ class MetadataModelRegistry:
 
     async def get_models(self) -> TypeMetadataModels:
         """Get all registered models with their options."""
-        await self.load_models()
-
-        return self._models
+        return await self.load_models()
 
     async def get_map_models(self) -> TypeMapMetadataModels:
         """Get all registered models with their options."""
@@ -57,7 +69,7 @@ class MetadataModelRegistry:
 
     async def is_registered(self, model_cls: type[BaseModel | BaseView] | str) -> bool:
         """Check if a model is registered for metadata."""
-        await self.load_models()
+        models = await self.load_models()
 
         if isinstance(model_cls, str):
             if model_cls not in self._map_names:
@@ -65,7 +77,7 @@ class MetadataModelRegistry:
 
             model_cls = self._map_names[model_cls]
 
-        return model_cls in self._models
+        return model_cls in models
 
     async def get_metadata(self, model_cls: type[BaseModel | BaseView] | str) -> MetadataModel:
         """
@@ -78,7 +90,7 @@ class MetadataModelRegistry:
             if isinstance(model_cls, str):
                 model_cls = self._map_names[model_cls]
 
-            return apply_workspace_extra_fields(self._models[model_cls])
+            return apply_workspace_extra_fields((await self.load_models())[model_cls])
 
         raise ValueError(f"Model {model_cls!s} not found in metadata registry")
 
@@ -99,7 +111,7 @@ class MetadataModelRegistry:
         if model is not None:
             return model
 
-        for model, model_metadata in self._models.items():
+        for model, model_metadata in (await self.load_models()).items():
             if metadata == model_metadata:
                 return model
 

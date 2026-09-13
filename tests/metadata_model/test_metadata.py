@@ -6,6 +6,7 @@ import pytest
 from fastedgy.app import FastEdgy
 from fastedgy.dependencies import get_service
 from fastedgy.metadata_model import MetadataModelRegistry
+from fastedgy.test.factories import use_request
 
 
 async def test_get_metadata_describes_a_model(setup_db: FastEdgy) -> None:
@@ -23,6 +24,16 @@ async def test_get_map_models_includes_registered_models(setup_db: FastEdgy) -> 
 
     assert "product" in models
     assert "user" in models
+
+
+async def test_labels_follow_the_request_locale(setup_db: FastEdgy) -> None:
+    registry = get_service(MetadataModelRegistry)
+
+    with use_request(locale="fr"):
+        assert (await registry.get_metadata("user")).label == "Utilisateur"
+
+    with use_request(locale="en"):
+        assert (await registry.get_metadata("user")).label == "User"
 
 
 async def test_is_registered(setup_db: FastEdgy) -> None:

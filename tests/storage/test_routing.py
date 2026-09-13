@@ -21,7 +21,8 @@ async def gf_article_metadata(setup_db: FastEdgy) -> AsyncIterator[None]:
     yield
 
     registry._lazy_models = [m for m in registry._lazy_models if m is not GfArticle]
-    registry._models.pop(GfArticle, None)
+    registry._model_classes = [m for m in registry._model_classes if m is not GfArticle]
+    registry._models_by_locale = {}
     registry._map_names = {k: v for k, v in registry._map_names.items() if v is not GfArticle}
 
 

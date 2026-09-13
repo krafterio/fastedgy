@@ -359,6 +359,26 @@ def pop_extra_field_values(model_cls: Any, data: dict[str, Any]) -> dict[str, An
     return values
 
 
+def complete_extra_field_values(model_cls: Any, values: dict[str, Any]) -> dict[str, Any]:
+    """The extra values a new record is created with.
+
+    What the payload left empty takes the declared default, and a required
+    field still empty is refused: an update only checks the keys it carries,
+    so creation is the one moment a missing value can be caught."""
+    from fastedgy.i18n import _t
+
+    completed = dict(values)
+
+    for name, declared in declared_extra_fields(model_cls).items():
+        if completed.get(name) is None and getattr(declared, "default_value", None) is not None:
+            completed[name] = declared.default_value
+
+        if completed.get(name) is None and getattr(declared, "required", False):
+            _refuse(f"{EXTRA_FIELD_PREFIX}{name}", _t("a value"))
+
+    return completed
+
+
 def merge_extra_field_values(current: Any, values: dict[str, Any]) -> dict[str, Any]:
     return {**(current or {}), **values}
 
@@ -366,6 +386,7 @@ def merge_extra_field_values(current: Any, values: dict[str, Any]) -> dict[str, 
 __all__ = [
     "EXTRA_FIELD_PREFIX",
     "check_extra_value",
+    "complete_extra_field_values",
     "declared_extra_fields",
     "extendable_models",
     "extra_field_column",

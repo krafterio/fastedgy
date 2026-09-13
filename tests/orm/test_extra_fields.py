@@ -384,6 +384,71 @@ async def test_dropping_an_option_takes_it_off_the_records(setup_db: FastEdgy) -
     assert (await Product.query.filter(name="Alpha").get()).extra == {"stage": None}
 
 
+async def test_a_record_created_without_a_value_takes_the_default(setup_db: FastEdgy) -> None:
+    with use_request() as request:
+        context.set_workspace_extra_fields(
+            [
+                WorkspaceExtraField(
+                    label="Stage",
+                    name="stage",
+                    field_type=WorkspaceExtraFieldType.choice,
+                    model=WorkspaceExtraFieldModel.product,
+                    options=["Seed", "Series A"],
+                    default_value="Seed",
+                )
+            ]
+        )
+        create_model = generate_input_create_model(Product)
+
+        await create_item_action(request, Product, create_model(name="Alpha", price=Decimal("1.00")))
+        await create_item_action(
+            request, Product, create_model(name="Beta", price=Decimal("1.00"), extra_stage="Series A")
+        )
+
+        assert (await Product.query.filter(name="Alpha").get()).extra == {"stage": "Seed"}
+        assert (await Product.query.filter(name="Beta").get()).extra == {"stage": "Series A"}
+
+
+async def test_a_required_field_left_out_of_a_creation_is_refused(setup_db: FastEdgy) -> None:
+    with use_request() as request:
+        field = _extra_field("owner", WorkspaceExtraFieldType.char)
+        field.required = True
+        context.set_workspace_extra_fields([field])
+
+        with pytest.raises(HTTPException) as raised:
+            await create_item_action(
+                request, Product, generate_input_create_model(Product)(name="Alpha", price=Decimal("1.00"))
+            )
+
+        assert raised.value.status_code == 422
+        assert "extra_owner" in str(raised.value.detail)
+
+
+async def test_a_default_the_field_would_refuse_is_refused(setup_db: FastEdgy) -> None:
+    workspace = await create_workspace(slug="acme", name="Acme")
+
+    with pytest.raises(HTTPException) as raised:
+        await _stored_field(workspace, "stage", WorkspaceExtraFieldType.choice, options=["Seed"], default_value="Exit")
+
+    assert raised.value.status_code == 422
+
+    with pytest.raises(HTTPException):
+        await _stored_field(workspace, "priority", WorkspaceExtraFieldType.integer, default_value="high")
+
+
+async def test_dropping_the_default_option_drops_the_default(setup_db: FastEdgy) -> None:
+    workspace = await create_workspace(slug="acme", name="Acme")
+    field = await _stored_field(
+        workspace, "stage", WorkspaceExtraFieldType.choice, options=["Seed", "Series A"], default_value="Seed"
+    )
+
+    field.workspace = workspace
+    field.options = ["Series A"]
+    await field.save()
+
+    assert (await WorkspaceExtraField.global_query.filter(id=field.id).get()).default_value is None
+
+
 async def test_deleting_a_field_takes_its_values_off_the_records(setup_db: FastEdgy) -> None:
     workspace = await create_workspace(slug="acme", name="Acme")
     field = await _stored_field(workspace, "priority", WorkspaceExtraFieldType.integer)

@@ -145,6 +145,14 @@ class BaseWorkspaceExtraField(BaseModel, WorkspaceableMixin):
         ),
     )
 
+    default_value: Any = fields.JSONField(
+        null=True,
+        label=_ts("Default value"),
+        help_text=_ts(
+            "The value a record is created with when none is given. Records that already exist are left as they are."
+        ),
+    )
+
     def option_values(self) -> list[str]:
         return [option_value(option) for option in (getattr(self, "options", None) or [])]
 
@@ -172,6 +180,8 @@ class BaseWorkspaceExtraField(BaseModel, WorkspaceableMixin):
         # before this rule, or nobody could ever rename a field again.
         if changed:
             self._check_options()
+
+        self._check_default_value(stored)
 
         if stored is not None and changed:
             await self._forget_dropped_options(stored)
@@ -260,6 +270,37 @@ class BaseWorkspaceExtraField(BaseModel, WorkspaceableMixin):
 
         if colored and plain:
             _refuse_options(label, _t("a colour on all of them or on none: {value} has none", value=plain[0]))
+
+    def _check_default_value(self, stored: Any) -> None:
+        """Refuse a default the field would refuse on a record, once here rather
+        than on every creation relying on it.
+
+        A default that was valid and whose value just left the list goes with
+        it, as the records carrying that value do."""
+        from fastedgy.orm.extra_fields import check_extra_value
+
+        # Read from what is loaded: touching an unloaded attribute reloads the
+        # whole row, and would put back the options this save is changing.
+        default = self.__dict__.get("default_value")
+
+        if default is None and stored is not None:
+            default = getattr(stored, "default_value", None)
+
+        if default is None:
+            return
+
+        dropped = (
+            getattr(self, "field_type", None) == WorkspaceExtraFieldType.choice
+            and getattr(stored, "default_value", None) == default
+            and default not in self.option_values()
+        )
+
+        if dropped:
+            self.default_value = None
+
+            return
+
+        check_extra_value(self, str(getattr(self, "label", None) or getattr(self, "name", None) or ""), default)
 
     async def _forget_dropped_options(self, stored: Any) -> None:
         """Take off the records a value the workspace just dropped from the field.

@@ -95,7 +95,11 @@ async def create_item_action[M: BaseModel | BaseView](
     transformers_ctx = transformers_ctx or {}
     transformers_ctx["fields"] = fields
 
-    from fastedgy.orm.extra_fields import merge_extra_field_values, pop_extra_field_values
+    from fastedgy.orm.extra_fields import (
+        complete_extra_field_values,
+        merge_extra_field_values,
+        pop_extra_field_values,
+    )
     from fastedgy.orm.fields import validate_generic_reference_payload
 
     try:
@@ -122,7 +126,7 @@ async def create_item_action[M: BaseModel | BaseView](
             else:
                 scalar_data[key] = value
 
-        extra_values = pop_extra_field_values(model_cls, scalar_data)
+        extra_values = complete_extra_field_values(model_cls, pop_extra_field_values(model_cls, scalar_data))
 
         if extra_values:
             scalar_data["extra"] = merge_extra_field_values(None, extra_values)

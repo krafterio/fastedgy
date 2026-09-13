@@ -612,6 +612,12 @@ msgstr "au moins une valeur"
 msgid "Values"
 msgstr "Valeurs"
 
+msgid "Default value"
+msgstr "Valeur par défaut"
+
+msgid "The value a record is created with when none is given. Records that already exist are left as they are."
+msgstr "La valeur que prend une fiche créée sans en préciser. Les fiches existantes restent telles quelles."
+
 #, python-brace-format
 msgid "one of these values: {values}"
 msgstr "l'une de ces valeurs : {values}"

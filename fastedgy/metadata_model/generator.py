@@ -2,6 +2,7 @@
 # MIT License (see LICENSE file).
 
 import re
+from enum import Enum
 from typing import Any, cast
 
 from fastedgy import context
@@ -204,6 +205,7 @@ def apply_workspace_extra_fields(metadata: MetadataModel, declared: list[Any] | 
             filter_operators=get_filter_operators_for_extra_field(field_type),
             target=None,
             choices=extra_field.metadata_choices(),
+            default=getattr(extra_field, "default_value", None),
         )
 
     return metadata.model_copy(update={"fields": fields})
@@ -240,6 +242,17 @@ def get_field_choices(field: BaseFieldType) -> dict[str, str] | None:
 
     # Fallback for standard edgy ChoiceField (enum without custom labels)
     return {member.name: str(member.value) for member in choices}
+
+
+def get_field_default(field: BaseFieldType) -> Any:
+    """The static default of a field, a choice by its member name. A callable
+    default is computed on save, so it has no value to give ahead of it."""
+    default = field.default
+
+    if default is None or default == PydanticUndefined or callable(default):
+        return None
+
+    return default.name if isinstance(default, Enum) else default
 
 
 def generate_metadata_field_type(field: BaseFieldType) -> str:
@@ -299,6 +312,7 @@ def generate_metadata_field(model_cls: type[Model], field: BaseFieldType) -> Met
         target=generate_metadata_name(target_model) if target_model else None,
         targets=targets,
         choices=get_field_choices(field),
+        default=get_field_default(field),
         local_placeholder=str(local_placeholder) if local_placeholder is not None else None,
     )
 

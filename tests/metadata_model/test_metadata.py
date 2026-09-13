@@ -87,6 +87,24 @@ async def test_local_placeholder_is_exposed_on_the_field(setup_db: FastEdgy) -> 
     assert metadata.fields["subject"].local_placeholder is None
 
 
+async def test_a_static_default_is_exposed_on_the_field(setup_db: FastEdgy) -> None:
+    fields = (await get_service(MetadataModelRegistry).get_metadata("product")).fields
+
+    assert fields["is_active"].default is True
+    assert fields["quantity"].default == 0
+    assert fields["name"].default is None
+
+
+async def test_a_computed_default_is_not_exposed() -> None:
+    from types import SimpleNamespace
+    from typing import Any, cast
+
+    from fastedgy.metadata_model.generator import get_field_default
+
+    # Computed on save: there is no value to give ahead of it.
+    assert get_field_default(cast(Any, SimpleNamespace(default=lambda: 1))) is None
+
+
 async def test_invalid_sync_mode_is_rejected() -> None:
     from fastedgy.api_route_model.actions.sync_action import validate_sync_mode
 

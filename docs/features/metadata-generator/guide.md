@@ -30,6 +30,7 @@ Each model field produces metadata with:
 - **type**: Metadata field type (string, integer, boolean, etc.)
 - **readonly**: Whether field can be modified
 - **required**: Whether field is mandatory
+- **default**: The value a new record starts with, for a workspace extra field that declares one
 - **searchable**: Whether field can be filtered
 - **filter_operators**: Available query operators
 - **target**: Related model name for relationships

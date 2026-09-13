@@ -279,6 +279,20 @@ async def test_metadata_carries_the_choices_a_field_declares(setup_db: FastEdgy,
         assert metadata.fields["extra_owner"].choices is None
 
 
+async def test_metadata_carries_the_default_a_field_declares(setup_db: FastEdgy) -> None:
+    """A form fills a new record from the metadata alone, without reading the
+    extra fields themselves."""
+    stage = _extra_field("stage", WorkspaceExtraFieldType.char)
+    stage.default_value = "Seed"
+
+    with use_request():
+        context.set_workspace_extra_fields([stage, _extra_field("owner", WorkspaceExtraFieldType.char)])
+        metadata = await get_service(MetadataModelRegistry).get_metadata("product")
+
+        assert metadata.fields["extra_stage"].default == "Seed"
+        assert metadata.fields["extra_owner"].default is None
+
+
 async def _stored_field(workspace, name: str, field_type: WorkspaceExtraFieldType, **extra) -> WorkspaceExtraField:
     field = WorkspaceExtraField(
         label=name.title(),

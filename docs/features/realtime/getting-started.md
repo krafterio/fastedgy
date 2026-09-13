@@ -96,6 +96,22 @@ useRealtime();
 useResourceChanged('company', () => reload());
 ```
 
+In a Flutter application, `flutter_fastedgy` holds the socket once asked to, and a holder
+follows what it holds:
+
+```dart
+await initializeFastEdgy(realtime: true);
+
+// Whenever the workspace being read changes
+getService<RealtimeSocket>().watch(workspaceSlug);
+
+// A list or a record keeps itself current
+final companies = ApiCollection(CompanyApi(), fields: ['id', 'name']);
+
+// Or a listener of its own, cancelled with its screen
+final watch = watchResource(CompanyApi(), (event) => reload());
+```
+
 See [Vue.js / Realtime](../../vue/realtime/guide.md) for the composables, and
 [Technical Details](technical.md#the-socket-protocol) for the raw protocol if you connect
 from something else.

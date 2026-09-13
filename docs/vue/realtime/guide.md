@@ -13,18 +13,24 @@ useRealtime();
 ```
 
 It opens the socket when an account is signed in, points it at the workspace being read, and
-closes it on sign-out. The workspace comes from `useWorkspaceStore()`, which the router keeps
-on the one in the URL.
+closes it on sign-out. `useRealtime()` takes no argument: whatever knows the workspace announces it
+on the bus under `REALTIME_SOURCE`, as a ref or a getter the socket follows.
+`useWorkspaceStore()` does so for itself, so an application built on it has nothing to write.
 
-A page with no workspace (an onboarding, an auth screen) has nothing to listen to: the socket
-waits rather than opening on nothing.
+A page with no workspace (an onboarding, an auth screen) still opens the socket, on no workspace:
+what is addressed to the account reaches it, and the workspace is told to the server once one is
+named.
 
-An application that names its workspace another way passes its own source:
+An application that names its workspace another way announces its own source, from the
+application shell:
 
 ```javascript
 import { useRoute } from 'vue-router';
+import { bus, REALTIME_SOURCE } from 'vue-fastedgy';
 
-useRealtime(() => useRoute().params.workspace ?? null);
+const route = useRoute();
+
+bus.trigger(REALTIME_SOURCE, { source: () => route.params.workspace ?? null });
 ```
 
 A closed socket is reopened, later each time up to 30 seconds, so a tab left open through a
@@ -57,7 +63,7 @@ const { data: company, status, error, isDeleted, refresh } = useApiRecord(
 | `data` | The record, or `null` before the first read and after it is deleted. |
 | `status` | `idle` / `loading` / `success` / `error`. |
 | `error` | The failure of a read the user asked for. A silent refresh that fails leaves it alone. |
-| `isDeleted` | `true` once the record was deleted anywhere. The screen can close itself. |
+| `isDeleted` | `true` once the record was deleted anywhere, or a silent re-read finds it gone. The screen can close itself. |
 | `refresh()` | Read again, with the loading state. |
 
 It re-reads itself **silently** when the record is updated anywhere, keeping the previous
@@ -108,6 +114,10 @@ A create or a delete always counts: a row appearing or going changes a list what
 columns are. And an update that did not say what it moved counts too, an event that says
 nothing meaning everything.
 
+A custom field counts for the column that stores it. The server announces an update of `extra`,
+which reaches a view reading `extra_priority`, and a write of `extra_priority` reaches a view
+reading `extra`. Two different custom fields do not touch.
+
 ## Holding a record's neighbours
 
 A detail screen opened from a list steps to the previous and the next record of that list. It
@@ -151,7 +161,7 @@ useResourceChanged('company', (change) => apply(change), { refreshDelay: 0 });
 The handler receives what is known about the change:
 
 ```javascript
-{ model: 'company', id: 42, action: 'updated', changed: ['name'], origin: null, truncated: false }
+{ model: 'company', id: 42, action: 'updated', changed: ['name'], origin: null, truncated: false, announced: true }
 ```
 
 Events carry identifiers only: read the record back through the API rather than trusting
@@ -163,7 +173,7 @@ The handler is also called with `action: 'reconnected'` and no id when the socke
 
 ```javascript
 useResourceChanged('company', ({ action }) => {
-    // 'created' | 'updated' | 'deleted' | 'reconnected'
+    // 'created' | 'updated' | 'deleted' | 'reconnected' | 'stale'
     reload();
 });
 ```
@@ -171,6 +181,18 @@ useResourceChanged('company', ({ action }) => {
 Nothing is replayed. What happened while the socket was down was said to nobody, so the view
 has to read again to stop showing a stale screen. That call is never held back by the
 debounce. The holders do this for you.
+
+### A tab in the background
+
+While the document is hidden, the handler is not called. What came meanwhile, a reconnection
+included, is owed as one call when the tab shows again:
+
+```javascript
+{ model: 'company', id: null, action: 'stale', changed: null, origin: null, truncated: true, data: null }
+```
+
+A read a view had already scheduled when the tab hid still happens. `useRealtimeEvent` is never
+held: an application's own event is for the application to judge.
 
 ## Your own writes
 
@@ -191,8 +213,15 @@ away, whether or not the socket is connected.
 ### Why it does not fire twice
 
 Every request is stamped with an `X-Origin-Id` naming this instance of the application, for
-the life of this page. The server hands it back on the announcement of that write, and the
-socket drops a frame carrying our own: the local event already said it.
+the life of this page, and a write of `useApiModel` stamps an origin of its own,
+`<originId>.<n>`. The server hands it back on every announcement that request caused, and the
+socket drops the one frame about the record the local event already named.
+
+Everything else is delivered: what a signal wrote on another record while serving the request,
+posting a message subscribing its author for one, and a write through `action()` or a route of
+your own. Such a frame carries `origin: originId` and `announced: true`, so a view that skips
+its own writes with `origin === originId` still does, and one that wants to tell a local event
+from an announcement tests `announced`.
 
 An announcement with no origin, or with somebody else's, is delivered normally. An agent
 writing through the MCP server sends none, so its writes always reach every client.

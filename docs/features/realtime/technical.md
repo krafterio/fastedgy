@@ -99,14 +99,17 @@ which lets it reconnect and lets everyone else hear the event now.
 
 ## The socket protocol
 
-For a client other than `vue-fastedgy`. Everything is JSON, `{"type": ..., "data": {...}}`.
+The contract any client is written against, `vue-fastedgy` and `flutter_fastedgy` included.
+Everything is JSON,
+`{"type": ..., "data": {...}}`. The socket is not in the OpenAPI document, which describes HTTP
+routes only: this section is its specification.
 
 ### Client to server
 
 | Type | Data | Meaning |
 |------|------|---------|
-| `authenticate` | `{token, workspace}` | **First frame, required.** A session JWT or a personal API key, and the workspace slug being read. |
-| `watch` | `{workspace}` | This tab now reads another workspace. Its subscriptions go with the old one. |
+| `authenticate` | `{token, scope}` | **First frame, required.** A session access JWT or a personal API key, and the slug of the workspace being read, or `null`. |
+| `watch` | `{scope}` | The client now reads another workspace. The subscriptions made on the one it leaves are dropped. |
 | `subscribe` | `{channels: [...]}` | Hear about these. `company` for a list, `company:42` for a record. |
 | `unsubscribe` | `{channels: [...]}` | Stop hearing about these. |
 | `heartbeat` | | Ignored, for a client that wants to keep the flow warm. |
@@ -114,14 +117,58 @@ For a client other than `vue-fastedgy`. Everything is JSON, `{"type": ..., "data
 A browser cannot set headers on a WebSocket handshake, which is why the bearer arrives as the
 first frame. An unauthenticated socket is held open for 30 seconds and then closed.
 
+What the table does not say:
+
+- `workspace` is still read where `scope` is absent, for clients built before the rename.
+- `subscribe` and `unsubscribe` also take a single `{channel: "company"}`.
+- A channel whose model is not declared with `@realtime_model` is dropped without a word, so a
+  client subscribes without knowing which models announce.
+- `authenticate` refuses a workspace the account is not a member of. `watch` does not refuse it:
+  the socket is left on no workspace at all.
+- A `watch` that moves to another workspace drops every subscription, and a subscription made on
+  no workspace reaches nothing until then. A client says its channels again after each `watch` it
+  sends and after each `auth_success`. A `watch` naming the workspace already read changes nothing.
+- A frame that is not JSON closes the socket. Any other type is ignored.
+
 ### Server to client
 
 | Type | Meaning |
 |------|---------|
-| `auth_success` | `{user_id, workspace}`. The socket may stay. |
-| `auth_error` | `{message}`, followed by a close with code 1008. A refused token does not fix itself: reconnecting with the same one is pointless. |
+| `auth_success` | `{user_id, scope}`. The socket may stay. |
+| `auth_error` | `{message}`, followed by a close with code 1008. |
 | `<model>.<action>` | A record moved. `data` is `{model, id, ...declared fields}`, with `changed`, `origin` and `truncated` beside it. |
 | anything else | Whatever the application published for itself. |
+
+A refusal names its reason: `Authentication timeout`, `Invalid authentication format`, `Invalid
+authentication message`, `Invalid authentication token`, `Scope not found`. None of them fixes
+itself, so a client does not send the same frame again.
+
+An event travels on the channels of its record and of the records it hangs off, but the frame does
+not say which channel carried it: a client dispatches it by the model it names. A
+`contact.created` reaching a client whose only subscription is `company:42` is still a `contact`
+event.
+
+### Recognising its own writes
+
+A request carries `X-Origin-Id`, and every announcement it causes carries the value back as
+`origin`, a signal's writes included. A client that stamps a write with an origin of its own,
+`<instance>.<n>`, and remembers the record that write names, drops the one frame that echoes it
+and hears the rest: what a signal wrote on another record while serving the request is news to
+the writer too. `vue-fastedgy` does so for the writes of `useApiModel`, `flutter_fastedgy` for
+those of `ApiModel`.
+
+### A native client
+
+| | Browser (`vue-fastedgy`) | Native (`flutter_fastedgy`) |
+|-|--------------------------|-----------------------------|
+| Liveness | a `heartbeat` frame every 30 seconds | a WebSocket ping every 30 seconds, which the server answers; a missing pong closes the socket |
+| Handshake headers | none of its own | `User-Agent` |
+| Token | refreshed first when expired | validated again at every opening |
+| In the background | the tab keeps its socket | closed after 20 seconds, opened again on resume |
+| Network change | the browser reports the close | connectivity coming back opens it at once |
+
+A ping rather than a `heartbeat` frame keeps an idle flow warm the same way, and also detects a
+socket that died without a close, which is what a phone switching networks leaves behind.
 
 Nothing a client sends changes anything in the database. Reads are what the rest of the API is
 for; this carries announcements.

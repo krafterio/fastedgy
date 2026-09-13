@@ -76,11 +76,9 @@ from rich_click import echo_via_pager as echo_via_pager
 from rich_click import edit as edit
 from rich_click import format_filename as format_filename
 from rich_click import get_app_dir as get_app_dir
-from rich_click import get_binary_stream as get_binary_stream
 
 # Click Globals
 from rich_click import get_current_context as get_current_context
-from rich_click import get_text_stream as get_text_stream
 from rich_click import getchar as getchar
 from rich_click import help_option as help_option
 from rich_click import launch as launch
@@ -686,8 +684,6 @@ __all__ = [
     "echo",
     "format_filename",
     "get_app_dir",
-    "get_binary_stream",
-    "get_text_stream",
     "open_file",
     # Custom
     "CliContext",

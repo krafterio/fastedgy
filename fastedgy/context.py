@@ -7,8 +7,6 @@ from contextvars import ContextVar, Token
 from typing import TYPE_CHECKING, Any
 from zoneinfo import ZoneInfo
 
-from fastedgy.timezone import get_timezone_info
-
 if TYPE_CHECKING:
     from fastedgy.http import Request
     from fastedgy.models.user import BaseUser as User
@@ -50,6 +48,8 @@ def get_timezone() -> ZoneInfo:
 
     if req and hasattr(req.state, "timezone"):
         return req.state.timezone
+
+    from fastedgy.timezone import get_timezone_info
 
     return get_timezone_info()
 

@@ -181,9 +181,9 @@ class BaseSettings(PydanticBaseSettings):
     strict_password_hash: bool = False
 
     # Realtime
-    # The Postgres channel workspace events travel on. A worker listens on this
-    # one for what belongs to no workspace, and on `<channel>_<workspace id>`
-    # for each workspace it actually holds a socket for.
+    # The Postgres channel events travel on. A worker listens on this one for
+    # what belongs to no scope, and on `<channel>_<scope id>` for each scope it
+    # actually holds a socket for.
     realtime_channel: str = "fastedgy_realtime"
     # Seconds an unauthenticated socket is held open. A browser cannot set
     # headers on a WebSocket handshake, so the bearer arrives as the first
@@ -193,6 +193,25 @@ class BaseSettings(PydanticBaseSettings):
     # client that cannot take a frame in this long is not reading: dropping it
     # lets it reconnect, and lets everyone else hear the event now.
     realtime_send_timeout: float = 5.0
+    # Seconds between two checks of what a socket was let in with. A bearer
+    # expires or is revoked, an account goes, a membership ends: none of it
+    # reaches a socket already open. Its bearer is resolved again, and a socket
+    # it no longer stands for is refused; its scope is resolved again, and one
+    # the account lost is left.
+    realtime_recheck_interval: float = 60.0
+    # Channels one socket may hold. A client subscribes to what its views read,
+    # a few dozen at most: past this, what it asks for is ignored rather than
+    # held in memory.
+    realtime_max_channels: int = 1000
+    # Characters a client frame may hold. A client sends a bearer, a scope and
+    # channel names: a heavier frame closes its socket before it is parsed.
+    realtime_max_frame_size: int = 65_536
+    # Frames a socket may send in any ten seconds. A client speaks when a view
+    # changes what it reads: one sending more closes its socket, and reconnects.
+    realtime_frame_limit: int = 200
+    # Sockets one account may hold on a worker. A person opens a tab or two, an
+    # agent a socket: one more past this is refused.
+    realtime_max_sockets_per_user: int = 20
     # Concurrent consumers draining the NOTIFY queue, so one slow delivery does
     # not hold the rest behind it.
     realtime_consumer_pool_size: int = 4

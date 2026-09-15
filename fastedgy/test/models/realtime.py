@@ -7,15 +7,18 @@ Their own models rather than the shared ones: a decorated model announces every
 write, and the rest of the suite should not pay a NOTIFY for writing a product.
 """
 
+from fastedgy import context
 from fastedgy.models.base import BaseModel
-from fastedgy.models.mixins import WorkspaceableMixin
+from fastedgy.models.mixins import WorkspaceableMixin, WorkspaceShareableMemberMixin, WorkspaceShareableMixin
 from fastedgy.orm import fields
+from fastedgy.orm.filter import R, global_filter
+from fastedgy.orm.workspace_shareable import workspace_shareable_via
 from fastedgy.realtime import realtime_model
 
 
 @realtime_model()
 class RtRecord(BaseModel, WorkspaceableMixin):
-    """The plain case: a workspace-owned record, all three actions announced."""
+    """The plain case: a record owned by a scope, all three actions announced."""
 
     name = fields.CharField(max_length=200)
 
@@ -62,9 +65,92 @@ class RtOwned(BaseModel, WorkspaceableMixin):
         tablename = "test_rt_owned"
 
 
+@realtime_model(user_field="members.user")
+class RtThread(BaseModel):
+    name = fields.CharField(max_length=200, null=True)
+
+    class Meta(BaseModel.Meta):
+        tablename = "test_rt_threads"
+
+
+class RtMember(BaseModel):
+    thread = fields.ForeignKey(RtThread, on_delete="CASCADE", related_name="members")
+    user = fields.ForeignKey("User", on_delete="CASCADE", related_name=False)
+
+    class Meta(BaseModel.Meta):
+        tablename = "test_rt_members"
+
+
+@realtime_model(user_field="thread.members.user", fields=["thread"], relations=["thread"])
+class RtPost(BaseModel):
+    body = fields.CharField(max_length=200, null=True)
+    thread = fields.ForeignKey(RtThread, on_delete="CASCADE", related_name="posts")
+
+    class Meta(BaseModel.Meta):
+        tablename = "test_rt_posts"
+
+
+@realtime_model(user_field="post.thread.members.user", fields=["post"])
+class RtReaction(BaseModel):
+    emoji = fields.CharField(max_length=20, null=True)
+    post = fields.ForeignKey(RtPost, on_delete="CASCADE", related_name="reactions")
+
+    class Meta(BaseModel.Meta):
+        tablename = "test_rt_reactions"
+
+
+@global_filter(lambda: R("owner", "=", context.get_user_id()), apply=lambda model: context.get_user() is not None)
+@realtime_model()
+class RtSecret(BaseModel, WorkspaceableMixin):
+    """Read by its owner alone: what it announces reaches no other member of its scope."""
+
+    label = fields.CharField(max_length=200, null=True)
+    owner = fields.ForeignKey("User", null=True, related_name=False)
+
+    class Meta(BaseModel.Meta, WorkspaceableMixin.Meta):
+        tablename = "test_rt_secrets"
+
+
+class RtProject(BaseModel, WorkspaceableMixin, WorkspaceShareableMixin):
+    """A root shared with members of other scopes, who read its tasks from there."""
+
+    name = fields.CharField(max_length=200, null=True)
+
+    class Meta(BaseModel.Meta, WorkspaceableMixin.Meta):
+        tablename = "test_rt_projects"
+
+
+class RtProjectMember(BaseModel, WorkspaceShareableMemberMixin):
+    project = fields.ForeignKey(RtProject, on_delete="CASCADE", related_name="members")
+    user = fields.ForeignKey("User", on_delete="CASCADE", related_name=False)
+
+    class Meta(BaseModel.Meta):
+        tablename = "test_rt_project_members"
+
+
+@workspace_shareable_via("project")
+@realtime_model(fields=["project"])
+class RtTask(BaseModel, WorkspaceableMixin):
+    """Hangs off a shared project: its members outside the scope hear about it too."""
+
+    label = fields.CharField(max_length=200, null=True)
+    project = fields.ForeignKey(RtProject, null=True, on_delete="CASCADE", related_name="tasks")
+
+    class Meta(BaseModel.Meta, WorkspaceableMixin.Meta):
+        tablename = "test_rt_tasks"
+
+
 __all__ = [
     "RtChild",
+    "RtMember",
     "RtNote",
     "RtOwned",
+    "RtPost",
+    "RtProject",
+    "RtProjectMember",
+    "RtReaction",
     "RtRecord",
+    "RtSecret",
+    "RtTask",
+    "RtThread",
 ]

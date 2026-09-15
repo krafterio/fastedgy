@@ -51,7 +51,7 @@ useResourceChanged('company', () => reload());
 
 ```
 useApiModel('company').update(42, {...})
-  ├─ PATCH /api/{workspace}/companies/42     (stamped X-Origin-Id)
+  ├─ PATCH /api/{scope}/companies/42         (stamped X-Origin-Id)
   └─ resource:changed                        ← immediately, locally
 
 server announces company.updated

@@ -51,21 +51,6 @@ from fastedgy.timezone import setup_timezone
 T = TypeVar("T")
 
 
-async def _start_realtime_broadcaster(enabled: bool):
-    """Start the LISTEN/NOTIFY bridge that carries an announcement from the
-    worker that wrote to the workers holding the sockets, and only when the
-    application asked for realtime."""
-    if not enabled:
-        return None
-
-    from fastedgy.realtime import WebSocketBroadcaster
-
-    broadcaster = get_service(WebSocketBroadcaster)
-    await broadcaster.start()
-
-    return broadcaster
-
-
 async def _start_extra_field_invalidator():
     """Open the channel that keeps every process's copy of the declared fields
     in step, and only where it is worth anything.
@@ -894,10 +879,13 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
                 Whether the application announces its writes over WebSocket.
 
                 Off by default: it costs a LISTEN connection and a pool of
-                consumers per worker, which an application with nothing to
-                announce should not pay. Turned on, `WebSocketManager` and
-                `WebSocketBroadcaster` are registered and the broadcaster is
-                started and stopped with the application.
+                consumers per worker holding sockets, which an application with
+                nothing to announce should not pay. Turned on,
+                `WebSocketManager`, `WebSocketBroadcaster` and `RealtimeAuth`
+                are registered. A worker starts listening with the first socket
+                it takes and stops with the application, so a process that
+                holds none, a queue worker or a command, publishes without ever
+                listening.
 
                 The `/ws` route itself is mounted like every other FastEdgy
                 router, on whichever public router the application builds, and
@@ -1000,10 +988,11 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
         cast("FastEdgy[S]", self)._realtime = realtime
 
         if realtime:
-            from fastedgy.realtime import WebSocketBroadcaster, WebSocketManager
+            from fastedgy.realtime import RealtimeAuth, WebSocketBroadcaster, WebSocketManager
 
             register_service(WebSocketManager)
             register_service(WebSocketBroadcaster)
+            register_service(RealtimeAuth)
 
         register_lazy_models(registry)
 
@@ -1056,15 +1045,19 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
         db = get_service(Database)
         await db.connect()
         invalidator = await _start_extra_field_invalidator()
-        # A socket is held by one worker and the write it must announce is made
-        # in whichever one served the request: the broadcaster is what bridges
-        # them, through LISTEN/NOTIFY, and it needs the database to be up.
-        broadcaster = await _start_realtime_broadcaster(self._realtime)
+
+        if self._realtime:
+            from fastedgy.realtime.revocation import watch_revocations
+
+            watch_revocations()
+
         try:
             yield
         finally:
-            if broadcaster is not None:
-                await broadcaster.stop()
+            if self._realtime:
+                from fastedgy.realtime import WebSocketBroadcaster
+
+                await get_service(WebSocketBroadcaster).stop()
 
             if invalidator is not None:
                 await invalidator.stop()

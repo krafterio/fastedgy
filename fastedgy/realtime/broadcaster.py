@@ -5,10 +5,17 @@ import asyncio
 import json
 import logging
 import socket
+from collections.abc import Collection, Iterable
+from datetime import date, time
 from typing import Any
 
+from fastedgy.bus import Bus
 from fastedgy.config import BaseSettings
+from fastedgy.dependencies import get_service
+from fastedgy.metadata_model.generator import generate_metadata_name
 from fastedgy.orm import Database
+from fastedgy.realtime.auth import RealtimeAuth
+from fastedgy.realtime.events import OnRealtimeDeliveredEvent
 from fastedgy.realtime.manager import WebSocketManager
 
 logger = logging.getLogger("fastedgy.realtime.broadcaster")
@@ -16,6 +23,8 @@ logger = logging.getLogger("fastedgy.realtime.broadcaster")
 # Postgres refuses a NOTIFY payload of 8000 bytes or more. The margin covers the
 # encoding of what is added around the data.
 MAX_PAYLOAD = 7000
+
+MAX_USERS_PER_NOTIFY = 200
 
 
 class WebSocketBroadcaster:
@@ -75,8 +84,16 @@ class WebSocketBroadcaster:
 
         return True
 
+    async def ensure_listening(self, timeout: float = 5.0) -> bool:
+        await self.start()
+
+        return await self.wait_listening(timeout)
+
     async def start(self) -> None:
-        """Start listening. Called from the application lifespan."""
+        """Start listening, unless this process already does."""
+        if self._listener_task is not None:
+            return
+
         self._shutdown.clear()
         self._consumer_tasks = [
             asyncio.create_task(self._consume_notifications()) for _ in range(self._consumer_pool_size)
@@ -87,6 +104,9 @@ class WebSocketBroadcaster:
 
     async def stop(self) -> None:
         """Stop the listener, the supervisor and the consumers."""
+        if self._listener_task is None and self._supervisor_task is None and not self._consumer_tasks:
+            return
+
         self._shutdown.set()
         tasks = [self._supervisor_task, self._listener_task, *self._consumer_tasks]
 
@@ -106,21 +126,21 @@ class WebSocketBroadcaster:
         self._consumer_tasks = []
         logger.info("WebSocket broadcaster stopped")
 
-    def workspace_channel(self, workspace_id: int) -> str:
-        """The PG channel a workspace's events travel on."""
-        return f"{self._channel}_{workspace_id}"
+    def scope_channel(self, scope_id: int) -> str:
+        """The PG channel a scope's events travel on."""
+        return f"{self._channel}_{scope_id}"
 
-    async def follow(self, workspace_id: int | None) -> None:
-        """Start hearing what is published to a workspace.
+    async def follow(self, scope_id: int | None) -> None:
+        """Start hearing what is published to a scope.
 
         Called when this process takes its first socket for one. A worker is
-        woken for the workspaces it serves and for no other, which is what keeps
-        an event from costing something on every worker of the fleet.
+        woken for the scopes it serves and for no other, which is what keeps an
+        event from costing something on every worker of the fleet.
         """
-        if workspace_id is None:
+        if scope_id is None:
             return
 
-        channel = self.workspace_channel(workspace_id)
+        channel = self.scope_channel(scope_id)
 
         if channel in self._followed:
             return
@@ -130,12 +150,12 @@ class WebSocketBroadcaster:
         if self._pg_conn is not None:
             await self._add_listener(self._pg_conn, channel)
 
-    async def unfollow(self, workspace_id: int | None) -> None:
-        """Stop hearing a workspace this process no longer holds a socket for."""
-        if workspace_id is None:
+    async def unfollow(self, scope_id: int | None) -> None:
+        """Stop hearing a scope this process no longer holds a socket for."""
+        if scope_id is None:
             return
 
-        channel = self.workspace_channel(workspace_id)
+        channel = self.scope_channel(scope_id)
 
         if channel not in self._followed:
             return
@@ -145,41 +165,68 @@ class WebSocketBroadcaster:
         if self._pg_conn is not None:
             await self._remove_listener(self._pg_conn, channel)
 
-    async def broadcast_to_workspace(
+    async def broadcast_to_scope(
         self,
-        workspace_id: int,
+        scope_id: int,
         event_type: str,
         data: Any,
         channels: list[str] | None = None,
         meta: dict[str, Any] | None = None,
+        exclude_user_ids: Collection[int] | None = None,
+        about: tuple[type | str, Any] | None = None,
+        audience: Collection[int] | None = None,
     ) -> None:
-        """Announce something to a workspace, on the workers that serve it.
+        """Announce something to a scope, on the workers that serve it.
 
         With [channels], only to the sockets subscribed to one of them. [meta]
         is what is known about the write rather than about the record, and rides
-        beside the event on every frame.
+        beside the event on every frame. [exclude_user_ids] leaves the sockets of
+        these accounts out, the author of the event among them.
+
+        [about] names the record the event is about, as a model (its class or its
+        name) and an id: a worker then asks `RealtimeAuth.audience` who of its
+        sockets may hear it, and a guarded model's rules answer. [audience] is who
+        may hear it when that is known before it goes out, the readers of a record
+        about to be deleted for one: nobody else is asked, or told.
         """
-        await self._publish(
-            {
-                "target": "workspace",
-                "workspace_id": workspace_id,
-                "event_type": event_type,
-                "data": data,
-                "channels": channels,
-                "meta": meta or {},
-            },
-            self.workspace_channel(workspace_id),
-        )
+        payload: dict[str, Any] = {
+            "target": "scope",
+            "scope_id": scope_id,
+            "event_type": event_type,
+            "data": data,
+            "channels": channels,
+            "meta": meta or {},
+        }
+
+        if exclude_user_ids:
+            payload["exclude"] = sorted(exclude_user_ids)
+
+        if about is not None:
+            name = about[0] if isinstance(about[0], str) else generate_metadata_name(about[0])
+            payload["about"] = {"model": name, "id": about[1]}
+
+        if audience is None:
+            await self._publish(payload, self.scope_channel(scope_id))
+
+            return
+
+        ids = sorted(set(audience))
+
+        for start in range(0, len(ids), MAX_USERS_PER_NOTIFY):
+            await self._publish(
+                {**payload, "only": ids[start : start + MAX_USERS_PER_NOTIFY]}, self.scope_channel(scope_id)
+            )
 
     async def broadcast_record(
         self,
-        workspace_id: int,
+        scope_id: int,
         model: str,
         record_id: int,
         action: str,
         extra: dict[str, Any] | None = None,
         related_channels: list[str] | None = None,
         meta: dict[str, Any] | None = None,
+        audience: Collection[int] | None = None,
     ) -> None:
         """Announce a write on one record, to whoever asked about it.
 
@@ -188,14 +235,42 @@ class WebSocketBroadcaster:
         records it hangs off, so a page reading a fragment hears about an
         attachment written into it. [extra] is what the model declared to carry
         alongside the identifiers.
+
+        [audience] is who may hear it, when that is known before it goes out: the
+        members found able to read a record of a guarded model before it was
+        deleted. Without, a worker asks who of its sockets can read the record.
         """
-        await self.broadcast_to_workspace(
-            workspace_id,
+        await self.broadcast_to_scope(
+            scope_id,
             f"{model}.{action}",
             {"model": model, "id": record_id, **(extra or {})},
             channels=[model, f"{model}:{record_id}", *(related_channels or [])],
             meta=meta,
+            about=(model, record_id),
+            audience=audience,
         )
+
+    async def broadcast_to_users(
+        self,
+        user_ids: Iterable[int],
+        event_type: str,
+        data: Any,
+        channels: list[str] | None = None,
+        meta: dict[str, Any] | None = None,
+    ) -> None:
+        ids = sorted(set(user_ids))
+
+        for start in range(0, len(ids), MAX_USERS_PER_NOTIFY):
+            await self._publish(
+                {
+                    "target": "users",
+                    "user_ids": ids[start : start + MAX_USERS_PER_NOTIFY],
+                    "event_type": event_type,
+                    "data": data,
+                    "channels": channels,
+                    "meta": meta or {},
+                }
+            )
 
     async def broadcast_to_user(
         self,
@@ -205,29 +280,29 @@ class WebSocketBroadcaster:
         meta: dict[str, Any] | None = None,
     ) -> None:
         """Announce something to one account, wherever it is connected."""
-        await self._publish(
-            {
-                "target": "user",
-                "user_id": user_id,
-                "event_type": event_type,
-                "data": data,
-                "meta": meta or {},
-            }
-        )
+        await self.broadcast_to_users([user_id], event_type, data, meta=meta)
+
+    async def recheck_users(self, user_ids: Iterable[int]) -> None:
+        """Have the sockets of these accounts, on every worker, check again what
+        they were let in with now rather than at their next round."""
+        ids = sorted(set(user_ids))
+
+        for start in range(0, len(ids), MAX_USERS_PER_NOTIFY):
+            await self._notify(json.dumps({"target": "recheck", "user_ids": ids[start : start + MAX_USERS_PER_NOTIFY]}))
 
     async def _publish(self, payload: dict[str, Any], channel: str | None = None) -> None:
         """Publish, shedding what it must to stay under what NOTIFY accepts.
 
         Postgres refuses a payload of 8000 bytes outright, and the event would
         be lost for everyone. So it goes out with less rather than not at all:
-        first without its data, marked as such, which tells the client to read
-        the record for itself; then, if that is still too much, without the
-        channels that narrow it, which serves the whole workspace instead of
-        exactly the sockets that asked. Over-telling beats a silence nothing
-        recovers from.
+        first without its data but for the model and the id that name a record,
+        marked as such, which tells the client to read the record for itself;
+        then, if that is still too much, without the channels that narrow it,
+        which serves the whole scope instead of exactly the sockets that asked.
+        Over-telling beats a silence nothing recovers from.
         """
         channel = channel or self._channel
-        raw = json.dumps(payload, default=str)
+        raw = json.dumps(payload, default=_encode)
 
         if len(raw.encode()) <= MAX_PAYLOAD:
             await self._notify(raw, channel)
@@ -235,16 +310,20 @@ class WebSocketBroadcaster:
             return
 
         logger.info("Broadcast payload over %d bytes, sent without its data (%s)", MAX_PAYLOAD, payload["event_type"])
-        payload = {**payload, "data": None, "meta": {**payload.get("meta", {}), "truncated": True}}
-        raw = json.dumps(payload, default=str)
+        payload = {
+            **payload,
+            "data": _identity(payload.get("data")),
+            "meta": {**payload.get("meta", {}), "truncated": True},
+        }
+        raw = json.dumps(payload, default=_encode)
 
         if len(raw.encode()) > MAX_PAYLOAD:
             logger.warning(
-                "Broadcast payload still over %d bytes, sent to the whole workspace (%s)",
+                "Broadcast payload still over %d bytes, sent to the whole scope (%s)",
                 MAX_PAYLOAD,
                 payload["event_type"],
             )
-            raw = json.dumps({**payload, "channels": None}, default=str)
+            raw = json.dumps({**payload, "channels": None}, default=_encode)
 
         await self._notify(raw, channel)
 
@@ -283,20 +362,78 @@ class WebSocketBroadcaster:
             return
 
         target = payload.get("target")
+
+        if target == "recheck":
+            self._manager.recheck(payload.get("user_ids") or [])
+
+            return
+
         event_type = payload["event_type"]
         data = payload.get("data")
+        channels = payload.get("channels")
         meta = payload.get("meta") or None
 
-        if target == "workspace":
-            await self._manager.deliver_to_workspace(
-                payload["workspace_id"],
-                event_type,
-                data,
-                payload.get("channels"),
-                meta,
-            )
+        if target == "scope":
+            scope_id = payload["scope_id"]
+            exclude = payload.get("exclude")
+            only = payload.get("only")
+
+            if only is None:
+                only = await self._audience(scope_id, event_type, data, channels, exclude, payload.get("about"))
+
+            delivered = await self._manager.deliver_to_scope(scope_id, event_type, data, channels, meta, exclude, only)
+        elif target == "users":
+            delivered = await self._manager.deliver_to_users(payload["user_ids"], event_type, data, meta)
         elif target == "user":
-            await self._manager.deliver_to_user(payload["user_id"], event_type, data, meta)
+            delivered = await self._manager.deliver_to_user(payload["user_id"], event_type, data, meta)
+        else:
+            return
+
+        await self._report(event_type, data, channels, delivered)
+
+    async def _audience(
+        self,
+        scope_id: int,
+        event_type: str,
+        data: Any,
+        channels: list[str] | None,
+        exclude: Any,
+        about: Any,
+    ) -> Collection[int] | None:
+        """Who of the accounts this process would deliver an event to may hear it,
+        as the application's `RealtimeAuth` says; None when nobody here would."""
+        holders = self._manager.holders(scope_id, channels, exclude)
+
+        if not holders:
+            return None
+
+        auth = get_service(RealtimeAuth)
+
+        if about is None:
+            return await auth.audience(scope_id, event_type, data, holders)
+
+        model_cls = await _model_named(about.get("model")) if isinstance(about, dict) else None
+
+        if model_cls is None or about.get("id") is None:
+            logger.warning("Broadcast about a record it does not name, delivered to nobody (%s)", event_type)
+
+            return set()
+
+        return await auth.audience(scope_id, event_type, data, holders, (model_cls, about["id"]))
+
+    async def _report(self, event_type: str, data: Any, channels: list[str] | None, delivered: set[int]) -> None:
+        if not channels or not delivered:
+            return
+
+        bus = get_service(Bus)
+
+        if not bus.has_listeners(OnRealtimeDeliveredEvent):
+            return
+
+        watchers = self._manager.watchers(delivered, channels)
+
+        if watchers:
+            await bus.dispatch(OnRealtimeDeliveredEvent(event_type, data, watchers))
 
     async def _supervise(self) -> None:
         """Restart the listener, or any consumer, that dies on its own."""
@@ -322,14 +459,14 @@ class WebSocketBroadcaster:
             await self._reconcile_followed()
 
     async def _reconcile_followed(self) -> None:
-        """Listen to exactly the workspaces this process holds a socket for.
+        """Listen to exactly the scopes this process holds a socket for.
 
         The endpoint says so as sockets come and go, and this is what heals a
         drift: a follow that happened while the connection was down, a socket
-        dropped from under a delivery. A worker deaf to a workspace it serves
-        would say nothing about it, which is the failure nobody would notice.
+        dropped from under a delivery. A worker deaf to a scope it serves would
+        say nothing about it, which is the failure nobody would notice.
         """
-        held = {self.workspace_channel(workspace_id) for workspace_id in self._manager.workspaces()}
+        held = {self.scope_channel(scope_id) for scope_id in self._manager.scopes()}
         stale = self._followed - held
 
         for channel in stale:
@@ -360,7 +497,6 @@ class WebSocketBroadcaster:
                 if self._shutdown.is_set():
                     break
 
-                from fastedgy.dependencies import get_service
                 from fastedgy.health import Health
 
                 failures += 1
@@ -416,7 +552,7 @@ class WebSocketBroadcaster:
 
             self._pg_conn = pg_conn
             self._listening.set()
-            logger.info("Listening on PG channel '%s' and %d workspaces", self._channel, len(self._followed))
+            logger.info("Listening on PG channel '%s' and %d scopes", self._channel, len(self._followed))
 
             try:
                 while not self._shutdown.is_set():
@@ -525,7 +661,29 @@ class WebSocketBroadcaster:
         return None
 
 
+async def _model_named(name: Any) -> type | None:
+    if not isinstance(name, str):
+        return None
+
+    from fastedgy.metadata_model.registry import MetadataModelRegistry
+    from fastedgy.realtime.model import registry
+
+    return registry.model_class(name) or await get_service(MetadataModelRegistry).get_model_from_name(name)
+
+
+def _encode(value: Any) -> Any:
+    return value.isoformat() if isinstance(value, date | time) else str(value)
+
+
+def _identity(data: Any) -> dict[str, Any] | None:
+    if not isinstance(data, dict):
+        return None
+
+    return {key: data[key] for key in ("model", "id") if key in data} or None
+
+
 __all__ = [
     "MAX_PAYLOAD",
+    "MAX_USERS_PER_NOTIFY",
     "WebSocketBroadcaster",
 ]

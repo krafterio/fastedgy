@@ -1,14 +1,16 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+from collections.abc import Collection
 from typing import TYPE_CHECKING, Any, cast
 
 from fastedgy.depends.security import find_workspace_user_model, resolve_bearer_token
 from fastedgy.orm.filter import And, R
+from fastedgy.realtime.access import is_guarded, readers
 
 if TYPE_CHECKING:
     from fastedgy.models.user import BaseUser as User
-    from fastedgy.models.workspace import BaseWorkspace as Workspace
+    from fastedgy.models.workspace import BaseWorkspace as Scope
 
 
 async def user_of_token(token: str) -> "User | None":
@@ -21,33 +23,80 @@ async def user_of_token(token: str) -> "User | None":
     return await resolve_bearer_token(token)
 
 
-async def workspace_of(user: "User", slug: Any) -> "Workspace | None":
-    """The workspace behind a slug, if this account is a member of it.
+async def scope_of(user: "User", slug: Any) -> "Scope | None":
+    """The scope behind a slug, if this account is a member of it.
 
-    Membership is read the way `get_current_workspace` reads it, so a socket
-    reaches exactly the workspaces its holder's requests reach, and no more.
+    Membership is read the way an HTTP route reads it, so a socket reaches exactly
+    the scopes its holder's requests reach, and no more.
     """
     if not slug or not isinstance(slug, str):
         return None
 
-    WorkspaceUser = find_workspace_user_model()
+    scope_user_model = find_workspace_user_model()
 
-    if WorkspaceUser is None:
+    if scope_user_model is None:
         return None
 
     # Unscoped: a socket carries no request, so none of the context the scoped
     # manager reads is set.
-    membership = (
-        await WorkspaceUser.global_query.select_related("workspace")
+    scope_user = (
+        await scope_user_model.global_query.select_related("workspace")
         .filter(And(R("user", "=", user.id), R("workspace.slug", "=", slug)))
         .first()
     )
-    workspace = getattr(membership, "workspace", None) if membership else None
 
-    return cast("Workspace | None", workspace)
+    return cast("Scope | None", getattr(scope_user, "workspace", None))
+
+
+class RealtimeAuth:
+    """Who a socket is, what it reads, and who hears what is announced.
+
+    A service an application replaces through DI when it reads any of it its own
+    way.
+    """
+
+    async def user_of_token(self, token: str) -> "User | None":
+        return await user_of_token(token)
+
+    async def scope_of(self, user: "User", scope: Any) -> "Scope | None":
+        return await scope_of(user, scope)
+
+    async def audience(
+        self,
+        scope_id: int,
+        event_type: str,
+        data: Any,
+        user_ids: set[int],
+        about: tuple[type, Any] | None = None,
+    ) -> Collection[int]:
+        """Who of these accounts may hear an event published to a scope.
+
+        [user_ids] are the accounts a worker would deliver it to, [about] the model
+        and the id of the record the event names, when it names one. An event about
+        a record of a guarded model reaches the members who can read that record,
+        any other event reaches them all. An application narrows its own events by
+        replacing this, and keeps the rest through `super()`.
+        """
+        if about is not None and is_guarded(about[0]):
+            return await readers(about[0], about[1], scope_id, user_ids)
+
+        return user_ids
+
+    async def recipients(self, event_type: str, data: Any, user_ids: set[int]) -> Collection[int]:
+        """Who hears a write of a model addressed to accounts.
+
+        [user_ids] are the accounts the model's `user_field` names, [data] what the
+        event carries: the model, the id and the declared columns. They alone hear
+        it by default. An application widens or narrows who does by replacing this,
+        and keeps the rest through `super()`. It is asked by the process that
+        writes: before the row goes for a deletion, once the write is committed
+        otherwise.
+        """
+        return user_ids
 
 
 __all__ = [
+    "RealtimeAuth",
+    "scope_of",
     "user_of_token",
-    "workspace_of",
 ]

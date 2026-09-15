@@ -10,10 +10,10 @@ from fastedgy.app import FastEdgy
 app = FastEdgy(realtime=True)
 ```
 
-Off by default: it costs a `LISTEN` connection and a pool of consumers per worker, which an
-application with nothing to announce should not pay. Turned on, the two services are
-registered and the bridge between workers is started and stopped with the application.
-Nothing else to wire in a lifespan.
+Off by default: it costs a `LISTEN` connection and a pool of consumers per worker holding
+sockets, which an application with nothing to announce should not pay. Turned on, the
+services are registered, a worker starts listening with the first socket it takes, and stops
+with the application. Nothing else to wire in a lifespan.
 
 !!! note "PostgreSQL only"
     Announcements travel through `LISTEN`/`NOTIFY`, so realtime needs PostgreSQL.
@@ -40,7 +40,7 @@ itself with its own first frame.
 ## Step 3: Declare the models that announce
 
 Nothing is announced by default. An event nobody is watching for is a `NOTIFY`, a wake-up on
-every worker holding that workspace and a frame on every socket of it, so a model says so
+every worker holding that scope and a frame on every socket of it, so a model says so
 for itself:
 
 ```python
@@ -57,7 +57,7 @@ class Company(BaseModel, WorkspaceableMixin):
 ```
 
 Every insert, update and delete of a company is now announced to the clients reading its
-workspace, whoever made it: a browser, an agent through the MCP server, a queued task.
+scope, whoever made it: a browser, an agent through the MCP server, a queued task.
 
 ## What a client receives
 
@@ -102,8 +102,8 @@ follows what it holds:
 ```dart
 await initializeFastEdgy(realtime: true);
 
-// Whenever the workspace being read changes
-getService<RealtimeSocket>().watch(workspaceSlug);
+// Whenever the scope being read changes
+getService<RealtimeSocket>().watch(scopeSlug);
 
 // A list or a record keeps itself current
 final companies = ApiCollection(CompanyApi(), fields: ['id', 'name']);

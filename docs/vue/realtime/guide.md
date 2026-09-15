@@ -12,17 +12,16 @@ useRealtime();
 </script>
 ```
 
-It opens the socket when an account is signed in, points it at the workspace being read, and
-closes it on sign-out. `useRealtime()` takes no argument: whatever knows the workspace announces it
-on the bus under `REALTIME_SOURCE`, as a ref or a getter the socket follows.
-`useWorkspaceStore()` does so for itself, so an application built on it has nothing to write.
+It opens the socket when an account is signed in, points it at the scope being read, and closes
+it on sign-out. `useRealtime()` takes no argument: whatever knows the scope announces it on the
+bus under `REALTIME_SOURCE`, as a ref or a getter the socket follows. `useWorkspaceStore()` does
+so for itself, so an application built on it has nothing to write.
 
-A page with no workspace (an onboarding, an auth screen) still opens the socket, on no workspace:
-what is addressed to the account reaches it, and the workspace is told to the server once one is
-named.
+A page with no scope (an onboarding, an auth screen) still opens the socket, on no scope: what is
+addressed to the account reaches it, and the scope is told to the server once one is named.
 
-An application that names its workspace another way announces its own source, from the
-application shell:
+An application that names its scope another way announces its own source, from the application
+shell:
 
 ```javascript
 import { useRoute } from 'vue-router';
@@ -30,11 +29,14 @@ import { bus, REALTIME_SOURCE } from 'vue-fastedgy';
 
 const route = useRoute();
 
-bus.trigger(REALTIME_SOURCE, { source: () => route.params.workspace ?? null });
+bus.trigger(REALTIME_SOURCE, { source: () => route.params.scope ?? null });
 ```
 
 A closed socket is reopened, later each time up to 30 seconds, so a tab left open through a
 deploy or a laptop coming out of sleep finds its way back without hammering the server.
+
+The server checks the token again while the socket is open. One it refuses, expired or revoked, is
+refreshed once, and the socket opens again with the new one.
 
 ## Holding a record
 
@@ -245,6 +247,26 @@ Only `created`, `updated` and `deleted` become a resource change. `import.finish
 event, and is never mistaken for a write on a model called `import`.
 
 Such an event carries no origin, so it is never taken for an echo: you hear your own.
+
+A view hears one while it is on screen with `useRealtimeEvent`, whose handler gets the payload
+and what rides beside it:
+
+```javascript
+import { useRealtimeEvent } from 'vue-fastedgy';
+
+useRealtimeEvent('import.finished', (data, { truncated }) => {
+    if (truncated) {
+        reload();
+
+        return;
+    }
+
+    console.log(data.rows);
+});
+```
+
+`truncated` says the server left the payload behind, over what a `NOTIFY` carries: read what
+the event was about back through the API.
 
 ## Testing a view
 

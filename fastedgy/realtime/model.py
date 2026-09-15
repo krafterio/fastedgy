@@ -2,13 +2,17 @@
 # MIT License (see LICENSE file).
 
 import logging
+from collections.abc import Awaitable, Callable
 from typing import Any, TypeVar
 
 from fastedgy import context
 from fastedgy.dependencies import get_service, has_service
 from fastedgy.metadata_model.generator import generate_metadata_name
-from fastedgy.orm.signals import post_delete, post_save
+from fastedgy.orm.filter import R
+from fastedgy.orm.signals import post_delete, post_save, post_update, pre_delete
 from fastedgy.orm.transaction import run_signal_side_effect
+from fastedgy.realtime.access import is_guarded, is_shared, readers, shared_readers
+from fastedgy.realtime.auth import RealtimeAuth
 from fastedgy.realtime.broadcaster import WebSocketBroadcaster
 
 logger = logging.getLogger("fastedgy.realtime.model")
@@ -32,9 +36,12 @@ ORIGIN_HEADER = "X-Origin-Id"
 
 # An origin travels in a NOTIFY payload, where an oversized one would push the
 # announcement past what Postgres carries and cost it its channels, serving the
-# whole workspace instead of the sockets that asked. It is a client-supplied
-# string: capped here, and only ever compared, never trusted.
+# whole scope instead of the sockets that asked. It is a client-supplied string:
+# capped here, and only ever compared, never trusted.
 MAX_ORIGIN_LENGTH = 64
+
+# A publication, and the label its failure is logged under.
+Announcement = tuple[Callable[[], Awaitable[Any]], str]
 
 
 class RealtimeRegistry:
@@ -42,7 +49,7 @@ class RealtimeRegistry:
 
     A model says so for itself, through [realtime_model]. Nothing is announced
     by default: an event nobody is watching for is a NOTIFY, a wake-up on every
-    worker and a frame on every socket of the workspace.
+    worker and a frame on every socket of the scope.
     """
 
     def __init__(self) -> None:
@@ -58,7 +65,7 @@ class RealtimeRegistry:
         actions: dict[str, bool],
         fields: list[str] | dict[str, str] | None = None,
         relations: list[str] | None = None,
-        workspace_field: str = "workspace",
+        scope_field: str = "workspace",
         user_field: str | None = None,
     ) -> str:
         unknown = set(actions) - set(ACTIONS)
@@ -71,7 +78,7 @@ class RealtimeRegistry:
         self._fields[name] = dict(fields) if isinstance(fields, dict) else {field: field for field in fields or []}
         self._relations[name] = list(relations or [])
         self._classes[name] = model_cls
-        self._addressing[name] = (workspace_field, user_field)
+        self._addressing[name] = (scope_field, user_field)
 
         return name
 
@@ -88,8 +95,8 @@ class RealtimeRegistry:
         return list(self._relations.get(model, []))
 
     def addressing(self, model: str) -> tuple[str, str | None]:
-        """Which column names the workspace an event belongs to, and which names
-        the account it belongs to instead."""
+        """Which column names the scope an event belongs to, and which path names
+        the accounts it belongs to instead."""
         return self._addressing.get(model, ("workspace", None))
 
     def model_class(self, model: str) -> type | None:
@@ -106,7 +113,7 @@ def realtime_model(
     actions: dict[str, bool] | None = None,
     fields: list[str] | dict[str, str] | None = None,
     relations: list[str] | None = None,
-    workspace_field: str = "workspace",
+    scope_field: str = "workspace",
     user_field: str | None = None,
     **kwargs: bool,
 ):
@@ -139,17 +146,20 @@ def realtime_model(
         @realtime_model(relations=["engram"])       # a fragment reaches engram:3
         @realtime_model(relations=["record"])       # an attachment reaches fragment:9
 
-    [workspace_field] names the column the event is addressed by, for a model
-    that is its own tenant:
+    [scope_field] names the column holding the scope the event is addressed to,
+    for a model that is a scope itself:
 
-        @realtime_model(workspace_field="id")       # the workspace itself
+        @realtime_model(scope_field="id")           # the scope itself
 
-    [user_field] addresses the event to one account instead of a workspace, for
-    what belongs to a person rather than to a space. It reaches every socket
-    that account holds, and no one else's:
+    [user_field] addresses the event to accounts instead of a scope, for what
+    belongs to people rather than to a space. It reaches every socket those
+    accounts hold, and no one else's unless the application's
+    `RealtimeAuth.recipients` says so. A path through foreign keys and reverse
+    relations reaches the accounts at its end, read when the write is made:
 
-        @realtime_model(user_field="id")            # the account itself
-        @realtime_model(user_field="user")          # something of theirs
+        @realtime_model(user_field="id")                    # the account itself
+        @realtime_model(user_field="user")                  # something of theirs
+        @realtime_model(user_field="thread.members.user")   # everyone in its thread
 
     Any relation kind answers: a foreign key and a generic foreign key from the
     values being written, a many-to-many or a reverse relation by reading the
@@ -159,7 +169,7 @@ def realtime_model(
     wanted = {**(actions or {}), **kwargs}
 
     def decorator(model_cls: M) -> M:
-        model = registry.register(model_cls, wanted, fields, relations, workspace_field, user_field)
+        model = registry.register(model_cls, wanted, fields, relations, scope_field, user_field)
 
         @post_save.connect_via(model_cls)
         async def _on_save(
@@ -170,85 +180,205 @@ def realtime_model(
             column_values: dict[str, Any],
             **_: Any,
         ) -> None:
-            await _announce(model, "update" if is_update else "create", model_instance, column_values)
+            _publish(await _announcement(model, "update" if is_update else "create", model_instance, column_values))
+
+        # `update()` on an instance sends the update signals rather than the save
+        # ones, and empties on the instance the relations it did not write: the
+        # record is read back, and announced with the columns the write moved.
+        @post_update.connect_via(model_cls)
+        async def _on_update(
+            sender: Any,
+            instance: Any,
+            model_instance: Any = None,
+            column_values: dict[str, Any] | None = None,
+            **_: Any,
+        ) -> None:
+            if model_instance is None or not registry.is_enabled(model, "update"):
+                return
+
+            if not has_service(WebSocketBroadcaster):
+                return
+
+            record = await _read_back(model_cls, model_instance)
+
+            if record is not None:
+                _publish(await _announcement(model, "update", record, column_values or {}))
+
+        # What a deletion reaches is read while the row and its links are still
+        # there, and published once the row is gone: a client reading the record
+        # again as soon as it hears must not find it.
+        @pre_delete.connect_via(model_cls)
+        async def _on_delete(sender: Any, instance: Any, model_instance: Any, **_: Any) -> None:
+            if model_instance is not None:
+                model_instance._realtime_deletion = await _announcement(model, "delete", model_instance, {})
 
         @post_delete.connect_via(model_cls)
-        async def _on_delete(sender: Any, instance: Any, model_instance: Any, **_: Any) -> None:
-            await _announce(model, "delete", model_instance, {})
+        async def _on_deleted(
+            sender: Any,
+            instance: Any,
+            model_instance: Any,
+            row_count: int | None = None,
+            **_: Any,
+        ) -> None:
+            announcement = getattr(model_instance, "_realtime_deletion", None)
+
+            if announcement is None:
+                return
+
+            model_instance._realtime_deletion = None
+
+            if row_count != 0:
+                _publish(announcement)
 
         return model_cls
 
     return decorator
 
 
-async def _announce(model: str, action: str, model_instance: Any, column_values: dict[str, Any]) -> None:
-    """Publish one write, once the transaction it belongs to has committed.
+async def _announcement(
+    model: str, action: str, model_instance: Any, column_values: dict[str, Any]
+) -> Announcement | None:
+    """What announcing one write takes, read from the row while it is there.
 
-    What the announcement needs from the row is read here, inside the write's
-    own transaction: a deleted record has lost its links by the time the
-    announcement goes out. Only the publication is deferred, through
-    [fastedgy.orm.transaction.run_signal_side_effect], which discards the queue
-    of an attempt that rolled back. Under SERIALIZABLE a replayed transaction
-    would otherwise announce once per attempt, and a write that never committed
-    would announce all the same.
+    Everything the announcement needs is read here, inside the write's own
+    transaction, and before a delete: a deleted record has lost its links by the
+    time the announcement goes out. What comes back is the publication itself,
+    for [_publish] to issue once the write is done.
 
     A queryset write carries no instance and is not announced: it names no
-    record, and the workspace it belongs to cannot be read back from it.
+    record, and the scope it belongs to cannot be read back from it.
     """
     if model_instance is None or not registry.is_enabled(model, action):
-        return
+        return None
 
     # An application that did not turn realtime on pays nothing for a model that
     # carries the decorator: no NOTIFY, and no broadcaster brought into being to
     # issue one. The decorator says what a model would announce, `realtime=True`
     # says whether anything is listening.
     if not has_service(WebSocketBroadcaster):
-        return
+        return None
 
     record_id = getattr(model_instance, "id", None)
 
     if record_id is None:
-        return
+        return None
 
     event = EVENTS[action]
     label = f"realtime {model}.{event}"
-    workspace_field, user_field = registry.addressing(model)
-    extra = {key: _column(model_instance, column_values, column) for key, column in registry.fields(model).items()}
-    meta = _meta(action, column_values)
 
     try:
+        scope_field, user_field = registry.addressing(model)
+        extra = {key: _column(model_instance, column_values, column) for key, column in registry.fields(model).items()}
+        meta = _meta(action, column_values)
+
         if user_field is not None:
-            # Addressed to a person, not to a space: an account belongs to
-            # several workspaces, and its own news is nobody else's.
-            user_id = _column(model_instance, column_values, user_field)
-
-            if user_id is None:
-                return
-
+            # Addressed to people, not to a space: an account belongs to
+            # several scopes, and its own news is nobody else's.
+            named = set(await _accounts(model, model_instance, column_values, user_field))
+            event_type = f"{model}.{event}"
             data = {"model": model, "id": record_id, **extra}
+            channels = [model, f"{model}:{record_id}", *await _relation_channels(model, model_instance, column_values)]
+            auth = get_service(RealtimeAuth)
+            # Who hears a deletion is asked now, while its row can still be read.
+            hearing = await auth.recipients(event_type, data, named) if action == "delete" else None
 
-            run_signal_side_effect(
-                lambda: get_service(WebSocketBroadcaster).broadcast_to_user(user_id, f"{model}.{event}", data, meta),
-                label,
-            )
+            if hearing is not None and not hearing:
+                return None
 
-            return
+            async def publish_to_users() -> None:
+                # A creation or an update is read once it is committed.
+                recipients = hearing if hearing is not None else await auth.recipients(event_type, data, named)
 
-        workspace_id = _column(model_instance, column_values, workspace_field)
+                if recipients:
+                    await get_service(WebSocketBroadcaster).broadcast_to_users(
+                        recipients, event_type, data, channels, meta
+                    )
 
-        if workspace_id is None:
-            return
+            return publish_to_users, label
+
+        scope_id = _column(model_instance, column_values, scope_field)
+
+        if scope_id is None:
+            return None
 
         channels = await _relation_channels(model, model_instance, column_values)
+        model_cls = registry.model_class(model) or type(model_instance)
+        audience: set[int] | None = None
+        elsewhere: set[int] | None = None
 
-        run_signal_side_effect(
-            lambda: get_service(WebSocketBroadcaster).broadcast_record(
-                workspace_id, model, record_id, event, extra, channels, meta
-            ),
-            label,
-        )
+        # A row deleted cannot be read back: who can read it, in its scope and from
+        # the scopes it is shared with, is asked now, while it still can be.
+        if action == "delete":
+            audience = await readers(model_cls, record_id, scope_id) if is_guarded(model_cls) else None
+            elsewhere = await _shared_readers(model_cls, model_instance, scope_id)
+
+            if audience == set() and not elsewhere:
+                return None
+
+        async def publish() -> None:
+            broadcaster = get_service(WebSocketBroadcaster)
+
+            if audience is None:
+                await broadcaster.broadcast_record(scope_id, model, record_id, event, extra, channels, meta)
+            elif audience:
+                await broadcaster.broadcast_record(scope_id, model, record_id, event, extra, channels, meta, audience)
+
+            # A creation or an update is read once it is committed.
+            outside = elsewhere if elsewhere is not None else await _shared_readers(model_cls, model_instance, scope_id)
+
+            if outside:
+                await broadcaster.broadcast_to_users(
+                    outside,
+                    f"{model}.{event}",
+                    {"model": model, "id": record_id, **extra},
+                    [model, f"{model}:{record_id}", *channels],
+                    meta,
+                )
+
+        return publish, label
     except Exception as e:  # noqa: BLE001 - an announcement never fails the write it announces
         logger.warning("Could not announce %s.%s on %s: %s", model, event, record_id, e)
+
+        return None
+
+
+def _publish(announcement: Announcement | None) -> None:
+    """Issue an announcement once the transaction its write belongs to has committed.
+
+    Through [fastedgy.orm.transaction.run_signal_side_effect], which discards the
+    queue of an attempt that rolled back: under SERIALIZABLE a replayed
+    transaction would otherwise announce once per attempt, and a write that never
+    committed would announce all the same.
+    """
+    if announcement is not None:
+        run_signal_side_effect(*announcement)
+
+
+async def _read_back(model_cls: Any, model_instance: Any) -> Any:
+    """A record as its row holds it, read through its manager rather than lazily off the instance."""
+    record_id = model_instance.__dict__.get("id")
+
+    if record_id is None:
+        return None
+
+    manager = getattr(model_cls, "global_query", None) or model_cls.query
+
+    return await manager.filter(R("id", "=", record_id)).first()
+
+
+async def _shared_readers(model_cls: Any, model_instance: Any, scope_id: Any) -> set[int]:
+    """Who reads a record from the scopes it is shared with; nobody when it hangs off no shared root."""
+    if not is_shared(model_cls):
+        return set()
+
+    try:
+        return await shared_readers(model_cls, model_instance, scope_id)
+    except Exception as e:  # noqa: BLE001 - the scope's own announcement still goes out
+        logger.warning(
+            "Could not read who shares %s %s: %s", model_cls.__name__, getattr(model_instance, "id", None), e
+        )
+
+        return set()
 
 
 def _meta(action: str, column_values: dict[str, Any]) -> dict[str, Any]:
@@ -278,6 +408,72 @@ def _origin() -> str | None:
     value = request.headers.get(ORIGIN_HEADER) if request is not None else None
 
     return value if value and len(value) <= MAX_ORIGIN_LENGTH else None
+
+
+async def _accounts(model: str, model_instance: Any, column_values: dict[str, Any], path: str) -> list[Any]:
+    *hops, last = path.split(".")
+
+    if not hops:
+        user_id = _column(model_instance, column_values, last)
+
+        return [] if user_id is None else [user_id]
+
+    current: Any = registry.model_class(model)
+    known: list[Any] | None = [getattr(model_instance, "id", None)]
+    rule: Any = None
+
+    for position, name in enumerate(hops):
+        field: Any = getattr(getattr(current, "meta", None), "fields", {}).get(name)
+
+        if _is_reverse(field):
+            ids = known if known is not None else await _read(current, rule, "id")
+            current, known, rule = field.related_from, None, R(field.foreign_key_name, "in", ids)
+        elif _is_foreign_key(field):
+            ids = [_column(model_instance, column_values, name)] if position == 0 else await _read(current, rule, name)
+            ids = [one for one in ids if one is not None]
+            current, known, rule = field.target, ids, R("id", "in", ids)
+        else:
+            return []
+
+        if not ids:
+            return []
+
+    if last == "id" and known is not None:
+        return known
+
+    return await _read(current, rule, last)
+
+
+def _is_reverse(field: Any) -> bool:
+    return (
+        field is not None
+        and hasattr(field, "related_from")
+        and hasattr(field, "foreign_key_name")
+        and not getattr(field, "is_m2m", False)
+    )
+
+
+def _is_foreign_key(field: Any) -> bool:
+    return (
+        field is not None
+        and not getattr(field, "is_m2m", False)
+        and not getattr(field, "model_column", None)
+        and getattr(field, "target", None) is not None
+    )
+
+
+async def _read(model_cls: Any, rule: Any, column: str) -> list[Any]:
+    manager = getattr(model_cls, "global_query", None) or model_cls.query
+    values = await manager.filter(rule).values_list(column, flat=True)
+
+    return [key for key in (_key(value) for value in values) if key is not None]
+
+
+def _key(value: Any) -> Any:
+    if isinstance(value, dict):
+        return value.get("id")
+
+    return getattr(value, "id", value)
 
 
 async def _relation_channels(model: str, model_instance: Any, column_values: dict[str, Any]) -> list[str]:
@@ -370,10 +566,12 @@ def _column(model_instance: Any, column_values: dict[str, Any], name: str) -> An
     """One column of the record, read from the write before the record itself.
 
     During an insert the row is not there to be lazy-loaded yet, and the values
-    being written hold what is needed. A foreign key gives its id: what travels
-    names a record, it does not carry one.
+    being written hold what is needed. Nothing is loaded either way: inside a
+    transaction a lazy load looks for the row through another connection, and
+    does not find it. A foreign key gives its id: what travels names a record,
+    it does not carry one.
     """
-    value = column_values[name] if name in column_values else getattr(model_instance, name, None)
+    value = column_values[name] if name in column_values else model_instance.__dict__.get(name)
 
     return getattr(value, "id", value)
 

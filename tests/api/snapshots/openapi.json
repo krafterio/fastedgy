@@ -1817,6 +1817,15 @@
             ],
             "title": "Choices"
           },
+          "default": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default"
+          },
           "extra": {
             "title": "Extra",
             "type": "boolean"
@@ -7255,6 +7264,15 @@
             "title": "Created At",
             "type": "string"
           },
+          "default_value": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Value"
+          },
           "field_type": {
             "$ref": "#/components/schemas/WorkspaceExtraFieldType",
             "title": "Type"
@@ -7316,6 +7334,15 @@
       },
       "WorkspaceExtraField-Create": {
         "properties": {
+          "default_value": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Value"
+          },
           "field_type": {
             "$ref": "#/components/schemas/WorkspaceExtraFieldType",
             "title": "Type"
@@ -7411,6 +7438,15 @@
       },
       "WorkspaceExtraField-Update": {
         "properties": {
+          "default_value": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Value"
+          },
           "field_type": {
             "anyOf": [
               {

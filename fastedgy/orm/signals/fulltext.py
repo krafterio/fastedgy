@@ -6,7 +6,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from edgy.core.signals import post_save
+from edgy.core.signals import post_save, post_update
 from sqlalchemy.exc import DBAPIError
 
 from fastedgy.orm.fields.field_fulltext import (
@@ -36,6 +36,13 @@ def register_fulltext_signals(model_cls: type) -> None:
     async def on_fulltext_save(_, instance, model_instance=None, **kwargs: dict[str, Any]):
         target = model_instance if model_instance is not None else instance
         await _handle_fulltext_save(target, **kwargs)
+
+    # `update()` on an instance sends the update signals, not the save ones; a
+    # queryset update names no record to recompute.
+    @post_update.connect_via(model_cls)
+    async def on_fulltext_update(_, instance, model_instance=None, **kwargs: dict[str, Any]):
+        if model_instance is not None:
+            await _handle_fulltext_save(model_instance, **kwargs)
 
 
 async def _handle_fulltext_save(instance: Any, **kwargs: dict[str, Any]) -> None:

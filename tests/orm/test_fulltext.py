@@ -67,6 +67,15 @@ async def test_fulltext_changed_source_still_recomputes(setup_db: FastEdgy) -> N
     assert "sprocket" in await _fetch_col(product.id, "search_value_en::text")
 
 
+async def test_fulltext_recomputes_on_an_update_of_the_instance(setup_db: FastEdgy) -> None:
+    product = Product(name="Widget", description="A blue gadget", price="9.99")
+    await product.save()
+
+    await product.update(name="Sprocket")
+
+    assert "sprocket" in await _fetch_col(product.id, "search_value_en::text")
+
+
 async def test_fulltext_partial_save_keeps_the_fields_it_never_loaded(setup_db: FastEdgy) -> None:
     # The vector is computed from the table, not from the instance. An instance
     # carrying only the field it changes used to rebuild the vector out of what

@@ -6,10 +6,14 @@ from datetime import datetime
 from typing import Any, cast
 
 from fastapi import APIRouter, Body, HTTPException, Path
+from fastapi.exceptions import RequestValidationError
+from pydantic import ValidationError
 
 from fastedgy.api_route_model.action import (
     BaseApiRouteAction,
     clean_empty_strings,
+    ensure_action_allowed,
+    generate_input_patch_model,
 )
 from fastedgy.api_route_model.exception import handle_action_exception
 from fastedgy.api_route_model.params import FieldSelectorHeader
@@ -28,6 +32,7 @@ from fastedgy.api_route_model.view_transformer import (
 )
 from fastedgy.dependencies import get_service
 from fastedgy.http import Request
+from fastedgy.i18n import _t
 from fastedgy.models.base import BaseModel, BaseView
 from fastedgy.orm import transaction
 from fastedgy.orm.field_selector import (
@@ -98,6 +103,59 @@ async def patch_item_action[M: BaseModel | BaseView](
     transformers: list[BaseViewTransformer] | None = None,
     transformers_ctx: dict[str, Any] | None = None,
 ) -> M | dict[str, Any]:
+    try:
+        return await apply_patch_item(
+            request, model_cls, item_id, item_data, query, fields, transformers, transformers_ctx
+        )
+    except Exception as e:
+        handle_action_exception(e, model_cls)
+
+
+async def patch_item_fields[M: BaseModel | BaseView](
+    request: Request,
+    model_cls: type[M],
+    item_id: int,
+    values: dict[str, Any],
+) -> None:
+    """Write `values` on a record the way the generated PATCH route would.
+
+    For the generic routes that write a model field (resequencing, a stored
+    file): the route must exist for the caller, the body must accept every
+    field, and the model's transformers run. Errors are raised as they come, so
+    the caller's transaction can replay a serialization conflict."""
+    await ensure_action_allowed(model_cls, "patch")
+    await apply_patch_item(request, model_cls, item_id, patch_item_data(model_cls, values), fields="id")
+
+
+def patch_item_data[M: BaseModel | BaseView](model_cls: type[M], values: dict[str, Any]) -> BaseModel:
+    """The PATCH body of `model_cls` holding `values`, refused when the route
+    would not write one of them (primary key, read-only or excluded field)."""
+    input_model = generate_input_patch_model(model_cls)
+
+    for name in values:
+        if name not in input_model.model_fields:
+            raise HTTPException(
+                status_code=400,
+                detail=_t("Field {field_name} cannot be written on this model", field_name=name),
+            )
+
+    try:
+        return cast(BaseModel, input_model(**values))
+    except ValidationError as error:
+        raise RequestValidationError(error.errors()) from error
+
+
+async def apply_patch_item[M: BaseModel | BaseView](
+    request: Request,
+    model_cls: type[M],
+    item_id: int,
+    item_data: BaseModel,
+    query: QuerySet | BaseManager | None = None,
+    fields: str | None = None,
+    transformers: list[BaseViewTransformer] | None = None,
+    transformers_ctx: dict[str, Any] | None = None,
+) -> M | dict[str, Any]:
+    """The body of the PATCH action, outside any transaction and error mapping."""
     from fastedgy.api_route_model.action import (
         is_foreign_key_field,
         is_relation_field,
@@ -111,95 +169,95 @@ async def patch_item_action[M: BaseModel | BaseView](
     transformers_ctx["fields"] = fields
     vtr = get_service(ViewTransformerRegistry)
 
+    transformers_ctx["item_id"] = item_id
+    for transformer in vtr.get_transformers(PreLoadRecordViewTransformer, model_cls, transformers):
+        query = await transformer.pre_load_record(request, query, transformers_ctx)
+
+    resolved_id = transformers_ctx.get("item_id", item_id)
+    item = await query.filter(id=resolved_id).get()
+
+    from fastedgy.orm.extra_fields import merge_extra_field_values, pop_extra_field_values
+    from fastedgy.orm.fields import validate_generic_reference_payload
+
+    # Separate relational, foreign key and scalar fields
+    relational_data = {}
+    foreign_key_data = {}
+    scalar_data = {}
+
+    clean_empty_strings(item_data)
+    validate_generic_reference_payload(
+        model_cls,
+        {key: getattr(item_data, key) for key in item_data.model_fields_set},
+        partial=True,
+    )
+    for key in item_data.model_fields_set:
+        value = getattr(item_data, key)
+        field = model_cls.model_fields.get(key)
+
+        if isinstance(value, datetime):
+            value = ensure_aware(value)
+
+        if field and is_relation_field(field):
+            relational_data[key] = value
+        elif field and is_foreign_key_field(field):
+            foreign_key_data[key] = value
+        else:
+            scalar_data[key] = value
+
+    # Merged onto the stored object: patching one extra field must not drop
+    # the others, which do not travel in the payload.
+    extra_values = pop_extra_field_values(model_cls, scalar_data)
+
+    if extra_values:
+        scalar_data["extra"] = merge_extra_field_values(getattr(item, "extra", None), extra_values)
+
+    # Resolve foreign keys to their ids (creating/updating related records as needed)
+    resolved_fk, deferred_fk_deletes = await process_foreign_key_fields(model_cls, foreign_key_data)
+    scalar_data.update(resolved_fk)
+
+    # Update scalar fields. A ValueError raised by a field's input
+    # transformation (e.g. a generic reference pointing to a model outside
+    # its allowed targets) is invalid client data, not a server error.
     try:
-        transformers_ctx["item_id"] = item_id
-        for transformer in vtr.get_transformers(PreLoadRecordViewTransformer, model_cls, transformers):
-            query = await transformer.pre_load_record(request, query, transformers_ctx)
+        for key, value in scalar_data.items():
+            setattr(item, key, value)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
 
-        resolved_id = transformers_ctx.get("item_id", item_id)
-        item = await query.filter(id=resolved_id).get()
+    for transformer in vtr.get_transformers(PreSaveTransformer, model_cls, transformers):
+        await transformer.pre_save(request, item, item_data, transformers_ctx, False)
+        override = transformers_ctx.pop("override_item", None)
+        if override is not None:
+            item = override
 
-        from fastedgy.orm.extra_fields import merge_extra_field_values, pop_extra_field_values
-        from fastedgy.orm.fields import validate_generic_reference_payload
+    if not transformers_ctx.get("skip_save"):
+        await item.save()
+        await item.load()
 
-        # Separate relational, foreign key and scalar fields
-        relational_data = {}
-        foreign_key_data = {}
-        scalar_data = {}
+        # Delete records targeted by a foreign key delete operation, now that
+        # the instance no longer references them.
+        for record in deferred_fk_deletes:
+            await record.delete()
 
-        clean_empty_strings(item_data)
-        validate_generic_reference_payload(
-            model_cls,
-            {key: getattr(item_data, key) for key in item_data.model_fields_set},
-            partial=True,
-        )
-        for key in item_data.model_fields_set:
-            value = getattr(item_data, key)
-            field = model_cls.model_fields.get(key)
+    # Process relational fields after save
+    await process_relational_fields(item, model_cls, relational_data)
 
-            if isinstance(value, datetime):
-                value = ensure_aware(value)
+    for transformer in vtr.get_transformers(PostSaveTransformer, model_cls, transformers):
+        await transformer.post_save(request, item, item_data, transformers_ctx, False)
 
-            if field and is_relation_field(field):
-                relational_data[key] = value
-            elif field and is_foreign_key_field(field):
-                foreign_key_data[key] = value
-            else:
-                scalar_data[key] = value
+    item_dump = await filter_selected_fields(item, fields)
 
-        # Merged onto the stored object: patching one extra field must not drop
-        # the others, which do not travel in the payload.
-        extra_values = pop_extra_field_values(model_cls, scalar_data)
+    for transformer in vtr.get_transformers(GetViewTransformer, model_cls, transformers):
+        item_dump = await transformer.get_view(request, item, item_dump, transformers_ctx)
 
-        if extra_values:
-            scalar_data["extra"] = merge_extra_field_values(getattr(item, "extra", None), extra_values)
-
-        # Resolve foreign keys to their ids (creating/updating related records as needed)
-        resolved_fk, deferred_fk_deletes = await process_foreign_key_fields(model_cls, foreign_key_data)
-        scalar_data.update(resolved_fk)
-
-        # Update scalar fields. A ValueError raised by a field's input
-        # transformation (e.g. a generic reference pointing to a model outside
-        # its allowed targets) is invalid client data, not a server error.
-        try:
-            for key, value in scalar_data.items():
-                setattr(item, key, value)
-        except ValueError as e:
-            raise HTTPException(status_code=422, detail=str(e))
-
-        for transformer in vtr.get_transformers(PreSaveTransformer, model_cls, transformers):
-            await transformer.pre_save(request, item, item_data, transformers_ctx, False)
-            override = transformers_ctx.pop("override_item", None)
-            if override is not None:
-                item = override
-
-        if not transformers_ctx.get("skip_save"):
-            await item.save()
-            await item.load()
-
-            # Delete records targeted by a foreign key delete operation, now that
-            # the instance no longer references them.
-            for record in deferred_fk_deletes:
-                await record.delete()
-
-        # Process relational fields after save
-        await process_relational_fields(item, model_cls, relational_data)
-
-        for transformer in vtr.get_transformers(PostSaveTransformer, model_cls, transformers):
-            await transformer.post_save(request, item, item_data, transformers_ctx, False)
-
-        item_dump = await filter_selected_fields(item, fields)
-
-        for transformer in vtr.get_transformers(GetViewTransformer, model_cls, transformers):
-            item_dump = await transformer.get_view(request, item, item_dump, transformers_ctx)
-
-        return item_dump
-    except Exception as e:
-        handle_action_exception(e, model_cls)
+    return item_dump
 
 
 __all__ = [
     "PatchApiRouteAction",
+    "apply_patch_item",
     "generate_patch_item",
     "patch_item_action",
+    "patch_item_data",
+    "patch_item_fields",
 ]

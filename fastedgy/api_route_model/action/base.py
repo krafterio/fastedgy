@@ -3,13 +3,17 @@
 
 from abc import ABC, abstractmethod
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from fastedgy.api_route_model.registry import (
+    CONSOLE_ROUTE_MODEL_REGISTRY_TOKEN,
     RouteModelActionOptions,
     RouteModelOptions,
+    RouteModelRegistry,
     TypeModel,
 )
+from fastedgy.dependencies import get_service
+from fastedgy.i18n import _t
 
 
 class BaseApiRouteAction(ABC):
@@ -105,7 +109,38 @@ class ApiRouteActionRegistry:
         return list(self._actions.keys())
 
 
+async def ensure_action_allowed(model_cls: TypeModel, name: str) -> None:
+    """Refuse a generic route that acts on a model the way its generated `name`
+    route does, unless that route exists for the caller: in the api registry,
+    or in the console one for a sudo caller."""
+    from fastedgy.sudo import SudoChecker
+
+    registries = [get_service(RouteModelRegistry)]
+
+    if await get_service(SudoChecker).is_sudo():
+        registries.append(get_service(CONSOLE_ROUTE_MODEL_REGISTRY_TOKEN))
+
+    exposed = [registry for registry in registries if registry.is_model_registered(model_cls)]
+
+    if not exposed:
+        raise HTTPException(
+            status_code=403,
+            detail=_t("Model {model_name} is not available", model_name=model_cls.meta.tablename),
+        )
+
+    action = get_service(ApiRouteActionRegistry).get_action(name)
+
+    if not any(
+        action.should_register(registry.get_model_options(model_cls).get("actions", {})) for registry in exposed
+    ):
+        raise HTTPException(
+            status_code=405,
+            detail=_t("Model {model_name} does not allow this action", model_name=model_cls.meta.tablename),
+        )
+
+
 __all__ = [
     "ApiRouteActionRegistry",
     "BaseApiRouteAction",
+    "ensure_action_allowed",
 ]

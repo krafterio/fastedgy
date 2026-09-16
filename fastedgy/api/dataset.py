@@ -5,11 +5,15 @@ from typing import Any, cast
 
 from fastapi import APIRouter, HTTPException
 
+from fastedgy.api_route_model.actions.patch_action import patch_item_fields
+from fastedgy.api_route_model.exception import handle_action_exception
 from fastedgy.dependencies import Inject
+from fastedgy.http import Request
 from fastedgy.i18n import _t
 from fastedgy.metadata_model import MetadataModelRegistry, TypeMapMetadataModels
 from fastedgy.metadata_model.generator import generate_class_name
-from fastedgy.orm import Model, Registry
+from fastedgy.models.base import BaseModel
+from fastedgy.orm import Registry
 from fastedgy.orm.transaction import with_transaction
 from fastedgy.schemas.dataset import Resequence, ResequenceRequest
 
@@ -30,6 +34,7 @@ async def get_metadata_models(
 @resequence_router.put("/resequence")
 async def resequence(
     data: ResequenceRequest,
+    request: Request,
     meta_registry: MetadataModelRegistry = Inject(MetadataModelRegistry),
     registry: Registry = Inject(Registry),
 ) -> Resequence:
@@ -37,7 +42,7 @@ async def resequence(
         raise HTTPException(status_code=400, detail=_t("Model {model_name} not found", model_name=data.model_name))
 
     model_class_name = generate_class_name(data.model_name)
-    model_class = cast(type[Model], registry.get_model(model_class_name))
+    model_class = cast(type[BaseModel], registry.get_model(model_class_name))
     records = []
 
     if data.ids:
@@ -51,41 +56,34 @@ async def resequence(
                 detail=_t("No action requested. Please provide group_field or sequence_field for resequencing"),
             )
 
+        # Each record is written through the model's PATCH route: the same
+        # fields, the same access rules and the same transformers.
         async def _apply_resequence() -> list[dict[str, Any]]:
             existing_records = await model_class.query.filter(model_class.columns.id.in_(data.ids)).all()
 
             if len(existing_records) != len(data.ids):
                 raise HTTPException(status_code=400, detail=_t("Some IDs in the target list do not exist"))
 
-            records_by_id = {record.id: record for record in existing_records}
             updated_records: list[dict[str, Any]] = []
-            sequence_index = 0
 
-            for record_id in data.ids:
-                record = records_by_id[record_id]
-                updated_fields: dict[str, Any] = {"id": record_id}
+            for sequence_index, record_id in enumerate(data.ids):
+                values: dict[str, Any] = {}
 
                 if group_update:
-                    field_name = str(group_update["field"])
-                    field_value = group_update["value"]
-                    setattr(record, field_name, field_value)
-                    updated_fields[field_name] = field_value
+                    values[str(group_update["field"])] = group_update["value"]
 
                 if sequence_update:
-                    field_name = sequence_update["field"]
-                    field_value = sequence_update["offset"] + sequence_index
-                    sequence_index += 1
-                    setattr(record, field_name, field_value)
-                    updated_fields[field_name] = field_value
+                    values[sequence_update["field"]] = sequence_update["offset"] + sequence_index
 
-                if group_update or sequence_update:
-                    await record.save()
-
-                updated_records.append(updated_fields)
+                await patch_item_fields(request, model_class, record_id, values)
+                updated_records.append({"id": record_id, **values})
 
             return updated_records
 
-        records = await with_transaction(_apply_resequence)
+        try:
+            records = await with_transaction(_apply_resequence)
+        except Exception as e:
+            handle_action_exception(e, model_class)
 
     return Resequence(
         model_name=data.model_name,

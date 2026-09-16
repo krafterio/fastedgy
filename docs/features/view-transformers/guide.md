@@ -377,6 +377,7 @@ if 'details' not in requested_fields:
 - **Registration**: Register transformers during app startup, not in route handlers
 - **File Operations**: Return `True` from Pre*Transformer for global storage, `False` for workspace storage
 - **Upload Validation**: Validate file type/size in `PreUploadTransformer` to fail fast
+- **Generic Writes**: `PUT /dataset/resequence` and the model field storage routes write through the PATCH route, so a `PreSaveTransformer` guards them too
 - **Download Security**: Check permissions in `PreDownloadTransformer` before file retrieval
 - **Path Manipulation**: Use `PostUploadTransformer` and `PostDownloadTransformer` for path modifications
 

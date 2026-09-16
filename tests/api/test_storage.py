@@ -568,3 +568,147 @@ async def test_delete_file_never_removes_a_file_outside_the_storage(auth_http: h
 
     assert response.status_code == 200
     assert os.path.isfile(outside)
+
+
+async def test_delete_file_refuses_a_field_the_patch_route_does_not_write(auth_http: httpx.AsyncClient) -> None:
+    from fastedgy.test.models.product import Product
+
+    product = await Product.query.create(name="Laptop", price="10.00", secret_code="kept")
+
+    response = await auth_http.delete(f"/api/storage/file/product/{product.id}/secret_code")
+
+    assert response.status_code == 422
+    assert (await Product.query.get(id=product.id)).secret_code == "kept"
+
+
+async def test_delete_file_refuses_a_field_that_holds_no_file(auth_http: httpx.AsyncClient) -> None:
+    from fastedgy.test.models.product import Product
+
+    product = await Product.query.create(name="Laptop", price="10.00", rating=4.5)
+
+    response = await auth_http.delete(f"/api/storage/file/product/{product.id}/rating")
+
+    assert response.status_code == 422
+    assert (await Product.query.get(id=product.id)).rating == 4.5
+
+
+async def test_delete_file_refuses_a_model_without_patch_route(auth_http: httpx.AsyncClient) -> None:
+    from fastedgy.test.models.comment import Comment
+
+    comment = await Comment.query.create(content="first")
+
+    response = await auth_http.delete(f"/api/storage/file/comment/{comment.id}/content")
+
+    assert response.status_code == 405
+    assert (await Comment.query.get(id=comment.id)).content == "first"
+
+
+async def test_upload_refuses_a_field_the_patch_route_does_not_write(auth_http: httpx.AsyncClient) -> None:
+    from fastedgy.test.models.product import Product
+
+    product = await Product.query.create(name="Laptop", price="10.00", secret_code="kept")
+
+    response = await auth_http.post(
+        f"/api/storage/upload/product/{product.id}/secret_code",
+        files={"file": ("doc.txt", b"hello", "text/plain")},
+    )
+
+    assert response.status_code == 422
+    assert (await Product.query.get(id=product.id)).secret_code == "kept"
+
+
+async def test_file_field_writes_run_the_model_transformers(auth_http: httpx.AsyncClient) -> None:
+    from fastapi import HTTPException
+
+    from fastedgy.api_route_model.registry import ViewTransformerRegistry
+    from fastedgy.api_route_model.view_transformer import PreSaveTransformer
+    from fastedgy.dependencies import get_service
+    from fastedgy.test.models.category import Category
+
+    class _Frozen(PreSaveTransformer[Category]):
+        async def pre_save(self, request, item, item_data, ctx, created) -> None:
+            raise HTTPException(status_code=403, detail="frozen")
+
+    category = await Category.query.create(name="Books", description="stored/cover.png")
+    ViewTransformerRegistry._transformers.pop(Category, None)
+    get_service(ViewTransformerRegistry).register_transformer(_Frozen, Category)
+
+    try:
+        deleted = await auth_http.delete(f"/api/storage/file/category/{category.id}/description")
+        uploaded = await auth_http.post(
+            f"/api/storage/upload/category/{category.id}/description",
+            files={"file": ("doc.txt", b"hello", "text/plain")},
+        )
+    finally:
+        ViewTransformerRegistry._transformers.pop(Category, None)
+
+    assert deleted.status_code == 403
+    assert uploaded.status_code == 403
+    assert (await Category.query.get(id=category.id)).description == "stored/cover.png"
+
+
+@pytest.fixture
+def console_only_users():
+    from fastedgy.api_route_model.registry import CONSOLE_ROUTE_MODEL_REGISTRY_TOKEN, RouteModelRegistry
+    from fastedgy.dependencies import get_service
+    from fastedgy.test.models.user import User
+
+    api_registry = get_service(RouteModelRegistry)
+    console_registry = get_service(CONSOLE_ROUTE_MODEL_REGISTRY_TOKEN)
+    console_registry._models[User] = api_registry._models.pop(User)
+    yield
+    api_registry._models[User] = console_registry._models.pop(User)
+
+
+async def test_upload_writes_the_callers_own_user(auth_http: httpx.AsyncClient, console_only_users: None) -> None:
+    from fastedgy.test.models.user import User
+
+    me = await User.query.get(email="auth@example.io")
+
+    response = await auth_http.post(
+        f"/api/storage/upload/users/{me.id}/name",
+        files={"file": ("doc.txt", b"hello", "text/plain")},
+    )
+
+    assert response.status_code == 200
+    assert (await User.query.get(id=me.id)).name == response.json()["path"]
+
+
+async def test_delete_file_leaves_another_user_alone(auth_http: httpx.AsyncClient, console_only_users: None) -> None:
+    from fastedgy.test.factories import create_user
+    from fastedgy.test.models.user import User
+
+    other = await create_user(email="other@example.io", name="Other")
+
+    for model in ("user", "users"):
+        response = await auth_http.delete(f"/api/storage/file/{model}/{other.id}/name")
+
+        assert response.status_code == 404
+
+    assert (await User.query.get(id=other.id)).name == "Other"
+
+
+async def test_a_transformer_can_allow_another_users_file(
+    auth_http: httpx.AsyncClient, console_only_users: None
+) -> None:
+    from fastedgy.api_route_model.registry import ViewTransformerRegistry
+    from fastedgy.api_route_model.view_transformer import PreDeleteFileTransformer
+    from fastedgy.dependencies import get_service
+    from fastedgy.test.factories import create_user
+    from fastedgy.test.models.user import User
+
+    class _Manager(PreDeleteFileTransformer):
+        async def pre_delete_file(self, request, model, model_id, field, record, ctx) -> None:
+            ctx["write_allowed"] = True
+
+    other = await create_user(email="other@example.io", name="Other")
+    ViewTransformerRegistry._transformers.pop(User, None)
+    get_service(ViewTransformerRegistry).register_transformer(_Manager, User)
+
+    try:
+        response = await auth_http.delete(f"/api/storage/file/users/{other.id}/name")
+    finally:
+        ViewTransformerRegistry._transformers.pop(User, None)
+
+    assert response.status_code == 200
+    assert (await User.query.get(id=other.id)).name is None

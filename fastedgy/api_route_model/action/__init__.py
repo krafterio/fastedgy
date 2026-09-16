@@ -4,6 +4,7 @@
 from fastedgy.api_route_model.action.base import (
     ApiRouteActionRegistry,
     BaseApiRouteAction,
+    ensure_action_allowed,
 )
 from fastedgy.api_route_model.action.generators import (
     clean_empty_strings,
@@ -24,6 +25,7 @@ __all__ = [
     # Base
     "BaseApiRouteAction",
     "ApiRouteActionRegistry",
+    "ensure_action_allowed",
     # Generators
     "generate_input_create_model",
     "generate_input_patch_model",

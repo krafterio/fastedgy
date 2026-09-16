@@ -6,7 +6,7 @@ import re as _re
 from collections.abc import Awaitable, Callable
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 from urllib.parse import quote
 
 from fastapi import APIRouter, HTTPException, Query, UploadFile
@@ -16,6 +16,8 @@ from starlette.datastructures import UploadFile as StarletteUploadFile
 from starlette.responses import Response
 
 from fastedgy import context
+from fastedgy.api_route_model.action import ensure_action_allowed
+from fastedgy.api_route_model.actions.patch_action import apply_patch_item, patch_item_data
 from fastedgy.api_route_model.registry import ViewTransformerRegistry
 from fastedgy.api_route_model.view_transformer import (
     PostDeleteFileTransformer,
@@ -31,6 +33,7 @@ from fastedgy.i18n import _t
 from fastedgy.metadata_model.registry import MetadataModelRegistry
 from fastedgy.orm import Registry
 from fastedgy.orm.exceptions import ObjectNotFound
+from fastedgy.orm.transaction import with_transaction
 from fastedgy.schemas.storage import UploadedAttachments, UploadedModelField
 from fastedgy.storage import Storage
 from fastedgy.storage.routing import (
@@ -47,7 +50,7 @@ except Exception:
 
 
 if TYPE_CHECKING:
-    from fastedgy.models.base import BaseModel
+    from fastedgy.models.base import BaseModel, BaseView
 
 _RANGE_RE = _re.compile(r"bytes=(\d+)-(\d*)")
 
@@ -311,14 +314,11 @@ async def upload_model_field_file(
         if not isinstance(file, StarletteUploadFile):
             raise HTTPException(status_code=400, detail=_t("File is not a valid upload file"))
 
-        record = await _get_record(model, field, model_id)
+        record, model_cls, access = await _get_record(model, field, model_id)
         vtr = get_service(ViewTransformerRegistry)
         transformers_ctx: dict[str, Any] = {}
-
-        meta_registry = get_service(MetadataModelRegistry)
-        meta_model = await meta_registry.get_metadata(model)
-        model_cls = await meta_registry.get_model_from_metadata(meta_model)
         global_storage = is_global_storage_model(model_cls)
+        access = await _ensure_file_field(model, model_cls, field, access)
 
         for transformer in vtr.get_transformers(PreUploadTransformer, model_cls, None):
             result = await transformer.pre_upload(request, record, field, cast(UploadFile, file), transformers_ctx)
@@ -326,16 +326,22 @@ async def upload_model_field_file(
             if result is not None:
                 global_storage = result
 
-        if getattr(record, field):
-            await storage.delete(getattr(record, field), global_storage=global_storage)
-
+        _ensure_write_allowed(model, model_id, access, transformers_ctx)
+        previous_path = getattr(record, field)
         path = await storage.upload(
             file,
             model,
             global_storage=global_storage,
         )
-        setattr(record, field, path)
-        await record.save()
+
+        try:
+            await _write_file_field(request, model_cls, record, model_id, field, path, access)
+        except Exception:
+            await storage.delete(path, global_storage=global_storage)
+            raise
+
+        if previous_path:
+            await storage.delete(previous_path, global_storage=global_storage)
 
         for transformer in vtr.get_transformers(PostUploadTransformer, model_cls, None):
             path = await transformer.post_upload(request, record, field, path, transformers_ctx)
@@ -356,13 +362,11 @@ async def delete_file(
     storage: Storage = Inject(Storage),
 ) -> None:
     try:
-        record = await _get_record(model, field, model_id)
-        meta_registry = get_service(MetadataModelRegistry)
-        meta_model = await meta_registry.get_metadata(model)
-        model_cls = await meta_registry.get_model_from_metadata(meta_model)
+        record, model_cls, access = await _get_record(model, field, model_id)
         vtr = get_service(ViewTransformerRegistry)
         transformers_ctx: dict[str, Any] = {}
         global_storage = is_global_storage_model(model_cls)
+        access = await _ensure_file_field(model, model_cls, field, access)
 
         for transformer in vtr.get_transformers(PreDeleteFileTransformer, model_cls, None):
             result = await transformer.pre_delete_file(request, model, model_id, field, record, transformers_ctx)
@@ -370,11 +374,12 @@ async def delete_file(
             if result is not None:
                 global_storage = result
 
-        if getattr(record, field):
-            await storage.delete(getattr(record, field), global_storage=global_storage)
+        _ensure_write_allowed(model, model_id, access, transformers_ctx)
+        previous_path = getattr(record, field)
+        await _write_file_field(request, model_cls, record, model_id, field, None, access)
 
-        setattr(record, field, None)
-        await record.save()
+        if previous_path:
+            await storage.delete(previous_path, global_storage=global_storage)
 
         for transformer in vtr.get_transformers(PostDeleteFileTransformer, model_cls, None):
             await transformer.post_delete_file(request, model, model_id, field, record, transformers_ctx)
@@ -625,49 +630,91 @@ async def download_file(
     )
 
 
+# How the storage routes may write a model field:
+# - "own": the request's own user or workspace, written directly;
+# - "other": another user or workspace the caller has no PATCH route for,
+#   written directly once a pre-upload or pre-delete-file transformer sets
+#   `ctx["write_allowed"]`, a 404 otherwise;
+# - "route": any other record, written through the model's PATCH route.
+type _Access = Literal["own", "other", "route"]
+
+
 async def _get_record(
     model: str,
     field: str,
     model_id: int,
-) -> "BaseModel":
+) -> tuple["BaseModel", type["BaseModel | BaseView"], _Access]:
+    from fastedgy.models.user import BaseUser
+    from fastedgy.models.workspace import BaseWorkspace
+
     meta_registry = get_service(MetadataModelRegistry)
+    meta_model = await meta_registry.get_metadata(model)
 
-    if model == "user":
-        current_user = context.get_user()
+    if field not in meta_model.fields:
+        raise ValueError(_t("Field {field} not found in model {model}", field=field, model=model))
 
-        if not current_user or current_user.id != model_id:
-            raise ObjectNotFound(_t("User {model_id} not found", model_id=model_id))
+    model_cls = await meta_registry.get_model_from_metadata(meta_model)
 
-        meta_model = await meta_registry.get_metadata(model)
-        model_cls = await meta_registry.get_model_from_metadata(meta_model)
-
-        if field not in model_cls.meta.fields:
-            raise ValueError(_t("Field {field} not found in model {model}", field=field, model=model))
-
-        record = current_user
-    elif model == "workspace":
-        current_workspace = context.get_workspace()
-
-        if not current_workspace or current_workspace.id != model_id:
-            raise ObjectNotFound(_t("Workspace {model_id} not found", model_id=model_id))
-
-        meta_model = await meta_registry.get_metadata(model)
-        model_cls = await meta_registry.get_model_from_metadata(meta_model)
-
-        if field not in model_cls.meta.fields:
-            raise ValueError(_t("Field {field} not found in model {model}", field=field, model=model))
-
-        record = current_workspace
+    if issubclass(model_cls, BaseUser):
+        own = context.get_user()
+    elif issubclass(model_cls, BaseWorkspace):
+        own = context.get_workspace()
     else:
-        meta_model = await meta_registry.get_metadata(model)
+        return await model_cls.query.get(id=model_id), model_cls, "route"
 
-        if field not in meta_model.fields:
-            raise ValueError(_t("Field {field} not found in model {model}", field=field, model=model))
+    if own is not None and own.id == model_id:
+        return cast("BaseModel", own), model_cls, "own"
 
-        model_cls = await meta_registry.get_model_from_metadata(meta_model)
-        record = await model_cls.query.get(id=model_id)
+    return await model_cls.query.get(id=model_id), model_cls, "other"
 
-    return record
+
+async def _ensure_file_field(
+    model: str, model_cls: type["BaseModel | BaseView"], field: str, access: _Access
+) -> _Access:
+    """Checked before any file is touched: the field holds a path and the PATCH
+    body of the model accepts it. Another user or workspace goes through the
+    PATCH route too when the caller has one."""
+    if getattr(model_cls.meta.fields.get(field), "field_type", None) is not str:
+        raise ValueError(_t("Field {field} of model {model} does not hold a file", field=field, model=model))
+
+    patch_item_data(model_cls, {field: None})
+
+    if access == "own":
+        return access
+
+    try:
+        await ensure_action_allowed(model_cls, "patch")
+    except HTTPException:
+        if access == "other":
+            return access
+
+        raise
+
+    return "route"
+
+
+def _ensure_write_allowed(model: str, model_id: int, access: _Access, ctx: dict[str, Any]) -> None:
+    if access == "other" and not ctx.get("write_allowed"):
+        raise ObjectNotFound(_t("{model} {model_id} not found", model=model, model_id=model_id))
+
+
+async def _write_file_field(
+    request: Request,
+    model_cls: type["BaseModel | BaseView"],
+    record: "BaseModel",
+    model_id: int,
+    field: str,
+    path: str | None,
+    access: _Access,
+) -> None:
+    if access != "route":
+        setattr(record, field, path)
+        await record.save()
+        return
+
+    await with_transaction(
+        lambda: apply_patch_item(request, model_cls, model_id, patch_item_data(model_cls, {field: path}), fields="id")
+    )
 
 
 __all__ = [

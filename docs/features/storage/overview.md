@@ -69,6 +69,14 @@ The Storage service provides REST endpoints:
 - `GET /storage/download/{path}` - Download file
 - `DELETE /storage/file/{model}/{model_id}/{field}` - Delete model field file
 
+The two model field routes only write a text field that the model's PATCH route
+accepts, and write it through that route: the caller needs the route (the
+console one requires sudo), and the model's `PreSaveTransformer` runs. The
+request's own user and workspace are the exception, written directly. Another
+user or workspace without a PATCH route for the caller is a 404, unless a
+`PreUploadTransformer` or `PreDeleteFileTransformer` sets
+`ctx["write_allowed"] = True`.
+
 A stored path never contains a `..` part: the storage refuses it.
 
 ## Use cases

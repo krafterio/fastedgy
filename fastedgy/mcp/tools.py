@@ -16,11 +16,13 @@ import httpx
 from fastapi import HTTPException
 
 from fastedgy import context
+from fastedgy.api_route_model.action import ApiRouteActionRegistry
 from fastedgy.api_route_model.actions.create_action import create_item_action
 from fastedgy.api_route_model.actions.delete_action import delete_item_action
 from fastedgy.api_route_model.actions.get_action import get_item_action
 from fastedgy.api_route_model.actions.list_action import list_items_action
 from fastedgy.api_route_model.actions.patch_action import patch_item_action
+from fastedgy.api_route_model.registry import RouteModelRegistry
 from fastedgy.api_route_model.types import ModelCreate, ModelUpdate
 from fastedgy.dependencies import get_service
 from fastedgy.depends.security import find_workspace_user_model
@@ -141,6 +143,7 @@ def _model_tools(workspaced: bool) -> list[dict[str, Any]]:
         },
         {
             "name": "list_records",
+            "action": "list",
             "description": "A page of records. The only source on what exists: never describe a record you have not read.",
             "input_schema": {
                 "type": "object",
@@ -156,6 +159,7 @@ def _model_tools(workspaced: bool) -> list[dict[str, Any]]:
         },
         {
             "name": "get_record",
+            "action": "get",
             "description": "One record by id.",
             "input_schema": {
                 "type": "object",
@@ -165,6 +169,7 @@ def _model_tools(workspaced: bool) -> list[dict[str, Any]]:
         },
         {
             "name": "create_record",
+            "action": "create",
             "description": "Create a record. Applies immediately: only write what the user actually asked for.",
             "input_schema": {
                 "type": "object",
@@ -177,6 +182,7 @@ def _model_tools(workspaced: bool) -> list[dict[str, Any]]:
         },
         {
             "name": "update_record",
+            "action": "patch",
             "description": "Update a record. Applies immediately: pass only the fields that change.",
             "input_schema": {
                 "type": "object",
@@ -190,6 +196,7 @@ def _model_tools(workspaced: bool) -> list[dict[str, Any]]:
         },
         {
             "name": "delete_record",
+            "action": "delete",
             "description": "Delete a record. Applies immediately and cannot be undone.",
             "input_schema": {
                 "type": "object",
@@ -279,6 +286,25 @@ async def _resolve_model(name: str) -> type[BaseModel | BaseView]:
         raise HTTPException(status_code=404, detail=f"Unknown model '{name}'. Call `list_models` for the catalogue.")
 
     return model_cls
+
+
+def _refuse_disabled_action(name: str, model_cls: type[BaseModel | BaseView]) -> None:
+    """A record tool declares the api route action it delegates to, and reaches a
+    model only where that action is enabled, as the route generator decides: a
+    model that turns an action off writes through a path of its own."""
+    tool = next((tool for tool in _model_tools(False) if tool["name"] == name), {})
+    registry = get_service(RouteModelRegistry)
+
+    if "action" not in tool or not registry.is_model_registered(model_cls):
+        return
+
+    action = get_service(ApiRouteActionRegistry).get_action(tool["action"])
+
+    if not action.should_register(registry.get_model_options(model_cls).get("actions", {})):
+        raise HTTPException(
+            status_code=405,
+            detail=f"`{name}` is not available on '{model_cls.meta.tablename}': this model does not allow it.",
+        )
 
 
 async def _list_workspaces() -> list[dict[str, Any]]:
@@ -502,6 +528,7 @@ async def call_tool(request: Request, name: str, arguments: dict[str, Any]) -> l
         return _json_content(await get_model_metadata(arguments["model"]))
 
     model_cls = await _resolve_model(arguments["model"])
+    _refuse_disabled_action(name, model_cls)
     fields = arguments.get("fields")
 
     if name == "list_records":

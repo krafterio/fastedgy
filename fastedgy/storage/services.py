@@ -21,7 +21,7 @@ from fastedgy.dependencies import Inject, get_service
 from fastedgy.http_client import create_http_client, request_with_retry
 from fastedgy.i18n import _t
 from fastedgy.orm import Registry
-from fastedgy.storage.adapters.base import StorageAdapter
+from fastedgy.storage.adapters.base import StorageAdapter, clean_storage_path
 from fastedgy.storage.adapters.filesystem import FilesystemAdapter
 
 try:
@@ -85,7 +85,7 @@ class Storage:
     def _resolve_path(self, path: str, global_storage: bool = False) -> str:
         """Build a full relative path with workspace prefix."""
         prefix = self._get_workspace_prefix(global_storage)
-        clean = path.strip("/")
+        clean = clean_storage_path(path)
         if prefix:
             return f"{prefix}/{clean}" if clean else prefix
         return clean
@@ -103,7 +103,7 @@ class Storage:
     def get_directory_path(self, path: str, ensure_exists: bool = True, global_storage: bool = False) -> Path:
         dir_path = self.get_base_path(global_storage)
 
-        safe_custom_path = Path(path.strip("/")).parts
+        safe_custom_path = Path(clean_storage_path(path)).parts
         dir_path = dir_path.joinpath(*safe_custom_path)
 
         if ensure_exists:
@@ -112,7 +112,7 @@ class Storage:
         return dir_path
 
     def get_file_path(self, path: str, ensure_exists: bool = True, global_storage: bool = False) -> Path:
-        path_parts = Path(path.strip("/")).parts
+        path_parts = Path(clean_storage_path(path)).parts
         directory_path = ""
         filename = path
 
@@ -212,7 +212,7 @@ class Storage:
     def _get_cache_path(self, path: str, global_storage: bool = False) -> str:
         """Return the cache-relative path for a given path."""
         workspace = context.get_workspace()
-        clean = path.strip("/")
+        clean = clean_storage_path(path)
         if workspace and not global_storage:
             folder = self.settings.storage_workspace_folder
             return f"cache_optimized_images/{folder}/{workspace.id}/{clean}"

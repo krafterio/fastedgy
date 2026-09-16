@@ -6,7 +6,7 @@ from contextlib import AbstractAsyncContextManager
 from datetime import UTC
 from typing import TYPE_CHECKING, cast
 
-from fastedgy.storage.adapters.base import StorageAdapter
+from fastedgy.storage.adapters.base import StorageAdapter, clean_storage_path
 
 if TYPE_CHECKING:
     from aioboto3 import Session
@@ -38,7 +38,7 @@ class S3Adapter(StorageAdapter):
 
     def _key(self, path: str) -> str:
         """Build the full S3 key from a relative path."""
-        clean = path.strip("/")
+        clean = clean_storage_path(path)
         if self.prefix:
             return f"{self.prefix}/{clean}"
         return clean

@@ -582,9 +582,12 @@ async def download_file(
             if workspace is not None:
                 context.set_workspace(workspace)
 
-    resolved_path, content_type = await storage.get_optimized_or_original(
-        path, w=w, h=h, mode=m, out_ext=e, global_storage=global_storage
-    )
+    try:
+        resolved_path, content_type = await storage.get_optimized_or_original(
+            path, w=w, h=h, mode=m, out_ext=e, global_storage=global_storage
+        )
+    except ValueError:
+        raise HTTPException(status_code=404, detail=_t("File not found")) from None
 
     # Check file exists
     if not resolved_path.startswith("__cache__:") and not await storage.file_exists(

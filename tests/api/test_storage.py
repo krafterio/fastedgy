@@ -535,3 +535,36 @@ async def test_the_upload_schema_declares_the_id(auth_http: httpx.AsyncClient) -
 
     assert "id" in schema["properties"]
     assert "id" in schema["required"]
+
+
+async def test_download_refuses_a_path_leaving_the_storage(auth_http: httpx.AsyncClient) -> None:
+    from fastedgy.test.fixtures import STORAGE_ROOT
+
+    os.makedirs(os.path.join(STORAGE_ROOT, "global"), exist_ok=True)
+
+    with open(os.path.join(STORAGE_ROOT, "outside.txt"), "wb") as f:
+        f.write(b"not served")
+
+    response = await auth_http.get("/api/storage/download/%2E%2E/outside.txt")
+
+    assert response.status_code == 404
+
+
+async def test_delete_file_never_removes_a_file_outside_the_storage(auth_http: httpx.AsyncClient) -> None:
+    from fastedgy.test.fixtures import STORAGE_ROOT
+
+    outside = os.path.join(STORAGE_ROOT, "kept.txt")
+    os.makedirs(os.path.join(STORAGE_ROOT, "global"), exist_ok=True)
+
+    with open(outside, "wb") as f:
+        f.write(b"kept")
+
+    product_id = await _product()
+    patched = await auth_http.patch(f"/api/test_products/{product_id}", json={"description": "../kept.txt"})
+
+    assert patched.status_code == 200
+
+    response = await auth_http.delete(f"/api/storage/file/product/{product_id}/description")
+
+    assert response.status_code == 200
+    assert os.path.isfile(outside)

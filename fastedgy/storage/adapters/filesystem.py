@@ -6,7 +6,7 @@ import shutil
 from collections.abc import AsyncIterator
 from pathlib import Path
 
-from fastedgy.storage.adapters.base import StorageAdapter
+from fastedgy.storage.adapters.base import StorageAdapter, clean_storage_path
 
 
 class FilesystemAdapter(StorageAdapter):
@@ -16,7 +16,7 @@ class FilesystemAdapter(StorageAdapter):
         self.root = root
 
     def _full_path(self, path: str) -> Path:
-        safe_parts = Path(path.strip("/")).parts
+        safe_parts = Path(clean_storage_path(path)).parts
         return Path(self.root).joinpath(*safe_parts) if safe_parts else Path(self.root)
 
     async def exists(self, path: str) -> bool:

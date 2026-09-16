@@ -69,6 +69,8 @@ The Storage service provides REST endpoints:
 - `GET /storage/download/{path}` - Download file
 - `DELETE /storage/file/{model}/{model_id}/{field}` - Delete model field file
 
+A stored path never contains a `..` part: the storage refuses it.
+
 ## Use cases
 
 - **User avatars**: Profile picture uploads

@@ -3,6 +3,18 @@
 
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
+from pathlib import PurePosixPath
+
+
+def clean_storage_path(path: str) -> str:
+    """`path` without its surrounding slashes, refused when a `..` part would
+    lead out of the folder it is resolved in."""
+    clean = path.strip("/")
+
+    if ".." in PurePosixPath(clean).parts:
+        raise ValueError(f"Invalid storage path: {path!r}")
+
+    return clean
 
 
 class StorageAdapter(ABC):

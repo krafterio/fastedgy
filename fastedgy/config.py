@@ -2,6 +2,7 @@
 # MIT License (see LICENSE file).
 
 import os
+import re
 import sys
 import tomllib
 from functools import cached_property
@@ -127,6 +128,12 @@ class BaseSettings(PydanticBaseSettings):
     # HTTP
     http_workers: int | None = None
     http_limit_concurrency: int | None = None
+
+    # CORS
+    # Comma separated origins. An entry carrying a `*` (`http://localhost:*`) is
+    # a pattern: CORS itself has no wildcard beyond the bare `*`, so these are
+    # served through `allow_origin_regex` instead.
+    cors_allow_origins: str | None = None
 
     # Workspace Shareable
     workspace_shared_record_header: str = "X-Workspace-Shared-Record"
@@ -290,6 +297,27 @@ class BaseSettings(PydanticBaseSettings):
         """Create Settings with custom env file path."""
         overrides: dict[str, Any] = {"_env_file": env_file}
         return cls(**overrides)
+
+    @property
+    def _cors_entries(self) -> list[str]:
+        if not self.cors_allow_origins:
+            return ["*"]
+        return [origin.strip() for origin in self.cors_allow_origins.split(",") if origin.strip()]
+
+    @property
+    def cors_origins(self) -> list[str]:
+        """The origins matched as they are written, the bare `*` included."""
+        return [origin for origin in self._cors_entries if origin == "*" or "*" not in origin]
+
+    @property
+    def cors_origin_regex(self) -> str | None:
+        """The patterns, as the one regex `CORSMiddleware` takes; None when there is none."""
+        patterns = [
+            re.escape(origin).replace(r"\*", ".*") for origin in self._cors_entries if "*" in origin and origin != "*"
+        ]
+        if not patterns:
+            return None
+        return "|".join(patterns)
 
     @property
     def project_path(self) -> str:

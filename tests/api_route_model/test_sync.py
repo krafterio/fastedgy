@@ -329,3 +329,45 @@ async def test_block_merge_overlap_resolves_by_last_writer(auth_http: httpx.Asyn
 
     assert results[0]["status"] == "applied"
     assert (await _get(auth_http, product["id"]))["description"] == "SERVER one\nline two"
+
+
+async def test_same_instant_in_another_timezone_is_not_a_conflict(auth_http: httpx.AsyncClient) -> None:
+    # Datetimes serialize in the timezone of the request that reads them: the
+    # same instant is spelled differently once the device moves.
+    product = await make_product(auth_http, published_at="2026-07-01T10:00:00+00:00")
+    read = await auth_http.get(
+        f"/api/test_products/{product['id']}",
+        headers={"X-Timezone": "Europe/Paris"},
+    )
+    base = read.json()
+
+    assert base["published_at"].endswith("+02:00")
+
+    await auth_http.patch(f"/api/test_products/{product['id']}", json={"quantity": 9})
+
+    response = await auth_http.post(
+        "/api/test_products/sync",
+        json={
+            "operations": [_op(base, {"published_at": "2030-01-01T00:00:00+00:00"}, created_at="1900-01-01T00:00:00Z")]
+        },
+        headers={"X-Timezone": "UTC"},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["results"][0]["status"] == "applied"
+
+
+async def test_field_absent_from_the_base_is_not_a_conflict(auth_http: httpx.AsyncClient) -> None:
+    # A field the client never read cannot conflict with what it never knew.
+    product = await make_product(auth_http, name="Laptop", quantity=1)
+    read = await auth_http.get(f"/api/test_products/{product['id']}", headers={"X-Fields": "id,name"})
+    base = read.json()
+
+    assert "quantity" not in base
+
+    await auth_http.patch(f"/api/test_products/{product['id']}", json={"name": "Server name"})
+
+    results = await _sync(auth_http, [_op(base, {"quantity": 5}, created_at="1900-01-01T00:00:00Z")])
+
+    assert results[0]["status"] == "applied"
+    assert (await _get(auth_http, product["id"]))["quantity"] == 5

@@ -39,11 +39,13 @@ server-side: the mode only travels through the metadata.
 import json
 from collections.abc import Callable, Sequence
 from datetime import datetime
+from decimal import Decimal, InvalidOperation
 from typing import Any, Literal, cast
 
 from fastapi import APIRouter, Body, HTTPException
 from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
+from pydantic_core import to_jsonable_python
 from sqlalchemy.exc import IntegrityError
 
 from fastedgy.api_route_model.action import BaseApiRouteAction
@@ -390,14 +392,13 @@ def _changed_fields[M: BaseModel | BaseView](
     base: dict[str, Any],
     current: dict[str, Any],
 ) -> set[str]:
-    fields = (set(base) | set(current)) - _server_managed_fields(model_cls)
+    """The fields the server changed since the client snapshot.
 
-    return {
-        field
-        for field in fields
-        if json.dumps(_comparable(base.get(field)), sort_keys=True, default=str)
-        != json.dumps(_comparable(current.get(field)), sort_keys=True, default=str)
-    }
+    Only the fields the base carries are diffable: a field the client never
+    read is a field it cannot be in conflict with."""
+    fields = set(base) - _server_managed_fields(model_cls)
+
+    return {field for field in fields if not _same_value(base.get(field), current.get(field))}
 
 
 def _comparable(value: Any) -> Any:
@@ -405,11 +406,52 @@ def _comparable(value: Any) -> Any:
 
     A to-one relation serializes as an object whose shape depends on the
     selection (the client base may hold ``{"id", "name"}`` where the server
-    holds ``{"id"}``): compare relations by id only."""
+    holds ``{"id"}``): compare relations by id only. Everything else goes
+    through the JSON normalization the API responses use, so both sides of the
+    diff spell a value the same way."""
     if isinstance(value, dict) and "id" in value:
         return value["id"]
 
-    return value
+    return to_jsonable_python(value, fallback=str)
+
+
+def _same_value(base_value: Any, current_value: Any) -> bool:
+    """Whether two normalized values mean the same thing.
+
+    Two spellings survive the normalization and must not read as a change: the
+    same instant in two timezones (the serializer follows the request), and a
+    number the client received as a literal where the server holds a decimal."""
+    left = _comparable(base_value)
+    right = _comparable(current_value)
+
+    if left == right:
+        return True
+
+    if isinstance(left, str) and isinstance(right, str):
+        instant = _as_instant(left)
+
+        return instant is not None and instant == _as_instant(right)
+
+    number = _as_number(left)
+
+    return number is not None and number == _as_number(right)
+
+
+def _as_instant(value: str) -> datetime | None:
+    try:
+        return ensure_aware(datetime.fromisoformat(value))
+    except ValueError:
+        return None
+
+
+def _as_number(value: Any) -> Decimal | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float, str, Decimal)):
+        return None
+
+    try:
+        return Decimal(str(value))
+    except InvalidOperation, ValueError:
+        return None
 
 
 def _block_merge_fields(model_cls: type[BaseModel | BaseView]) -> set[str]:

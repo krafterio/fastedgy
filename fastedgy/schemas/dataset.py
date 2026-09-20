@@ -1,6 +1,7 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+from datetime import datetime
 from typing import Any
 
 from fastedgy.schemas import BaseModel
@@ -29,6 +30,26 @@ class ResequenceRequest(BaseModel):
     group_field: str | None = None
     group_value: Any | None = None
     ids: list[int]
+
+
+class SyncStateItem(BaseModel):
+    """What a client needs to know to decide whether a model is up to date.
+
+    ``count`` and ``updated_at`` are read through the model's own scoped query,
+    so the workspace scope, the global filters and the row-level access rules
+    apply: two accounts of the same server see their own numbers.
+    """
+
+    model: str
+    mode: str
+    count: int
+    updated_at: datetime | None = None
+
+
+class SyncState(BaseModel):
+    """The state of every replicated model the caller can read."""
+
+    items: list[SyncStateItem]
 
 
 class Resequence(BaseModel):

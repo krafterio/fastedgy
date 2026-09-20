@@ -72,7 +72,7 @@ async def generate_metadata_model(model_cls: type[BaseModel | BaseView]) -> Meta
     has_fulltext_field = search_field is not None
     is_searchable = has_fulltext_field and len(searchable_fields_list) > 0
 
-    synchronizable_mode = _resolve_synchronizable_mode(model_cls)
+    synchronizable_mode = resolve_synchronizable_mode(model_cls)
 
     metadata = MetadataModel(
         name=name,
@@ -93,7 +93,7 @@ async def generate_metadata_model(model_cls: type[BaseModel | BaseView]) -> Meta
     return metadata
 
 
-def _resolve_synchronizable_mode(model_cls: type[BaseModel | BaseView]) -> str:
+def resolve_synchronizable_mode(model_cls: type[BaseModel | BaseView]) -> str:
     """How much of this model the client should replicate offline.
 
     ``none`` (no replication), ``full`` (every record) or ``partial`` (only

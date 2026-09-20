@@ -1,27 +1,35 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+from datetime import datetime
 from typing import Any, cast
 
 from fastapi import APIRouter, HTTPException
 
 from fastedgy.api_route_model.actions.patch_action import patch_item_fields
 from fastedgy.api_route_model.exception import handle_action_exception
+from fastedgy.api_route_model.registry import RouteModelRegistry, TypeModel
 from fastedgy.dependencies import Inject
 from fastedgy.http import Request
 from fastedgy.i18n import _t
 from fastedgy.metadata_model import MetadataModelRegistry, TypeMapMetadataModels
-from fastedgy.metadata_model.generator import generate_class_name
+from fastedgy.metadata_model.generator import (
+    generate_class_name,
+    generate_metadata_name,
+    resolve_synchronizable_mode,
+)
 from fastedgy.models.base import BaseModel
 from fastedgy.orm import Registry
+from fastedgy.orm.access_guard import AccessDeniedError, ModelAction, acheck_access
 from fastedgy.orm.transaction import with_transaction
-from fastedgy.schemas.dataset import Resequence, ResequenceRequest
+from fastedgy.schemas.dataset import Resequence, ResequenceRequest, SyncState, SyncStateItem
 
 # One router per route, so an app can mount them under different prefixes:
 # workspace extra fields make the metadata tenant-specific, while resequencing
 # stays wherever the app needs it. [router] mounts both, as before.
 metadatas_router = APIRouter(prefix="/dataset", tags=["dataset"])
 resequence_router = APIRouter(prefix="/dataset", tags=["dataset"])
+sync_state_router = APIRouter(prefix="/dataset", tags=["dataset"])
 
 
 @metadatas_router.get("/metadatas")
@@ -29,6 +37,72 @@ async def get_metadata_models(
     meta_registry: MetadataModelRegistry = Inject(MetadataModelRegistry),
 ) -> TypeMapMetadataModels:
     return await meta_registry.get_map_models()
+
+
+@sync_state_router.get("/sync-state")
+async def get_sync_state(
+    models: str | None = None,
+    registry: RouteModelRegistry = Inject(RouteModelRegistry),
+) -> SyncState:
+    """How much each replicated model holds, so a client can skip what has not moved.
+
+    An offline client mirrors a model by walking its manifest, which costs a
+    request per page even when nothing changed. This answers the same question
+    in one request for every model at once: how many records the caller can
+    read, and when the freshest one was written. A client whose own numbers
+    match has nothing to pull.
+
+    Nothing is stored per device: both numbers are read live, through the
+    model's own query, so the workspace scope, the ``@global_filter`` rules and
+    the row-level guards apply exactly as they do on the list route. A model
+    the caller cannot read is left out of the answer rather than refused: the
+    others still have to be told.
+    """
+    requested = {name.strip() for name in models.split(",") if name.strip()} if models else None
+    items: list[SyncStateItem] = []
+
+    for model_cls in registry.get_registered_models():
+        mode = resolve_synchronizable_mode(model_cls)
+
+        if mode == "none":
+            continue
+
+        name = generate_metadata_name(model_cls)
+
+        if requested is not None and name not in requested:
+            continue
+
+        try:
+            await acheck_access(model_cls, ModelAction.read)
+        except AccessDeniedError:
+            continue
+
+        items.append(
+            SyncStateItem(
+                model=name,
+                mode=mode,
+                count=await model_cls.query.count(),
+                updated_at=await _freshest(model_cls),
+            )
+        )
+
+    items.sort(key=lambda item: item.model)
+
+    return SyncState(items=items)
+
+
+async def _freshest(model_cls: TypeModel) -> datetime | None:
+    """The `updated_at` of the freshest record the caller can read, if any.
+
+    Read through the scoped query rather than an aggregate select, so a record
+    the caller cannot see cannot date the model for them.
+    """
+    if "updated_at" not in model_cls.meta.fields:
+        return None
+
+    values = await model_cls.query.order_by("-updated_at").limit(1).values_list("updated_at", flat=True)
+
+    return values[0] if values else None
 
 
 @resequence_router.put("/resequence")
@@ -132,10 +206,12 @@ def _prepare_sequence_update(
 router = APIRouter()
 router.include_router(metadatas_router)
 router.include_router(resequence_router)
+router.include_router(sync_state_router)
 
 
 __all__ = [
     "metadatas_router",
     "resequence_router",
     "router",
+    "sync_state_router",
 ]

@@ -597,6 +597,7 @@ async def filter_fields(data: dict, data_obj: Model | None, fields: dict, target
                     nested_obj = _get_loaded_relation(data_obj, field_name)
 
                 if nested_obj is not None:
+                    await _load_key_only_relation(nested_obj, field_value)
                     target[field_name] = {}
                     await filter_fields(
                         _dump_selected(nested_obj, field_value), nested_obj, field_value, target[field_name]
@@ -784,6 +785,21 @@ def flatten_extra_fields(item: Model, dump: dict) -> dict:
         flattened[f"extra_{name}"] = values.get(name)
 
     return flattened
+
+
+async def _load_key_only_relation(obj: Any, selection: dict[str, Any]) -> None:
+    """Load a relation held by its key only when the selection reads more of it.
+
+    Loaded here, on the request's connection, it sees a row the request wrote in
+    its transaction; the lazy load Edgy would run on first access uses another
+    connection, which does not, and raised ObjectNotFound."""
+    if getattr(obj, "_db_loaded_or_deleted", True) or not getattr(obj, "can_load", False):
+        return
+
+    loaded = obj.__dict__
+
+    if any(name == "+" or (not name.startswith("$") and name not in loaded) for name in selection):
+        await obj.load()
 
 
 def _get_loaded_relation(data_obj: Model, field_name: str) -> Any:

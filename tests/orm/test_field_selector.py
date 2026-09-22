@@ -51,3 +51,21 @@ async def test_serialize_never_leaks_excluded_scalar_through_relation(setup_db: 
     dump = await filter_selected_fields(category, "name,products.name,products.secret_code")
     assert dump["products"] == [{"id": dump["products"][0]["id"], "name": "Widget"}]
     assert "secret_code" not in dump["products"][0]
+
+
+async def test_serialize_reads_a_relation_written_in_the_same_transaction(setup_db: FastEdgy) -> None:
+    """A relation held by its key only is read on the transaction's connection: the
+    lazy load of Edgy runs on another one, which does not see a row the transaction
+    wrote, and the serialization failed with ObjectNotFound."""
+    from fastedgy.orm import with_transaction
+
+    async def op() -> dict:
+        category = await Category.query.create(name="Tools")
+        product = await Product.query.create(name="Widget", price="9.99", category=category)
+        stored = await Product.query.get(id=product.id)
+
+        return await filter_selected_fields(stored, "name,category.name")
+
+    dump = await with_transaction(op)
+
+    assert dump["category"]["name"] == "Tools"

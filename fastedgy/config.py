@@ -171,6 +171,9 @@ class BaseSettings(PydanticBaseSettings):
     # derived Postgres key); advisory locks are per-database, so the default
     # cannot clash across apps. Empty = no orchestrator-driven deploy window.
     deploy_lock_name: str = "fastedgy-deploy"
+    # Answer 503 maintenance to every request but /health: a planned window,
+    # or a rehearsal of the clients' maintenance path in development.
+    maintenance_mode: bool = False
 
     # Logging
     log_level: LogLevel = LogLevel.INFO

@@ -38,6 +38,7 @@ from fastedgy.http import (
     ContextRequestMiddleware,
     DatabaseUnavailableMiddleware,
     DeployAwareSerializationMiddleware,
+    MaintenanceModeMiddleware,
     TimezoneMiddleware,
 )
 from fastedgy.i18n import LocaleMiddleware
@@ -1008,6 +1009,7 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
         self.add_middleware(DatabaseUnavailableMiddleware)
         self.add_middleware(DeployAwareSerializationMiddleware)
         self.add_middleware(ContextRequestMiddleware)
+        self.add_middleware(MaintenanceModeMiddleware)
 
     def _compose_lifespan(self, user_lifespan):
         """Compose user lifespan with FastEdgy native lifespan"""

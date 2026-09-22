@@ -165,6 +165,28 @@ class DeployAwareSerializationMiddleware:
             await Response(status_code=503, headers={"Retry-After": "5"})(scope, receive, send)
 
 
+class MaintenanceModeMiddleware:
+    """Answer 503 maintenance to every request while `maintenance_mode` is on.
+
+    The health route stays out of it so the orchestrator keeps the replica,
+    and the setting is read per request so it can be flipped under test.
+    """
+
+    def __init__(self, app: ASGIApp):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and not scope["path"].rstrip("/").endswith("/health"):
+            from fastedgy.config import BaseSettings
+            from fastedgy.dependencies import get_service
+
+            if get_service(BaseSettings).maintenance_mode:
+                await Response(status_code=503, headers={"Retry-After": "5"})(scope, receive, send)
+                return
+
+        await self.app(scope, receive, send)
+
+
 class ContextRequestMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         token = set_request(cast(Request, request))
@@ -212,6 +234,7 @@ __all__ = [
     "ContextRequestMiddleware",
     "DatabaseUnavailableMiddleware",
     "DeployAwareSerializationMiddleware",
+    "MaintenanceModeMiddleware",
     "Request",
     "TimezoneMiddleware",
     "is_database_unavailable",

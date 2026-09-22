@@ -80,3 +80,21 @@ async def test_query_errors_on_a_healthy_database_stay_errors(
         await setup_http.get("/api/test-timeout")
     with pytest.raises(InterfaceError):
         await setup_http.get("/api/test-pool-misuse")
+
+
+async def test_maintenance_mode_answers_503_and_keeps_health(
+    setup_db: FastEdgy, setup_http: httpx.AsyncClient, override_settings
+) -> None:
+    async def fine() -> dict[str, bool]:
+        return {"ok": True}
+
+    setup_db.add_api_route("/api/test-maintenance", fine, methods=["GET"])
+
+    assert (await setup_http.get("/api/test-maintenance")).status_code == 200
+
+    override_settings(maintenance_mode=True)
+
+    response = await setup_http.get("/api/test-maintenance")
+    assert response.status_code == 503
+    assert response.headers["Retry-After"] == "5"
+    assert (await setup_http.get("/api/health")).status_code == 200

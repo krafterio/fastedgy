@@ -5721,6 +5721,59 @@
         "title": "SyncOperationResult",
         "type": "object"
       },
+      "SyncState": {
+        "description": "The state of every replicated model the caller can read.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SyncStateItem"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "SyncState",
+        "type": "object"
+      },
+      "SyncStateItem": {
+        "description": "What a client needs to know to decide whether a model is up to date.\n\n``count`` and ``updated_at`` are read through the model's own scoped query,\nso the workspace scope, the global filters and the row-level access rules\napply: two accounts of the same server see their own numbers.",
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "mode": {
+            "title": "Mode",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "model",
+          "mode",
+          "count"
+        ],
+        "title": "SyncStateItem",
+        "type": "object"
+      },
       "Tag": {
         "properties": {
           "created_at": {
@@ -7558,6 +7611,11 @@
             "title": "Id",
             "type": "integer"
           },
+          "is_default": {
+            "default": false,
+            "title": "Is Default",
+            "type": "boolean"
+          },
           "updated_at": {
             "format": "date-time",
             "title": "Updated At",
@@ -8788,6 +8846,64 @@
           }
         ],
         "summary": "Resequence",
+        "tags": [
+          "dataset"
+        ]
+      }
+    },
+    "/api/dataset/sync-state": {
+      "get": {
+        "description": "How much each replicated model holds, so a client can skip what has not moved.\n\nAn offline client mirrors a model by walking its manifest, which costs a\nrequest per page even when nothing changed. This answers the same question\nin one request for every model at once: how many records the caller can\nread, and when the freshest one was written. A client whose own numbers\nmatch has nothing to pull.\n\nNothing is stored per device: both numbers are read live, through the\nmodel's own query, so the workspace scope, the ``@global_filter`` rules and\nthe row-level guards apply exactly as they do on the list route. A model\nthe caller cannot read is left out of the answer rather than refused: the\nothers still have to be told.",
+        "operationId": "get_sync_state_api_dataset_sync_state_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "models",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Models"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Get Sync State",
         "tags": [
           "dataset"
         ]

@@ -1,6 +1,10 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+from collections.abc import Callable
+
+import pytest
+from fastapi import HTTPException
 from jose import jwt
 
 from fastedgy import context
@@ -16,6 +20,7 @@ from fastedgy.depends.security import (
     verify_password,
 )
 from fastedgy.http import Request
+from fastedgy.orm.filter import R
 from fastedgy.test.factories import create_user, create_workspace
 from fastedgy.test.models.workspace_user import WorkspaceUser
 
@@ -126,6 +131,106 @@ async def test_current_workspace_comes_from_the_membership_join(setup_db: FastEd
         assert resolved is getattr(context.get_workspace_user(), "workspace", None)
     finally:
         context.reset_request(token)
+
+
+def _request_for(params: dict[str, str]) -> Request:
+    return Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "path": "/",
+            "query_string": b"",
+            "headers": [],
+            "path_params": params,
+        }
+    )
+
+
+async def test_the_workspace_is_read_from_the_path_parameter_the_settings_name(
+    setup_db: FastEdgy, override_settings: Callable[..., None]
+) -> None:
+    override_settings(workspace_path_param="household")
+    user = await create_user(email="ada@example.io")
+    workspace = await create_workspace(slug="acme", name="Acme")
+    await WorkspaceUser(user=user, workspace=workspace).save()
+    token = context.set_request(_request_for({"household": "acme"}))
+
+    try:
+        resolved = await get_current_workspace(current_user=user)
+
+        assert resolved is not None
+        assert resolved.slug == "acme"
+    finally:
+        context.reset_request(token)
+
+
+async def test_a_workspace_the_user_is_not_a_member_of_is_not_found(setup_db: FastEdgy) -> None:
+    user = await create_user(email="ada@example.io")
+    await create_workspace(slug="acme", name="Acme")
+    token = context.set_request(_request_for({"workspace": "acme"}))
+
+    try:
+        with pytest.raises(HTTPException) as refused:
+            await get_current_workspace(current_user=user)
+
+        assert refused.value.status_code == 404
+    finally:
+        context.reset_request(token)
+
+
+async def test_the_default_slug_stands_for_the_membership_marked_as_default(
+    setup_db: FastEdgy, override_settings: Callable[..., None]
+) -> None:
+    override_settings(workspace_default_slug="legacy")
+    user = await create_user(email="ada@example.io")
+    first = await create_workspace(slug="acme", name="Acme")
+    second = await create_workspace(slug="office", name="Office")
+    await WorkspaceUser(user=user, workspace=first).save()
+    chosen = WorkspaceUser(user=user, workspace=second)
+    await chosen.save()
+    await chosen.make_default()
+    token = context.set_request(_request_for({"workspace": "legacy"}))
+
+    try:
+        resolved = await get_current_workspace(current_user=user)
+
+        assert resolved is not None
+        assert resolved.slug == "office"
+    finally:
+        context.reset_request(token)
+
+
+async def test_the_default_membership_is_the_oldest_until_one_is_chosen(setup_db: FastEdgy) -> None:
+    user = await create_user(email="ada@example.io")
+    first = WorkspaceUser(user=user, workspace=await create_workspace(slug="acme", name="Acme"))
+    await first.save()
+    second = WorkspaceUser(user=user, workspace=await create_workspace(slug="office", name="Office"))
+    await second.save()
+
+    assert user.id is not None
+    assert getattr(await WorkspaceUser.default_for(user.id), "id", None) == first.id
+
+    await second.make_default()
+
+    assert getattr(await WorkspaceUser.default_for(user.id), "id", None) == second.id
+
+    await first.make_default()
+    reloaded = await WorkspaceUser.global_query.filter(R("id", "=", second.id)).get()
+
+    assert getattr(await WorkspaceUser.default_for(user.id), "id", None) == first.id
+    assert reloaded.is_default is False
+
+
+async def test_the_default_mark_cannot_be_written_like_any_other_field(setup_db: FastEdgy) -> None:
+    user = await create_user(email="ada@example.io")
+    membership = WorkspaceUser(user=user, workspace=await create_workspace(slug="acme", name="Acme"))
+    await membership.save()
+
+    membership.is_default = True
+    await membership.save()
+    reloaded = await WorkspaceUser.global_query.filter(R("id", "=", membership.id)).get()
+
+    assert reloaded.is_default is False
 
 
 async def test_an_unhashed_password_is_repaired_outside_strict_mode(setup_db: FastEdgy) -> None:

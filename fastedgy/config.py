@@ -135,6 +135,13 @@ class BaseSettings(PydanticBaseSettings):
     # served through `allow_origin_regex` instead.
     cors_allow_origins: str | None = None
 
+    # Workspace
+    # The path parameter a workspace router names its workspace by, and the slug
+    # that stands for the member's default workspace (`BaseWorkspaceUser.default_for`)
+    # when a route receives it in place of a real one.
+    workspace_path_param: str = "workspace"
+    workspace_default_slug: str | None = None
+
     # Workspace Shareable
     workspace_shared_record_header: str = "X-Workspace-Shared-Record"
 

@@ -17,7 +17,7 @@ from fastedgy.depends.hasher import get_hasher_registry
 from fastedgy.models.user_api_token import resolve_api_token
 from fastedgy.orm import Registry
 from fastedgy.orm.extra_fields import load_workspace_extra_fields
-from fastedgy.orm.filter import Or, R
+from fastedgy.orm.filter import And, Or, R
 
 if TYPE_CHECKING:
     from fastedgy.models.user import BaseUser as User
@@ -222,19 +222,25 @@ async def get_current_workspace(
     if workspace and workspace_user:
         return workspace
 
+    settings = get_service(BaseSettings)
     request = context.get_request()
-    workspace_name = request.path_params.get("workspace", None) if request else None
+    workspace_name = request.path_params.get(settings.workspace_path_param, None) if request else None
 
     if not workspace_name:
         return None
 
-    db_reg = get_service(Registry)
-    WorkspaceUser = cast(type["WorkspaceUser"], db_reg.get_model("WorkspaceUser"))
-    workspace_user = (
-        await WorkspaceUser.query.select_related("workspace")
-        .filter(user=current_user, workspace__slug=workspace_name)
-        .first()
-    )
+    WorkspaceUser = find_workspace_user_model()
+
+    if WorkspaceUser is None:
+        workspace_user = None
+    elif settings.workspace_default_slug and workspace_name == settings.workspace_default_slug:
+        workspace_user = await WorkspaceUser.default_for(current_user.id)
+    else:
+        workspace_user = await (
+            WorkspaceUser.global_query.select_related("workspace")
+            .filter(And(R("user", "=", current_user.id), R("workspace.slug", "=", workspace_name)))
+            .first()
+        )
 
     if not workspace_user or not workspace_user.workspace:
         raise HTTPException(

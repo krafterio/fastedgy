@@ -48,6 +48,49 @@ async def scope_of(user: "User", slug: Any) -> "Scope | None":
     return cast("Scope | None", getattr(scope_user, "workspace", None))
 
 
+async def scopes_of(user: "User", slugs: Collection[Any]) -> "list[Scope]":
+    """The scopes behind a list of slugs, those this account is a member of.
+
+    One read for them all, however many the client sent. A slug the account is
+    not a member of is left out rather than refused.
+    """
+    names = [slug for slug in slugs if slug and isinstance(slug, str)]
+    scope_user_model = find_workspace_user_model()
+
+    if not names or scope_user_model is None:
+        return []
+
+    scope_users = (
+        await scope_user_model.global_query.select_related("workspace")
+        .filter(And(R("user", "=", user.id), R("workspace.slug", "in", names)))
+        .all()
+    )
+
+    return [cast("Scope", scope_user.workspace) for scope_user in scope_users if scope_user.workspace is not None]
+
+
+async def held_scopes(user: "User", scope_ids: Collection[int]) -> set[int]:
+    """Which of these scopes this account is still a member of.
+
+    Read by id rather than by slug: a scope renamed while a socket reads it is
+    still the scope that socket was let into.
+    """
+    scope_user_model = find_workspace_user_model()
+
+    if not scope_ids or scope_user_model is None:
+        return set()
+
+    scope_users = await scope_user_model.global_query.filter(
+        And(R("user", "=", user.id), R("workspace", "in", list(scope_ids)))
+    ).all()
+
+    return {
+        scope_user.workspace.id
+        for scope_user in scope_users
+        if scope_user.workspace is not None and scope_user.workspace.id is not None
+    }
+
+
 class RealtimeAuth:
     """Who a socket is, what it reads, and who hears what is announced.
 
@@ -60,6 +103,18 @@ class RealtimeAuth:
 
     async def scope_of(self, user: "User", scope: Any) -> "Scope | None":
         return await scope_of(user, scope)
+
+    async def scopes_of(self, user: "User", asked: Any) -> "list[Scope]":
+        """The scopes a socket reads: each one of a list, or the one [scope_of] answers."""
+        if isinstance(asked, list):
+            return await scopes_of(user, asked)
+
+        scope = await self.scope_of(user, asked)
+
+        return [scope] if scope is not None else []
+
+    async def held_scopes(self, user: "User", scope_ids: Collection[int]) -> set[int]:
+        return await held_scopes(user, scope_ids)
 
     async def audience(
         self,
@@ -97,6 +152,8 @@ class RealtimeAuth:
 
 __all__ = [
     "RealtimeAuth",
+    "held_scopes",
     "scope_of",
+    "scopes_of",
     "user_of_token",
 ]

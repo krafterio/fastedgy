@@ -21,17 +21,18 @@ logger = logging.getLogger("fastedgy.realtime.manager")
 class Connection:
     """One open socket: who is behind it, and what it asked to hear.
 
-    Both are per socket rather than per account: the scope is in the URL, so one
-    person with two tabs open on two scopes is two connections, each hearing only
-    what its own tab is reading.
+    Both are per socket rather than per account: one person with two tabs open on
+    two scopes is two connections, each hearing only what its own tab is reading.
+    One socket may read several scopes at once, when its client names them all.
 
-    `asked_scope` is the scope as the client named it, resolved again each time
-    the socket is checked; setting `recheck` asks for that check now.
+    `asked_scope` is what the client named, one scope or a list of them, resolved
+    again each time the socket is checked; setting `recheck` asks for that check
+    now.
     """
 
     user_id: int
     websocket: Any
-    scope_id: int | None = None
+    scope_ids: set[int] = field(default_factory=set)
     asked_scope: Any = None
     channels: set[str] = field(default_factory=set)
     state: dict[str, Any] = field(default_factory=dict)
@@ -45,8 +46,8 @@ class ScopeChange(NamedTuple):
     serves, and for no other.
     """
 
-    added: int | None = None
-    removed: int | None = None
+    added: frozenset[int] = frozenset()
+    removed: frozenset[int] = frozenset()
 
 
 class WebSocketManager:
@@ -99,7 +100,7 @@ class WebSocketManager:
         return connection
 
     def disconnect(self, connection: Connection) -> ScopeChange:
-        change = self._leave_scope(connection)
+        change = self._leave_scopes(connection)
         peers = self._by_user.get(connection.user_id)
 
         if peers is not None:
@@ -112,26 +113,30 @@ class WebSocketManager:
 
         return change
 
-    def watch(self, connection: Connection, scope_id: int | None) -> ScopeChange:
-        """Set which scope this socket is reading.
+    def watch(self, connection: Connection, scope_ids: Collection[int]) -> ScopeChange:
+        """Set which scopes this socket is reading.
 
-        Its subscriptions go with the old one: they named records of a scope this
-        socket has left.
+        Its subscriptions go with the old ones: they named records of scopes this
+        socket has left. A scope it keeps reading is neither started nor stopped.
         """
-        if connection.scope_id == scope_id:
+        wanted = set(scope_ids)
+
+        if connection.scope_ids == wanted:
             return ScopeChange()
 
-        removed = self._leave_scope(connection).removed
-        connection.scope_id = scope_id
+        removed = self._leave_scopes(connection).removed
+        connection.scope_ids = wanted
+        added: set[int] = set()
 
-        if scope_id is None:
-            return ScopeChange(removed=removed)
+        for scope_id in wanted:
+            holders = self._by_scope.setdefault(scope_id, set())
 
-        holders = self._by_scope.setdefault(scope_id, set())
-        added = scope_id if not holders else None
-        holders.add(connection)
+            if not holders:
+                added.add(scope_id)
 
-        return ScopeChange(added=added, removed=removed)
+            holders.add(connection)
+
+        return ScopeChange(added=frozenset(added - removed), removed=frozenset(removed - added))
 
     def subscribe(self, connection: Connection, channels: list[str]) -> None:
         """Have a socket hear about these channels, up to as many as one may hold.
@@ -147,8 +152,8 @@ class WebSocketManager:
 
             connection.channels.add(channel)
 
-            if connection.scope_id is not None:
-                self._by_channel.setdefault((connection.scope_id, channel), set()).add(connection)
+            for scope_id in connection.scope_ids:
+                self._by_channel.setdefault((scope_id, channel), set()).add(connection)
 
     def unsubscribe(self, connection: Connection, channels: list[str]) -> None:
         for channel in channels:
@@ -198,7 +203,7 @@ class WebSocketManager:
             allowed = set(only_user_ids)
             targets = {connection for connection in targets if connection.user_id in allowed}
 
-        return await self._deliver(targets, event_type, data, meta)
+        return await self._deliver(targets, event_type, data, {**(meta or {}), "scope_id": scope_id})
 
     def _scope_targets(
         self,
@@ -299,46 +304,40 @@ class WebSocketManager:
             async with asyncio.timeout(self._send_timeout):
                 await websocket.close(code=status.WS_1011_INTERNAL_ERROR)
 
-    def _leave_scope(self, connection: Connection) -> ScopeChange:
-        """Take a socket out of the scope it was reading, and of its channels."""
-        scope_id = connection.scope_id
-
+    def _leave_scopes(self, connection: Connection) -> ScopeChange:
+        """Take a socket out of the scopes it was reading, and of its channels."""
         for channel in list(connection.channels):
             self._forget_channel(connection, channel)
 
         connection.channels.clear()
+        removed: set[int] = set()
 
-        if scope_id is None:
-            return ScopeChange()
+        for scope_id in connection.scope_ids:
+            holders = self._by_scope.get(scope_id)
 
-        holders = self._by_scope.get(scope_id)
+            if holders is None:
+                continue
 
-        if holders is None:
-            return ScopeChange()
+            holders.discard(connection)
 
-        holders.discard(connection)
+            if not holders:
+                del self._by_scope[scope_id]
+                removed.add(scope_id)
 
-        if holders:
-            return ScopeChange()
-
-        del self._by_scope[scope_id]
-
-        return ScopeChange(removed=scope_id)
+        return ScopeChange(removed=frozenset(removed))
 
     def _forget_channel(self, connection: Connection, channel: str) -> None:
-        if connection.scope_id is None:
-            return
+        for scope_id in connection.scope_ids:
+            key = (scope_id, channel)
+            subscribers = self._by_channel.get(key)
 
-        key = (connection.scope_id, channel)
-        subscribers = self._by_channel.get(key)
+            if subscribers is None:
+                continue
 
-        if subscribers is None:
-            return
+            subscribers.discard(connection)
 
-        subscribers.discard(connection)
-
-        if not subscribers:
-            del self._by_channel[key]
+            if not subscribers:
+                del self._by_channel[key]
 
 
 __all__ = [

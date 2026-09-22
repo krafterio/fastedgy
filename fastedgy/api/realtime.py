@@ -49,7 +49,7 @@ async def websocket_endpoint(
     if authenticated is None:
         return
 
-    user, scope, token, asked = authenticated
+    user, scopes, token, asked = authenticated
 
     if user.id is None:
         return
@@ -67,7 +67,8 @@ async def websocket_endpoint(
                 "type": "auth_success",
                 "data": {
                     "user_id": user.id,
-                    "scope": scope.slug if scope else None,
+                    "scope": scopes[0].slug if scopes else None,
+                    "scopes": [scope.slug for scope in scopes],
                 },
             }
         )
@@ -85,7 +86,7 @@ async def websocket_endpoint(
     recheck: asyncio.Task | None = None
 
     try:
-        await _apply(broadcaster, manager.watch(connection, scope.id if scope else None))
+        await _apply(broadcaster, manager.watch(connection, _ids(scopes)))
         recheck = asyncio.create_task(
             _recheck(websocket, connection, token, lock, manager, broadcaster, auth, settings.realtime_recheck_interval)
         )
@@ -102,14 +103,14 @@ async def _authenticate(
     websocket: WebSocket,
     settings: BaseSettings,
     auth: RealtimeAuth,
-) -> "tuple[User, Scope | None, str, Any] | None":
+) -> "tuple[User, list[Scope], str, Any] | None":
     """Read the first frame, and answer whether the socket may stay.
 
     A browser cannot set headers on a WebSocket, so the bearer arrives as the
     first frame, and an unauthenticated socket is held open until it does or
-    until the timeout runs out. Besides the account and its scope, it answers
+    until the timeout runs out. Besides the account and its scopes, it answers
     with what the socket is checked again against for as long as it lives: the
-    bearer, and the scope as the client named it.
+    bearer, and the scopes as the client named them.
     """
     try:
         raw = await asyncio.wait_for(websocket.receive_text(), timeout=settings.realtime_auth_timeout)
@@ -146,14 +147,14 @@ async def _authenticate(
         return None
 
     asked = _scope(data)
-    scope = await auth.scope_of(user, asked)
+    scopes = await auth.scopes_of(user, asked)
 
-    if asked and scope is None:
+    if asked and not scopes:
         await _refuse(websocket, "Scope not found")
 
         return None
 
-    return user, scope, token, asked
+    return user, scopes, token, asked
 
 
 async def _listen(
@@ -168,8 +169,8 @@ async def _listen(
 ) -> None:
     """Take what the client says about itself, and hand on the rest.
 
-    `watch` says which scope this tab is reading, `subscribe` and `unsubscribe`
-    say which records of it to hear about. A client sending more frames than
+    `watch` says which scopes this tab is reading, `subscribe` and `unsubscribe`
+    say which records of them to hear about. A client sending more frames than
     [BaseSettings.realtime_frame_limit] in [FRAME_WINDOW] seconds, or a frame
     heavier than [BaseSettings.realtime_max_frame_size], loses its socket.
     """
@@ -227,8 +228,8 @@ async def _listen(
 
             async with lock:
                 connection.asked_scope = asked
-                scope = await auth.scope_of(user, asked)
-                await _apply(broadcaster, manager.watch(connection, scope.id if scope else None))
+                scopes = await auth.scopes_of(user, asked)
+                await _apply(broadcaster, manager.watch(connection, _ids(scopes)))
         elif event_type == "subscribe":
             manager.subscribe(connection, _channels(data))
         elif event_type == "unsubscribe":
@@ -252,8 +253,9 @@ async def _recheck(
     A bearer expires or is revoked, an account goes, a membership ends: none of
     it reaches a socket already open. The bearer is resolved again, and a socket
     it no longer stands for is refused, which has the client authenticate again
-    with what it holds now. The scope the client named is resolved again, and one
-    the account lost is left, the socket staying for what is addressed to the
+    with what it holds now. The scopes the client named are resolved again, and
+    those the socket reads are checked by id, so a scope renamed meanwhile stays.
+    One the account lost is left, the socket staying for what is addressed to the
     account itself. Every [interval] seconds, and at once when
     [Connection.recheck] is set.
     """
@@ -272,8 +274,9 @@ async def _recheck(
                 return
 
             async with lock:
-                scope = await auth.scope_of(user, connection.asked_scope)
-                await _apply(broadcaster, manager.watch(connection, scope.id if scope else None))
+                scopes = await auth.scopes_of(user, connection.asked_scope)
+                held = await auth.held_scopes(user, connection.scope_ids)
+                await _apply(broadcaster, manager.watch(connection, _ids(scopes) | held))
         except Exception as e:  # noqa: BLE001 - checked again at the next round
             logger.debug("Could not check a socket of user %s again: %s", connection.user_id, e)
 
@@ -284,11 +287,11 @@ async def _apply(broadcaster: WebSocketBroadcaster, change: ScopeChange) -> None
     A worker is woken for the scopes it holds a socket for, and for no other:
     that is what keeps one event from costing something on every worker.
     """
-    if change.added is None and change.removed is None:
-        return
+    for scope_id in change.added:
+        await broadcaster.follow(scope_id)
 
-    await broadcaster.follow(change.added)
-    await broadcaster.unfollow(change.removed)
+    for scope_id in change.removed:
+        await broadcaster.unfollow(scope_id)
 
 
 async def _dispatch(event: BaseEvent) -> None:
@@ -318,11 +321,17 @@ def _data(message: dict[str, Any]) -> dict[str, Any]:
 
 
 def _scope(data: dict[str, Any]) -> Any:
-    """What a frame says this socket is reading.
+    """What a frame says this socket is reading: `scopes`, a list, or `scope`, one.
 
-    The protocol names it `scope`, and the application decides what a scope is.
+    The protocol names them so, and the application decides what a scope is.
     """
-    return data.get("scope")
+    scopes = data.get("scopes")
+
+    return scopes if isinstance(scopes, list) else data.get("scope")
+
+
+def _ids(scopes: "list[Scope]") -> set[int]:
+    return {scope.id for scope in scopes if scope.id is not None}
 
 
 def _channels(data: dict[str, Any]) -> list[str]:

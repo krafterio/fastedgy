@@ -191,9 +191,10 @@ async def hold(ws_manager, broadcaster, scope_id: int, channels: list[str] | Non
     """
     socket = FakeWebSocket()
     connection = ws_manager.connect(user_id, socket)
-    change = ws_manager.watch(connection, scope_id)
+    change = ws_manager.watch(connection, {scope_id})
 
-    await broadcaster.follow(change.added)
+    for added in change.added:
+        await broadcaster.follow(added)
 
     if channels:
         ws_manager.subscribe(connection, channels)
@@ -216,8 +217,8 @@ async def test_only_the_sockets_watching_that_scope_are_served() -> None:
     manager = local_manager()
     served, other = FakeWebSocket(), FakeWebSocket()
 
-    manager.watch(manager.connect(1, served), 7)
-    manager.watch(manager.connect(2, other), 8)
+    manager.watch(manager.connect(1, served), {7})
+    manager.watch(manager.connect(2, other), {8})
 
     reached = await manager.deliver_to_scope(7, "rt_record.updated", {"id": 1})
 
@@ -231,8 +232,8 @@ async def test_two_tabs_on_two_scopes_hear_their_own() -> None:
     manager = local_manager()
     first, second = FakeWebSocket(), FakeWebSocket()
 
-    manager.watch(manager.connect(1, first), 7)
-    manager.watch(manager.connect(1, second), 8)
+    manager.watch(manager.connect(1, first), {7})
+    manager.watch(manager.connect(1, second), {8})
 
     await manager.deliver_to_scope(7, "rt_record.updated", {"id": 1})
 
@@ -244,7 +245,7 @@ async def test_a_dead_socket_is_dropped_rather_than_counted() -> None:
     manager = local_manager()
     dead = FakeWebSocket(dead=True)
 
-    manager.watch(manager.connect(1, dead), 7)
+    manager.watch(manager.connect(1, dead), {7})
 
     assert await manager.deliver_to_scope(7, "rt_record.updated", {"id": 1}) == set()
     assert manager.is_idle
@@ -269,7 +270,7 @@ async def test_an_event_reaches_the_sockets_of_every_worker(broadcaster, ws_mana
     await broadcaster.broadcast_to_scope(42, "rt_record.updated", {"id": 1})
 
     assert await wait_until(lambda: bool(socket.sent))
-    assert socket.sent[0] == {"type": "rt_record.updated", "data": {"id": 1}}
+    assert socket.sent[0] == {"type": "rt_record.updated", "data": {"id": 1}, "scope_id": 42}
 
 
 async def test_an_event_reaches_one_account_wherever_it_is_connected(broadcaster, ws_manager) -> None:
@@ -689,7 +690,7 @@ async def test_a_worker_hears_the_scopes_it_holds_and_no_other(broadcaster, ws_m
     """One event costs nothing on the workers that serve none of it."""
     socket = await hold(ws_manager, broadcaster, 42)
     unheld = FakeWebSocket()
-    ws_manager.watch(ws_manager.connect(2, unheld), 99)
+    ws_manager.watch(ws_manager.connect(2, unheld), {99})
 
     await broadcaster.broadcast_to_scope(99, "rt_record.updated", {"id": 1})
     await asyncio.sleep(0.2)
@@ -720,6 +721,7 @@ async def test_what_is_known_about_a_write_rides_beside_the_event(broadcaster, w
         "data": {"model": "rt_record", "id": 9},
         "origin": "a-browser-tab",
         "changed": ["name"],
+        "scope_id": 42,
     }
 
 
@@ -734,7 +736,7 @@ async def test_a_socket_that_stopped_reading_holds_nobody_up() -> None:
     stuck.send_json = never
 
     for socket, user_id in ((stuck, 1), (reading, 2)):
-        manager.watch(manager.connect(user_id, socket), 7)
+        manager.watch(manager.connect(user_id, socket), {7})
 
     served = await manager.deliver_to_scope(7, "rt_record.updated", {"id": 1})
 
@@ -750,12 +752,12 @@ async def test_a_socket_leaves_nothing_behind_when_it_goes() -> None:
     manager = local_manager()
     connection = manager.connect(1, FakeWebSocket())
 
-    manager.watch(connection, 7)
+    manager.watch(connection, {7})
     manager.subscribe(connection, ["rt_record", "rt_record:42"])
 
     change = manager.disconnect(connection)
 
-    assert change.removed == 7
+    assert change.removed == {7}
     assert manager.is_idle
     assert manager._by_scope == {}
     assert manager._by_channel == {}
@@ -820,7 +822,7 @@ async def test_only_the_sockets_that_asked_for_a_record_hear_about_it() -> None:
         (elsewhere, "rt_record:7", 3),
     ):
         connection = manager.connect(user_id, socket)
-        manager.watch(connection, 1)
+        manager.watch(connection, {1})
         manager.subscribe(connection, [channel])
 
     served = await manager.deliver_to_scope(
@@ -838,9 +840,9 @@ async def test_leaving_a_scope_drops_what_was_subscribed_there() -> None:
     manager = local_manager()
     connection = manager.connect(1, FakeWebSocket())
 
-    manager.watch(connection, 1)
+    manager.watch(connection, {1})
     manager.subscribe(connection, ["rt_record:42"])
-    manager.watch(connection, 2)
+    manager.watch(connection, {2})
 
     assert connection.channels == set()
 
@@ -851,7 +853,7 @@ async def test_a_record_event_reaches_the_socket_that_asked(broadcaster, ws_mana
     await broadcaster.broadcast_record(42, "rt_child", 9, "updated")
 
     assert await wait_until(lambda: bool(socket.sent))
-    assert socket.sent[0] == {"type": "rt_child.updated", "data": {"model": "rt_child", "id": 9}}
+    assert socket.sent[0] == {"type": "rt_child.updated", "data": {"model": "rt_child", "id": 9}, "scope_id": 42}
 
 
 async def test_a_record_event_skips_a_socket_that_did_not_ask(broadcaster, ws_manager) -> None:
@@ -883,6 +885,7 @@ async def test_a_write_reaches_a_watching_socket_the_whole_way_through(ws_manage
     assert socket.sent[0] == {
         "type": "rt_record.created",
         "data": {"model": "rt_record", "id": record.id},
+        "scope_id": env.scope.id,
     }
 
 
@@ -892,12 +895,57 @@ def test_a_frame_names_what_it_reads_generically() -> None:
     assert _scope({}) is None
 
 
+def test_a_frame_may_name_several_scopes() -> None:
+    assert _scope({"scopes": ["studio-nord", "atelier"]}) == ["studio-nord", "atelier"]
+    assert _scope({"scopes": "studio-nord", "scope": "atelier"}) == "atelier"
+
+
+async def test_one_socket_reads_several_scopes_and_says_where_each_event_comes_from() -> None:
+    manager = local_manager()
+    socket = FakeWebSocket()
+    connection = manager.connect(1, socket)
+
+    change = manager.watch(connection, {7, 8})
+
+    assert change.added == {7, 8}
+    assert await manager.deliver_to_scope(7, "rt_record.updated", {"id": 1}) == {1}
+    assert await manager.deliver_to_scope(8, "rt_record.updated", {"id": 2}) == {1}
+    assert [frame["scope_id"] for frame in socket.sent] == [7, 8]
+
+
+async def test_a_scope_kept_across_a_watch_is_neither_started_nor_stopped() -> None:
+    manager = local_manager()
+    connection = manager.connect(1, FakeWebSocket())
+    manager.watch(connection, {7, 8})
+
+    change = manager.watch(connection, {8, 9})
+
+    assert change.added == {9}
+    assert change.removed == {7}
+    assert sorted(manager.scopes()) == [8, 9]
+
+
+async def test_a_channel_is_heard_in_every_scope_its_socket_reads() -> None:
+    manager = local_manager()
+    socket = FakeWebSocket()
+    connection = manager.connect(1, socket)
+    manager.watch(connection, {7, 8})
+    manager.subscribe(connection, ["rt_record"])
+
+    assert await manager.deliver_to_scope(8, "rt_record.updated", {"id": 1}, channels=["rt_record"]) == {1}
+    assert socket.sent[0]["scope_id"] == 8
+
+    manager.disconnect(connection)
+
+    assert manager._by_channel == {}
+
+
 async def test_an_account_left_out_hears_nothing_of_its_scope() -> None:
     manager = local_manager()
     author, reader = FakeWebSocket(), FakeWebSocket()
 
-    manager.watch(manager.connect(1, author), 7)
-    manager.watch(manager.connect(2, reader), 7)
+    manager.watch(manager.connect(1, author), {7})
+    manager.watch(manager.connect(2, reader), {7})
 
     served = await manager.deliver_to_scope(7, "rt_record.updated", {"id": 1}, exclude_user_ids=[1])
 
@@ -1192,7 +1240,7 @@ async def test_a_frame_of_the_application_goes_to_the_bus(ws_manager, scope_env)
         bus.unregister(OnRealtimeFrameEvent, on_frame)
         bus.unregister(OnRealtimeDisconnectEvent, on_disconnect)
 
-    assert socket.sent[0] == {"type": "auth_success", "data": {"user_id": admin.id, "scope": "acme"}}
+    assert socket.sent[0] == {"type": "auth_success", "data": {"user_id": admin.id, "scope": "acme", "scopes": ["acme"]}}
     assert heard == [("frame", "location.live_start", {"device_id": 3}, admin.id), ("gone", admin.id)]
     assert ws_manager.is_idle
 
@@ -1213,7 +1261,66 @@ async def test_a_socket_naming_no_scope_reads_the_one_the_application_resolves(w
         DefaultScope(),
     )
 
-    assert socket.sent[0] == {"type": "auth_success", "data": {"user_id": admin.id, "scope": "acme"}}
+    assert socket.sent[0] == {"type": "auth_success", "data": {"user_id": admin.id, "scope": "acme", "scopes": ["acme"]}}
+
+
+async def test_a_socket_naming_several_scopes_reads_those_its_account_is_a_member_of(ws_manager, scope_env) -> None:
+    admin = scope_env.admin
+    office = await create_workspace(slug="office", name="Office")
+    await create_workspace_user(admin, office)
+    await create_workspace(slug="elsewhere", name="Elsewhere")
+    handshake = {"type": "authenticate", "data": {"token": auth_token(admin), "scopes": ["acme", "office", "elsewhere"]}}
+    socket: Any = ScriptedWebSocket(json.dumps(handshake), [], hold=True)
+    serving = asyncio.create_task(_serve(socket, ws_manager))
+
+    assert await wait_until(lambda: not ws_manager.is_idle)
+
+    connection = next(iter(ws_manager._by_user[admin.id]))
+
+    assert connection.scope_ids == {scope_env.scope.id, office.id}
+    assert sorted(socket.sent[0]["data"]["scopes"]) == ["acme", "office"]
+
+    await socket.close()
+    await asyncio.wait_for(serving, timeout=3.0)
+
+
+async def test_a_socket_naming_only_scopes_its_account_is_not_a_member_of_is_refused(ws_manager, scope_env) -> None:
+    await create_workspace(slug="elsewhere", name="Elsewhere")
+    handshake = {"type": "authenticate", "data": {"token": auth_token(scope_env.admin), "scopes": ["elsewhere"]}}
+    socket: Any = ScriptedWebSocket(json.dumps(handshake), [])
+
+    await _serve(socket, ws_manager)
+
+    assert socket.sent[-1] == {"type": "auth_error", "data": {"message": "Scope not found"}}
+    assert ws_manager.is_idle
+
+
+async def test_a_scope_renamed_while_a_socket_reads_it_stays_on_that_socket(ws_manager, scope_env) -> None:
+    checked: list[set[int]] = []
+
+    class Recording(RealtimeAuth):
+        async def held_scopes(self, user: Any, scope_ids: Any) -> set[int]:
+            held = await super().held_scopes(user, scope_ids)
+            checked.append(held)
+
+            return held
+
+    admin = scope_env.admin
+    socket: Any = ScriptedWebSocket(_handshake(admin), [], hold=True)
+    serving = asyncio.create_task(_serve(socket, ws_manager, Recording()))
+
+    assert await wait_until(lambda: not ws_manager.is_idle)
+
+    connection = next(iter(ws_manager._by_user[admin.id]))
+    scope_env.scope.slug = "acme-renamed"
+    await scope_env.scope.save()
+    ws_manager.recheck([admin.id])
+
+    assert await wait_until(lambda: bool(checked))
+    assert connection.scope_ids == {scope_env.scope.id}
+
+    await socket.close()
+    await asyncio.wait_for(serving, timeout=3.0)
 
 
 async def _serve(socket: Any, manager: WebSocketManager, auth: RealtimeAuth | None = None, **overrides: Any) -> None:
@@ -1314,13 +1421,13 @@ async def test_a_socket_leaves_the_scope_its_account_lost(ws_manager, scope_env)
     connection = next(iter(ws_manager._by_user[admin.id]))
     scope_user_model = find_workspace_user_model()
 
-    assert connection.scope_id == scope_env.scope.id
+    assert connection.scope_ids == {scope_env.scope.id}
     assert scope_user_model is not None
 
     await scope_user_model.global_query.filter(R("user", "=", admin.id)).delete()
     ws_manager.recheck([admin.id])
 
-    assert await wait_until(lambda: connection.scope_id is None)
+    assert await wait_until(lambda: not connection.scope_ids)
     assert ws_manager.scopes() == []
 
     await socket.close()
@@ -1360,10 +1467,10 @@ async def test_a_check_answered_late_never_undoes_a_newer_watch(ws_manager, scop
 
         return await resolve(user, scope)
 
-    def recording(connection: Any, scope_id: Any) -> Any:
-        applied.append(scope_id)
+    def recording(connection: Any, scope_ids: Any) -> Any:
+        applied.append(set(scope_ids))
 
-        return watch(connection, scope_id)
+        return watch(connection, scope_ids)
 
     class LateWatch(ScriptedWebSocket):
         async def receive_text(self) -> str:
@@ -1377,12 +1484,12 @@ async def test_a_check_answered_late_never_undoes_a_newer_watch(ws_manager, scop
     socket: Any = LateWatch(_handshake(scope_env.admin), [{"type": "watch", "data": {"scope": None}}], hold=True)
     serving = asyncio.create_task(_serve(socket, ws_manager, auth, realtime_recheck_interval=0.01))
 
-    assert await wait_until(lambda: None in applied)
+    assert await wait_until(lambda: set() in applied)
     await asyncio.sleep(0.4)
     await socket.close()
     await asyncio.wait_for(serving, timeout=3.0)
 
-    assert scope_env.scope.id not in applied[applied.index(None) :]
+    assert all(scope_env.scope.id not in scope_ids for scope_ids in applied[applied.index(set()) :])
 
 
 async def test_a_recheck_reaches_the_sockets_of_every_worker(broadcaster, ws_manager) -> None:
@@ -1397,7 +1504,7 @@ async def test_a_socket_holds_no_more_channels_than_allowed() -> None:
     manager = local_manager(realtime_max_channels=2)
     connection = manager.connect(1, FakeWebSocket())
 
-    manager.watch(connection, 7)
+    manager.watch(connection, {7})
     manager.subscribe(connection, ["rt_record", "rt_record:1", "rt_record:2"])
     manager.subscribe(connection, ["rt_record:1"])
 

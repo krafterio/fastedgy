@@ -185,8 +185,8 @@ routes only: this section is its specification.
 
 | Type | Data | Meaning |
 |------|------|---------|
-| `authenticate` | `{token, scope}` | **First frame, required.** A session access JWT or a personal API key, and the slug of the scope being read, or `null`. |
-| `watch` | `{scope}` | The client now reads another scope. The subscriptions made on the one it leaves are dropped. |
+| `authenticate` | `{token, scope}` or `{token, scopes}` | **First frame, required.** A session access JWT or a personal API key, and the slug of the scope being read, or `null`. A socket that reads several scopes names them all in `scopes`. |
+| `watch` | `{scope}` or `{scopes}` | The client now reads another scope, or another list of them. The subscriptions made so far are dropped. |
 | `subscribe` | `{channels: [...]}` | Hear about these. `company` for a list, `company:42` for a record. |
 | `unsubscribe` | `{channels: [...]}` | Stop hearing about these. |
 | `heartbeat` | | Ignored, for a client that wants to keep the flow warm. |
@@ -200,7 +200,8 @@ What the table does not say:
 - A channel whose model is not declared with `@realtime_model` is dropped without a word, so a
   client subscribes without knowing which models announce.
 - `authenticate` refuses a scope the account is not a member of. `watch` does not refuse it: the
-  socket is left on no scope at all.
+  socket is left on no scope at all. In a list, a slug the account is not a member of is left out,
+  and `authenticate` refuses a list that leaves none.
 - A `watch` that moves to another scope drops every subscription, and a subscription made on no
   scope reaches nothing addressed to a scope until then. A client says its channels again after
   each `watch` it sends and after each `auth_success`. A `watch` naming the scope already read
@@ -217,9 +218,9 @@ What the table does not say:
 
 | Type | Meaning |
 |------|---------|
-| `auth_success` | `{user_id, scope}`. The socket may stay. |
+| `auth_success` | `{user_id, scope, scopes}`. The socket may stay. `scopes` lists the slugs it reads, `scope` is the first of them. |
 | `auth_error` | `{message}`, followed by a close with code 1008. |
-| `<model>.<action>` | A record moved. `data` is `{model, id, ...declared fields}`, with `changed`, `origin` and `truncated` beside it. |
+| `<model>.<action>` | A record moved. `data` is `{model, id, ...declared fields}`, with `changed`, `origin`, `truncated` and `scope_id` beside it. `scope_id` is the id of the scope the event comes from, which a socket reading several scopes dispatches on. |
 | anything else | Whatever the application published for itself. |
 
 A refusal names its reason: `Authentication timeout`, `Invalid authentication format`, `Invalid

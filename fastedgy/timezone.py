@@ -613,16 +613,20 @@ Timezone = cast("type[ChoiceEnum]", ChoiceEnum("Timezone", {key: key for key in 
 
 def setup_timezone(timezone: str):
     import os
+    import sys
     import time
 
-    os.environ["TZ"] = timezone
-    time.tzset()
+    os.environ["FASTEDGY_TIMEZONE"] = timezone
+
+    if sys.platform != "win32":
+        os.environ["TZ"] = timezone
+        time.tzset()
 
 
 def get_timezone() -> str:
     import os
 
-    return os.environ.get("TZ", "UTC")
+    return os.environ.get("FASTEDGY_TIMEZONE") or os.environ.get("TZ", "UTC")
 
 
 def get_timezone_info() -> ZoneInfo:

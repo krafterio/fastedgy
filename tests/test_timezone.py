@@ -1,8 +1,13 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+import os
+import sys
+import time
 from datetime import UTC, date, datetime
 from zoneinfo import ZoneInfo
+
+import pytest
 
 from fastedgy.test.factories import use_request
 from fastedgy.timezone import (
@@ -12,7 +17,41 @@ from fastedgy.timezone import (
     get_timezone_info,
     get_timezones_at_hour,
     get_zone_info,
+    setup_timezone,
 )
+
+
+@pytest.fixture
+def isolated_timezone(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    tzset_calls: list[str] = []
+    monkeypatch.delenv("TZ", raising=False)
+    monkeypatch.delenv("FASTEDGY_TIMEZONE", raising=False)
+    monkeypatch.setattr(time, "tzset", lambda: tzset_calls.append(os.environ["TZ"]), raising=False)
+
+    return tzset_calls
+
+
+def test_setup_timezone_on_windows_leaves_tz_to_the_system(
+    monkeypatch: pytest.MonkeyPatch, isolated_timezone: list[str]
+) -> None:
+    monkeypatch.setattr(sys, "platform", "win32")
+
+    setup_timezone("America/Guadeloupe")
+
+    assert "TZ" not in os.environ
+    assert isolated_timezone == []
+    assert get_timezone() == "America/Guadeloupe"
+
+
+def test_setup_timezone_on_unix_applies_tz_to_the_process(
+    monkeypatch: pytest.MonkeyPatch, isolated_timezone: list[str]
+) -> None:
+    monkeypatch.setattr(sys, "platform", "linux")
+
+    setup_timezone("America/Guadeloupe")
+
+    assert isolated_timezone == ["America/Guadeloupe"]
+    assert get_timezone() == "America/Guadeloupe"
 
 
 def test_timezone_choices_are_the_iana_keys() -> None:

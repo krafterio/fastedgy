@@ -2,6 +2,7 @@
 # MIT License (see LICENSE file).
 
 import asyncio
+import logging
 from typing import Any
 
 import pytest
@@ -387,3 +388,92 @@ async def test_the_liveness_file_is_withheld_once_a_started_pool_is_empty(
     manager._touch_health_file()
 
     assert not health.exists()
+
+
+MIB = 1024 * 1024
+
+
+def beat(pool: WorkerPool, worker: WorkerProcess, resident_mib: int) -> None:
+    from fastedgy.queued_task.services.worker_process import MSG_HEARTBEAT
+
+    pool._handle(worker, (MSG_HEARTBEAT, 0, resident_mib * MIB))
+
+
+def sent(worker: WorkerProcess) -> list[Any]:
+    return worker.conn.sent  # type: ignore[attr-defined]
+
+
+async def test_a_worker_over_its_memory_limit_takes_no_new_task(
+    setup_db: FastEdgy,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pool, workers = build_pool(workers_count=2, concurrency=2)
+    monkeypatch.setattr(pool.config, "worker_max_memory", 100)
+    task = await queue().create_task(module_name="fastedgy.test.tasks", function_name="add_numbers")
+    beat(pool, workers[0], 150)
+
+    for _ in range(2):
+        slot = await pool.get_available_worker()
+
+        assert slot is not None
+
+        await dispatch(pool, slot, task)
+
+    assert len(workers[0].runs) == 0
+    assert len(workers[1].runs) == 2
+
+
+async def test_a_worker_over_its_memory_limit_stops_once_its_tasks_are_done(
+    setup_db: FastEdgy,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fastedgy.queued_task.services.worker_process import MSG_STOP
+
+    pool, workers = build_pool(workers_count=1)
+    monkeypatch.setattr(pool.config, "worker_max_memory", 100)
+    workers[0].runs[1] = WorkerSlot(pool, 1)
+    beat(pool, workers[0], 150)
+
+    assert (MSG_STOP,) not in sent(workers[0])
+
+    workers[0].runs.clear()
+    beat(pool, workers[0], 150)
+    beat(pool, workers[0], 150)
+
+    assert sent(workers[0]).count((MSG_STOP,)) == 1
+
+
+async def test_a_worker_stopped_for_its_memory_is_replaced_without_an_error(
+    setup_db: FastEdgy,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    pool, workers = build_pool(workers_count=1)
+    monkeypatch.setattr(pool.config, "worker_max_memory", 100)
+    spawned: list[int] = []
+    monkeypatch.setattr(pool, "_spawn", spawned.append)
+    beat(pool, workers[0], 150)
+
+    with caplog.at_level(logging.INFO, logger="queued_task.worker_pool"):
+        pool._on_process_death(workers[0])
+
+    assert spawned == [0]
+    assert [record for record in caplog.records if record.levelno >= logging.ERROR] == []
+
+
+async def test_no_task_is_handed_out_while_every_worker_is_over_its_memory_limit(
+    setup_db: FastEdgy,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pool, workers = build_pool(workers_count=1)
+    monkeypatch.setattr(pool.config, "worker_max_memory", 100)
+    beat(pool, workers[0], 150)
+
+    assert await pool.get_available_worker() is None
+
+
+async def test_workers_are_kept_whatever_their_memory_without_a_limit(setup_db: FastEdgy) -> None:
+    pool, workers = build_pool(workers_count=1)
+    beat(pool, workers[0], 100_000)
+
+    assert await pool.get_available_worker() is not None

@@ -70,6 +70,7 @@ fastedgy serve --workers=3 --no-http
 # Worker settings
 QUEUED_TASK_WORKERS=4                  # Worker processes (default: 1)
 QUEUED_TASK_CONCURRENCY=4              # Tasks per worker (default: CPU count)
+QUEUED_TASK_WORKER_MAX_MEMORY=1024     # MiB a worker may hold before it is replaced (default: unset, never)
 QUEUE_POLLING_INTERVAL=2              # Seconds between queue polls
 QUEUE_FALLBACK_POLLING_INTERVAL=30    # Fallback when NOTIFY fails
 
@@ -149,6 +150,17 @@ what the worker holds, because the two cases are not equally decidable:
 A long *sync* task is not affected: it runs in an executor thread, its worker
 keeps beating. Killing is all the manager has to do, the closed pipe then drives
 the usual death path, which recovers the tasks and respawns the worker.
+
+### A worker whose memory keeps growing
+
+A long-lived worker can creep: fragmentation and native allocations the
+interpreter never hands back add up task after task, until the kernel kills the
+worker mid-task. With `QUEUED_TASK_WORKER_MAX_MEMORY` set, each heartbeat also
+carries the worker's resident memory. Past the limit, the worker is sent no new
+task, finishes the ones it holds, is told to stop over the pipe, and the pool
+replaces it: nothing is interrupted, and the replacement is logged as such
+rather than as a death. Leave room above the limit: the worker keeps growing
+while it finishes the tasks it holds.
 
 On `SIGTERM`, the manager tells every worker to stop over the pipe (not by
 signal, so an application `SIGTERM` handler meant for HTTP draining is not

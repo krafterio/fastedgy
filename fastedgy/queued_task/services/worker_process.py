@@ -5,6 +5,7 @@ import asyncio
 import logging
 import os
 import signal
+import sys
 from multiprocessing.connection import Connection
 from typing import TYPE_CHECKING, Any, cast
 
@@ -31,6 +32,83 @@ ENV_WORKER_PROCESS = "FASTEDGY_QUEUE_WORKER_PROCESS"
 def is_worker_process() -> bool:
     """Whether the current process is a queue worker, for lifespan branching."""
     return os.environ.get(ENV_WORKER_PROCESS) == "1"
+
+
+if sys.platform == "win32":
+    import ctypes
+    from ctypes import wintypes
+
+    class _ProcessMemoryCounters(ctypes.Structure):
+        _fields_ = [
+            ("cb", wintypes.DWORD),
+            ("PageFaultCount", wintypes.DWORD),
+            ("PeakWorkingSetSize", ctypes.c_size_t),
+            ("WorkingSetSize", ctypes.c_size_t),
+            ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
+            ("QuotaPagedPoolUsage", ctypes.c_size_t),
+            ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
+            ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+            ("PagefileUsage", ctypes.c_size_t),
+            ("PeakPagefileUsage", ctypes.c_size_t),
+        ]
+
+    _kernel32 = ctypes.WinDLL("kernel32")
+    _kernel32.GetCurrentProcess.restype = wintypes.HANDLE
+    _psapi = ctypes.WinDLL("psapi")
+    _psapi.GetProcessMemoryInfo.argtypes = [
+        wintypes.HANDLE,
+        ctypes.POINTER(_ProcessMemoryCounters),
+        wintypes.DWORD,
+    ]
+    _psapi.GetProcessMemoryInfo.restype = wintypes.BOOL
+
+    def resident_memory() -> int:
+        counters = _ProcessMemoryCounters(cb=ctypes.sizeof(_ProcessMemoryCounters))
+
+        if not _psapi.GetProcessMemoryInfo(_kernel32.GetCurrentProcess(), ctypes.byref(counters), counters.cb):
+            return 0
+
+        return counters.WorkingSetSize
+
+elif sys.platform == "darwin":
+    import ctypes
+    import ctypes.util
+
+    class _TimeValue(ctypes.Structure):
+        _fields_ = [("seconds", ctypes.c_int), ("microseconds", ctypes.c_int)]
+
+    class _MachTaskBasicInfo(ctypes.Structure):
+        _fields_ = [
+            ("virtual_size", ctypes.c_uint64),
+            ("resident_size", ctypes.c_uint64),
+            ("resident_size_max", ctypes.c_uint64),
+            ("user_time", _TimeValue),
+            ("system_time", _TimeValue),
+            ("policy", ctypes.c_int),
+            ("suspend_count", ctypes.c_int),
+        ]
+
+    _MACH_TASK_BASIC_INFO = 20
+    _libc = ctypes.CDLL(ctypes.util.find_library("c"))
+    _libc.mach_task_self.restype = ctypes.c_uint
+
+    def resident_memory() -> int:
+        info = _MachTaskBasicInfo()
+        count = ctypes.c_uint(ctypes.sizeof(info) // ctypes.sizeof(ctypes.c_uint))
+
+        if _libc.task_info(_libc.mach_task_self(), _MACH_TASK_BASIC_INFO, ctypes.byref(info), ctypes.byref(count)):
+            return 0
+
+        return info.resident_size
+
+else:
+
+    def resident_memory() -> int:
+        try:
+            with open("/proc/self/statm") as statm:
+                return int(statm.read().split()[1]) * os.sysconf("SC_PAGE_SIZE")
+        except OSError, ValueError, IndexError:
+            return 0
 
 
 def run_worker_process(
@@ -106,7 +184,7 @@ async def _worker_main(conn: Connection, index: int, shutdown_grace: float) -> N
 async def _heartbeat(conn: Connection, shutdown: asyncio.Event) -> None:
     """Beat from the event loop itself, so a blocked loop stops beating."""
     while not shutdown.is_set():
-        _send(conn, (MSG_HEARTBEAT, 0))
+        _send(conn, (MSG_HEARTBEAT, 0, resident_memory()))
 
         try:
             await asyncio.wait_for(shutdown.wait(), timeout=HEARTBEAT_INTERVAL)

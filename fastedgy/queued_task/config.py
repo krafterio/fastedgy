@@ -58,6 +58,9 @@ class QueuedTaskConfig:
     # Tasks per worker; container concurrency is workers x concurrency.
     concurrency: int = _optional_int("QUEUED_TASK_CONCURRENCY") or os.cpu_count() or 1
 
+    # Resident memory (MiB) past which a worker ends its tasks and is replaced; unset keeps it for good.
+    worker_max_memory: int | None = _optional_int("QUEUED_TASK_WORKER_MAX_MEMORY")
+
     # Per-worker pool overrides; unset means the worker inherits the manager's.
     worker_db_pool_size: int | None = _optional_int("QUEUED_TASK_WORKER_DB_POOL_SIZE")
     worker_db_max_overflow: int | None = _optional_int("QUEUED_TASK_WORKER_DB_MAX_OVERFLOW")

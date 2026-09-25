@@ -235,3 +235,38 @@ async def test_worker_runs_a_task_sent_over_the_pipe(setup_db: FastEdgy) -> None
     assert kinds == [MSG_STARTED, MSG_RESULT]
     assert seen[-1][1] == 7
     assert MSG_SYNC_FINISHED not in kinds
+
+
+async def test_the_heartbeat_carries_the_memory_the_worker_holds() -> None:
+    from fastedgy.queued_task.services.worker_process import _heartbeat
+
+    parent, child = multiprocessing.Pipe()
+    child_conn: Any = child
+    shutdown = asyncio.Event()
+    beating = asyncio.create_task(_heartbeat(child_conn, shutdown))
+    message = await asyncio.to_thread(parent.recv)
+    shutdown.set()
+    await beating
+
+    assert message[0] == MSG_HEARTBEAT
+    assert message[2] > 0
+
+
+def test_the_memory_reported_is_the_one_held_now_not_the_peak() -> None:
+    import mmap
+
+    from fastedgy.queued_task.services.worker_process import resident_memory
+
+    size = 64 * 1024 * 1024
+    before = resident_memory()
+    block = mmap.mmap(-1, size)
+
+    for offset in range(0, size, mmap.PAGESIZE):
+        block[offset] = 1
+
+    holding = resident_memory()
+    block.close()
+    after = resident_memory()
+
+    assert holding - before >= size // 2
+    assert after <= holding - size // 2

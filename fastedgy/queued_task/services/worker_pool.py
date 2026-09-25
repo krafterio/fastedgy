@@ -113,6 +113,9 @@ class WorkerProcess:
         self.alive = True
         self.spawned_at = spawned_at
         self.last_beat: float | None = None
+        self.resident = 0
+        self.retiring = False
+        self.stop_requested = False
 
     def send(self, message: Any) -> bool:
         try:
@@ -179,7 +182,7 @@ class WorkerPool:
     def pick_worker(self) -> WorkerProcess | None:
         """Least loaded worker, skipping silent ones: a wedged worker holds
         nothing, so it would otherwise attract every new task."""
-        candidates = [worker for worker in self._workers.values() if worker.alive]
+        candidates = [worker for worker in self._workers.values() if worker.alive and not worker.retiring]
 
         if not candidates:
             return None
@@ -194,7 +197,10 @@ class WorkerPool:
         return min(responsive or candidates, key=lambda worker: worker.load)
 
     async def get_available_worker(self) -> WorkerSlot | None:
-        if self.draining or self._shutting_down or not self.live_workers:
+        if self.draining or self._shutting_down:
+            return None
+
+        if not any(worker.alive and not worker.retiring for worker in self._workers.values()):
             return None
 
         if self._idle_slots:
@@ -347,6 +353,11 @@ class WorkerPool:
         if kind == MSG_HEARTBEAT:
             worker.last_beat = asyncio.get_running_loop().time()
 
+            if len(message) > 2:
+                worker.resident = message[2]
+
+            self._retire_when_over_memory(worker)
+
             return
 
         if kind == MSG_SYNC_FINISHED:
@@ -380,13 +391,36 @@ class WorkerPool:
 
             return
 
-        logger.error(f"Worker {worker.index} died (exit code {worker.process.exitcode}), respawning")
+        if worker.stop_requested:
+            logger.info(f"Worker {worker.index} replaced after reaching its memory limit")
+        else:
+            logger.error(f"Worker {worker.index} died (exit code {worker.process.exitcode}), respawning")
+
         self._workers.pop(worker.index, None)
 
         try:
             self._spawn(worker.index)
         except Exception as e:
             logger.error(f"Failed to respawn worker {worker.index}: {e}")
+
+    def _retire_when_over_memory(self, worker: WorkerProcess) -> None:
+        limit = self.config.worker_max_memory
+
+        if not limit or self.draining or self._shutting_down or worker.stop_requested:
+            return
+
+        if not worker.retiring and worker.resident > limit * 1024 * 1024:
+            worker.retiring = True
+            logger.warning(
+                f"Worker {worker.index} holds {worker.resident // (1024 * 1024)} MiB, over its {limit} MiB limit: "
+                "it takes no new task and is replaced once its tasks are done"
+            )
+
+        if worker.retiring and not worker.runs and not worker.pending_sync:
+            worker.stop_requested = True
+
+            if not worker.send((MSG_STOP,)):
+                self._signal(worker, signal.SIGTERM)
 
     def _release(self, worker: WorkerProcess) -> None:
         """Detach a worker and unblock everything waiting on it."""

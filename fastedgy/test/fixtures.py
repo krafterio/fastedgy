@@ -106,7 +106,7 @@ def seed_data() -> Callable[[], Any] | None:
 
 
 @pytest.fixture(autouse=True)
-def fresh_context() -> Iterator[None]:
+async def fresh_context(anyio_backend: str) -> AsyncIterator[None]:
     """Start every test on an empty request context.
 
     The request carries the user, the workspace, its membership, the timezone
@@ -114,6 +114,9 @@ def fresh_context() -> Iterator[None]:
     what a test leaves behind is what the next one reads. That test then runs
     scoped to a workspace it never chose, and its own rows fall out of its own
     queries. The further apart the two tests run, the harder it is to see.
+
+    Async, so it runs in the task of the anyio runner that runs the tests: a
+    sync fixture runs in the main thread and resets a context no test reads.
 
     Autouse, so a suite is covered without asking and no test file carries a
     reset of its own.

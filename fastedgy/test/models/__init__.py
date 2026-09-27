@@ -24,6 +24,7 @@ from fastedgy.test.models.queued_task import QueuedTask
 from fastedgy.test.models.queued_task_log import QueuedTaskLog
 from fastedgy.test.models.queued_task_worker import QueuedTaskWorker
 from fastedgy.test.models.realtime import (
+    RtBoard,
     RtChild,
     RtMember,
     RtNote,
@@ -90,6 +91,7 @@ __all__ = [
     "QueuedTask",
     "QueuedTaskLog",
     "QueuedTaskWorker",
+    "RtBoard",
     "RtChild",
     "RtMember",
     "RtNote",

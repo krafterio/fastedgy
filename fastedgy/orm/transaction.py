@@ -5,7 +5,7 @@ import asyncio
 import contextlib
 import logging
 import random
-from collections.abc import Awaitable, Callable, Coroutine
+from collections.abc import Awaitable, Callable, Coroutine, Hashable
 from contextvars import ContextVar
 from functools import wraps
 from typing import Any, TypeVar, overload
@@ -37,6 +37,7 @@ _ISOLATION_LEVELS = frozenset({"READ UNCOMMITTED", "READ COMMITTED", "REPEATABLE
 # so concurrent requests/workers never see each other's flag.
 _in_retrying_transaction: ContextVar[bool] = ContextVar("fastedgy_in_retrying_transaction", default=False)
 _after_commit_callbacks: ContextVar[list[Callable[[], Any]] | None] = ContextVar("after_commit_callbacks", default=None)
+_after_commit_keys: ContextVar[set[Hashable] | None] = ContextVar("after_commit_keys", default=None)
 
 
 async def _start_without_isolation_shortcut(self: SQLAlchemyTransaction, is_root: bool, **extra_options: Any) -> None:
@@ -112,7 +113,7 @@ def set_default_isolation_level(level: str) -> None:
     SQLAlchemyTransaction.start = _start_without_isolation_shortcut  # type: ignore[method-assign]
 
 
-def defer_after_commit(callback: Callable[[], Any]) -> None:
+def defer_after_commit(callback: Callable[[], Any], key: Hashable | None = None) -> None:
     """Run ``callback`` once the enclosing retried transaction has committed.
 
     Inside :func:`with_transaction` / :func:`transaction`, the callback is
@@ -121,6 +122,9 @@ def defer_after_commit(callback: Callable[[], Any]) -> None:
     attempt's queue, so side effects never fire for attempts that did not
     commit. Outside any retried transaction it runs immediately.
 
+    A ``key`` the attempt already queued is not queued again: a side effect
+    that several writes of one transaction ask for runs once.
+
     The callback must be synchronous — typically it schedules background work
     (push, notifications). Its exceptions are logged, never propagated.
     """
@@ -128,6 +132,11 @@ def defer_after_commit(callback: Callable[[], Any]) -> None:
     if queue is None:
         _run_after_commit_callback(callback)
         return
+    keys = _after_commit_keys.get()
+    if key is not None and keys is not None:
+        if key in keys:
+            return
+        keys.add(key)
     queue.append(callback)
 
 
@@ -291,6 +300,7 @@ async def with_transaction(
             try:
                 tx = db.transaction()
                 callbacks_token = _after_commit_callbacks.set([])
+                keys_token = _after_commit_keys.set(set())
                 try:
                     async with tx:
                         if isolation_level is not None:
@@ -300,6 +310,7 @@ async def with_transaction(
                         _run_after_commit_callback(callback)
                     return result
                 finally:
+                    _after_commit_keys.reset(keys_token)
                     _after_commit_callbacks.reset(callbacks_token)
             except DBAPIError as e:
                 if attempt == retries or not is_serialization_error(e):
@@ -448,7 +459,7 @@ __all__ = [
 _side_effect_tasks: set[asyncio.Task] = set()
 
 
-def run_signal_side_effect(op: Callable[[], Awaitable[Any]], label: str) -> None:
+def run_signal_side_effect(op: Callable[[], Awaitable[Any]], label: str, key: Hashable | None = None) -> None:
     """Schedule a non-critical signal side effect after the enclosing
     transaction commits.
 
@@ -478,7 +489,7 @@ def run_signal_side_effect(op: Callable[[], Awaitable[Any]], label: str) -> None
         _side_effect_tasks.add(task)
         task.add_done_callback(_side_effect_tasks.discard)
 
-    defer_after_commit(_spawn)
+    defer_after_commit(_spawn, key)
 
 
 async def drain_signal_side_effects(timeout: float = 5.0) -> None:

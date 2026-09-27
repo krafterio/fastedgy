@@ -173,6 +173,10 @@ the model stamps on every write. A view reading none of these columns has nothin
 from the event and can leave it alone; see
 [`watchFields`](../../vue/realtime/guide.md#only-what-a-view-reads) on the Vue.js side.
 
+A many-to-many field of the model moves with its links: a row linked or unlinked announces an
+update of the record it belongs to, with that field alone in `changed`. A transaction linking
+several rows announces the record once.
+
 ### `origin`
 
 Which client instance made the write, read from the `X-Origin-Id` header of the request that

@@ -26,6 +26,17 @@ class RtRecord(BaseModel, WorkspaceableMixin):
         tablename = "test_rt_records"
 
 
+@realtime_model()
+class RtBoard(BaseModel, WorkspaceableMixin):
+    """Holds a many-to-many: a tag linked or unlinked is a write of the board."""
+
+    name = fields.CharField(max_length=200, null=True)
+    tags = fields.ManyToMany("Tag", related_name=False)
+
+    class Meta(BaseModel.Meta, WorkspaceableMixin.Meta):
+        tablename = "test_rt_boards"
+
+
 @realtime_model(fields={"record_id": "record"}, relations=["record"])
 class RtChild(BaseModel, WorkspaceableMixin):
     """Hangs off a record: carries its parent's id, and reaches its channel."""
@@ -141,6 +152,7 @@ class RtTask(BaseModel, WorkspaceableMixin):
 
 
 __all__ = [
+    "RtBoard",
     "RtChild",
     "RtMember",
     "RtNote",

@@ -39,6 +39,7 @@ from fastedgy.realtime.events import OnRealtimeDeliveredEvent, OnRealtimeDisconn
 from fastedgy.realtime.manager import WebSocketManager
 from fastedgy.test.factories import auth_token, create_user, create_workspace, create_workspace_user
 from fastedgy.test.models.realtime import (
+    RtBoard,
     RtChild,
     RtMember,
     RtNote,
@@ -52,6 +53,7 @@ from fastedgy.test.models.realtime import (
     RtTask,
     RtThread,
 )
+from fastedgy.test.models.tag import Tag
 
 
 class FakeWebSocket:
@@ -523,6 +525,47 @@ async def test_a_write_through_update_is_announced_with_what_it_wrote(ws_manager
 
     assert "name" in changed
     assert "workspace" not in changed
+
+
+async def test_linking_a_many_to_many_is_an_update_of_its_record(ws_manager, scope_env, monkeypatch) -> None:
+    """No column of the record moves, yet what it holds does."""
+    board = RtBoard(workspace=scope_env.scope, name="Sprint")
+    await board.save()
+    tag = await Tag(name="urgent").save()
+    await asyncio.sleep(0.2)
+
+    announced = _record_broadcasts(monkeypatch)
+    await board.tags.add(tag)
+    linked = await announced_as(announced, "rt_board", "updated")
+
+    assert (linked["scope"], linked["id"], linked["meta"]["changed"]) == (scope_env.scope.id, board.id, ["tags"])
+
+    announced.clear()
+    await board.tags.remove(tag)
+    unlinked = await announced_as(announced, "rt_board", "updated")
+
+    assert (unlinked["id"], unlinked["meta"]["changed"]) == (board.id, ["tags"])
+
+
+async def test_a_transaction_linking_several_rows_announces_its_record_once(ws_manager, scope_env, monkeypatch) -> None:
+    from fastedgy.orm.transaction import with_transaction
+
+    board = RtBoard(workspace=scope_env.scope, name="Sprint")
+    await board.save()
+    tags = [await Tag(name=name).save() for name in ("urgent", "bug", "design")]
+    await asyncio.sleep(0.2)
+
+    announced = _record_broadcasts(monkeypatch)
+
+    async def link() -> None:
+        for tag in tags:
+            await board.tags.add(tag)
+
+    await with_transaction(link)
+    await announced_as(announced, "rt_board", "updated")
+    await asyncio.sleep(0.2)
+
+    assert len(of(announced, "rt_board", "updated")) == 1
 
 
 async def test_a_write_carries_the_client_that_made_it(ws_manager, scope_env, monkeypatch) -> None:
@@ -1240,7 +1283,10 @@ async def test_a_frame_of_the_application_goes_to_the_bus(ws_manager, scope_env)
         bus.unregister(OnRealtimeFrameEvent, on_frame)
         bus.unregister(OnRealtimeDisconnectEvent, on_disconnect)
 
-    assert socket.sent[0] == {"type": "auth_success", "data": {"user_id": admin.id, "scope": "acme", "scopes": ["acme"]}}
+    assert socket.sent[0] == {
+        "type": "auth_success",
+        "data": {"user_id": admin.id, "scope": "acme", "scopes": ["acme"]},
+    }
     assert heard == [("frame", "location.live_start", {"device_id": 3}, admin.id), ("gone", admin.id)]
     assert ws_manager.is_idle
 
@@ -1261,7 +1307,10 @@ async def test_a_socket_naming_no_scope_reads_the_one_the_application_resolves(w
         DefaultScope(),
     )
 
-    assert socket.sent[0] == {"type": "auth_success", "data": {"user_id": admin.id, "scope": "acme", "scopes": ["acme"]}}
+    assert socket.sent[0] == {
+        "type": "auth_success",
+        "data": {"user_id": admin.id, "scope": "acme", "scopes": ["acme"]},
+    }
 
 
 async def test_a_socket_naming_several_scopes_reads_those_its_account_is_a_member_of(ws_manager, scope_env) -> None:
@@ -1269,7 +1318,10 @@ async def test_a_socket_naming_several_scopes_reads_those_its_account_is_a_membe
     office = await create_workspace(slug="office", name="Office")
     await create_workspace_user(admin, office)
     await create_workspace(slug="elsewhere", name="Elsewhere")
-    handshake = {"type": "authenticate", "data": {"token": auth_token(admin), "scopes": ["acme", "office", "elsewhere"]}}
+    handshake = {
+        "type": "authenticate",
+        "data": {"token": auth_token(admin), "scopes": ["acme", "office", "elsewhere"]},
+    }
     socket: Any = ScriptedWebSocket(json.dumps(handshake), [], hold=True)
     serving = asyncio.create_task(_serve(socket, ws_manager))
 

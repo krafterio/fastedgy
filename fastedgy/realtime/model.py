@@ -58,6 +58,8 @@ class RealtimeRegistry:
         self._relations: dict[str, list[str]] = {}
         self._classes: dict[str, type] = {}
         self._addressing: dict[str, tuple[str, str | None]] = {}
+        self._many: dict[str, list[str]] = {}
+        self._links: dict[type, tuple[str, str, str]] | None = None
 
     def register(
         self,
@@ -79,6 +81,9 @@ class RealtimeRegistry:
         self._relations[name] = list(relations or [])
         self._classes[name] = model_cls
         self._addressing[name] = (scope_field, user_field)
+        fields_of = getattr(getattr(model_cls, "meta", None), "fields", {})
+        self._many[name] = [field for field, value in fields_of.items() if getattr(value, "is_m2m", False) is True]
+        self._links = None
 
         return name
 
@@ -101,6 +106,29 @@ class RealtimeRegistry:
 
     def model_class(self, model: str) -> type | None:
         return self._classes.get(model)
+
+    def link(self, link_cls: Any) -> tuple[str, str, str] | None:
+        """The model, the many-to-many field and the key naming its record, for a row of [link_cls]."""
+        links = self._links
+
+        if links is None:
+            links, resolved = {}, True
+
+            for model, names in self._many.items():
+                model_fields = self._classes[model].meta.fields
+
+                for name in names:
+                    field = model_fields[name]
+
+                    if isinstance(field.through, type):
+                        links[field.through] = (model, name, field.from_foreign_key)
+                    else:
+                        resolved = False
+
+            if resolved:
+                self._links = links
+
+        return links.get(link_cls)
 
     def models(self) -> list[str]:
         return sorted(self._actions)
@@ -199,7 +227,7 @@ def realtime_model(
             if not has_service(WebSocketBroadcaster):
                 return
 
-            record = await _read_back(model_cls, model_instance)
+            record = await _read_back(model_cls, model_instance.__dict__.get("id"))
 
             if record is not None:
                 _publish(await _announcement(model, "update", record, column_values or {}))
@@ -233,6 +261,34 @@ def realtime_model(
         return model_cls
 
     return decorator
+
+
+async def _on_link(
+    sender: Any,
+    instance: Any = None,
+    model_instance: Any = None,
+    column_values: dict[str, Any] | None = None,
+    row_count: int | None = None,
+    **_: Any,
+) -> None:
+    """A many-to-many row written: an update of its record naming that field, once per transaction."""
+    link = registry.link(sender)
+    row = model_instance if model_instance is not None else instance
+
+    if link is None or row is None or row_count == 0 or not has_service(WebSocketBroadcaster):
+        return
+
+    model, name, key = link
+    record_id = _column(row, column_values or {}, key)
+    model_cls = registry.model_class(model)
+    record = await _read_back(model_cls, record_id)
+
+    if record is not None:
+        _publish(await _announcement(model, "update", record, {name: None}), key=(model, record_id, name))
+
+
+post_save.connect(_on_link)
+post_delete.connect(_on_link)
 
 
 async def _announcement(
@@ -342,7 +398,7 @@ async def _announcement(
         return None
 
 
-def _publish(announcement: Announcement | None) -> None:
+def _publish(announcement: Announcement | None, key: Any = None) -> None:
     """Issue an announcement once the transaction its write belongs to has committed.
 
     Through [fastedgy.orm.transaction.run_signal_side_effect], which discards the
@@ -351,13 +407,11 @@ def _publish(announcement: Announcement | None) -> None:
     committed would announce all the same.
     """
     if announcement is not None:
-        run_signal_side_effect(*announcement)
+        run_signal_side_effect(*announcement, key=key)
 
 
-async def _read_back(model_cls: Any, model_instance: Any) -> Any:
+async def _read_back(model_cls: Any, record_id: Any) -> Any:
     """A record as its row holds it, read through its manager rather than lazily off the instance."""
-    record_id = model_instance.__dict__.get("id")
-
     if record_id is None:
         return None
 

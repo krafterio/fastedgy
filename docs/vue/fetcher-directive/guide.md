@@ -36,7 +36,6 @@ const images = ref([
   width: 200px;
   height: 150px;
   object-fit: cover;
-  opacity: 0;
   transition: opacity 0.3s ease-in-out;
 }
 </style>

@@ -3,7 +3,7 @@
 msgid ""
 msgstr ""
 "POT-Creation-Date: 2026-06-24 20:38+0000\n\n"
-"PO-Revision-Date: 2026-09-07 13:18+0000\n\n"
+"PO-Revision-Date: 2026-09-28 14:55+0000\n\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Language: fr\n"
 "nplurals=2; plural=(n > 1);\n"
@@ -472,10 +472,6 @@ msgstr "Utilisateur"
 msgid "User registered successfully"
 msgstr "Utilisateur enregistré avec succès"
 
-#, python-brace-format
-msgid "User {model_id} not found"
-msgstr "Utilisateur {model_id} introuvable"
-
 msgid "Users"
 msgstr "Utilisateurs"
 
@@ -500,10 +496,6 @@ msgstr "Utilisateur de l'espace de travail"
 msgid "Workspace users"
 msgstr "Utilisateurs de l'espace de travail"
 
-#, python-brace-format
-msgid "Workspace {model_id} not found"
-msgstr "Espace de travail {model_id} introuvable"
-
 msgid "Workspaces"
 msgstr "Espaces de travail"
 
@@ -521,42 +513,42 @@ msgid "{model} not found"
 msgstr "{model} introuvable"
 
 msgid "Expiration"
-msgstr ""
+msgstr "Expiration"
 
 msgid "Display name"
-msgstr ""
+msgstr "Nom affiché"
 
 msgid "API token"
-msgstr ""
+msgstr "Token d'API"
 
 msgid "API tokens"
-msgstr ""
+msgstr "Tokens d'API"
 
 msgid "Key"
-msgstr ""
+msgstr "Clé"
 
 msgid "Phone"
 msgstr "Téléphone"
 
 msgid "Preview"
-msgstr ""
+msgstr "Aperçu"
 
 msgid "a non-empty text"
 msgstr "un texte non vide"
 
 msgid "API token not found"
-msgstr ""
+msgstr "Token d'API introuvable"
 
 #, python-brace-format
 msgid "a colour from 0 to {last}"
 msgstr "une couleur de 0 à {last}"
 
 msgid "This image holds too many pixels to be processed"
-msgstr ""
+msgstr "Cette image contient trop de pixels pour être traitée"
 
 #, python-brace-format
 msgid "This image is too large: {width}x{height} pixels, {limit} maximum"
-msgstr ""
+msgstr "Cette image est trop grande : {width}x{height} pixels, {limit} maximum"
 
 msgid "a colour index"
 msgstr "un indice de couleur"
@@ -574,10 +566,10 @@ msgid "IP address"
 msgstr "Adresse IP"
 
 msgid "Resume requested after shutdown"
-msgstr ""
+msgstr "Reprise demandée après l'arrêt"
 
 msgid "Fingerprint"
-msgstr ""
+msgstr "Empreinte"
 
 msgid "Duration"
 msgstr "Durée"
@@ -589,19 +581,21 @@ msgid "UUID"
 msgstr "UUID"
 
 msgid "You do not have access to this resource."
-msgstr ""
+msgstr "Vous n'avez pas accès à cette ressource."
 
 msgid "You do not have access to the referenced resource."
-msgstr ""
+msgstr "Vous n'avez pas accès à la ressource référencée."
 
 msgid "List of values"
 msgstr "Liste de valeurs"
 
 msgid "This resource is not available in a shared record context."
 msgstr ""
+"Cette ressource n'est pas disponible dans le contexte d'une fiche "
+"partagée."
 
 msgid "Last used"
-msgstr ""
+msgstr "Dernière utilisation"
 
 msgid "Time"
 msgstr "Heure"
@@ -615,8 +609,12 @@ msgstr "Valeurs"
 msgid "Default value"
 msgstr "Valeur par défaut"
 
-msgid "The value a record is created with when none is given. Records that already exist are left as they are."
-msgstr "La valeur que prend une fiche créée sans en préciser. Les fiches existantes restent telles quelles."
+msgid ""
+"The value a record is created with when none is given. Records that "
+"already exist are left as they are."
+msgstr ""
+"La valeur que prend une fiche créée sans en préciser. Les fiches "
+"existantes restent telles quelles."
 
 #, python-brace-format
 msgid "one of these values: {values}"
@@ -629,7 +627,7 @@ msgid "Model"
 msgstr "Modèle"
 
 msgid "Record ID"
-msgstr ""
+msgstr "ID de l'enregistrement"
 
 #, python-brace-format
 msgid "a colour on all of them or on none: {value} has none"
@@ -644,10 +642,29 @@ msgid "The values of field {field} expect {expected}."
 msgstr "Les valeurs du champ {field} attendent {expected}."
 
 #, python-brace-format
-msgid "The model {model} does not accept custom fields."
-msgstr ""
-
-#, python-brace-format
 msgid "distinct values: {value} appears twice"
 msgstr "des valeurs distinctes : {value} revient deux fois"
+
+msgid "Default workspace"
+msgstr "Espace de travail par défaut"
+
+#, python-brace-format
+msgid "Field {field_name} cannot be written on this model"
+msgstr "Le champ {field_name} ne peut pas être écrit sur ce modèle"
+
+#, python-brace-format
+msgid "Field {field} of model {model} does not hold a file"
+msgstr "Le champ {field} du modèle {model} ne contient pas de fichier"
+
+#, python-brace-format
+msgid "Model {model_name} does not allow this action"
+msgstr "Le modèle {model_name} n'autorise pas cette action"
+
+#, python-brace-format
+msgid "Model {model_name} is not available"
+msgstr "Le modèle {model_name} n'est pas disponible"
+
+#, python-brace-format
+msgid "{model} {model_id} not found"
+msgstr "{model} {model_id} introuvable"
 

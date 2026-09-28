@@ -1,15 +1,18 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+import re
 from collections.abc import Callable
 from pathlib import Path
 
 import pytest
+from babel.messages.pofile import read_po
 
+import fastedgy
 from fastedgy.app import FastEdgy
 from fastedgy.config import BaseSettings
 from fastedgy.dependencies import get_service
-from fastedgy.i18n import I18n, TranslatableString, _t, _ts
+from fastedgy.i18n import I18n, I18nExtractor, TranslatableString, _t, _ts
 from fastedgy.test.factories import use_request
 
 
@@ -37,9 +40,9 @@ async def test_renders_french_labels_and_parametrized_messages(setup_db: FastEdg
 async def test_a_missing_translation_is_looked_up_in_the_fallback_locale(
     setup_db: FastEdgy, override_settings: Callable[..., None]
 ) -> None:
-    override_settings(available_locales=["fr", "es"], fallback_locale="fr")
+    override_settings(available_locales=["fr", "pt"], fallback_locale="fr")
 
-    with use_request(locale="es"):
+    with use_request(locale="pt"):
         assert _t("User") == "Utilisateur"
 
 
@@ -103,3 +106,20 @@ async def test_available_locales_is_a_list(setup_db: FastEdgy) -> None:
     locales = get_service(I18n).get_available_locales()
 
     assert isinstance(locales, list)
+
+
+async def test_every_catalog_of_fastedgy_translates_every_message(setup_db: FastEdgy) -> None:
+    package = Path(fastedgy.__file__).parent
+    messages = I18nExtractor(get_service(BaseSettings))._extract_messages(str(package))
+    placeholder = re.compile(r"\{\w+\}")
+
+    for po_file in sorted((package / "translations").glob("*.po")):
+        with po_file.open("rb") as f:
+            catalog = {message.id: message.string for message in read_po(f) if message.id}
+
+        assert not [message for message in messages if not catalog.get(message)], po_file.name
+        assert not [
+            message
+            for message in messages
+            if set(placeholder.findall(message)) != set(placeholder.findall(str(catalog[message])))
+        ], po_file.name

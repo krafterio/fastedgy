@@ -1,0 +1,662 @@
+# IT translations
+#, fuzzy
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-09-28 14:55+0000\n\n"
+"PO-Revision-Date: 2026-09-28 14:55+0000\n\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Language: it\n"
+"nplurals=2; plural=(n != 1);\n"
+
+msgid "A field referenced in the file does not exist in the database."
+msgstr "Un campo indicato nel file non esiste nel database."
+
+msgid "A numeric value is too large for the field."
+msgstr "Un valore numerico è troppo grande per il campo."
+
+msgid "A required field is missing."
+msgstr "Manca un campo obbligatorio."
+
+msgid "Active Workers"
+msgstr "Worker attivi"
+
+msgid "Administrator"
+msgstr "Amministratore"
+
+msgid "An error occurred processing the data. Please verify the file format."
+msgstr ""
+"Si è verificato un errore durante l'elaborazione dei dati. Verificare il "
+"formato del file."
+
+msgid "Attachment"
+msgstr "Allegato"
+
+msgid "Attachment creation failed"
+msgstr "Creazione dell'allegato non riuscita"
+
+msgid ""
+"Attachment model is not configured. Please add the Attachment model to "
+"your project."
+msgstr ""
+"Il modello Attachment non è configurato. Aggiungere il modello Attachment"
+" al progetto."
+
+msgid "Attachment model not configured"
+msgstr "Modello Attachment non configurato"
+
+msgid "Attachment not found"
+msgstr "Allegato non trovato"
+
+msgid "Attachments"
+msgstr "Allegati"
+
+msgid "Auto remove after success"
+msgstr "Rimozione automatica dopo il successo"
+
+msgid "Automatic retry count"
+msgstr "Numero di tentativi automatici"
+
+msgid "Boolean"
+msgstr "Casella di controllo"
+
+msgid "Cancellation date"
+msgstr "Data di annullamento"
+
+msgid "Cancelled"
+msgstr "Annullato"
+
+msgid "Char"
+msgstr "Testo breve"
+
+msgid "Content is not a data URL"
+msgstr "Il contenuto non è un data URL"
+
+msgid "Could not validate refresh token"
+msgstr "Impossibile convalidare il token di aggiornamento"
+
+msgid "Created at"
+msgstr "Creato il"
+
+msgid "Created by"
+msgstr "Creato da"
+
+msgid "Critical"
+msgstr "Critico"
+
+msgid "Current password is incorrect"
+msgstr "La password attuale non è corretta"
+
+msgid "Custom field"
+msgstr "Campo personalizzato"
+
+msgid "Custom fields"
+msgstr "Campi personalizzati"
+
+msgid "Date"
+msgstr "Data"
+
+msgid "Datetime"
+msgstr "Data e ora"
+
+msgid "Debug"
+msgstr "Debug"
+
+msgid "Depth"
+msgstr "Profondità"
+
+msgid "Doing"
+msgstr "In corso"
+
+msgid "Done"
+msgstr "Completato"
+
+msgid "Draft"
+msgstr "Bozza"
+
+msgid "Email"
+msgstr "Email"
+
+msgid "Email already registered"
+msgstr "Email già registrata"
+
+msgid "Email not found"
+msgstr "Email non trovata"
+
+msgid "End date"
+msgstr "Data di fine"
+
+msgid "Enqueued"
+msgstr "In coda"
+
+msgid "Enqueued date"
+msgstr "Data di messa in coda"
+
+msgid "Error"
+msgstr "Errore"
+
+#, python-brace-format
+msgid "Error while downloading the file: {error}"
+msgstr "Errore durante il download del file: {error}"
+
+msgid "Exception info"
+msgstr "Informazioni sull'eccezione"
+
+msgid "Exception message"
+msgstr "Messaggio dell'eccezione"
+
+msgid "Exception name"
+msgstr "Nome dell'eccezione"
+
+msgid "Execution channel"
+msgstr "Canale di esecuzione"
+
+msgid "Execution time (seconds)"
+msgstr "Tempo di esecuzione (secondi)"
+
+msgid "Extension"
+msgstr "Estensione"
+
+msgid "Failed"
+msgstr "Non riuscito"
+
+msgid "Failed to create worksheet"
+msgstr "Impossibile creare il foglio di lavoro"
+
+msgid "Failure date"
+msgstr "Data dell'errore"
+
+#, python-brace-format
+msgid "Field {field_name} not found on model"
+msgstr "Campo {field_name} non trovato nel modello"
+
+#, python-brace-format
+msgid "Field {field} not found in model {model}"
+msgstr "Campo {field} non trovato nel modello {model}"
+
+msgid "File has no active worksheet"
+msgstr "Il file non ha un foglio attivo"
+
+msgid "File is empty or has no data rows"
+msgstr "Il file è vuoto o non contiene righe di dati"
+
+msgid "File is not a valid upload file"
+msgstr "Il file non è un file caricato valido"
+
+msgid "File not found"
+msgstr "File non trovato"
+
+msgid "Float"
+msgstr "Numero decimale"
+
+msgid "Full path"
+msgstr "Percorso completo"
+
+msgid "Fulltext search value"
+msgstr "Valore di ricerca testuale"
+
+msgid "Function name"
+msgstr "Nome della funzione"
+
+msgid "Height"
+msgstr "Altezza"
+
+msgid "Hello world"
+msgstr "Ciao mondo"
+
+#, python-brace-format
+msgid "Hello {name}"
+msgstr "Ciao {name}"
+
+msgid "ID"
+msgstr "ID"
+
+msgid "Idle Workers"
+msgstr "Worker inattivi"
+
+msgid "Image"
+msgstr "Immagine"
+
+msgid "Incorrect email or password"
+msgstr "Email o password non corrette"
+
+msgid "Info"
+msgstr "Info"
+
+msgid "Information"
+msgstr "Informazioni"
+
+msgid "Initials"
+msgstr "Iniziali"
+
+msgid "Integer"
+msgstr "Numero intero"
+
+msgid "Invalid data format. Please check the values in your file."
+msgstr "Formato dei dati non valido. Verificare i valori del file."
+
+msgid "Invalid data type for the field. Please check the value format."
+msgstr "Tipo di dati non valido per il campo. Verificare il formato del valore."
+
+msgid "Invalid filters"
+msgstr "Filtri non validi"
+
+msgid "Is Running"
+msgstr "In esecuzione"
+
+msgid "Keyword arguments"
+msgstr "Argomenti con nome"
+
+msgid "Label"
+msgstr "Etichetta"
+
+msgid "Last Heartbeat"
+msgstr "Ultimo heartbeat"
+
+msgid "Log type"
+msgstr "Tipo di log"
+
+msgid "MIME type"
+msgstr "Tipo MIME"
+
+msgid "Max Workers"
+msgstr "Worker max"
+
+msgid "Maximum automatic retries"
+msgstr "Numero massimo di tentativi automatici"
+
+msgid "Message"
+msgstr "Messaggio"
+
+msgid "Missing filename"
+msgstr "Nome del file mancante"
+
+msgid "Model not found"
+msgstr "Modello non trovato"
+
+#, python-brace-format
+msgid "Model {model_name} not found"
+msgstr "Modello {model_name} non trovato"
+
+msgid "Module name"
+msgstr "Nome del modulo"
+
+msgid "Name"
+msgstr "Nome"
+
+msgid ""
+"No action requested. Please provide group_field or sequence_field for "
+"resequencing"
+msgstr ""
+"Nessuna azione richiesta. Fornire group_field o sequence_field per il "
+"risequenziamento"
+
+msgid "No files uploaded"
+msgstr "Nessun file caricato"
+
+msgid "Owner server"
+msgstr "Server proprietario"
+
+msgid "Parent"
+msgstr "Elemento padre"
+
+msgid "Parent task"
+msgstr "Attività padre"
+
+msgid "Parents"
+msgstr "Elementi padre"
+
+msgid "Password"
+msgstr "Password"
+
+msgid "Password changed successfully"
+msgstr "Password modificata correttamente"
+
+msgid "Password reset email sent"
+msgstr "Email di reimpostazione della password inviata"
+
+msgid "Password reset token"
+msgstr "Token di reimpostazione della password"
+
+msgid "Password reset token expiration"
+msgstr "Scadenza del token di reimpostazione della password"
+
+msgid "Password updated"
+msgstr "Password aggiornata"
+
+msgid "Positional arguments"
+msgstr "Argomenti posizionali"
+
+msgid "Priority"
+msgstr "Priorità"
+
+msgid "Published"
+msgstr "Pubblicato"
+
+msgid "Queued task"
+msgstr "Attività in coda"
+
+msgid "Queued task log"
+msgstr "Log dell'attività in coda"
+
+msgid "Queued task logs"
+msgstr "Log delle attività in coda"
+
+msgid "Queued task worker"
+msgstr "Worker delle attività in coda"
+
+msgid "Queued task workers"
+msgstr "Worker delle attività in coda"
+
+msgid "Queued tasks"
+msgstr "Attività in coda"
+
+msgid "Required"
+msgstr "Obbligatorio"
+
+msgid "Serialized function"
+msgstr "Funzione serializzata"
+
+msgid "Server Name"
+msgstr "Nome del server"
+
+msgid "Size (bytes)"
+msgstr "Dimensione (byte)"
+
+msgid "Slug"
+msgstr "Slug"
+
+msgid "Some IDs in the target list do not exist"
+msgstr "Alcuni identificatori dell'elenco di destinazione non esistono"
+
+msgid "Start date"
+msgstr "Data di inizio"
+
+msgid "Started At"
+msgstr "Avviato il"
+
+msgid "State"
+msgstr "Stato"
+
+msgid "Stop date"
+msgstr "Data di arresto"
+
+msgid "Stopped"
+msgstr "Arrestato"
+
+msgid "Storage path"
+msgstr "Percorso di archiviazione"
+
+msgid "Success date"
+msgstr "Data di successo"
+
+msgid "Task"
+msgstr "Attività"
+
+msgid "Task context"
+msgstr "Contesto dell'attività"
+
+msgid "Task name"
+msgstr "Nome dell'attività"
+
+msgid "Technical name"
+msgstr "Nome tecnico"
+
+msgid "Text"
+msgstr "Testo lungo"
+
+msgid "The data format is invalid. Please check your values."
+msgstr "Il formato dei dati non è valido. Verificare i valori."
+
+msgid "The parent cannot be a file"
+msgstr "L'elemento padre non può essere un file"
+
+msgid "The provided data does not meet the validation constraints."
+msgstr "I dati forniti non rispettano i vincoli di convalida."
+
+msgid "The provided data violates a database integrity constraint."
+msgstr "I dati forniti violano un vincolo di integrità del database."
+
+msgid "The reference to a related resource is invalid or does not exist."
+msgstr "Il riferimento a una risorsa collegata non è valido o non esiste."
+
+msgid ""
+"The resource is currently being used by another operation. Please try "
+"again in a few moments."
+msgstr ""
+"La risorsa è attualmente in uso da parte di un'altra operazione. "
+"Riprovare tra qualche istante."
+
+msgid "The type field cannot be changed"
+msgstr "Il campo type non può essere modificato"
+
+msgid "This entry already exists in the database."
+msgstr "Questa voce esiste già nel database."
+
+msgid "Timestamp"
+msgstr "Timestamp"
+
+msgid "Token invalid or expired"
+msgstr "Token non valido o scaduto"
+
+msgid "Type"
+msgstr "Tipo"
+
+#, python-brace-format
+msgid "Unsupported export format: {format}"
+msgstr "Formato di esportazione non supportato: {format}"
+
+msgid "Unsupported file format. Supported formats: CSV, XLSX, ODS"
+msgstr "Formato di file non supportato. Formati supportati: CSV, XLSX, ODS"
+
+#, python-brace-format
+msgid "Unsupported format: {format}"
+msgstr "Formato non supportato: {format}"
+
+msgid "Updated at"
+msgstr "Aggiornato il"
+
+msgid "Updated by"
+msgstr "Aggiornato da"
+
+msgid "User"
+msgstr "Utente"
+
+msgid "User registered successfully"
+msgstr "Utente registrato correttamente"
+
+msgid "Users"
+msgstr "Utenti"
+
+msgid "Version"
+msgstr "Versione"
+
+msgid "Waiting"
+msgstr "In attesa"
+
+msgid "Warning"
+msgstr "Avviso"
+
+msgid "Width"
+msgstr "Larghezza"
+
+msgid "Workspace"
+msgstr "Spazio di lavoro"
+
+msgid "Workspace user"
+msgstr "Utente dello spazio di lavoro"
+
+msgid "Workspace users"
+msgstr "Utenti dello spazio di lavoro"
+
+msgid "Workspaces"
+msgstr "Spazi di lavoro"
+
+msgid "group_field is required"
+msgstr "group_field è obbligatorio"
+
+msgid "openpyxl library is not installed"
+msgstr "La libreria openpyxl non è installata"
+
+msgid "pyexcel-ods library is not installed"
+msgstr "La libreria pyexcel-ods non è installata"
+
+#, python-brace-format
+msgid "{model} not found"
+msgstr "{model} non trovato"
+
+msgid "Expiration"
+msgstr "Scadenza"
+
+msgid "Display name"
+msgstr "Nome visualizzato"
+
+msgid "API token"
+msgstr "Token API"
+
+msgid "API tokens"
+msgstr "Token API"
+
+msgid "Key"
+msgstr "Chiave"
+
+msgid "Phone"
+msgstr "Telefono"
+
+msgid "Preview"
+msgstr "Anteprima"
+
+msgid "a non-empty text"
+msgstr "un testo non vuoto"
+
+msgid "API token not found"
+msgstr "Token API non trovato"
+
+#, python-brace-format
+msgid "a colour from 0 to {last}"
+msgstr "un colore da 0 a {last}"
+
+msgid "This image holds too many pixels to be processed"
+msgstr "Questa immagine contiene troppi pixel per essere elaborata"
+
+#, python-brace-format
+msgid "This image is too large: {width}x{height} pixels, {limit} maximum"
+msgstr ""
+"Questa immagine è troppo grande: {width}x{height} pixel, {limit} al "
+"massimo"
+
+msgid "a colour index"
+msgstr "un indice di colore"
+
+msgid "strings or objects carrying a value and a colour"
+msgstr "stringhe o oggetti con un valore e un colore"
+
+msgid "HTML"
+msgstr "HTML"
+
+msgid "Rich text"
+msgstr "Testo formattato"
+
+msgid "IP address"
+msgstr "Indirizzo IP"
+
+msgid "Resume requested after shutdown"
+msgstr "Ripresa richiesta dopo lo spegnimento"
+
+msgid "Fingerprint"
+msgstr "Impronta"
+
+msgid "Duration"
+msgstr "Durata"
+
+msgid "Link"
+msgstr "Link"
+
+msgid "UUID"
+msgstr "UUID"
+
+msgid "You do not have access to this resource."
+msgstr "Accesso negato a questa risorsa."
+
+msgid "You do not have access to the referenced resource."
+msgstr "Accesso negato alla risorsa indicata."
+
+msgid "List of values"
+msgstr "Elenco di valori"
+
+msgid "This resource is not available in a shared record context."
+msgstr "Questa risorsa non è disponibile nel contesto di un record condiviso."
+
+msgid "Last used"
+msgstr "Ultimo utilizzo"
+
+msgid "Time"
+msgstr "Ora"
+
+msgid "at least one value"
+msgstr "almeno un valore"
+
+msgid "Values"
+msgstr "Valori"
+
+msgid "Default value"
+msgstr "Valore predefinito"
+
+msgid ""
+"The value a record is created with when none is given. Records that "
+"already exist are left as they are."
+msgstr ""
+"Il valore con cui viene creato un record quando non ne viene indicato "
+"nessuno. I record esistenti restano invariati."
+
+#, python-brace-format
+msgid "one of these values: {values}"
+msgstr "uno di questi valori: {values}"
+
+msgid "a value"
+msgstr "un valore"
+
+msgid "Model"
+msgstr "Modello"
+
+msgid "Record ID"
+msgstr "ID del record"
+
+#, python-brace-format
+msgid "a colour on all of them or on none: {value} has none"
+msgstr "un colore su tutti o su nessuno: {value} non ne ha"
+
+#, python-brace-format
+msgid "The field {field} expects {expected}."
+msgstr "Il campo {field} richiede {expected}."
+
+#, python-brace-format
+msgid "The values of field {field} expect {expected}."
+msgstr "I valori del campo {field} richiedono {expected}."
+
+#, python-brace-format
+msgid "distinct values: {value} appears twice"
+msgstr "valori distinti: {value} compare due volte"
+
+msgid "Default workspace"
+msgstr "Spazio di lavoro predefinito"
+
+#, python-brace-format
+msgid "Field {field_name} cannot be written on this model"
+msgstr "Il campo {field_name} non può essere scritto su questo modello"
+
+#, python-brace-format
+msgid "Field {field} of model {model} does not hold a file"
+msgstr "Il campo {field} del modello {model} non contiene un file"
+
+#, python-brace-format
+msgid "Model {model_name} does not allow this action"
+msgstr "Il modello {model_name} non consente questa azione"
+
+#, python-brace-format
+msgid "Model {model_name} is not available"
+msgstr "Il modello {model_name} non è disponibile"
+
+#, python-brace-format
+msgid "{model} {model_id} not found"
+msgstr "{model} {model_id} non trovato"
+

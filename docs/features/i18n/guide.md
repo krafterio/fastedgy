@@ -76,13 +76,31 @@ Start your application and test with different Accept-Language headers or locale
 ## Configuration
 
 ### Available locales
-Configure supported languages in your settings:
+Configure the languages your application offers in your settings:
 
 ```python
 class Settings(BaseSettings):
-    available_locales: list[str] = ["en", "fr", "es"]
+    available_locales: list[str] = ["fr", "en", "es"]
     fallback_locale: str = "en"
+    source_locale: str = "fr"
 ```
+
+- `available_locales`: the languages offered, matched against the `Accept-Language` header.
+- `fallback_locale`: the language of a request that asks for none of them, and where a missing translation is looked up next.
+- `source_locale`: the language the messages are written in, `fallback_locale` when not set.
+
+A message is looked up in the locale of the request, then in the fallback locale, then returned as written. The source locale skips the fallback: its messages are already the text to show.
+
+The messages of fastedgy itself keep their own source language, English. A message belongs to the application when its catalogs translate it, and to a package otherwise, so an application can write its messages in another language than the one of the framework.
+
+A package written in another language than English declares its source language, by package name, and its `translations` directory is read along:
+
+```python
+class Settings(BaseSettings):
+    package_source_locales: dict[str, str] = {"mypackage": "de"}
+```
+
+The Vue.js and Flutter clients take the same options, under the names `availableLocales`, `fallbackLocale` and `sourceLocale`.
 
 ### Translation directories
 Specify where translation files are located:

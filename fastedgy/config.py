@@ -297,6 +297,8 @@ class BaseSettings(PydanticBaseSettings):
     # I18n
     fallback_locale: str = "en"
     available_locales: list[str] = ["en"]
+    source_locale: str | None = None
+    package_source_locales: dict[str, str] = {}
     translations_paths: list[str] = []
 
     # Timezone

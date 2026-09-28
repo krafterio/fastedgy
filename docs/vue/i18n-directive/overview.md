@@ -23,22 +23,32 @@ FastEdgy for Vue.js uses [vue-i18n](https://vue-i18n.intlify.dev/) as its intern
 
 ## Installation
 
-Add the i18n extra plugin to your Vue application:
+Add the i18n extra plugin to your Vue application. It creates vue-i18n and installs it with the `v-tc` directive:
 
 ```javascript
+import { createApp } from 'vue'
 import { createI18nExtra } from 'vue-fastedgy'
-import { createI18n } from 'vue-i18n'
-
-const i18n = createI18n({
-  // your i18n configuration
-})
+import App from './App.vue'
 
 const app = createApp(App)
 
-// Install the i18n extra plugin
-app.use(createI18nExtra(i18n))
-app.use(i18n)
+app.use(createI18nExtra({
+  availableLocales: ['fr', 'en', 'es'],
+  fallbackLocale: 'en',
+  sourceLocale: 'fr',
+}))
 ```
+
+The options are the ones the server and the Flutter client share:
+
+- `availableLocales`: the languages the application offers.
+- `locale`: the language the application gives, the account's for instance. Without it, the first language of the browser the application offers, then `fallbackLocale`.
+- `fallbackLocale`: the language of whoever speaks none of the others, and where a missing translation is looked up next. The first of `availableLocales` when not given.
+- `sourceLocale`: the language the application writes its keys in, `fallbackLocale` when not given.
+
+A key is looked up in the current language, then in the fallback language, then shown as written. The source language skips the fallback: its keys are already the text to show. Any other vue-i18n option, such as `messages`, is passed through.
+
+The words of a package join through `addLocaleMessages(messages, sourceLocale)` and keep their own source language, English unless the package names another. A key belongs to the application when it writes it, and to the package otherwise, so an application can write its keys in another language than the packages it uses.
 
 ## Get Started
 

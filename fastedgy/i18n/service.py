@@ -1,6 +1,7 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+import importlib.util
 import logging
 import os
 from typing import Any, Self
@@ -51,14 +52,16 @@ class I18n:
         self._catalogs: dict[str, dict[str, Catalog]] = {}  # {path: {locale: catalog}}
         self._loaded_locales = set()
         self._available_locales = None
-        self._reversed_translation_paths = None
+        self._owners: tuple[list[str], list[tuple[str, str]]] | None = None
 
     def load_locale(self, locale: str) -> None:
         """Load translations for a specific locale from all sources."""
         if locale in self._loaded_locales:
             return
 
-        for translations_path in self.settings.computed_translations_paths:
+        application_paths, packages = self._sources()
+
+        for translations_path in [*application_paths, *(path for _, path in packages)]:
             po_file = os.path.join(translations_path, f"{locale}.po")
 
             if os.path.exists(po_file):
@@ -76,15 +79,70 @@ class I18n:
         self._loaded_locales.add(locale)
 
     def translate(self, message: str, **kwargs) -> str:
-        """Translate a message using current locale with priority-based lookup."""
-        locale = get_locale()
+        """Translate a message with the catalogs of its owner, the application first, then the packages."""
+        current = get_locale()
+        paths, source = self._owner(message, current)
+
+        for locale in self._locale_chain(current, source):
+            translated = self._translate_in(locale, message, paths, **kwargs)
+
+            if translated is not None:
+                return translated
+
+        try:
+            return message.format(**kwargs) if kwargs else message
+        except KeyError:
+            return message
+
+    def _sources(self) -> tuple[list[str], list[tuple[str, str]]]:
+        if self._owners is None:
+            packages = [("fastedgy", os.path.join(os.path.dirname(os.path.dirname(__file__)), "translations"))]
+            packages += [
+                (name, path)
+                for name in self.settings.package_source_locales
+                if name != "fastedgy" and (path := _translations_of(name)) is not None
+            ]
+            owned = {os.path.realpath(path) for _, path in packages}
+            self._owners = (
+                [path for path in self.settings.computed_translations_paths if os.path.realpath(path) not in owned],
+                packages,
+            )
+
+        return self._owners
+
+    def _owner(self, message: str, current: str) -> tuple[list[str], str]:
+        application_paths, packages = self._sources()
+        application = (application_paths, self.settings.source_locale or self.settings.fallback_locale)
+
+        for locale in {current, self.settings.fallback_locale, *self.settings.available_locales}:
+            self.load_locale(locale)
+
+        if any(self._translates(path, message) for path in application_paths):
+            return application
+
+        for name, path in packages:
+            if self._translates(path, message):
+                return [path], self.settings.package_source_locales.get(name, "en")
+
+        return application
+
+    def _translates(self, path: str, message: str) -> bool:
+        return any(
+            message in catalog and bool(catalog[message].string) for catalog in self._catalogs.get(path, {}).values()
+        )
+
+    def _locale_chain(self, locale: str, source: str) -> list[str]:
+        fallback = self.settings.fallback_locale
+
+        if locale == fallback or locale.split("-")[0] == source.split("-")[0]:
+            return [locale]
+
+        return [locale, fallback]
+
+    def _translate_in(self, locale: str, message: str, paths: list[str], **kwargs) -> str | None:
         self.load_locale(locale)
 
-        if self._reversed_translation_paths is None:
-            self._reversed_translation_paths = list(reversed(self.settings.computed_translations_paths))
-        translation_paths = self._reversed_translation_paths
-
-        for path in translation_paths:
+        for path in reversed(paths):
             if path in self._catalogs and locale in self._catalogs[path]:
                 catalog = self._catalogs[path][locale]
 
@@ -98,14 +156,9 @@ class I18n:
                             try:
                                 return translated.format(**kwargs) if kwargs else translated
                             except KeyError:
-                                # If formatting fails, fallback to original message
                                 pass
 
-        # Fallback to original message with formatting
-        try:
-            return message.format(**kwargs) if kwargs else message
-        except KeyError:
-            return message
+        return None
 
     def get_available_locales(self) -> list[str]:
         """Get list of available locales based on existing .po files."""
@@ -130,11 +183,14 @@ class I18n:
 
         return sorted(available)
 
-    def clear_cache(self) -> None:
-        """Clear translation cache."""
-        self._catalogs.clear()
-        self._loaded_locales.clear()
-        self._available_locales = None
+
+def _translations_of(package: str) -> str | None:
+    spec = importlib.util.find_spec(package)
+
+    if spec is None or spec.origin is None:
+        return None
+
+    return os.path.join(os.path.dirname(spec.origin), "translations")
 
 
 __all__ = [

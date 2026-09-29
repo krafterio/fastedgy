@@ -2,6 +2,7 @@
 # MIT License (see LICENSE file).
 
 from fastedgy.orm import Model
+from fastedgy.orm.fields import ManyToMany
 from fastedgy.orm.filter.operators import ANY_OPERATORS, get_filter_operators
 from fastedgy.orm.filter.types import (
     And,
@@ -12,6 +13,7 @@ from fastedgy.orm.filter.types import (
     Or,
     R,
 )
+from fastedgy.orm.utils import find_primary_key_field
 
 
 def validate_filters(
@@ -32,13 +34,15 @@ def validate_filters(
 
             return _validate_any_rule(model_cls, filters, allow_excluded=allow_excluded)
 
-        if not validate_filter_field(model_cls, filters.field, allow_excluded=allow_excluded):
+        key_rule = _related_key_rule(model_cls, filters)
+
+        if not validate_filter_field(model_cls, key_rule.field, allow_excluded=allow_excluded):
             raise InvalidFilterError(f"Invalid filter field: {filters.field}")
 
         if not validate_filter_operator(model_cls, filters.field, filters.operator):
             raise InvalidFilterError(f"Invalid operator {filters.operator} for field {filters.field}")
 
-        return filters
+        return key_rule
 
     # Filter Condition
     if isinstance(filters, FilterCondition):
@@ -57,6 +61,21 @@ def validate_filters(
                 return Or(*validated_rules)
 
     raise InvalidFilterError("Invalid filter expression")
+
+
+def _related_key_rule(model_cls: type[Model], rule: FilterRule) -> FilterRule:
+    """A relation that fans out compares the key of its related records: ``tags`` reads as ``tags.id``."""
+    head, _, leaf = rule.field.rpartition(".")
+    owner_cls = resolve_relation_target(model_cls, head) if head else model_cls
+    field_info = owner_cls.meta.fields.get(leaf) if owner_cls is not None else None
+
+    if not isinstance(field_info, ManyToMany) and not hasattr(field_info, "related_from"):
+        return rule
+
+    target_cls = resolve_relation_target(model_cls, rule.field)
+    primary_key = find_primary_key_field(target_cls) if target_cls is not None else None
+
+    return R(f"{rule.field}.{primary_key or 'id'}", rule.operator, rule.value)
 
 
 def _validate_any_rule(model_cls: type[Model], rule: FilterRule, allow_excluded: bool = False) -> FilterRule:

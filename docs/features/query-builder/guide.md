@@ -230,6 +230,10 @@ An empty sub-filter asks only what the relation carries, so `["tags", "any",
 null]` reads as `is not empty` and `["tags", "not any", null]` as `is empty`
 (the short forms read better, and stay).
 
+Named alone, a relation that fans out compares the key of its related records:
+`["tags", "in", [1, 2]]` is `["tags.id", "in", [1, 2]]`, and so are `not in`,
+`is empty` and `is not empty`.
+
 ## Complex filtering
 
 ```bash

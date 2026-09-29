@@ -17,9 +17,10 @@ import pytest
 
 from fastedgy.app import FastEdgy
 from fastedgy.orm.filter import And, InvalidFilterError, Or, R, filter_query
+from fastedgy.orm.filter.operators import FilterOperator
 from fastedgy.test.models.annotation import Annotation
 from fastedgy.test.models.category import Category
-from fastedgy.test.models.fs_optimize import FsoCategory, FsoProduct, FsoTag
+from fastedgy.test.models.fs_optimize import FsoBrand, FsoCategory, FsoProduct, FsoTag
 from fastedgy.test.models.product import Product
 
 
@@ -302,3 +303,73 @@ async def test_a_sub_filter_on_a_self_referencing_path(setup_db: FastEdgy) -> No
 
     assert names == [child.name]
     assert parent.name not in names
+
+
+async def test_a_reverse_relation_compares_the_key_of_its_records(setup_db: FastEdgy) -> None:
+    await _seed()
+    together = await FsoProduct.query.filter(R("name", "=", "together")).get()
+
+    assert await _categories(R("products", "is empty")) == ["Empty"]
+    assert sorted(await _categories(R("products", "is not empty"))) == ["Split", "Together", "Twice"]
+    assert await _categories(R("products", "in", [together.id])) == ["Together"]
+    assert sorted(await _categories(R("products", "not in", [together.id]))) == ["Split", "Twice"]
+
+    key_rules: list[tuple[FilterOperator, list[int | None] | None]] = [
+        ("is empty", None),
+        ("is not empty", None),
+        ("in", [together.id]),
+        ("not in", [together.id]),
+    ]
+
+    for operator, value in key_rules:
+        assert sorted(await _categories(R("products", operator, value))) == sorted(
+            await _categories(R("products.id", operator, value))
+        ), operator
+
+    assert await _categories(And(R("name", "!=", "zzz"), R("products", "is empty"))) == ["Empty"]
+    assert await _categories(Or(R("name", "=", "zzz"), R("products", "is empty"))) == ["Empty"]
+    assert await _categories(R("products", "is empty"), allow_excluded=True) == ["Empty"]
+
+
+async def test_a_many_to_many_compares_the_key_of_its_records(setup_db: FastEdgy) -> None:
+    red = await FsoTag(name="red").save()
+    blue = await FsoTag(name="blue").save()
+    only_red = await FsoProduct(name="only_red", price=1.0).save()
+    await only_red.tags.add(red)
+    both = await FsoProduct(name="both", price=1.0).save()
+    await both.tags.add(red)
+    await both.tags.add(blue)
+    await FsoProduct(name="untagged", price=1.0).save()
+
+    async def _products(rule) -> list[str]:
+        return sorted(row.name for row in await filter_query(FsoProduct.query, rule).all())
+
+    assert await _products(R("tags", "is empty")) == ["untagged"]
+    assert await _products(R("tags", "is not empty")) == ["both", "only_red"]
+    assert await _products(R("tags", "in", [red.id])) == ["both", "only_red"]
+    assert await _products(R("tags", "not in", [red.id])) == ["both"]
+
+    key_rules: list[tuple[FilterOperator, list[int | None] | None]] = [
+        ("is empty", None),
+        ("is not empty", None),
+        ("in", [red.id]),
+        ("not in", [red.id]),
+    ]
+
+    for operator, value in key_rules:
+        assert await _products(R("tags", operator, value)) == await _products(R("tags.id", operator, value)), operator
+
+
+async def test_a_relation_that_fans_out_holds_at_the_end_of_a_path_and_in_a_sub_filter(setup_db: FastEdgy) -> None:
+    stocked = await FsoBrand(name="Stocked").save()
+    lonely = await FsoBrand(name="Lonely").save()
+    shelf = await FsoCategory(name="Shelf", brand=stocked).save()
+    await FsoCategory(name="Bare", brand=lonely).save()
+    await FsoProduct(name="boxed", price=1.0, category=shelf).save()
+
+    async def _brands(rule) -> list[str]:
+        return sorted(row.name for row in await filter_query(FsoBrand.query, rule).all())
+
+    assert await _brands(R("categories.products", "is empty")) == ["Lonely"]
+    assert await _brands(R("categories", "any", R("products", "is empty"))) == ["Lonely"]
+    assert await _brands(R("categories", "any", R("products", "is not empty"))) == ["Stocked"]

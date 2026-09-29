@@ -9,6 +9,7 @@ from fastedgy.test.models.fs_optimize import (
     FsoBrand,
     FsoCategory,
     FsoProduct,
+    FsoReview,
     FsoTag,
 )
 from fastedgy.test.models.global_filter import (
@@ -80,6 +81,7 @@ __all__ = [
     "FsoBrand",
     "FsoCategory",
     "FsoProduct",
+    "FsoReview",
     "FsoTag",
     "GfArticle",
     "GfLink",

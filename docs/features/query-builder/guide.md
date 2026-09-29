@@ -234,6 +234,10 @@ Named alone, a relation that fans out compares the key of its related records:
 `["tags", "in", [1, 2]]` is `["tags.id", "in", [1, 2]]`, and so are `not in`,
 `is empty` and `is not empty`.
 
+A reverse relation is filtered on by the name its foreign key declares with
+`related_name`. The name Edgy makes up when none is declared (`<model>s_set`)
+is refused, in the API as in the code, as it stays out of the API schemas.
+
 ## Complex filtering
 
 ```bash

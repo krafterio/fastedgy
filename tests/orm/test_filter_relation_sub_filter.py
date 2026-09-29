@@ -20,8 +20,9 @@ from fastedgy.orm.filter import And, InvalidFilterError, Or, R, filter_query
 from fastedgy.orm.filter.operators import FilterOperator
 from fastedgy.test.models.annotation import Annotation
 from fastedgy.test.models.category import Category
-from fastedgy.test.models.fs_optimize import FsoBrand, FsoCategory, FsoProduct, FsoTag
+from fastedgy.test.models.fs_optimize import FsoBrand, FsoCategory, FsoProduct, FsoReview, FsoTag
 from fastedgy.test.models.product import Product
+from fastedgy.test.models.queued_task import QueuedTask
 
 
 async def _seed() -> None:
@@ -373,3 +374,25 @@ async def test_a_relation_that_fans_out_holds_at_the_end_of_a_path_and_in_a_sub_
     assert await _brands(R("categories.products", "is empty")) == ["Lonely"]
     assert await _brands(R("categories", "any", R("products", "is empty"))) == ["Lonely"]
     assert await _brands(R("categories", "any", R("products", "is not empty"))) == ["Stocked"]
+
+
+async def test_a_reverse_relation_edgy_named_itself_is_refused(setup_db: FastEdgy) -> None:
+    for allow_excluded in (False, True):
+        for rule in (
+            R("queuedtasks_set", "any", None),
+            R("queuedtasks_set", "is empty"),
+            R("queuedtasks_set.id", "=", 1),
+            And(R("id", ">", 0), R("queuedtasks_set.id", "=", 1)),
+        ):
+            with pytest.raises(InvalidFilterError):
+                filter_query(QueuedTask.query, rule, allow_excluded=allow_excluded)
+
+
+async def test_a_reverse_relation_joins_on_its_own_foreign_key(setup_db: FastEdgy) -> None:
+    brand = await FsoBrand(name="Reviewed").save()
+    await FsoCategory(id=brand.id, name="Unreviewed").save()
+    await FsoReview(title="On the brand", brand=brand).save()
+
+    assert await _categories(R("reviews", "any", None)) == [], "a review of a brand is no review of a category"
+    assert await _categories(R("reviews", "is empty")) == ["Unreviewed"]
+    assert [row.name for row in await filter_query(FsoBrand.query, R("reviews", "any", None)).all()] == ["Reviewed"]

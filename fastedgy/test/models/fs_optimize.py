@@ -97,3 +97,12 @@ __all__ = [
     "FsoProduct",
     "FsoTag",
 ]
+
+
+class FsoReview(BaseModel):
+    title = fields.CharField(max_length=200)
+    brand = fields.ForeignKey(FsoBrand, null=True, related_name="reviews")
+    category = fields.ForeignKey(FsoCategory, null=True, related_name="reviews")
+
+    class Meta(BaseModel.Meta):
+        tablename = "test_fso_reviews"

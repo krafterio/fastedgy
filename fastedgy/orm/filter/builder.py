@@ -396,14 +396,19 @@ def walk_relation_path(
             # Reverse relation (OneToMany): related_model has FK pointing back
             related_model = getattr(field_info, "related_from")
 
-            # Find the FK field on related_model whose related_name == part
-            fk_field_name = None
-            fk_field = None
-            for fname, finfo in related_model.meta.fields.items():
-                if getattr(finfo, "related_name", None) == part:
-                    fk_field_name = fname
-                    fk_field = finfo
-                    break
+            fk_field_name = getattr(field_info, "foreign_key_name", None)
+            fk_field = related_model.meta.fields.get(fk_field_name) if fk_field_name else None
+
+            if fk_field is None:
+                fk_field_name = next(
+                    (
+                        fname
+                        for fname, finfo in related_model.meta.fields.items()
+                        if getattr(finfo, "related_name", None) == part
+                    ),
+                    None,
+                )
+                fk_field = related_model.meta.fields.get(fk_field_name) if fk_field_name else None
 
             if fk_field_name is None:
                 return None

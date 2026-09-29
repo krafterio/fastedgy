@@ -26,6 +26,9 @@ def validate_filters(
 
     # Filter Rule
     if isinstance(filters, FilterRule):
+        if _crosses_unnamed_relation(model_cls, filters.field):
+            raise InvalidFilterError(f"Invalid filter field: {filters.field}")
+
         # A sub-filter rule names a relation, not a value: what it may read is
         # checked field by field on the model that relation reaches.
         if filters.operator in ANY_OPERATORS:
@@ -61,6 +64,26 @@ def validate_filters(
                 return Or(*validated_rules)
 
     raise InvalidFilterError("Invalid filter expression")
+
+
+def _crosses_unnamed_relation(model_cls: type[Model], field_path: str) -> bool:
+    """Whether the path crosses a reverse relation Edgy named itself, one no ``related_name`` declares."""
+    from fastedgy.api_route_model.action.relations import is_exposed_relation_field, is_relation_field
+
+    current_cls = model_cls
+
+    for part in field_path.split("."):
+        field_info = current_cls.meta.fields.get(part) if current_cls is not None else None
+
+        if field_info is None:
+            return False
+
+        if is_relation_field(field_info) and not is_exposed_relation_field(field_info):
+            return True
+
+        current_cls = getattr(field_info, "target", None) or getattr(field_info, "related_from", None)
+
+    return False
 
 
 def _related_key_rule(model_cls: type[Model], rule: FilterRule) -> FilterRule:

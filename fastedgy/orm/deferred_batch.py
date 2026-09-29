@@ -122,12 +122,19 @@ async def _fetch_and_merge(batch: dict[str, Any]) -> set[Any]:
             continue
 
         for key, value in source.__dict__.items():
-            if key not in instance.__dict__:
+            if key not in instance.__dict__ or _is_keyless_relation(instance.__dict__[key]):
                 instance.__dict__[key] = value
 
         hydrated.add(instance.__dict__.get(primary_key))
 
     return hydrated
+
+
+def _is_keyless_relation(value: Any) -> bool:
+    """A related record left without its key by a deferred foreign key column."""
+    key_fields = getattr(value, "identifying_db_fields", None)
+
+    return bool(key_fields) and not any(field in value.__dict__ for field in key_fields)
 
 
 __all__ = [

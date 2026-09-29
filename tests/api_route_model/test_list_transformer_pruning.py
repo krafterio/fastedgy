@@ -24,6 +24,7 @@ from fastedgy.api_route_model.registry import ViewTransformerRegistry
 from fastedgy.api_route_model.view_transformer import GetViewsTransformer
 from fastedgy.dependencies import get_service
 from fastedgy.http import Request
+from fastedgy.test.models.category import Category
 from fastedgy.test.models.product import Product
 
 SEED_COUNT = 60
@@ -141,3 +142,27 @@ async def test_transformer_reads_correct_values_from_batched_reload(auth_http: h
     assert len(payload["items"]) == SEED_COUNT
     assert _CollectingTransformer.collected["Product 3"] == ("Description 3", 3)
     assert _CollectingTransformer.collected["Product 59"] == ("Description 59", 59)
+
+
+async def test_transformer_loads_a_relation_left_out_of_the_selection(auth_http: httpx.AsyncClient) -> None:
+    class _RelationTransformer(GetViewsTransformer[Product]):
+        collected: dict[str, str | None] = {}
+
+        async def get_views(self, request: Request, items: list[Product], ctx: dict[str, Any]) -> None:
+            for item in items:
+                _ = item.description
+                category = item.category
+
+                if category is not None:
+                    await category.load()
+
+                type(self).collected[item.name] = getattr(category, "name", None)
+
+    tools = await Category(name="Tools").save()
+    await Product(name="Hammer", price="10.00", category=tools).save()
+    _register(_RelationTransformer)
+
+    response = await auth_http.get("/api/test_products", headers={"X-Fields": "id,name"})
+
+    assert response.status_code == 200, response.text
+    assert _RelationTransformer.collected["Hammer"] == "Tools"

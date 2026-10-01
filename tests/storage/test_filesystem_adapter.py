@@ -67,3 +67,14 @@ async def test_open_range_past_the_end_opens_nothing(adapter: FilesystemAdapter)
 
     assert await adapter.open_range("a/digits.txt", 50, None) is None
     assert await adapter.open_range("a/digits.txt", 5, 2) is None
+
+
+async def test_usage_counts_the_files_by_first_folder(adapter: FilesystemAdapter) -> None:
+    await adapter.write("workspace/1/a.txt", b"hello")
+    await adapter.write("workspace/2/b.txt", b"hi")
+    await adapter.write("global/c.txt", b"abc")
+    await adapter.write("top.txt", b"x")
+
+    assert await adapter.usage() == {"workspace": (2, 7), "global": (1, 3), "": (1, 1)}
+    assert await adapter.usage("workspace") == {"1": (1, 5), "2": (1, 2)}
+    assert await adapter.usage("missing") == {}

@@ -254,3 +254,28 @@ async def test_set_storage_class_dry_run_copies_nothing(adapter: S3Adapter, stub
     )
 
     assert await adapter.set_storage_class("EXPRESS_ONEZONE", dry_run=True) == (1, 10, 0)
+
+
+async def test_usage_lists_the_prefix_once_by_first_folder(adapter: S3Adapter, stub: Stubber) -> None:
+    stub.add_response(
+        "list_objects_v2",
+        {
+            "Contents": [
+                {"Key": "data/workspace/1/a.txt", "Size": 5},
+                {"Key": "data/workspace/2/b.txt", "Size": 2},
+                {"Key": "data/cache_optimized_images/global/c.png/contain_w32_h0.png", "Size": 3},
+                {"Key": "data/top.txt", "Size": 1},
+                {"Key": "data/global/", "Size": 0},
+            ]
+        },
+        {"Bucket": "my-bucket", "Prefix": "data/"},
+    )
+
+    assert await adapter.usage() == {"workspace": (2, 7), "cache_optimized_images": (1, 3), "": (1, 1)}
+
+
+def test_two_adapters_on_the_same_bucket_and_prefix_share_their_location() -> None:
+    first = S3Adapter(bucket="b", endpoint="https://s3.gra.io.cloud.ovh.net", prefix="data")
+
+    assert first.location == S3Adapter(bucket="b", endpoint="https://s3.gra.io.cloud.ovh.net", prefix="/data/").location
+    assert first.location != S3Adapter(bucket="b", endpoint="https://s3.gra.io.cloud.ovh.net", prefix="cache").location

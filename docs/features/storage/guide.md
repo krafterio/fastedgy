@@ -40,6 +40,42 @@ kt storage set-class EXPRESS_ONEZONE
 
 A file over 5 GiB, the most a single copy accepts, is reported and left in its class.
 
+### Image cache
+
+The optimized images live in their own adapter, `STORAGE_CACHE_ADAPTER`, under `cache_optimized_images/`. With
+`s3` they go to the same bucket and prefix as the files, in the same storage class, and the server disk holds no
+file at all:
+
+```env
+STORAGE_ADAPTER=s3
+STORAGE_CACHE_ADAPTER=s3
+CACHE_MAX_AGE_DAYS=30
+```
+
+The `cleanup-image-cache` scheduled task runs every night at 03:00 and deletes the optimized images older than
+`CACHE_MAX_AGE_DAYS`, 30 days by default, `0` keeping them forever. On the filesystem the age is the last read,
+since every download refreshes the file's date: only the images nobody reads go. S3 keeps no read date, so the age
+is the creation: an image still in use goes too, and is rebuilt on its next download.
+
+### Storage usage
+
+The `report-storage-usage` scheduled task measures the store every hour and writes one JSON line to the standard
+output, the files and the image cache apart, with the numeric suffixes OVHcloud Logs Data Platform requires:
+
+```json
+{"message": "storage 5420 files 12.42 GiB, cache 830 files 0.31 GiB", "logger": "storage-metrics", "metric": "storage", "storage_data_objects_int": 5420, "storage_data_gib_float": 12.42, "storage_cache_objects_int": 830, "storage_cache_gib_float": 0.31}
+```
+
+It bypasses logging, so `LOG_LEVEL` never filters it out. The same measure is at hand on the command line:
+
+```bash
+kt storage usage          # files and image cache, objects and GiB
+kt storage usage --json   # the line the task writes
+```
+
+Both tasks are FastEdgy's own: `DISABLED_SCHEDULED_TASKS` turns either off, and a project task of the same name
+replaces it.
+
 ## File organization
 
 Files are organized based on the `directory_path` you provide in your upload calls:

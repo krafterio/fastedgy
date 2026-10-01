@@ -785,3 +785,37 @@ async def test_a_range_past_the_end_serves_the_whole_file(auth_http: httpx.Async
 
     assert response.status_code == 200
     assert response.content == b"0123456789"
+
+
+async def test_download_reads_a_cached_variant_without_asking_the_cache_first(
+    auth_http: httpx.AsyncClient, monkeypatch
+) -> None:
+    import io
+
+    from PIL import Image
+
+    from fastedgy.dependencies import get_service
+    from fastedgy.storage import Storage
+
+    buf = io.BytesIO()
+    Image.new("RGB", (64, 64), "yellow").save(buf, format="PNG")
+
+    upload = await auth_http.post(
+        "/api/storage/upload/attachments",
+        files={"img.png": ("img.png", buf.getvalue(), "image/png")},
+    )
+    url = f"/api/storage/download/attachments/{upload.json()['attachments'][0]['id']}?w=32"
+
+    first = await auth_http.get(url)
+    assert first.status_code == 200
+
+    storage = get_service(Storage)
+
+    async def asked(*args, **kwargs):
+        raise AssertionError("the cache was asked before being read")
+
+    monkeypatch.setattr(storage.cache_adapter, "exists", asked)
+
+    second = await auth_http.get(url)
+    assert second.status_code == 200
+    assert second.content == first.content

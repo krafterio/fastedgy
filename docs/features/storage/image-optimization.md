@@ -61,10 +61,12 @@ IMAGE_QUALITY=80  # 1-100, higher = better quality but larger files
 ## How It Works
 
 1. **Request**: Client requests image with optimization parameters
-2. **Cache check**: System checks if optimized version already exists
-3. **Generation**: If not cached, image is processed and saved
+2. **Cache read**: The download route opens the optimized version directly, one request on S3
+3. **Generation**: If it is not cached yet, the image is processed and saved, then served
 4. **Serving**: Optimized image is served with proper content type
-5. **Cleanup**: Cache is automatically cleaned when source files are deleted
+5. **Cleanup**: The cache of a file goes with the file, and the `cleanup-image-cache` task removes every
+   optimized version older than `CACHE_MAX_AGE_DAYS` (30 by default), see the
+   [usage guide](guide.md#image-cache)
 
 ## Performance Benefits
 

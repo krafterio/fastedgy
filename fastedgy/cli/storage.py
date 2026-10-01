@@ -32,3 +32,24 @@ async def set_class(storage_class: str, dry_run: bool, workers: int):
 
     if skipped:
         cli.console.print(f"[yellow]{skipped} object(s) over 5 GiB left in their class[/yellow]")
+
+
+@storage.command(name="usage")
+@cli.option(
+    "--json", "as_json", is_flag=True, default=False, help="Print the storage-metrics line the hourly task writes"
+)
+@cli.initialize_app
+async def usage(as_json: bool):
+    """Count the stored files and the optimized images cache, with their size."""
+    from fastedgy.dependencies import get_service
+    from fastedgy.storage import Storage
+    from fastedgy.storage.scheduler import usage_line
+
+    result = await get_service(Storage).usage()
+
+    if as_json:
+        print(usage_line(result))
+        return
+
+    cli.console.print(f"Files: {result.data_files} object(s), {result.data_bytes / 1024**3:.2f} GiB")
+    cli.console.print(f"Image cache: {result.cache_files} object(s), {result.cache_bytes / 1024**3:.2f} GiB")

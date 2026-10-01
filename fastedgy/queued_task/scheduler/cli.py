@@ -1,6 +1,7 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+import importlib
 import inspect
 import logging
 from typing import Any
@@ -126,16 +127,17 @@ def _build_command_for_task(task_def: ScheduledTaskDef) -> click.Command:
 
 
 def register_scheduler_cli_commands(cli: click.Group) -> None:
-    """Discover scheduled tasks and register the scheduler CLI group.
+    """Register FastEdgy's own scheduled tasks, discover the project's, and register the scheduler CLI group.
 
-    This is the main entry point called from fastedgy.cli.main().
-    Silently does nothing if no scheduler package exists or no tasks are registered.
+    This is the main entry point called from fastedgy.cli.main(). A project task
+    named like a FastEdgy one replaces it.
 
     Args:
         cli: The root CLI group to register the scheduler group into.
     """
     from fastedgy.queued_task.scheduler.discovery import discover_scheduled_tasks
 
+    importlib.import_module("fastedgy.storage.scheduler")
     discover_scheduled_tasks("scheduler")
 
     registry = get_service(ScheduledTaskRegistry)

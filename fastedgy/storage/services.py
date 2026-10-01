@@ -8,6 +8,7 @@ import mimetypes
 import os
 import uuid
 from collections.abc import AsyncIterator
+from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, BinaryIO
@@ -33,8 +34,20 @@ except Exception:
 
 logger = logging.getLogger("fastedgy.storage")
 
+CACHE_PREFIX = "cache_optimized_images"
+
 if TYPE_CHECKING:
     from PIL.Image import Image as PILImage
+
+
+@dataclass(frozen=True)
+class StorageUsage:
+    """The stored files and the optimized images cache, each counted with its bytes."""
+
+    data_files: int
+    data_bytes: int
+    cache_files: int
+    cache_bytes: int
 
 
 def _create_adapter(settings: BaseSettings, adapter_name: str) -> StorageAdapter:
@@ -224,8 +237,8 @@ class Storage:
         clean = clean_storage_path(path)
         if workspace and not global_storage:
             folder = self.settings.storage_workspace_folder
-            return f"cache_optimized_images/{folder}/{workspace.id}/{clean}"
-        return f"cache_optimized_images/global/{clean}"
+            return f"{CACHE_PREFIX}/{folder}/{workspace.id}/{clean}"
+        return f"{CACHE_PREFIX}/global/{clean}"
 
     def _is_image_path(self, path: str) -> bool:
         name = path.rsplit("/", 1)[-1] if "/" in path else path
@@ -385,6 +398,7 @@ class Storage:
         out_ext: str | None = None,
         global_storage: bool = False,
         regenerate: bool = False,
+        check_cache: bool = True,
     ) -> tuple[str, str]:
         """Return (relative_path, mime_type) for serving.
 
@@ -395,6 +409,11 @@ class Storage:
         With `regenerate=True` the cache lookup is skipped and the optimized
         variant is rebuilt from the source (recovery path when a cached file
         was evicted between resolution and read).
+
+        With `check_cache=False` the cached path is returned without asking the
+        cache whether it holds it, which saves a request per download on S3: the
+        caller opens it, and on FileNotFoundError resolves again with
+        `regenerate=True`.
         """
         source_name = source_relative_path.rsplit("/", 1)[-1] if "/" in source_relative_path else source_relative_path
         full_source = self._resolve_path(source_relative_path, global_storage)
@@ -418,9 +437,7 @@ class Storage:
         cache_rel = self._get_cache_path(source_relative_path, global_storage)
         cache_path = f"{cache_rel}/{mode_name}_w{req_w}_h{req_h}.{out_ext_final}"
 
-        # Check cache
-        if not regenerate and await self.cache_adapter.exists(cache_path):
-            await self.cache_adapter.touch(cache_path)
+        if not regenerate and (not check_cache or await self.cache_adapter.exists(cache_path)):
             return f"__cache__:{cache_path}", mime_type
 
         try:
@@ -457,9 +474,14 @@ class Storage:
 
         return f"__cache__:{generated_path}", mime_type
 
-    def _download_target(self, resolved_path: str, global_storage: bool) -> tuple[StorageAdapter, str]:
+    async def _download_target(self, resolved_path: str, global_storage: bool) -> tuple[StorageAdapter, str]:
+        """The adapter and the path to read. A cached variant is touched on the way, so that the age-based
+        cleanup of a cache that keeps access times only removes the variants nobody reads."""
         if resolved_path.startswith("__cache__:"):
-            return self.cache_adapter, resolved_path[len("__cache__:") :]
+            cache_path = resolved_path[len("__cache__:") :]
+            await self.cache_adapter.touch(cache_path)
+
+            return self.cache_adapter, cache_path
 
         return self.adapter, self._resolve_path(resolved_path, global_storage)
 
@@ -471,7 +493,7 @@ class Storage:
     ) -> tuple[int, AsyncIterator[bytes]]:
         """Open a path from get_optimized_or_original: its size and its content in chunks,
         read in one request where the adapter allows it. Raises FileNotFoundError when there is no file."""
-        adapter, path = self._download_target(resolved_path, global_storage)
+        adapter, path = await self._download_target(resolved_path, global_storage)
 
         return await adapter.open_stream(path, chunk_size)
 
@@ -486,7 +508,7 @@ class Storage:
         """Open a byte range of a path from get_optimized_or_original, end None meaning the rest of the file:
         the range served, the size of the whole file and the chunks. None when the range lies past the end of
         the file, FileNotFoundError when there is no file."""
-        adapter, path = self._download_target(resolved_path, global_storage)
+        adapter, path = await self._download_target(resolved_path, global_storage)
 
         return await adapter.open_range(path, start, end, chunk_size)
 
@@ -500,7 +522,7 @@ class Storage:
 
         Handles both cached images (via cache_adapter) and original files (via adapter).
         """
-        adapter, path = self._download_target(resolved_path, global_storage)
+        adapter, path = await self._download_target(resolved_path, global_storage)
 
         async for chunk in adapter.read_stream(path, chunk_size):
             yield chunk
@@ -514,7 +536,7 @@ class Storage:
         chunk_size: int = 1024 * 1024,
     ) -> AsyncIterator[bytes]:
         """Stream a byte range of a file for download (inclusive start and end)."""
-        adapter, path = self._download_target(resolved_path, global_storage)
+        adapter, path = await self._download_target(resolved_path, global_storage)
 
         async for chunk in adapter.read_range_stream(path, start, end, chunk_size):
             yield chunk
@@ -525,7 +547,7 @@ class Storage:
         global_storage: bool = False,
     ) -> int:
         """Get file size for a resolved path (from get_optimized_or_original)."""
-        adapter, path = self._download_target(resolved_path, global_storage)
+        adapter, path = await self._download_target(resolved_path, global_storage)
 
         return await adapter.file_size(path)
 
@@ -721,7 +743,7 @@ class Storage:
 
         folder = self.settings.storage_workspace_folder
         data_prefix = f"{folder}/{workspace_id}"
-        cache_prefix = f"cache_optimized_images/{folder}/{workspace_id}"
+        cache_prefix = f"{CACHE_PREFIX}/{folder}/{workspace_id}"
         await self.adapter.delete_directory(data_prefix)
         await self.cache_adapter.delete_directory(data_prefix)
         await self.cache_adapter.delete_directory(cache_prefix)
@@ -729,15 +751,33 @@ class Storage:
         return True
 
     async def cleanup_image_cache(self) -> int:
-        """Delete cached optimized images older than cache_max_age_days.
+        """Delete cached optimized images older than cache_max_age_days, 0 or None keeping them.
 
-        Returns the number of files deleted.
+        The age is the last access where the cache keeps one (filesystem), the creation elsewhere (S3): a variant
+        still in use is then rebuilt on its next read. Returns the number of files deleted.
         """
         max_age = self.settings.cache_max_age_days
-        if max_age is None:
+        if not max_age:
             return 0
 
-        return await self.cache_adapter.delete_old_files("cache_optimized_images", max_age * 86400)
+        return await self.cache_adapter.delete_old_files(CACHE_PREFIX, max_age * 86400)
+
+    async def usage(self) -> StorageUsage:
+        """Count the stored files and the optimized images cache, with their bytes, in one listing when the cache
+        shares the files' store."""
+        data = await self.adapter.usage()
+        cache_files, cache_bytes = data.pop(CACHE_PREFIX, (0, 0))
+
+        if self.cache_adapter.location != self.adapter.location:
+            cached = (await self.cache_adapter.usage(CACHE_PREFIX)).values()
+            cache_files, cache_bytes = sum(f for f, _ in cached), sum(b for _, b in cached)
+
+        return StorageUsage(
+            data_files=sum(f for f, _ in data.values()),
+            data_bytes=sum(b for _, b in data.values()),
+            cache_files=cache_files,
+            cache_bytes=cache_bytes,
+        )
 
     # --------------------
     # Internal helpers

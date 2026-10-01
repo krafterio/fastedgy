@@ -1,12 +1,26 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+import io
 import os
+import time
+from pathlib import Path
+
+import pytest
 
 from fastedgy.app import FastEdgy
 from fastedgy.dependencies import get_service
-from fastedgy.storage import Storage
-from fastedgy.test.fixtures import stored_file_path
+from fastedgy.storage import FilesystemAdapter, Storage, StorageUsage
+from fastedgy.test.fixtures import STORAGE_ROOT, stored_file_path
+
+
+def _png(color: str) -> bytes:
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGB", (64, 64), color).save(buf, format="PNG")
+
+    return buf.getvalue()
 
 
 async def test_write_read_and_size(setup_db: FastEdgy) -> None:
@@ -214,3 +228,105 @@ async def test_a_cached_variant_is_served_without_touching_the_source(setup_db: 
 
     assert second == first
     assert mime == "image/png"
+
+
+async def test_a_route_resolution_leaves_the_cache_unasked(setup_db: FastEdgy, monkeypatch) -> None:
+    storage = get_service(Storage)
+
+    async def asked(*args, **kwargs):
+        raise AssertionError("the cache was asked before being read")
+
+    monkeypatch.setattr(storage.cache_adapter, "exists", asked)
+
+    resolved, mime = await storage.get_optimized_or_original(
+        "photos/never.png", w=32, global_storage=True, check_cache=False
+    )
+
+    assert resolved == "__cache__:cache_optimized_images/global/photos/never.png/contain_w32_h0.png"
+    assert mime == "image/png"
+
+
+async def test_reading_a_cached_variant_refreshes_its_date(setup_db: FastEdgy) -> None:
+    storage = get_service(Storage)
+    await storage.adapter.write("global/photos/blue.png", _png("blue"))
+    resolved, _ = await storage.get_optimized_or_original("photos/blue.png", w=32, global_storage=True)
+    cached = Path(STORAGE_ROOT) / resolved.removeprefix("__cache__:")
+    stamp = time.time() - 10 * 86400
+    os.utime(cached, (stamp, stamp))
+
+    _, chunks = await storage.open_download(resolved, global_storage=True)
+    assert b"".join([chunk async for chunk in chunks])
+
+    assert cached.stat().st_mtime > stamp + 86400
+
+
+@pytest.fixture
+def cache(monkeypatch, tmp_path: Path) -> FilesystemAdapter:
+    adapter = FilesystemAdapter(str(tmp_path))
+    monkeypatch.setattr(get_service(Storage), "cache_adapter", adapter)
+
+    return adapter
+
+
+async def _aged(cache: FilesystemAdapter, path: str, days: float) -> Path:
+    await cache.write(path, b"x")
+    full = Path(cache.root) / path
+    stamp = time.time() - days * 86400
+    os.utime(full, (stamp, stamp))
+
+    return full
+
+
+async def test_cleanup_image_cache_drops_what_is_older_than_30_days_by_default(
+    setup_db: FastEdgy, cache: FilesystemAdapter
+) -> None:
+    old = await _aged(cache, "cache_optimized_images/global/old.png/contain_w32_h0.png", 31)
+    recent = await _aged(cache, "cache_optimized_images/global/new.png/contain_w32_h0.png", 29)
+    storage = get_service(Storage)
+
+    assert storage.settings.cache_max_age_days == 30
+    assert await storage.cleanup_image_cache() == 1
+    assert not old.exists()
+    assert recent.exists()
+
+
+async def test_cleanup_image_cache_keeps_everything_at_zero(
+    setup_db: FastEdgy, cache: FilesystemAdapter, override_settings
+) -> None:
+    override_settings(cache_max_age_days=0)
+    old = await _aged(cache, "cache_optimized_images/global/old.png/contain_w32_h0.png", 400)
+
+    assert await get_service(Storage).cleanup_image_cache() == 0
+    assert old.exists()
+
+
+async def test_usage_counts_files_and_cache_in_one_walk_when_they_share_a_store(
+    setup_db: FastEdgy, monkeypatch, tmp_path: Path
+) -> None:
+    storage = get_service(Storage)
+    files = FilesystemAdapter(str(tmp_path))
+    monkeypatch.setattr(storage, "adapter", files)
+    monkeypatch.setattr(storage, "cache_adapter", FilesystemAdapter(str(tmp_path)))
+    await files.write("workspace/1/a.txt", b"hello")
+    await files.write("global/b.txt", b"abc")
+    await files.write("cache_optimized_images/global/b.png/contain_w32_h0.png", b"xy")
+
+    async def walked_twice(*args, **kwargs):
+        raise AssertionError("the shared store was walked twice")
+
+    monkeypatch.setattr(storage.cache_adapter, "usage", walked_twice)
+
+    assert await storage.usage() == StorageUsage(data_files=2, data_bytes=8, cache_files=1, cache_bytes=2)
+
+
+async def test_usage_reads_a_cache_kept_in_another_store(setup_db: FastEdgy, monkeypatch, tmp_path: Path) -> None:
+    storage = get_service(Storage)
+    files = FilesystemAdapter(str(tmp_path / "files"))
+    cache = FilesystemAdapter(str(tmp_path / "cache"))
+    monkeypatch.setattr(storage, "adapter", files)
+    monkeypatch.setattr(storage, "cache_adapter", cache)
+    await files.write("global/b.txt", b"abc")
+    await cache.write("cache_optimized_images/global/b.png/contain_w32_h0.png", b"xy")
+    await cache.write("exports/not-cache.csv", b"zzz")
+
+    assert await storage.usage() == StorageUsage(data_files=1, data_bytes=3, cache_files=1, cache_bytes=2)

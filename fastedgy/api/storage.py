@@ -507,6 +507,7 @@ async def download_attachment(
             mode=m,
             out_ext=e,
             global_storage=global_storage,
+            check_cache=False,
         )
 
         # Build filename
@@ -571,7 +572,7 @@ async def download_file(
 
     try:
         resolved_path, content_type = await storage.get_optimized_or_original(
-            path, w=w, h=h, mode=m, out_ext=e, global_storage=global_storage
+            path, w=w, h=h, mode=m, out_ext=e, global_storage=global_storage, check_cache=False
         )
     except ValueError:
         raise HTTPException(status_code=404, detail=_t("File not found")) from None

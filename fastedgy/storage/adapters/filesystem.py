@@ -22,6 +22,10 @@ class FilesystemAdapter(StorageAdapter):
     def __init__(self, root: str):
         self.root = root
 
+    @property
+    def location(self) -> str:
+        return f"file://{os.path.abspath(self.root)}"
+
     def _full_path(self, path: str) -> Path:
         safe_parts = Path(clean_storage_path(path)).parts
         return Path(self.root).joinpath(*safe_parts) if safe_parts else Path(self.root)
@@ -77,6 +81,27 @@ class FilesystemAdapter(StorageAdapter):
                     pass
 
         return deleted
+
+    @staticmethod
+    def _usage_under(root: Path) -> dict[str, tuple[int, int]]:
+        usage: dict[str, tuple[int, int]] = {}
+
+        for dirpath, _, filenames in os.walk(root):
+            relative = os.path.relpath(dirpath, root)
+            folder = "" if relative == "." else relative.split(os.sep, 1)[0]
+            files, size = usage.get(folder, (0, 0))
+
+            for name in filenames:
+                try:
+                    size += os.lstat(os.path.join(dirpath, name)).st_size
+                    files += 1
+                except OSError:
+                    pass
+
+            if files:
+                usage[folder] = (files, size)
+
+        return usage
 
     async def exists(self, path: str) -> bool:
         return self._full_path(path).exists()
@@ -143,6 +168,9 @@ class FilesystemAdapter(StorageAdapter):
             return 0
 
         return await to_thread.run_sync(self._delete_older_than, root, time.time() - max_age_seconds)
+
+    async def usage(self, prefix: str = "") -> dict[str, tuple[int, int]]:
+        return await to_thread.run_sync(self._usage_under, self._full_path(prefix))
 
 
 __all__ = [

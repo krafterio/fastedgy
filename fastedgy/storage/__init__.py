@@ -8,7 +8,7 @@ from fastedgy.storage.routing import (
     is_global_storage_path,
     resolve_workspace_for_path,
 )
-from fastedgy.storage.services import Storage
+from fastedgy.storage.services import Storage, StorageUsage
 
 __all__ = [
     "AttachmentMixin",
@@ -17,6 +17,7 @@ __all__ = [
     "S3Adapter",
     "Storage",
     "StorageAdapter",
+    "StorageUsage",
     "is_global_storage_model",
     "is_global_storage_path",
     "resolve_workspace_for_path",

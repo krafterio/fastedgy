@@ -23,6 +23,13 @@ def clean_storage_path(path: str) -> str:
 class StorageAdapter(ABC):
     """Abstract base class for storage adapters."""
 
+    @property
+    def location(self) -> str:
+        """Where the files live: two adapters at the same location see the same files.
+
+        Unique to the instance by default: an adapter that knows its location overrides it."""
+        return f"{type(self).__name__}:{id(self)}"
+
     @abstractmethod
     async def exists(self, path: str) -> bool:
         """Check if a file exists at the given path."""
@@ -101,6 +108,12 @@ class StorageAdapter(ABC):
     async def delete_old_files(self, prefix: str, max_age_seconds: float) -> int:
         """Delete files under prefix older than max_age_seconds. Returns count deleted."""
         return 0
+
+    async def usage(self, prefix: str = "") -> dict[str, tuple[int, int]]:
+        """The files under prefix and their bytes, by first folder below it, "" for the files right under it.
+
+        Empty by default: an adapter able to list its files overrides it."""
+        return {}
 
 
 __all__ = [

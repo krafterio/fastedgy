@@ -49,6 +49,10 @@ class S3Adapter(StorageAdapter):
         self._s3: "S3Client | None" = None
         self._lock = Lock()
 
+    @property
+    def location(self) -> str:
+        return f"s3://{self.endpoint or ''}/{self.bucket}/{self.prefix or ''}"
+
     def _key(self, path: str) -> str:
         """Build the full S3 key from a relative path."""
         clean = clean_storage_path(path)
@@ -134,6 +138,24 @@ class S3Adapter(StorageAdapter):
                 deleted += len(objects)
 
         return deleted
+
+    def _usage_under(self, s3: "S3Client", prefix: str) -> dict[str, tuple[int, int]]:
+        usage: dict[str, tuple[int, int]] = {}
+        base = self._key(prefix)
+        base = f"{base}/" if base and not base.endswith("/") else base
+
+        for page in s3.get_paginator("list_objects_v2").paginate(Bucket=self.bucket, Prefix=base):
+            for obj in page.get("Contents", []):
+                rest = obj.get("Key", "")[len(base) :]
+
+                if not rest or rest.endswith("/"):
+                    continue
+
+                folder = rest.split("/", 1)[0] if "/" in rest else ""
+                files, size = usage.get(folder, (0, 0))
+                usage[folder] = (files + 1, size + obj.get("Size", 0))
+
+        return usage
 
     def _move_to_class(self, s3: "S3Client", storage_class: str, dry_run: bool, workers: int) -> tuple[int, int, int]:
         moved = size = skipped = 0
@@ -264,6 +286,9 @@ class S3Adapter(StorageAdapter):
         before = datetime.now(UTC) - timedelta(seconds=max_age_seconds)
 
         return await self._run(lambda s3: self._delete_under(s3, prefix, before))
+
+    async def usage(self, prefix: str = "") -> dict[str, tuple[int, int]]:
+        return await self._run(lambda s3: self._usage_under(s3, prefix))
 
 
 __all__ = [

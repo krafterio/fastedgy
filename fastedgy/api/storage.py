@@ -681,7 +681,12 @@ async def download_file_url(
 
 
 @signed_router.get("/signed/{token}", name="download_signed")
-async def download_signed(token: str, request: Request, storage: Storage = Inject(Storage)) -> Response:
+async def download_signed(
+    token: str,
+    request: Request,
+    force_download: bool = Query(False),
+    storage: Storage = Inject(Storage),
+) -> Response:
     """Download the file a signed url names, by ranges, with no other authorization than its token."""
     resolved_path = storage.resolve_download_token(token)
 
@@ -692,7 +697,14 @@ async def download_signed(token: str, request: Request, storage: Storage = Injec
     content_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
 
     return await _serve_download(
-        request, storage, resolved_path, content_type, filename, False, False, cache_control=DOWNLOAD_CACHE_CONTROL
+        request,
+        storage,
+        resolved_path,
+        content_type,
+        filename,
+        force_download,
+        False,
+        cache_control=DOWNLOAD_CACHE_CONTROL,
     )
 
 

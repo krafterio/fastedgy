@@ -234,8 +234,9 @@ GET /storage/download/photos/image.jpg?force_download=true
 
 ### Signed download urls
 
-A `<video>` or an `<audio>` reads its file by itself, range after range as it plays, and cannot send the
-`Authorization` header the download routes require. A signed url carries the authorization in its path instead:
+A `<video>` or an `<audio>` reads its file by itself, range after range as it plays, and a link the browser
+follows downloads by itself too: neither can send the `Authorization` header the download routes require. A signed
+url carries the authorization in its path instead:
 
 ```bash
 # Authenticated: the same checks and transformers as the download, answers {"url": "https://.../signed/<token>"}
@@ -244,7 +245,11 @@ GET /storage/download-url/attachments/42
 
 # Public: the token is the whole authorization, ranges included
 GET /storage/signed/<token>
+GET /storage/signed/<token>?force_download=true
 ```
+
+On the Vue side, `useStorage()` asks for one with `signedFileUrl(path, { params })` or `signedAttachmentUrl(id)`,
+and adds the `params` to the url it gets: `{ force_download: true }` turns it into a download link.
 
 The token names the one stored file, resolved in the caller's workspace when it was signed, and lasts six hours.
 It is signed with `AUTH_SECRET_KEY` under a type of its own, so it never stands for an access token. The signing

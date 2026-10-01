@@ -11692,6 +11692,16 @@
               "title": "Token",
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "force_download",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Force Download",
+              "type": "boolean"
+            }
           }
         ],
         "responses": {

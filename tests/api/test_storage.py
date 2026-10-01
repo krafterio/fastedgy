@@ -889,3 +889,20 @@ async def test_a_download_token_never_stands_for_an_access_token(setup_http: htt
     )
 
     assert response.status_code == 401
+
+
+async def test_a_signed_url_downloads_rather_than_displays_when_asked(auth_http: httpx.AsyncClient) -> None:
+    from fastedgy.dependencies import get_service
+    from fastedgy.storage import Storage
+
+    await get_service(Storage).adapter.write("global/videos/clip.mp4", b"0123456789")
+
+    url = (await auth_http.get("/api/storage/download-url/videos/clip.mp4")).json()["url"]
+    del auth_http.headers["Authorization"]
+
+    shown = await auth_http.get(url)
+    saved = await auth_http.get(url, params={"force_download": "true"})
+
+    assert shown.headers["content-disposition"].startswith("inline")
+    assert saved.headers["content-disposition"].startswith("attachment")
+    assert saved.content == b"0123456789"

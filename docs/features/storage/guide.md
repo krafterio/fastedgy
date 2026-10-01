@@ -11,6 +11,35 @@ DATA_PATH=./storage
 IMAGE_QUALITY=80
 ```
 
+### S3 object storage
+
+Set `STORAGE_ADAPTER=s3` to keep the files in an S3-compatible bucket instead of on disk:
+
+```env
+STORAGE_ADAPTER=s3
+S3_BUCKET=my-project-prod
+S3_REGION=gra
+S3_ENDPOINT=https://s3.gra.io.cloud.ovh.net
+S3_ACCESS_KEY_ID=...
+S3_SECRET_ACCESS_KEY=...
+S3_PREFIX=data
+S3_STORAGE_CLASS=EXPRESS_ONEZONE
+```
+
+`S3_STORAGE_CLASS` is the class every write asks for. Left empty, the bucket's default applies. On OVHcloud,
+`EXPRESS_ONEZONE` is the High Performance class of the 1-AZ regions such as Gravelines, on NVMe drives, and
+`STANDARD` the default one.
+
+Changing the class only applies to the files written afterwards. To move the files already stored, copied in
+place by the server without going through the application:
+
+```bash
+kt storage set-class EXPRESS_ONEZONE --dry-run   # count what would move
+kt storage set-class EXPRESS_ONEZONE
+```
+
+A file over 5 GiB, the most a single copy accepts, is reported and left in its class.
+
 ## File organization
 
 Files are organized based on the `directory_path` you provide in your upload calls:

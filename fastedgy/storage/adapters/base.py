@@ -73,6 +73,28 @@ class StorageAdapter(ABC):
         """Return the size of the file in bytes."""
         ...
 
+    async def open_stream(self, path: str, chunk_size: int = 1024 * 1024) -> tuple[int, AsyncIterator[bytes]]:
+        """Return the size of the file and its content in chunks, FileNotFoundError when there is none.
+
+        Asks for the size first by default: an adapter able to get both in one request overrides it."""
+        return await self.file_size(path), self.read_stream(path, chunk_size)
+
+    async def open_range(
+        self, path: str, start: int, end: int | None, chunk_size: int = 1024 * 1024
+    ) -> tuple[int, int, int, AsyncIterator[bytes]] | None:
+        """Open the bytes from start to end inclusive, end None meaning the rest of the file.
+
+        Return the range served, the size of the whole file and the chunks; None when the range lies past the end
+        of the file, FileNotFoundError when there is none. Asks for the size first by default: an adapter able to
+        get both in one request overrides it."""
+        total = await self.file_size(path)
+        last = total - 1 if end is None else min(end, total - 1)
+
+        if start > last:
+            return None
+
+        return start, last, total, self.read_range_stream(path, start, last, chunk_size)
+
     async def touch(self, path: str) -> None:
         """Update the modification time of a file. No-op by default."""
 

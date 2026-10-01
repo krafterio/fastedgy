@@ -138,3 +138,119 @@ async def test_write_file_sends_a_large_file_in_parts(adapter: S3Adapter, stub: 
     await adapter.write_file("clip.mp4", BytesIO(b"v" * 17 * 1024 * 1024), content_type="video/mp4")
 
     assert called == ["CreateMultipartUpload", "UploadPart", "UploadPart", "UploadPart", "CompleteMultipartUpload"]
+
+
+async def test_a_missing_key_reads_as_file_not_found(adapter: S3Adapter, stub: Stubber) -> None:
+    stub.add_client_error("get_object", service_error_code="NoSuchKey", http_status_code=404)
+    stub.add_client_error("head_object", service_error_code="404", http_status_code=404)
+    stub.add_client_error("get_object", service_error_code="NoSuchKey", http_status_code=404)
+
+    with pytest.raises(FileNotFoundError):
+        await adapter.read("gone.txt")
+
+    with pytest.raises(FileNotFoundError):
+        await adapter.file_size("gone.txt")
+
+    with pytest.raises(FileNotFoundError):
+        await adapter.open_stream("gone.txt")
+
+
+async def test_open_stream_reads_the_size_and_the_content_in_one_request(adapter: S3Adapter, stub: Stubber) -> None:
+    called = _operations(adapter)
+    stub.add_response(
+        "get_object",
+        {"Body": _body(b"hello world"), "ContentLength": 11},
+        {"Bucket": "my-bucket", "Key": "data/notes.txt"},
+    )
+
+    size, chunks = await adapter.open_stream("notes.txt", chunk_size=6)
+
+    assert size == 11
+    assert [chunk async for chunk in chunks] == [b"hello ", b"world"]
+    assert called == ["GetObject"]
+
+
+async def test_open_range_reads_the_served_range_and_the_total_in_one_request(
+    adapter: S3Adapter, stub: Stubber
+) -> None:
+    called = _operations(adapter)
+    stub.add_response(
+        "get_object",
+        {"Body": _body(b"56789"), "ContentRange": "bytes 5-9/10"},
+        {"Bucket": "my-bucket", "Key": "data/notes.txt", "Range": "bytes=5-"},
+    )
+
+    opened = await adapter.open_range("notes.txt", 5, None)
+
+    assert opened is not None
+    start, end, total, chunks = opened
+    assert (start, end, total) == (5, 9, 10)
+    assert [chunk async for chunk in chunks] == [b"56789"]
+    assert called == ["GetObject"]
+
+
+async def test_open_range_past_the_end_opens_nothing(adapter: S3Adapter, stub: Stubber) -> None:
+    stub.add_client_error("get_object", service_error_code="InvalidRange", http_status_code=416)
+
+    assert await adapter.open_range("notes.txt", 50, None) is None
+    assert await adapter.open_range("notes.txt", 5, 2) is None
+
+
+async def test_every_write_carries_the_storage_class() -> None:
+    adapter = S3Adapter(
+        bucket="my-bucket",
+        region="gra",
+        access_key_id="key",
+        secret_access_key="secret",
+        storage_class="EXPRESS_ONEZONE",
+    )
+    sent: list[dict] = []
+    adapter._client().meta.events.register(
+        "before-parameter-build.s3.PutObject", lambda params, **kwargs: sent.append(dict(params))
+    )
+
+    with Stubber(adapter._client()) as stub:
+        stub.add_response("put_object", {})
+        stub.add_response("put_object", {})
+
+        await adapter.write("a.txt", b"x")
+        await adapter.write_file("b.mp4", BytesIO(b"tiny"), content_type="video/mp4")
+
+    assert [params["StorageClass"] for params in sent] == ["EXPRESS_ONEZONE", "EXPRESS_ONEZONE"]
+
+
+async def test_set_storage_class_copies_in_place_what_is_not_there_yet(adapter: S3Adapter, stub: Stubber) -> None:
+    stub.add_response(
+        "list_objects_v2",
+        {
+            "Contents": [
+                {"Key": "data/a.jpg", "StorageClass": "STANDARD", "Size": 10},
+                {"Key": "data/b.jpg", "StorageClass": "EXPRESS_ONEZONE", "Size": 20},
+                {"Key": "data/huge.mov", "StorageClass": "STANDARD", "Size": 6 * 1024**3},
+            ]
+        },
+        {"Bucket": "my-bucket", "Prefix": "data/"},
+    )
+    stub.add_response(
+        "copy_object",
+        {},
+        {
+            "Bucket": "my-bucket",
+            "Key": "data/a.jpg",
+            "CopySource": {"Bucket": "my-bucket", "Key": "data/a.jpg"},
+            "StorageClass": "EXPRESS_ONEZONE",
+            "MetadataDirective": "COPY",
+        },
+    )
+
+    assert await adapter.set_storage_class("EXPRESS_ONEZONE", workers=1) == (1, 10, 1)
+
+
+async def test_set_storage_class_dry_run_copies_nothing(adapter: S3Adapter, stub: Stubber) -> None:
+    stub.add_response(
+        "list_objects_v2",
+        {"Contents": [{"Key": "data/a.jpg", "StorageClass": "STANDARD", "Size": 10}]},
+        {"Bucket": "my-bucket", "Prefix": "data/"},
+    )
+
+    assert await adapter.set_storage_class("EXPRESS_ONEZONE", dry_run=True) == (1, 10, 0)

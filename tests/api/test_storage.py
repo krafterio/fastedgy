@@ -374,21 +374,22 @@ async def test_download_optimized_image_regenerates_evicted_cache(auth_http: htt
     assert first.headers["content-type"] == "image/webp"
 
     storage = get_service(Storage)
-    real_file_size = storage.cache_adapter.file_size
+    real_open_stream = storage.cache_adapter.open_stream
     evicted = {"done": False}
 
-    async def evicting_file_size(cache_path: str) -> int:
+    async def evicting_open_stream(cache_path: str, chunk_size: int = 1024 * 1024):
         if not evicted["done"]:
             evicted["done"] = True
             await storage.cache_adapter.delete(cache_path)
             raise FileNotFoundError(cache_path)
-        return await real_file_size(cache_path)
+        return await real_open_stream(cache_path, chunk_size)
 
-    monkeypatch.setattr(storage.cache_adapter, "file_size", evicting_file_size)
+    monkeypatch.setattr(storage.cache_adapter, "open_stream", evicting_open_stream)
 
     second = await auth_http.get(url)
     assert second.status_code == 200
     assert second.content == first.content
+    assert evicted["done"] is True
 
 
 async def test_download_optimized_passthrough_image_is_served(auth_http: httpx.AsyncClient) -> None:
@@ -712,3 +713,75 @@ async def test_a_transformer_can_allow_another_users_file(
 
     assert response.status_code == 200
     assert (await User.query.get(id=other.id)).name is None
+
+
+async def test_download_of_a_missing_file_is_a_404(auth_http: httpx.AsyncClient) -> None:
+    response = await auth_http.get("/api/storage/download/nowhere/missing.txt")
+
+    assert response.status_code == 404
+
+
+async def test_full_download_opens_the_file_without_looking_it_up_first(
+    auth_http: httpx.AsyncClient, monkeypatch
+) -> None:
+    from fastedgy.dependencies import get_service
+    from fastedgy.storage import Storage
+
+    storage = get_service(Storage)
+    await storage.adapter.write("global/once/doc.txt", b"read in one request")
+
+    async def looked_up(*args, **kwargs):
+        raise AssertionError("the download looked the file up before reading it")
+
+    monkeypatch.setattr(storage.adapter, "exists", looked_up)
+    monkeypatch.setattr(storage.adapter, "file_size", looked_up)
+
+    response = await auth_http.get("/api/storage/download/once/doc.txt")
+
+    assert response.status_code == 200
+    assert response.content == b"read in one request"
+    assert response.headers["content-length"] == "19"
+
+
+async def test_range_download_serves_the_requested_bytes(auth_http: httpx.AsyncClient) -> None:
+    from fastedgy.dependencies import get_service
+    from fastedgy.storage import Storage
+
+    await get_service(Storage).adapter.write("global/range/doc.txt", b"0123456789")
+
+    response = await auth_http.get("/api/storage/download/range/doc.txt", headers={"Range": "bytes=2-5"})
+
+    assert response.status_code == 206
+    assert response.content == b"2345"
+    assert response.headers["content-range"] == "bytes 2-5/10"
+
+
+async def test_open_range_download_needs_no_size_lookup(auth_http: httpx.AsyncClient, monkeypatch) -> None:
+    from fastedgy.dependencies import get_service
+    from fastedgy.storage import Storage
+
+    storage = get_service(Storage)
+    await storage.adapter.write("global/range/open.txt", b"0123456789")
+
+    async def looked_up(*args, **kwargs):
+        raise AssertionError("the range download looked the file up before reading it")
+
+    monkeypatch.setattr(storage.adapter, "file_size", looked_up)
+
+    response = await auth_http.get("/api/storage/download/range/open.txt", headers={"Range": "bytes=5-"})
+
+    assert response.status_code == 206
+    assert response.content == b"56789"
+    assert response.headers["content-range"] == "bytes 5-9/10"
+
+
+async def test_a_range_past_the_end_serves_the_whole_file(auth_http: httpx.AsyncClient) -> None:
+    from fastedgy.dependencies import get_service
+    from fastedgy.storage import Storage
+
+    await get_service(Storage).adapter.write("global/range/short.txt", b"0123456789")
+
+    response = await auth_http.get("/api/storage/download/range/short.txt", headers={"Range": "bytes=50-"})
+
+    assert response.status_code == 200
+    assert response.content == b"0123456789"

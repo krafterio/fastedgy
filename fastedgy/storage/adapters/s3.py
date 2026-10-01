@@ -2,9 +2,10 @@
 # MIT License (see LICENSE file).
 
 from collections.abc import AsyncIterator, Callable
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from threading import Lock
-from typing import TYPE_CHECKING, BinaryIO, cast
+from typing import TYPE_CHECKING, Any, BinaryIO, cast
 
 from anyio import to_thread
 
@@ -13,9 +14,13 @@ from fastedgy.storage.adapters.base import StorageAdapter, clean_storage_path
 if TYPE_CHECKING:
     from botocore.response import StreamingBody
     from types_boto3_s3 import S3Client
-    from types_boto3_s3.type_defs import ObjectIdentifierTypeDef
+    from types_boto3_s3.type_defs import GetObjectOutputTypeDef, ObjectIdentifierTypeDef
 
 MAX_POOL_CONNECTIONS = 50
+
+MISSING_CODES = ("404", "NoSuchKey")
+
+MAX_COPY_SIZE = 5 * 1024**3
 
 
 class S3Adapter(StorageAdapter):
@@ -32,6 +37,7 @@ class S3Adapter(StorageAdapter):
         access_key_id: str | None = None,
         secret_access_key: str | None = None,
         prefix: str | None = None,
+        storage_class: str | None = None,
     ):
         self.bucket = bucket
         self.region = region
@@ -39,6 +45,7 @@ class S3Adapter(StorageAdapter):
         self.access_key_id = access_key_id
         self.secret_access_key = secret_access_key
         self.prefix = prefix.strip("/") if prefix else None
+        self.storage_class = storage_class
         self._s3: "S3Client | None" = None
         self._lock = Lock()
 
@@ -73,13 +80,35 @@ class S3Adapter(StorageAdapter):
 
                 from botocore.config import Config
 
-                config = Config(max_pool_connections=MAX_POOL_CONNECTIONS)
+                config = Config(
+                    max_pool_connections=MAX_POOL_CONNECTIONS,
+                    retries={"mode": "standard"},
+                    tcp_keepalive=True,
+                )
                 self._s3 = cast("S3Client", boto3.Session().client("s3", config=config, **self._client_kwargs()))
 
             return self._s3
 
     async def _run[T](self, call: Callable[["S3Client"], T]) -> T:
         return await to_thread.run_sync(lambda: call(self._client()))
+
+    async def _found[T](self, path: str, call: Callable[["S3Client"], T]) -> T:
+        from botocore.exceptions import ClientError
+
+        try:
+            return await self._run(call)
+        except ClientError as e:
+            if e.response["Error"]["Code"] in MISSING_CODES:
+                raise FileNotFoundError(path) from e
+            raise
+
+    async def _get(self, path: str, byte_range: str | None = None) -> "GetObjectOutputTypeDef":
+        key = self._key(path)
+
+        if byte_range:
+            return await self._found(path, lambda s3: s3.get_object(Bucket=self.bucket, Key=key, Range=byte_range))
+
+        return await self._found(path, lambda s3: s3.get_object(Bucket=self.bucket, Key=key))
 
     @staticmethod
     async def _chunks(body: "StreamingBody", chunk_size: int) -> AsyncIterator[bytes]:
@@ -106,23 +135,59 @@ class S3Adapter(StorageAdapter):
 
         return deleted
 
-    async def exists(self, path: str) -> bool:
-        from botocore.exceptions import ClientError
+    def _move_to_class(self, s3: "S3Client", storage_class: str, dry_run: bool, workers: int) -> tuple[int, int, int]:
+        moved = size = skipped = 0
+        prefix = f"{self.prefix}/" if self.prefix else ""
 
+        def move(key: str) -> None:
+            s3.copy_object(
+                Bucket=self.bucket,
+                Key=key,
+                CopySource={"Bucket": self.bucket, "Key": key},
+                StorageClass=cast("Any", storage_class),
+                MetadataDirective="COPY",
+            )
+
+        with ThreadPoolExecutor(workers) as pool:
+            for page in s3.get_paginator("list_objects_v2").paginate(Bucket=self.bucket, Prefix=prefix):
+                pending = [
+                    obj for obj in page.get("Contents", []) if obj.get("StorageClass", "STANDARD") != storage_class
+                ]
+                movable = [obj for obj in pending if obj.get("Size", 0) <= MAX_COPY_SIZE]
+                skipped += len(pending) - len(movable)
+
+                if not dry_run:
+                    list(pool.map(move, [obj.get("Key", "") for obj in movable]))
+
+                moved += len(movable)
+                size += sum(obj.get("Size", 0) for obj in movable)
+
+        return moved, size, skipped
+
+    async def set_storage_class(
+        self, storage_class: str, dry_run: bool = False, workers: int = 16
+    ) -> tuple[int, int, int]:
+        """Move every object under the prefix to storage_class, copied in place by the server.
+
+        Return the objects and bytes moved, or that would be with dry_run, and the objects over the 5 GiB a single
+        copy accepts, left as they are."""
+        return await self._run(lambda s3: self._move_to_class(s3, storage_class, dry_run, workers))
+
+    async def exists(self, path: str) -> bool:
         try:
-            await self._run(lambda s3: s3.head_object(Bucket=self.bucket, Key=self._key(path)))
-        except ClientError as e:
-            if e.response["Error"]["Code"] == "404":
-                return False
-            raise
+            await self._found(path, lambda s3: s3.head_object(Bucket=self.bucket, Key=self._key(path)))
+        except FileNotFoundError:
+            return False
 
         return True
 
     async def read(self, path: str) -> bytes:
-        return await self._run(lambda s3: s3.get_object(Bucket=self.bucket, Key=self._key(path))["Body"].read())
+        key = self._key(path)
+
+        return await self._found(path, lambda s3: s3.get_object(Bucket=self.bucket, Key=key)["Body"].read())
 
     async def read_stream(self, path: str, chunk_size: int = 1024 * 1024) -> AsyncIterator[bytes]:
-        response = await self._run(lambda s3: s3.get_object(Bucket=self.bucket, Key=self._key(path)))
+        response = await self._get(path)
 
         async for chunk in self._chunks(response["Body"], chunk_size):
             yield chunk
@@ -130,12 +195,35 @@ class S3Adapter(StorageAdapter):
     async def read_range_stream(
         self, path: str, start: int, end: int, chunk_size: int = 1024 * 1024
     ) -> AsyncIterator[bytes]:
-        response = await self._run(
-            lambda s3: s3.get_object(Bucket=self.bucket, Key=self._key(path), Range=f"bytes={start}-{end}")
-        )
+        response = await self._get(path, f"bytes={start}-{end}")
 
         async for chunk in self._chunks(response["Body"], chunk_size):
             yield chunk
+
+    async def open_stream(self, path: str, chunk_size: int = 1024 * 1024) -> tuple[int, AsyncIterator[bytes]]:
+        response = await self._get(path)
+
+        return response["ContentLength"], self._chunks(response["Body"], chunk_size)
+
+    async def open_range(
+        self, path: str, start: int, end: int | None, chunk_size: int = 1024 * 1024
+    ) -> tuple[int, int, int, AsyncIterator[bytes]] | None:
+        from botocore.exceptions import ClientError
+
+        if end is not None and end < start:
+            return None
+
+        try:
+            response = await self._get(path, f"bytes={start}-{'' if end is None else end}")
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "InvalidRange":
+                return None
+            raise
+
+        served, total = response["ContentRange"].removeprefix("bytes ").split("/")
+        first, last = served.split("-")
+
+        return int(first), int(last), int(total), self._chunks(response["Body"], chunk_size)
 
     async def write(self, path: str, data: bytes, content_type: str | None = None) -> None:
         kwargs: dict = {
@@ -145,11 +233,17 @@ class S3Adapter(StorageAdapter):
         }
         if content_type:
             kwargs["ContentType"] = content_type
+        if self.storage_class:
+            kwargs["StorageClass"] = self.storage_class
 
         await self._run(lambda s3: s3.put_object(**kwargs))
 
     async def write_file(self, path: str, file: BinaryIO, content_type: str | None = None) -> None:
-        extra = {"ContentType": content_type} if content_type else None
+        extra: dict = {}
+        if content_type:
+            extra["ContentType"] = content_type
+        if self.storage_class:
+            extra["StorageClass"] = self.storage_class
 
         await self._run(lambda s3: s3.upload_fileobj(file, self.bucket, self._key(path), ExtraArgs=extra))
 
@@ -163,7 +257,7 @@ class S3Adapter(StorageAdapter):
         await self._run(lambda s3: self._delete_under(s3, path))
 
     async def file_size(self, path: str) -> int:
-        response = await self._run(lambda s3: s3.head_object(Bucket=self.bucket, Key=self._key(path)))
+        response = await self._found(path, lambda s3: s3.head_object(Bucket=self.bucket, Key=self._key(path)))
         return response["ContentLength"]
 
     async def delete_old_files(self, prefix: str, max_age_seconds: float) -> int:

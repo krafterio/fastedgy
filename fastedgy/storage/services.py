@@ -52,6 +52,7 @@ def _create_adapter(settings: BaseSettings, adapter_name: str) -> StorageAdapter
             access_key_id=settings.s3_access_key_id,
             secret_access_key=settings.s3_secret_access_key,
             prefix=settings.s3_prefix,
+            storage_class=settings.s3_storage_class,
         )
 
     # Default: filesystem
@@ -388,7 +389,8 @@ class Storage:
         """Return (relative_path, mime_type) for serving.
 
         The returned path is either the original or a cached optimized version.
-        Use stream_download() to actually stream the content.
+        The original is not checked here: opening it raises FileNotFoundError
+        when there is none. Use open_download() to actually stream the content.
 
         With `regenerate=True` the cache lookup is skipped and the optimized
         variant is rebuilt from the source (recovery path when a cached file
@@ -396,17 +398,13 @@ class Storage:
         """
         source_name = source_relative_path.rsplit("/", 1)[-1] if "/" in source_relative_path else source_relative_path
         full_source = self._resolve_path(source_relative_path, global_storage)
-
-        if not await self.adapter.exists(full_source):
-            mime = mimetypes.guess_type(source_name)[0] or "application/octet-stream"
-            return source_relative_path, mime
+        source_mime = mimetypes.guess_type(source_name)[0] or "application/octet-stream"
 
         is_image = self._is_image_path(source_relative_path)
         options_provided = any([w, h, out_ext, (mode and mode != "contain")])
 
         if (not is_image) or (not options_provided):
-            mime = mimetypes.guess_type(source_name)[0] or "application/octet-stream"
-            return source_relative_path, mime
+            return source_relative_path, source_mime
 
         # Compute cache path
         req_w = 0 if w is None else w
@@ -425,8 +423,11 @@ class Storage:
             await self.cache_adapter.touch(cache_path)
             return f"__cache__:{cache_path}", mime_type
 
-        # Read source from adapter, generate cache
-        source_data = await self.adapter.read(full_source)
+        try:
+            source_data = await self.adapter.read(full_source)
+        except FileNotFoundError:
+            return source_relative_path, source_mime
+
         try:
             generated_path, _, mime_type = await self._generate_cache_image(
                 source_data,
@@ -446,8 +447,7 @@ class Storage:
             # still render it; a warning on the fallback beats a 500 on every
             # display of that file.
             logger.warning(f"Cannot optimize image {source_relative_path}, serving the original: {e!r}")
-            mime = mimetypes.guess_type(source_name)[0] or "application/octet-stream"
-            return source_relative_path, mime
+            return source_relative_path, source_mime
 
         if generated_path is None:
             # Already at the requested size and format: serve the original,
@@ -456,6 +456,39 @@ class Storage:
             return source_relative_path, mime_type
 
         return f"__cache__:{generated_path}", mime_type
+
+    def _download_target(self, resolved_path: str, global_storage: bool) -> tuple[StorageAdapter, str]:
+        if resolved_path.startswith("__cache__:"):
+            return self.cache_adapter, resolved_path[len("__cache__:") :]
+
+        return self.adapter, self._resolve_path(resolved_path, global_storage)
+
+    async def open_download(
+        self,
+        resolved_path: str,
+        global_storage: bool = False,
+        chunk_size: int = 1024 * 1024,
+    ) -> tuple[int, AsyncIterator[bytes]]:
+        """Open a path from get_optimized_or_original: its size and its content in chunks,
+        read in one request where the adapter allows it. Raises FileNotFoundError when there is no file."""
+        adapter, path = self._download_target(resolved_path, global_storage)
+
+        return await adapter.open_stream(path, chunk_size)
+
+    async def open_range_download(
+        self,
+        resolved_path: str,
+        start: int,
+        end: int | None,
+        global_storage: bool = False,
+        chunk_size: int = 1024 * 1024,
+    ) -> tuple[int, int, int, AsyncIterator[bytes]] | None:
+        """Open a byte range of a path from get_optimized_or_original, end None meaning the rest of the file:
+        the range served, the size of the whole file and the chunks. None when the range lies past the end of
+        the file, FileNotFoundError when there is no file."""
+        adapter, path = self._download_target(resolved_path, global_storage)
+
+        return await adapter.open_range(path, start, end, chunk_size)
 
     async def stream_download(
         self,
@@ -467,14 +500,10 @@ class Storage:
 
         Handles both cached images (via cache_adapter) and original files (via adapter).
         """
-        if resolved_path.startswith("__cache__:"):
-            cache_path = resolved_path[len("__cache__:") :]
-            async for chunk in self.cache_adapter.read_stream(cache_path, chunk_size):
-                yield chunk
-        else:
-            full_path = self._resolve_path(resolved_path, global_storage)
-            async for chunk in self.adapter.read_stream(full_path, chunk_size):
-                yield chunk
+        adapter, path = self._download_target(resolved_path, global_storage)
+
+        async for chunk in adapter.read_stream(path, chunk_size):
+            yield chunk
 
     async def stream_range_download(
         self,
@@ -485,14 +514,10 @@ class Storage:
         chunk_size: int = 1024 * 1024,
     ) -> AsyncIterator[bytes]:
         """Stream a byte range of a file for download (inclusive start and end)."""
-        if resolved_path.startswith("__cache__:"):
-            cache_path = resolved_path[len("__cache__:") :]
-            async for chunk in self.cache_adapter.read_range_stream(cache_path, start, end, chunk_size):
-                yield chunk
-        else:
-            full_path = self._resolve_path(resolved_path, global_storage)
-            async for chunk in self.adapter.read_range_stream(full_path, start, end, chunk_size):
-                yield chunk
+        adapter, path = self._download_target(resolved_path, global_storage)
+
+        async for chunk in adapter.read_range_stream(path, start, end, chunk_size):
+            yield chunk
 
     async def get_file_size_for_download(
         self,
@@ -500,12 +525,9 @@ class Storage:
         global_storage: bool = False,
     ) -> int:
         """Get file size for a resolved path (from get_optimized_or_original)."""
-        if resolved_path.startswith("__cache__:"):
-            cache_path = resolved_path[len("__cache__:") :]
-            return await self.cache_adapter.file_size(cache_path)
-        else:
-            full_path = self._resolve_path(resolved_path, global_storage)
-            return await self.adapter.file_size(full_path)
+        adapter, path = self._download_target(resolved_path, global_storage)
+
+        return await adapter.file_size(path)
 
     # --------------------
     # Upload operations

@@ -272,6 +272,7 @@ class BaseSettings(PydanticBaseSettings):
     s3_secret_access_key: str | None = None
     s3_bucket: str | None = None
     s3_prefix: str | None = None
+    s3_storage_class: str | None = None
 
     # Queued Task
     queued_task_log_level: LogLevel | None = None

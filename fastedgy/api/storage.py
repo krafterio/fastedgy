@@ -401,19 +401,35 @@ def _build_download_headers(filename: str, force_download: bool = False) -> dict
     }
 
 
-def _parse_range(range_header: str | None, total_size: int) -> tuple[int, int] | None:
-    """Parse a Range header and return (start, end) inclusive, or None."""
-    if not range_header:
-        return None
-    match = _RANGE_RE.match(range_header)
-    if not match:
-        return None
-    start = int(match.group(1))
-    end = int(match.group(2)) if match.group(2) else total_size - 1
-    end = min(end, total_size - 1)
-    if start > end or start >= total_size:
-        return None
-    return start, end
+async def _stream_download(
+    request: Request,
+    storage: Storage,
+    resolved_path: str,
+    content_type: str,
+    headers: dict[str, str],
+    global_storage: bool,
+) -> Response:
+    requested = _RANGE_RE.match(request.headers.get("range") or "")
+
+    if requested:
+        opened = await storage.open_range_download(
+            resolved_path,
+            int(requested.group(1)),
+            int(requested.group(2)) if requested.group(2) else None,
+            global_storage=global_storage,
+        )
+
+        if opened:
+            start, end, total_size, range_chunks = opened
+            headers["Content-Range"] = f"bytes {start}-{end}/{total_size}"
+            headers["Content-Length"] = str(end - start + 1)
+
+            return StreamingResponse(range_chunks, status_code=206, media_type=content_type, headers=headers)
+
+    size, chunks = await storage.open_download(resolved_path, global_storage=global_storage)
+    headers["Content-Length"] = str(size)
+
+    return StreamingResponse(chunks, media_type=content_type, headers=headers)
 
 
 async def _serve_download(
@@ -437,23 +453,6 @@ async def _serve_download(
 
         return Response(status_code=304, headers=headers)
 
-    try:
-        total_size = await storage.get_file_size_for_download(resolved_path, global_storage=global_storage)
-    except FileNotFoundError:
-        # The cached optimized variant was evicted between resolution and
-        # read (age-based cleanup or source overwrite): rebuild it once.
-        if re_resolve is None or not resolved_path.startswith("__cache__:"):
-            raise
-        resolved_path, content_type = await re_resolve()
-        if not resolved_path.startswith("__cache__:") and not await storage.file_exists(
-            resolved_path, global_storage=global_storage
-        ):
-            raise HTTPException(status_code=404, detail=_t("File not found"))
-        total_size = await storage.get_file_size_for_download(resolved_path, global_storage=global_storage)
-
-    range_header = request.headers.get("range")
-    byte_range = _parse_range(range_header, total_size)
-
     headers = _build_download_headers(filename, force_download)
     headers["Accept-Ranges"] = "bytes"
 
@@ -463,31 +462,20 @@ async def _serve_download(
     if etag:
         headers["ETag"] = etag
 
-    if byte_range:
-        start, end = byte_range
-        content_length = end - start + 1
-        headers["Content-Range"] = f"bytes {start}-{end}/{total_size}"
-        headers["Content-Length"] = str(content_length)
+    try:
+        return await _stream_download(request, storage, resolved_path, content_type, headers, global_storage)
+    except FileNotFoundError:
+        # The cached optimized variant was evicted between resolution and
+        # read (age-based cleanup or source overwrite): rebuild it once.
+        if re_resolve is None or not resolved_path.startswith("__cache__:"):
+            raise HTTPException(status_code=404, detail=_t("File not found")) from None
 
-        return StreamingResponse(
-            storage.stream_range_download(
-                resolved_path,
-                start,
-                end,
-                global_storage=global_storage,
-            ),
-            status_code=206,
-            media_type=content_type,
-            headers=headers,
-        )
+    resolved_path, content_type = await re_resolve()
 
-    headers["Content-Length"] = str(total_size)
-
-    return StreamingResponse(
-        storage.stream_download(resolved_path, global_storage=global_storage),
-        media_type=content_type,
-        headers=headers,
-    )
+    try:
+        return await _stream_download(request, storage, resolved_path, content_type, headers, global_storage)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail=_t("File not found")) from None
 
 
 @attachments_router.get("/download/attachments/{id:int}")
@@ -520,12 +508,6 @@ async def download_attachment(
             out_ext=e,
             global_storage=global_storage,
         )
-
-        # Check file exists
-        if not resolved_path.startswith("__cache__:") and not await storage.file_exists(
-            resolved_path, global_storage=global_storage
-        ):
-            raise HTTPException(status_code=404, detail=_t("Attachment not found"))
 
         # Build filename
         served_ext = resolved_path.rsplit(".", 1)[-1] if "." in resolved_path else ""
@@ -593,12 +575,6 @@ async def download_file(
         )
     except ValueError:
         raise HTTPException(status_code=404, detail=_t("File not found")) from None
-
-    # Check file exists
-    if not resolved_path.startswith("__cache__:") and not await storage.file_exists(
-        resolved_path, global_storage=global_storage
-    ):
-        raise HTTPException(status_code=404, detail=_t("File not found"))
 
     for transformer in vtr.get_transformers(PostDownloadTransformer, None, None):
         resolved_path = await transformer.post_download(request, path, resolved_path, transformers_ctx)

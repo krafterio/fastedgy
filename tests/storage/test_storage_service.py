@@ -189,3 +189,28 @@ async def test_upload_streams_the_file_to_the_adapter(setup_db: FastEdgy, monkey
 
     assert path == "videos/clip.mp4"
     assert await storage.read_file(path, global_storage=True) == b"x" * 4096
+
+
+async def test_a_cached_variant_is_served_without_touching_the_source(setup_db: FastEdgy, monkeypatch) -> None:
+    import io
+
+    from PIL import Image
+
+    storage = get_service(Storage)
+    buf = io.BytesIO()
+    Image.new("RGB", (64, 64), "green").save(buf, format="PNG")
+    await storage.adapter.write("global/photos/green.png", buf.getvalue())
+
+    first, _ = await storage.get_optimized_or_original("photos/green.png", w=32, global_storage=True)
+    assert first.startswith("__cache__:")
+
+    async def touched(*args, **kwargs):
+        raise AssertionError("the source was reached for a cached variant")
+
+    monkeypatch.setattr(storage.adapter, "exists", touched)
+    monkeypatch.setattr(storage.adapter, "read", touched)
+
+    second, mime = await storage.get_optimized_or_original("photos/green.png", w=32, global_storage=True)
+
+    assert second == first
+    assert mime == "image/png"

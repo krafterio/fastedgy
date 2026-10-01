@@ -50,12 +50,12 @@ mcp = [
     "mcp ~= 2.1",
 ]
 storage-s3 = [
-    "aioboto3 ~= 15.5",
+    "boto3 ~= 1.40",
 ]
 
 [dependency-groups]
 dev = [
-    "aioboto3 ~= 15.5",
+    "boto3 ~= 1.40",
     "mcp ~= 2.1",
     "openpyxl ~= 3.1",
     "pyexcel-ods ~= 0.6",
@@ -68,7 +68,7 @@ dev = [
     "anyio>=4.14.0",
     "python-dotenv>=1.2.2",
     "pytest-xdist>=3.8.0",
-    "types-aiobotocore-s3>=3.7.0",
+    "types-boto3-s3>=1.40",
 ]
 
 [tool.ruff]

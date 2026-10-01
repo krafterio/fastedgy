@@ -1,22 +1,25 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from collections.abc import AsyncIterator
-from contextlib import AbstractAsyncContextManager
-from datetime import UTC
+from collections.abc import AsyncIterator, Callable
+from datetime import UTC, datetime, timedelta
+from threading import Lock
 from typing import TYPE_CHECKING, cast
+
+from anyio import to_thread
 
 from fastedgy.storage.adapters.base import StorageAdapter, clean_storage_path
 
 if TYPE_CHECKING:
-    from aioboto3 import Session
-    from types_aiobotocore_s3 import S3Client
+    from botocore.response import StreamingBody
+    from types_boto3_s3 import S3Client
+    from types_boto3_s3.type_defs import ObjectIdentifierTypeDef
 
 
 class S3Adapter(StorageAdapter):
     """Storage adapter for S3-compatible object storage.
 
-    Uses aioboto3 for async S3 operations.
+    Uses boto3, each call run in a worker thread so the event loop never waits on S3.
     """
 
     def __init__(
@@ -34,7 +37,8 @@ class S3Adapter(StorageAdapter):
         self.access_key_id = access_key_id
         self.secret_access_key = secret_access_key
         self.prefix = prefix.strip("/") if prefix else None
-        self._session: "Session | None" = None
+        self._s3: "S3Client | None" = None
+        self._lock = Lock()
 
     def _key(self, path: str) -> str:
         """Build the full S3 key from a relative path."""
@@ -42,18 +46,6 @@ class S3Adapter(StorageAdapter):
         if self.prefix:
             return f"{self.prefix}/{clean}"
         return clean
-
-    def _get_session(self) -> "Session":
-        if self._session is None:
-            try:
-                import aioboto3
-            except ImportError as e:
-                raise ImportError(
-                    "The s3 storage adapter requires aioboto3. Install it with: pip install 'fastedgy[s3]'"
-                ) from e
-
-            self._session = aioboto3.Session()
-        return self._session
 
     def _client_kwargs(self) -> dict:
         kwargs: dict = {}
@@ -67,117 +59,107 @@ class S3Adapter(StorageAdapter):
             kwargs["aws_secret_access_key"] = self.secret_access_key
         return kwargs
 
-    def _client(self) -> "AbstractAsyncContextManager[S3Client]":
-        return cast(
-            AbstractAsyncContextManager["S3Client"],
-            self._get_session().client("s3", **self._client_kwargs()),
-        )
+    def _client(self) -> "S3Client":
+        with self._lock:
+            if self._s3 is None:
+                try:
+                    import boto3
+                except ImportError as e:
+                    raise ImportError(
+                        "The s3 storage adapter requires boto3. Install it with: pip install 'fastedgy[storage-s3]'"
+                    ) from e
+
+                self._s3 = cast("S3Client", boto3.Session().client("s3", **self._client_kwargs()))
+
+            return self._s3
+
+    async def _run[T](self, call: Callable[["S3Client"], T]) -> T:
+        return await to_thread.run_sync(lambda: call(self._client()))
+
+    @staticmethod
+    async def _chunks(body: "StreamingBody", chunk_size: int) -> AsyncIterator[bytes]:
+        try:
+            while chunk := await to_thread.run_sync(body.read, chunk_size):
+                yield chunk
+        finally:
+            body.close()
+
+    def _delete_under(self, s3: "S3Client", path: str, before: datetime | None = None) -> int:
+        deleted = 0
+        prefix = self._key(path).rstrip("/") + "/"
+
+        for page in s3.get_paginator("list_objects_v2").paginate(Bucket=self.bucket, Prefix=prefix):
+            objects: list["ObjectIdentifierTypeDef"] = [
+                {"Key": obj["Key"]}
+                for obj in page.get("Contents", [])
+                if before is None or obj.get("LastModified", before) < before
+            ]
+
+            if objects:
+                s3.delete_objects(Bucket=self.bucket, Delete={"Objects": objects})
+                deleted += len(objects)
+
+        return deleted
 
     async def exists(self, path: str) -> bool:
         from botocore.exceptions import ClientError
 
-        async with self._client() as s3:
-            try:
-                await s3.head_object(Bucket=self.bucket, Key=self._key(path))
-                return True
-            except ClientError as e:
-                if e.response["Error"]["Code"] == "404":
-                    return False
-                raise
+        try:
+            await self._run(lambda s3: s3.head_object(Bucket=self.bucket, Key=self._key(path)))
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "404":
+                return False
+            raise
+
+        return True
 
     async def read(self, path: str) -> bytes:
-        async with self._client() as s3:
-            response = await s3.get_object(Bucket=self.bucket, Key=self._key(path))
-            return await response["Body"].read()
+        return await self._run(lambda s3: s3.get_object(Bucket=self.bucket, Key=self._key(path))["Body"].read())
 
     async def read_stream(self, path: str, chunk_size: int = 1024 * 1024) -> AsyncIterator[bytes]:
-        async with self._client() as s3:
-            response = await s3.get_object(Bucket=self.bucket, Key=self._key(path))
-            stream = response["Body"]
-            while True:
-                chunk = await stream.read(chunk_size)
-                if not chunk:
-                    break
-                yield chunk
+        response = await self._run(lambda s3: s3.get_object(Bucket=self.bucket, Key=self._key(path)))
+
+        async for chunk in self._chunks(response["Body"], chunk_size):
+            yield chunk
 
     async def read_range_stream(
         self, path: str, start: int, end: int, chunk_size: int = 1024 * 1024
     ) -> AsyncIterator[bytes]:
-        async with self._client() as s3:
-            response = await s3.get_object(
-                Bucket=self.bucket,
-                Key=self._key(path),
-                Range=f"bytes={start}-{end}",
-            )
-            stream = response["Body"]
-            while True:
-                chunk = await stream.read(chunk_size)
-                if not chunk:
-                    break
-                yield chunk
+        response = await self._run(
+            lambda s3: s3.get_object(Bucket=self.bucket, Key=self._key(path), Range=f"bytes={start}-{end}")
+        )
+
+        async for chunk in self._chunks(response["Body"], chunk_size):
+            yield chunk
 
     async def write(self, path: str, data: bytes, content_type: str | None = None) -> None:
-        async with self._client() as s3:
-            kwargs: dict = {
-                "Bucket": self.bucket,
-                "Key": self._key(path),
-                "Body": data,
-            }
-            if content_type:
-                kwargs["ContentType"] = content_type
-            await s3.put_object(**kwargs)
+        kwargs: dict = {
+            "Bucket": self.bucket,
+            "Key": self._key(path),
+            "Body": data,
+        }
+        if content_type:
+            kwargs["ContentType"] = content_type
+
+        await self._run(lambda s3: s3.put_object(**kwargs))
 
     async def delete(self, path: str) -> None:
-        async with self._client() as s3:
-            try:
-                await s3.delete_object(Bucket=self.bucket, Key=self._key(path))
-            except Exception:
-                pass
+        try:
+            await self._run(lambda s3: s3.delete_object(Bucket=self.bucket, Key=self._key(path)))
+        except Exception:
+            pass
 
     async def delete_directory(self, path: str) -> None:
-        async with self._client() as s3:
-            prefix = self._key(path).rstrip("/") + "/"
-            paginator = s3.get_paginator("list_objects_v2")
-
-            async for page in paginator.paginate(Bucket=self.bucket, Prefix=prefix):
-                objects = page.get("Contents", [])
-                if objects:
-                    await s3.delete_objects(
-                        Bucket=self.bucket,
-                        Delete={"Objects": [{"Key": obj["Key"]} for obj in objects]},
-                    )
+        await self._run(lambda s3: self._delete_under(s3, path))
 
     async def file_size(self, path: str) -> int:
-        async with self._client() as s3:
-            response = await s3.head_object(Bucket=self.bucket, Key=self._key(path))
-            return response["ContentLength"]
+        response = await self._run(lambda s3: s3.head_object(Bucket=self.bucket, Key=self._key(path)))
+        return response["ContentLength"]
 
     async def delete_old_files(self, prefix: str, max_age_seconds: float) -> int:
-        from datetime import datetime
+        before = datetime.now(UTC) - timedelta(seconds=max_age_seconds)
 
-        cutoff = datetime.now(UTC).timestamp() - max_age_seconds
-        deleted = 0
-
-        async with self._client() as s3:
-            s3_prefix = self._key(prefix).rstrip("/") + "/"
-            paginator = s3.get_paginator("list_objects_v2")
-
-            async for page in paginator.paginate(Bucket=self.bucket, Prefix=s3_prefix):
-                objects = page.get("Contents", [])
-                to_delete = []
-                for obj in objects:
-                    last_modified = obj["LastModified"]
-                    if last_modified.timestamp() < cutoff:
-                        to_delete.append({"Key": obj["Key"]})
-
-                if to_delete:
-                    await s3.delete_objects(
-                        Bucket=self.bucket,
-                        Delete={"Objects": to_delete},
-                    )
-                    deleted += len(to_delete)
-
-        return deleted
+        return await self._run(lambda s3: self._delete_under(s3, prefix, before))
 
 
 __all__ = [

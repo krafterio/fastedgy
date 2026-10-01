@@ -262,6 +262,32 @@ async def upload_base64(
     return {"path": file_path}
 ```
 
+## Upload from an open file
+
+`upload_from_file` stores a binary file that is already open without reading it whole: the filesystem adapter
+copies it block by block, and the S3 adapter sends a large file in parts. `upload` takes the same path for an
+`UploadFile`, so a large upload that Starlette spooled to disk never sits in memory.
+
+```python
+import tempfile
+
+@app.post("/export")
+async def export(storage: Storage = Inject(Storage)):
+    with tempfile.TemporaryFile() as file:
+        file.write(b"id,name\n1,Acme\n")
+        file.seek(0)
+
+        file_path = await storage.upload_from_file(
+            file,
+            directory_path="exports",
+            filename="export.{ext}",
+            mime_type="text/csv",
+            extension="csv",
+        )
+
+    return {"path": file_path}
+```
+
 ## Error handling
 
 The Storage service validates files automatically:

@@ -4,7 +4,7 @@
 from collections.abc import AsyncIterator, Callable
 from datetime import UTC, datetime, timedelta
 from threading import Lock
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, BinaryIO, cast
 
 from anyio import to_thread
 
@@ -14,6 +14,8 @@ if TYPE_CHECKING:
     from botocore.response import StreamingBody
     from types_boto3_s3 import S3Client
     from types_boto3_s3.type_defs import ObjectIdentifierTypeDef
+
+MAX_POOL_CONNECTIONS = 50
 
 
 class S3Adapter(StorageAdapter):
@@ -69,7 +71,10 @@ class S3Adapter(StorageAdapter):
                         "The s3 storage adapter requires boto3. Install it with: pip install 'fastedgy[storage-s3]'"
                     ) from e
 
-                self._s3 = cast("S3Client", boto3.Session().client("s3", **self._client_kwargs()))
+                from botocore.config import Config
+
+                config = Config(max_pool_connections=MAX_POOL_CONNECTIONS)
+                self._s3 = cast("S3Client", boto3.Session().client("s3", config=config, **self._client_kwargs()))
 
             return self._s3
 
@@ -142,6 +147,11 @@ class S3Adapter(StorageAdapter):
             kwargs["ContentType"] = content_type
 
         await self._run(lambda s3: s3.put_object(**kwargs))
+
+    async def write_file(self, path: str, file: BinaryIO, content_type: str | None = None) -> None:
+        extra = {"ContentType": content_type} if content_type else None
+
+        await self._run(lambda s3: s3.upload_fileobj(file, self.bucket, self._key(path), ExtraArgs=extra))
 
     async def delete(self, path: str) -> None:
         try:

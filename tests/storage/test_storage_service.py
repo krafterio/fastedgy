@@ -163,3 +163,29 @@ async def test_delete_workspace_without_workspace_does_nothing(setup_db: FastEdg
     storage = get_service(Storage)
 
     assert await storage.delete_workspace() is False
+
+
+async def test_upload_streams_the_file_to_the_adapter(setup_db: FastEdgy, monkeypatch) -> None:
+    from tempfile import SpooledTemporaryFile
+    from typing import BinaryIO, cast
+
+    from starlette.datastructures import Headers, UploadFile
+
+    storage = get_service(Storage)
+
+    async def held_in_memory(*args, **kwargs) -> None:
+        raise AssertionError("the upload was read whole before being stored")
+
+    monkeypatch.setattr(storage.adapter, "write", held_in_memory)
+
+    with SpooledTemporaryFile(max_size=1024) as spooled:
+        spooled.write(b"x" * 4096)
+        spooled.seek(0)
+        upload = UploadFile(
+            file=cast(BinaryIO, spooled), filename="clip.mp4", headers=Headers({"content-type": "video/mp4"})
+        )
+
+        path = await storage.upload(upload, "videos", filename="clip.{ext}", global_storage=True)
+
+    assert path == "videos/clip.mp4"
+    assert await storage.read_file(path, global_storage=True) == b"x" * 4096

@@ -3,8 +3,11 @@
 
 import os
 import shutil
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from pathlib import Path
+from typing import BinaryIO
+
+from anyio import to_thread
 
 from fastedgy.storage.adapters.base import StorageAdapter, clean_storage_path
 
@@ -23,8 +26,7 @@ class FilesystemAdapter(StorageAdapter):
         return self._full_path(path).exists()
 
     async def read(self, path: str) -> bytes:
-        with open(self._full_path(path), "rb") as f:
-            return f.read()
+        return await to_thread.run_sync(self._full_path(path).read_bytes)
 
     async def read_stream(self, path: str, chunk_size: int = 1024 * 1024) -> AsyncIterator[bytes]:
         full = self._full_path(path)
@@ -47,11 +49,17 @@ class FilesystemAdapter(StorageAdapter):
                 remaining -= len(chunk)
                 yield chunk
 
-    async def write(self, path: str, data: bytes, content_type: str | None = None) -> None:
+    def _store(self, path: str, fill: Callable[[BinaryIO], object]) -> None:
         full = self._full_path(path)
         os.makedirs(full.parent, exist_ok=True)
-        with open(full, "wb") as f:
-            f.write(data)
+        with open(full, "wb") as target:
+            fill(target)
+
+    async def write(self, path: str, data: bytes, content_type: str | None = None) -> None:
+        await to_thread.run_sync(self._store, path, lambda target: target.write(data))
+
+    async def write_file(self, path: str, file: BinaryIO, content_type: str | None = None) -> None:
+        await to_thread.run_sync(self._store, path, lambda target: shutil.copyfileobj(file, target, 1024 * 1024))
 
     async def delete(self, path: str) -> None:
         full = self._full_path(path)

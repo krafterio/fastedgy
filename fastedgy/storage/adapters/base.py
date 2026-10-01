@@ -4,6 +4,9 @@
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 from pathlib import PurePosixPath
+from typing import BinaryIO
+
+from anyio import to_thread
 
 
 def clean_storage_path(path: str) -> str:
@@ -40,6 +43,12 @@ class StorageAdapter(ABC):
     async def write(self, path: str, data: bytes, content_type: str | None = None) -> None:
         """Write data to a file at the given path."""
         ...
+
+    async def write_file(self, path: str, file: BinaryIO, content_type: str | None = None) -> None:
+        """Write the content of an open binary file, from its current position.
+
+        Reads it whole by default: an adapter able to stream overrides it."""
+        await self.write(path, await to_thread.run_sync(file.read), content_type)
 
     @abstractmethod
     async def delete(self, path: str) -> None:

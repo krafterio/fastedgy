@@ -109,3 +109,32 @@ async def test_file_size_and_delete(adapter: S3Adapter, stub: Stubber) -> None:
 
     assert await adapter.file_size("a.bin") == 42
     await adapter.delete("a.bin")
+
+
+def _operations(adapter: S3Adapter) -> list[str]:
+    called: list[str] = []
+    adapter._client().meta.events.register(
+        "before-parameter-build.s3", lambda model, **kwargs: called.append(model.name)
+    )
+    return called
+
+
+async def test_write_file_sends_a_small_file_in_one_put(adapter: S3Adapter, stub: Stubber) -> None:
+    called = _operations(adapter)
+    stub.add_response("put_object", {})
+
+    await adapter.write_file("clip.mp4", BytesIO(b"tiny"), content_type="video/mp4")
+
+    assert called == ["PutObject"]
+
+
+async def test_write_file_sends_a_large_file_in_parts(adapter: S3Adapter, stub: Stubber) -> None:
+    called = _operations(adapter)
+    stub.add_response("create_multipart_upload", {"UploadId": "upload-1"})
+    for number in range(3):
+        stub.add_response("upload_part", {"ETag": f'"etag-{number}"'})
+    stub.add_response("complete_multipart_upload", {})
+
+    await adapter.write_file("clip.mp4", BytesIO(b"v" * 17 * 1024 * 1024), content_type="video/mp4")
+
+    assert called == ["CreateMultipartUpload", "UploadPart", "UploadPart", "UploadPart", "CompleteMultipartUpload"]

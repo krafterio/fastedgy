@@ -10,7 +10,7 @@ import uuid
 from collections.abc import AsyncIterator
 from functools import partial
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, BinaryIO
 
 from anyio import to_thread
 from starlette.datastructures import UploadFile
@@ -180,7 +180,7 @@ class Storage:
         except Exception:
             return None
 
-    def _probe_image(self, content: bytes) -> tuple[int | None, int | None]:
+    def _probe_image(self, file: BinaryIO) -> tuple[int | None, int | None]:
         """Read the header without decoding: Image.open parses the dimensions
         only, and is where Pillow's own decompression-bomb ceiling fires. Bytes
         that are not an image open with an error and are stored untouched, so
@@ -189,7 +189,7 @@ class Storage:
             return None, None
 
         try:
-            with Image.open(io.BytesIO(content)) as img:
+            with Image.open(file) as img:
                 width, height = img.size
         except DecompressionBombError:
             raise ValueError(_t("This image holds too many pixels to be processed"))
@@ -208,6 +208,14 @@ class Storage:
             )
 
         return width, height
+
+    def _inspect(self, file: BinaryIO) -> tuple[int | None, int | None, int]:
+        file.seek(0)
+        width, height = self._probe_image(file)
+        size = file.seek(0, os.SEEK_END)
+        file.seek(0)
+
+        return width, height, size
 
     def _get_cache_path(self, path: str, global_storage: bool = False) -> str:
         """Return the cache-relative path for a given path."""
@@ -519,9 +527,8 @@ class Storage:
             guessed = mimetypes.guess_extension(file.content_type or "") or ".bin"
             ext = guessed.lstrip(".")
 
-        content = await file.read()
         return await self._finalize_store(
-            content=content,
+            file=file.file,
             directory_path=directory_path,
             filename=filename,
             ext=ext,
@@ -545,10 +552,34 @@ class Storage:
     ) -> str:
         """Store bytes already in hand, for a caller holding the content itself
         (a duplicated attachment, a generated file) rather than an upload."""
+        return await self.upload_from_file(
+            io.BytesIO(content),
+            directory_path=directory_path,
+            filename=filename,
+            mime_type=mime_type,
+            extension=extension,
+            global_storage=global_storage,
+            create_attachment=create_attachment,
+            attachment_values=attachment_values,
+        )
+
+    async def upload_from_file(
+        self,
+        file: BinaryIO,
+        directory_path: str,
+        filename: str | None = None,
+        mime_type: str | None = None,
+        extension: str | None = None,
+        global_storage: bool = False,
+        create_attachment: bool = False,
+        attachment_values: dict[str, Any] | None = None,
+    ) -> str:
+        """Store an open binary file without reading it whole: the adapter
+        streams it, so an upload spooled to disk never sits in memory."""
         ext = (extension or mimetypes.guess_extension(mime_type or "") or ".bin").lstrip(".")
 
         return await self._finalize_store(
-            content=content,
+            file=file,
             directory_path=directory_path,
             filename=filename,
             ext=ext,
@@ -602,10 +633,8 @@ class Storage:
                 guessed = mimetypes.guess_extension(content_type) or ".bin"
                 ext = guessed.lstrip(".")
 
-                content = response.content
-
                 return await self._finalize_store(
-                    content=content,
+                    file=io.BytesIO(response.content),
                     directory_path=directory_path,
                     filename=filename,
                     ext=ext,
@@ -699,7 +728,7 @@ class Storage:
     async def _finalize_store(
         self,
         *,
-        content: bytes,
+        file: BinaryIO,
         directory_path: str,
         filename: str | None,
         ext: str,
@@ -711,7 +740,7 @@ class Storage:
     ) -> str:
         from fastedgy.storage.models.attachment import AttachmentType
 
-        img_width, img_height = self._probe_image(content)
+        img_width, img_height, size = await to_thread.run_sync(self._inspect, file)
 
         safe_filename = self._ensure_filename(filename, ext)
         relative_path = f"{directory_path.strip('/')}/{safe_filename}"
@@ -725,7 +754,7 @@ class Storage:
 
         # Write via adapter
         full_path = self._resolve_path(relative_path, global_storage)
-        await self.adapter.write(full_path, content, mime_type)
+        await self.adapter.write_file(full_path, file, mime_type)
 
         if not create_attachment:
             return relative_path
@@ -755,7 +784,7 @@ class Storage:
                 values.update(attachment_values or {})
                 values.update(
                     {
-                        "size_bytes": len(content),
+                        "size_bytes": size,
                         "storage_path": relative_path,
                         "is_global": global_storage,
                     }

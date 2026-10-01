@@ -79,6 +79,7 @@ def build_app() -> FastEdgy:
     router = APIRouter(prefix=API_PREFIX, dependencies=[Depends(get_current_user)])
     public_router.include_router(health.router)
     public_router.include_router(realtime.router)
+    public_router.include_router(storage.signed_router)
     router.include_router(auth.router)
     router.include_router(dataset.router)
     router.include_router(storage.attachments_router)

@@ -9,11 +9,13 @@ import os
 import uuid
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, BinaryIO
 
 from anyio import to_thread
+from jose import JWTError, jwt
 from starlette.datastructures import UploadFile
 
 from fastedgy import context
@@ -35,6 +37,10 @@ except Exception:
 logger = logging.getLogger("fastedgy.storage")
 
 CACHE_PREFIX = "cache_optimized_images"
+
+DOWNLOAD_TOKEN_TYPE = "storage-download"
+
+DOWNLOAD_TOKEN_SECONDS = 6 * 3600
 
 if TYPE_CHECKING:
     from PIL.Image import Image as PILImage
@@ -483,7 +489,40 @@ class Storage:
 
             return self.cache_adapter, cache_path
 
+        if resolved_path.startswith("__stored__:"):
+            return self.adapter, resolved_path[len("__stored__:") :]
+
         return self.adapter, self._resolve_path(resolved_path, global_storage)
+
+    def download_token(self, resolved_path: str, global_storage: bool = False) -> str:
+        """A token opening one path from get_optimized_or_original without the caller's credentials, for an
+        element the browser reads on its own and cannot give a header to, a video seeking by ranges.
+
+        It names the stored key, resolved now in the caller's workspace, and lasts DOWNLOAD_TOKEN_SECONDS. Its
+        type keeps it from ever standing for an access token."""
+        cached = resolved_path.startswith("__cache__:")
+        key = resolved_path[len("__cache__:") :] if cached else self._resolve_path(resolved_path, global_storage)
+        payload = {
+            "type": DOWNLOAD_TOKEN_TYPE,
+            "key": key,
+            "cache": cached,
+            "exp": datetime.now(UTC) + timedelta(seconds=DOWNLOAD_TOKEN_SECONDS),
+        }
+
+        return jwt.encode(payload, self.settings.auth_secret_key, algorithm=self.settings.auth_algorithm)
+
+    def resolve_download_token(self, token: str) -> str | None:
+        """The path a download token opens, for open_download(), or None for a token forged, expired or of
+        another type."""
+        try:
+            payload = jwt.decode(token, self.settings.auth_secret_key, algorithms=[self.settings.auth_algorithm])
+        except JWTError:
+            return None
+
+        if payload.get("type") != DOWNLOAD_TOKEN_TYPE or not payload.get("key"):
+            return None
+
+        return f"{'__cache__' if payload.get('cache') else '__stored__'}:{payload['key']}"
 
     async def open_download(
         self,

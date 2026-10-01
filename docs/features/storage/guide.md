@@ -232,6 +232,33 @@ GET /storage/download/photos/image.jpg
 GET /storage/download/photos/image.jpg?force_download=true
 ```
 
+### Signed download urls
+
+A `<video>` or an `<audio>` reads its file by itself, range after range as it plays, and cannot send the
+`Authorization` header the download routes require. A signed url carries the authorization in its path instead:
+
+```bash
+# Authenticated: the same checks and transformers as the download, answers {"url": "https://.../signed/<token>"}
+GET /storage/download-url/videos/clip.mp4
+GET /storage/download-url/attachments/42
+
+# Public: the token is the whole authorization, ranges included
+GET /storage/signed/<token>
+```
+
+The token names the one stored file, resolved in the caller's workspace when it was signed, and lasts six hours.
+It is signed with `AUTH_SECRET_KEY` under a type of its own, so it never stands for an access token. The signing
+routes come with `router` and `attachments_router`, under the prefix the project gives them; the public one is
+`signed_router`, which the project mounts with its public routes:
+
+```python
+from fastedgy.api import storage
+
+public_router.include_router(storage.signed_router)
+```
+
+Without it, the signing routes answer 404, and `v-fetcher-src` reads a video whole instead.
+
 ## Image optimization
 
 FastEdgy automatically optimizes images when you add URL parameters. Optimized images are cached for better performance.

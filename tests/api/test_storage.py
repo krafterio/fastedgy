@@ -819,3 +819,73 @@ async def test_download_reads_a_cached_variant_without_asking_the_cache_first(
     second = await auth_http.get(url)
     assert second.status_code == 200
     assert second.content == first.content
+
+
+async def test_a_signed_url_streams_a_file_by_ranges_without_credentials(auth_http: httpx.AsyncClient) -> None:
+    from fastedgy.dependencies import get_service
+    from fastedgy.storage import Storage
+
+    await get_service(Storage).adapter.write("global/videos/clip.mp4", b"0123456789")
+
+    signing = await auth_http.get("/api/storage/download-url/videos/clip.mp4")
+    assert signing.status_code == 200
+    del auth_http.headers["Authorization"]
+
+    response = await auth_http.get(signing.json()["url"], headers={"Range": "bytes=2-5"})
+
+    assert response.status_code == 206
+    assert response.content == b"2345"
+    assert response.headers["content-type"] == "video/mp4"
+    assert response.headers["content-range"] == "bytes 2-5/10"
+
+
+async def test_a_signed_url_opens_an_attachment(auth_http: httpx.AsyncClient) -> None:
+    upload = await auth_http.post(
+        "/api/storage/upload/attachments",
+        files={"doc.txt": ("doc.txt", b"hello world", "text/plain")},
+    )
+    signing = await auth_http.get(f"/api/storage/download-url/attachments/{upload.json()['attachments'][0]['id']}")
+    del auth_http.headers["Authorization"]
+
+    response = await auth_http.get(signing.json()["url"])
+
+    assert response.status_code == 200
+    assert response.content == b"hello world"
+
+
+async def test_a_signed_url_opens_nothing_with_a_forged_expired_or_access_token(setup_http: httpx.AsyncClient) -> None:
+    from datetime import UTC, datetime, timedelta
+
+    from jose import jwt
+
+    from fastedgy.config import BaseSettings
+    from fastedgy.dependencies import get_service
+    from fastedgy.depends.security import create_access_token
+
+    settings = get_service(BaseSettings)
+    expired = jwt.encode(
+        {
+            "type": "storage-download",
+            "key": "global/videos/clip.mp4",
+            "cache": False,
+            "exp": datetime.now(UTC) - timedelta(seconds=1),
+        },
+        settings.auth_secret_key,
+        algorithm=settings.auth_algorithm,
+    )
+
+    for token in ("forged", expired, create_access_token({"sub": "auth@example.io"})):
+        assert (await setup_http.get(f"/api/storage/signed/{token}")).status_code == 404
+
+
+async def test_a_download_token_never_stands_for_an_access_token(setup_http: httpx.AsyncClient) -> None:
+    from fastedgy.dependencies import get_service
+    from fastedgy.storage import Storage
+
+    token = get_service(Storage).download_token("videos/clip.mp4", global_storage=True)
+
+    response = await setup_http.get(
+        "/api/storage/download-url/videos/clip.mp4", headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 401

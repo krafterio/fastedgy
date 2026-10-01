@@ -2,6 +2,7 @@
 # MIT License (see LICENSE file).
 
 import json
+import mimetypes
 import re as _re
 from collections.abc import Awaitable, Callable
 from datetime import datetime
@@ -14,6 +15,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import ValidationError
 from starlette.datastructures import UploadFile as StarletteUploadFile
 from starlette.responses import Response
+from starlette.routing import NoMatchFound
 
 from fastedgy import context
 from fastedgy.api_route_model.action import ensure_action_allowed
@@ -34,7 +36,7 @@ from fastedgy.metadata_model.registry import MetadataModelRegistry
 from fastedgy.orm import Registry
 from fastedgy.orm.exceptions import ObjectNotFound
 from fastedgy.orm.transaction import with_transaction
-from fastedgy.schemas.storage import UploadedAttachments, UploadedModelField
+from fastedgy.schemas.storage import DownloadUrl, UploadedAttachments, UploadedModelField
 from fastedgy.storage import Storage
 from fastedgy.storage.routing import (
     is_global_storage_model,
@@ -58,6 +60,7 @@ attachments_router = APIRouter(prefix="/storage", tags=["storage"])
 manage_attachments_router = APIRouter(prefix="/storage", tags=["storage"])
 router = APIRouter(prefix="/storage", tags=["storage"])
 manage_router = APIRouter(prefix="/storage", tags=["storage"])
+signed_router = APIRouter(prefix="/storage", tags=["storage"])
 
 # Stored files are addressed by generated UUID names (never overwritten in
 # place), so path-addressed downloads are immutable. Attachments are addressed
@@ -491,66 +494,100 @@ async def download_attachment(
     registry: Registry = Inject(Registry),
 ) -> Response:
     """Download an attachment by its ID."""
-    try:
-        if "Attachment" not in registry.models:
-            raise HTTPException(status_code=500, detail=_t("Attachment model not configured"))
+    record, global_storage = await _attachment(registry, id)
 
-        AttachmentModel: Any = registry.get_model("Attachment")
-        record = await AttachmentModel.query.get(id=id)
+    resolved_path, content_type = await storage.get_optimized_or_original(
+        record.storage_path,
+        w=w,
+        h=h,
+        mode=m,
+        out_ext=e,
+        global_storage=global_storage,
+        check_cache=False,
+    )
 
-        global_storage = getattr(record, "is_global", is_global_storage_model(AttachmentModel))
+    served_ext = resolved_path.rsplit(".", 1)[-1] if "." in resolved_path else ""
+    filename = record.name
+    if served_ext and not filename.lower().endswith(f".{served_ext}"):
+        filename = f"{record.name}.{served_ext}"
 
-        resolved_path, content_type = await storage.get_optimized_or_original(
+    return await _serve_download(
+        request,
+        storage,
+        resolved_path,
+        content_type,
+        filename,
+        force_download,
+        global_storage,
+        re_resolve=lambda: storage.get_optimized_or_original(
             record.storage_path,
             w=w,
             h=h,
             mode=m,
             out_ext=e,
             global_storage=global_storage,
-            check_cache=False,
-        )
-
-        # Build filename
-        served_ext = resolved_path.rsplit(".", 1)[-1] if "." in resolved_path else ""
-        filename = record.name
-        if served_ext and not filename.lower().endswith(f".{served_ext}"):
-            filename = f"{record.name}.{served_ext}"
-
-        return await _serve_download(
-            request,
-            storage,
-            resolved_path,
-            content_type,
-            filename,
-            force_download,
-            global_storage,
-            re_resolve=lambda: storage.get_optimized_or_original(
-                record.storage_path,
-                w=w,
-                h=h,
-                mode=m,
-                out_ext=e,
-                global_storage=global_storage,
-                regenerate=True,
-            ),
-            cache_control=ATTACHMENT_CACHE_CONTROL,
-            etag=f'"{record.storage_path}"',
-        )
-    except ObjectNotFound:
-        raise HTTPException(status_code=404, detail=_t("Attachment not found"))
+            regenerate=True,
+        ),
+        cache_control=ATTACHMENT_CACHE_CONTROL,
+        etag=f'"{record.storage_path}"',
+    )
 
 
-@router.get("/download/{path:path}")
-async def download_file(
-    path: str,
+@attachments_router.get("/download-url/attachments/{id:int}")
+async def download_attachment_url(
+    id: int,
     request: Request,
-    force_download: bool = Query(False),
     w: int | None = Query(None),
     h: int | None = Query(None),
     m: str = Query("contain"),
     e: str | None = Query(None),
     storage: Storage = Inject(Storage),
-) -> Response:
+    registry: Registry = Inject(Registry),
+) -> DownloadUrl:
+    """A signed url opening the attachment without credentials, for an element that cannot send them: a video
+    read by ranges. It lasts a few hours."""
+    record, global_storage = await _attachment(registry, id)
+
+    resolved_path, _ = await storage.get_optimized_or_original(
+        record.storage_path, w=w, h=h, mode=m, out_ext=e, global_storage=global_storage
+    )
+
+    return _signed_url(request, storage, resolved_path, global_storage)
+
+
+async def _attachment(registry: Registry, id: int) -> tuple[Any, bool]:
+    if "Attachment" not in registry.models:
+        raise HTTPException(status_code=500, detail=_t("Attachment model not configured"))
+
+    AttachmentModel: Any = registry.get_model("Attachment")
+
+    try:
+        record = await AttachmentModel.query.get(id=id)
+    except ObjectNotFound:
+        raise HTTPException(status_code=404, detail=_t("Attachment not found")) from None
+
+    return record, getattr(record, "is_global", is_global_storage_model(AttachmentModel))
+
+
+def _signed_url(request: Request, storage: Storage, resolved_path: str, global_storage: bool) -> DownloadUrl:
+    try:
+        url = request.url_for("download_signed", token=storage.download_token(resolved_path, global_storage))
+    except NoMatchFound:
+        raise HTTPException(status_code=404, detail=_t("Signed downloads are not served")) from None
+
+    return DownloadUrl(url=str(url))
+
+
+async def _resolve_file_download(
+    request: Request,
+    storage: Storage,
+    path: str,
+    w: int | None,
+    h: int | None,
+    m: str,
+    e: str | None,
+    check_cache: bool,
+) -> tuple[str, str, bool]:
     vtr = get_service(ViewTransformerRegistry)
     transformers_ctx: dict[str, Any] = {}
     global_storage = await is_global_storage_path(path)
@@ -572,7 +609,7 @@ async def download_file(
 
     try:
         resolved_path, content_type = await storage.get_optimized_or_original(
-            path, w=w, h=h, mode=m, out_ext=e, global_storage=global_storage, check_cache=False
+            path, w=w, h=h, mode=m, out_ext=e, global_storage=global_storage, check_cache=check_cache
         )
     except ValueError:
         raise HTTPException(status_code=404, detail=_t("File not found")) from None
@@ -580,7 +617,24 @@ async def download_file(
     for transformer in vtr.get_transformers(PostDownloadTransformer, None, None):
         resolved_path = await transformer.post_download(request, path, resolved_path, transformers_ctx)
 
-    # Build filename
+    return resolved_path, content_type, global_storage
+
+
+@router.get("/download/{path:path}")
+async def download_file(
+    path: str,
+    request: Request,
+    force_download: bool = Query(False),
+    w: int | None = Query(None),
+    h: int | None = Query(None),
+    m: str = Query("contain"),
+    e: str | None = Query(None),
+    storage: Storage = Inject(Storage),
+) -> Response:
+    resolved_path, content_type, global_storage = await _resolve_file_download(
+        request, storage, path, w, h, m, e, check_cache=False
+    )
+
     src_name = Path(path).name
     base = src_name.rsplit(".", 1)[0]
     served_ext = resolved_path.rsplit(".", 1)[-1] if "." in resolved_path else ""
@@ -604,6 +658,41 @@ async def download_file(
             regenerate=True,
         ),
         cache_control=DOWNLOAD_CACHE_CONTROL,
+    )
+
+
+@router.get("/download-url/{path:path}")
+async def download_file_url(
+    path: str,
+    request: Request,
+    w: int | None = Query(None),
+    h: int | None = Query(None),
+    m: str = Query("contain"),
+    e: str | None = Query(None),
+    storage: Storage = Inject(Storage),
+) -> DownloadUrl:
+    """A signed url opening the file without credentials, for an element that cannot send them: a video read
+    by ranges. It lasts a few hours."""
+    resolved_path, _, global_storage = await _resolve_file_download(
+        request, storage, path, w, h, m, e, check_cache=True
+    )
+
+    return _signed_url(request, storage, resolved_path, global_storage)
+
+
+@signed_router.get("/signed/{token}", name="download_signed")
+async def download_signed(token: str, request: Request, storage: Storage = Inject(Storage)) -> Response:
+    """Download the file a signed url names, by ranges, with no other authorization than its token."""
+    resolved_path = storage.resolve_download_token(token)
+
+    if resolved_path is None:
+        raise HTTPException(status_code=404, detail=_t("File not found"))
+
+    filename = resolved_path.rsplit("/", 1)[-1]
+    content_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+
+    return await _serve_download(
+        request, storage, resolved_path, content_type, filename, False, False, cache_control=DOWNLOAD_CACHE_CONTROL
     )
 
 

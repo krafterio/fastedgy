@@ -22,7 +22,12 @@ class UploadedModelField(BaseModel):
     path: str
 
 
+class DownloadUrl(BaseModel):
+    url: str
+
+
 __all__ = [
+    "DownloadUrl",
     "UploadedAttachment",
     "UploadedAttachments",
 ]

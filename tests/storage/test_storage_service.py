@@ -330,3 +330,14 @@ async def test_usage_reads_a_cache_kept_in_another_store(setup_db: FastEdgy, mon
     await cache.write("exports/not-cache.csv", b"zzz")
 
     assert await storage.usage() == StorageUsage(data_files=1, data_bytes=3, cache_files=1, cache_bytes=2)
+
+
+async def test_a_download_token_opens_the_key_it_was_signed_for(setup_db: FastEdgy) -> None:
+    storage = get_service(Storage)
+
+    stored = storage.download_token("videos/clip.mp4", global_storage=True)
+    cached = storage.download_token("__cache__:cache_optimized_images/global/a.png/contain_w32_h0.webp")
+
+    assert storage.resolve_download_token(stored) == "__stored__:global/videos/clip.mp4"
+    assert storage.resolve_download_token(cached) == "__cache__:cache_optimized_images/global/a.png/contain_w32_h0.webp"
+    assert storage.resolve_download_token(stored[:-2] + "xx") is None

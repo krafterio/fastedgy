@@ -363,6 +363,9 @@ msgstr "Fonction sérialisée"
 msgid "Server Name"
 msgstr "Nom du serveur"
 
+msgid "Signed downloads are not served"
+msgstr "Les téléchargements signés ne sont pas disponibles"
+
 msgid "Size (bytes)"
 msgstr "Taille (octets)"
 

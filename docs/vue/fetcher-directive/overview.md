@@ -48,6 +48,20 @@ The directive automatically:
 
 A `data:` or `blob:` source is left to the element as is.
 
+## Videos and audio
+
+A blob only exists once the whole file is received, which an image never makes felt and a video does. So a
+`<video>` or an `<audio>` whose source is a download route plays from a
+[signed download url](../../features/storage/guide.md#signed-download-urls) instead: the directive asks the server
+for it, gives it to the element, and the element reads the file range after range as it plays. It shows once its
+metadata is loaded, since a media element never fires `load`, and it is never resized nor converted.
+
+```html
+<video v-fetcher-src :src="fileUrl(media.path)" preload="metadata" controls></video>
+```
+
+When the server signs no url, the file is read whole into a blob, kept for as long as the element is displayed.
+
 ## Get Started
 
 Ready to use authenticated image loading? Check out our detailed guide:

@@ -1514,6 +1514,19 @@
         "title": "Comment-List",
         "type": "object"
       },
+      "DownloadUrl": {
+        "properties": {
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "title": "DownloadUrl",
+        "type": "object"
+      },
       "ErrorMessage": {
         "properties": {
           "detail": {
@@ -11149,6 +11162,224 @@
         ]
       }
     },
+    "/api/storage/download-url/attachments/{id}": {
+      "get": {
+        "description": "A signed url opening the attachment without credentials, for an element that cannot send them: a video\nread by ranges. It lasts a few hours.",
+        "operationId": "download_attachment_url_api_storage_download_url_attachments__id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "w",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "W"
+            }
+          },
+          {
+            "in": "query",
+            "name": "h",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "H"
+            }
+          },
+          {
+            "in": "query",
+            "name": "m",
+            "required": false,
+            "schema": {
+              "default": "contain",
+              "title": "M",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "e",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "E"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadUrl"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Download Attachment Url",
+        "tags": [
+          "storage"
+        ]
+      }
+    },
+    "/api/storage/download-url/{path}": {
+      "get": {
+        "description": "A signed url opening the file without credentials, for an element that cannot send them: a video read\nby ranges. It lasts a few hours.",
+        "operationId": "download_file_url_api_storage_download_url__path__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "path",
+            "required": true,
+            "schema": {
+              "title": "Path",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "w",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "W"
+            }
+          },
+          {
+            "in": "query",
+            "name": "h",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "H"
+            }
+          },
+          {
+            "in": "query",
+            "name": "m",
+            "required": false,
+            "schema": {
+              "default": "contain",
+              "title": "M",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "e",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "E"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadUrl"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Download File Url",
+        "tags": [
+          "storage"
+        ]
+      }
+    },
     "/api/storage/download/attachments/{id}": {
       "get": {
         "description": "Download an attachment by its ID.",
@@ -11443,6 +11674,47 @@
           }
         ],
         "summary": "Delete File",
+        "tags": [
+          "storage"
+        ]
+      }
+    },
+    "/api/storage/signed/{token}": {
+      "get": {
+        "description": "Download the file a signed url names, by ranges, with no other authorization than its token.",
+        "operationId": "download_signed_api_storage_signed__token__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "title": "Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Download Signed",
         "tags": [
           "storage"
         ]

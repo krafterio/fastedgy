@@ -359,6 +359,9 @@ msgstr "Funzione serializzata"
 msgid "Server Name"
 msgstr "Nome del server"
 
+msgid "Signed downloads are not served"
+msgstr "I download firmati non sono disponibili"
+
 msgid "Size (bytes)"
 msgstr "Dimensione (byte)"
 

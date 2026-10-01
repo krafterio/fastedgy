@@ -65,7 +65,7 @@ IMAGE_QUALITY=80  # 1-100, higher = better quality but larger files
 3. **Generation**: If it is not cached yet, the image is processed and saved, then served
 4. **Serving**: Optimized image is served with proper content type
 5. **Cleanup**: The cache of a file goes with the file, and the `cleanup-image-cache` task removes every
-   optimized version older than `CACHE_MAX_AGE_DAYS` (30 by default), see the
+   optimized version older than `STORAGE_CACHE_MAX_AGE_DAYS` (30 by default), see the
    [usage guide](guide.md#image-cache)
 
 ## Performance Benefits

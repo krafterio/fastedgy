@@ -790,12 +790,12 @@ class Storage:
         return True
 
     async def cleanup_image_cache(self) -> int:
-        """Delete cached optimized images older than cache_max_age_days, 0 or None keeping them.
+        """Delete cached optimized images older than storage_cache_max_age_days, 0 or None keeping them.
 
         The age is the last access where the cache keeps one (filesystem), the creation elsewhere (S3): a variant
         still in use is then rebuilt on its next read. Returns the number of files deleted.
         """
-        max_age = self.settings.cache_max_age_days
+        max_age = self.settings.storage_cache_max_age_days
         if not max_age:
             return 0
 

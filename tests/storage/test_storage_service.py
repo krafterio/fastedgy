@@ -284,7 +284,7 @@ async def test_cleanup_image_cache_drops_what_is_older_than_30_days_by_default(
     recent = await _aged(cache, "cache_optimized_images/global/new.png/contain_w32_h0.png", 29)
     storage = get_service(Storage)
 
-    assert storage.settings.cache_max_age_days == 30
+    assert storage.settings.storage_cache_max_age_days == 30
     assert await storage.cleanup_image_cache() == 1
     assert not old.exists()
     assert recent.exists()
@@ -293,7 +293,7 @@ async def test_cleanup_image_cache_drops_what_is_older_than_30_days_by_default(
 async def test_cleanup_image_cache_keeps_everything_at_zero(
     setup_db: FastEdgy, cache: FilesystemAdapter, override_settings
 ) -> None:
-    override_settings(cache_max_age_days=0)
+    override_settings(storage_cache_max_age_days=0)
     old = await _aged(cache, "cache_optimized_images/global/old.png/contain_w32_h0.png", 400)
 
     assert await get_service(Storage).cleanup_image_cache() == 0

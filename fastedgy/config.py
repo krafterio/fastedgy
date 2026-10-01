@@ -263,7 +263,7 @@ class BaseSettings(PydanticBaseSettings):
     storage_adapter: str = "filesystem"
     storage_cache_adapter: str = "filesystem"
     storage_workspace_folder: str = "workspace"
-    cache_max_age_days: int | None = 30
+    storage_cache_max_age_days: int | None = 30
 
     # S3
     s3_endpoint: str | None = None

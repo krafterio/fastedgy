@@ -32,7 +32,7 @@ def usage_line(usage: StorageUsage) -> str:
     )
 
 
-@scheduled_task(cron="0 3 * * *", description="Delete the optimized images older than CACHE_MAX_AGE_DAYS")
+@scheduled_task(cron="0 3 * * *", description="Delete the optimized images older than STORAGE_CACHE_MAX_AGE_DAYS")
 async def cleanup_image_cache() -> None:
     deleted = await get_service(Storage).cleanup_image_cache()
     logger.info(f"Deleted {deleted} cached image(s)")

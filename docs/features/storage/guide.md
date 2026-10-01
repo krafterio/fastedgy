@@ -49,11 +49,11 @@ file at all:
 ```env
 STORAGE_ADAPTER=s3
 STORAGE_CACHE_ADAPTER=s3
-CACHE_MAX_AGE_DAYS=30
+STORAGE_CACHE_MAX_AGE_DAYS=30
 ```
 
 The `cleanup-image-cache` scheduled task runs every night at 03:00 and deletes the optimized images older than
-`CACHE_MAX_AGE_DAYS`, 30 days by default, `0` keeping them forever. On the filesystem the age is the last read,
+`STORAGE_CACHE_MAX_AGE_DAYS`, 30 days by default, `0` keeping them forever. On the filesystem the age is the last read,
 since every download refreshes the file's date: only the images nobody reads go. S3 keeps no read date, so the age
 is the creation: an image still in use goes too, and is rebuilt on its next download.
 

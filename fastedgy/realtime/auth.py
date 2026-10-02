@@ -116,6 +116,15 @@ class RealtimeAuth:
     async def held_scopes(self, user: "User", scope_ids: Collection[int]) -> set[int]:
         return await held_scopes(user, scope_ids)
 
+    async def reached_scopes(self, token: str, scope_ids: Collection[int]) -> set[int]:
+        """Which of these scopes, all of them its account's, the bearer itself reaches.
+
+        Every one by default. An application whose keys name some of their owner's
+        scopes narrows it by replacing this: it is asked wherever the scopes of a
+        socket are resolved, at the handshake, on a `watch` and on every check.
+        """
+        return set(scope_ids)
+
     async def audience(
         self,
         scope_id: int,

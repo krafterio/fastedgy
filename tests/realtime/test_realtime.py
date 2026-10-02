@@ -1347,6 +1347,42 @@ async def test_a_socket_naming_only_scopes_its_account_is_not_a_member_of_is_ref
     assert ws_manager.is_idle
 
 
+async def test_a_socket_reads_only_the_scopes_its_bearer_reaches(ws_manager, scope_env) -> None:
+    """A key naming some of its owner's scopes: the membership alone no longer
+    opens the others, at the handshake, on a watch, or on a check."""
+    admin = scope_env.admin
+    office = await create_workspace(slug="office", name="Office")
+    await create_workspace_user(admin, office)
+    shut = {office.id}
+    asked: list[set[int]] = []
+
+    class Narrowed(RealtimeAuth):
+        async def reached_scopes(self, token: str, scope_ids: Any) -> set[int]:
+            asked.append(set(scope_ids))
+
+            return set(scope_ids) - shut
+
+    handshake = {"type": "authenticate", "data": {"token": auth_token(admin), "scopes": ["acme", "office"]}}
+    watch = {"type": "watch", "data": {"scopes": ["office"]}}
+    socket: Any = ScriptedWebSocket(json.dumps(handshake), [watch], hold=True)
+    serving = asyncio.create_task(_serve(socket, ws_manager, Narrowed()))
+
+    assert await wait_until(lambda: len(asked) == 2)
+
+    connection = next(iter(ws_manager._by_user[admin.id]))
+
+    assert socket.sent[0]["data"]["scopes"] == ["acme"]
+    assert connection.scope_ids == set()
+
+    shut.clear()
+    ws_manager.recheck([admin.id])
+
+    assert await wait_until(lambda: connection.scope_ids == {office.id})
+
+    await socket.close()
+    await asyncio.wait_for(serving, timeout=3.0)
+
+
 async def test_a_scope_renamed_while_a_socket_reads_it_stays_on_that_socket(ws_manager, scope_env) -> None:
     checked: list[set[int]] = []
 

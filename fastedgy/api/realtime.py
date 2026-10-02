@@ -90,7 +90,7 @@ async def websocket_endpoint(
         recheck = asyncio.create_task(
             _recheck(websocket, connection, token, lock, manager, broadcaster, auth, settings.realtime_recheck_interval)
         )
-        await _listen(websocket, connection, user, lock, manager, broadcaster, auth, settings)
+        await _listen(websocket, connection, user, token, lock, manager, broadcaster, auth, settings)
     finally:
         if recheck is not None:
             recheck.cancel()
@@ -147,7 +147,7 @@ async def _authenticate(
         return None
 
     asked = _scope(data)
-    scopes = await auth.scopes_of(user, asked)
+    scopes = await _reached(auth, token, await auth.scopes_of(user, asked))
 
     if asked and not scopes:
         await _refuse(websocket, "Scope not found")
@@ -161,6 +161,7 @@ async def _listen(
     websocket: WebSocket,
     connection: Connection,
     user: "User",
+    token: str,
     lock: asyncio.Lock,
     manager: WebSocketManager,
     broadcaster: WebSocketBroadcaster,
@@ -228,7 +229,7 @@ async def _listen(
 
             async with lock:
                 connection.asked_scope = asked
-                scopes = await auth.scopes_of(user, asked)
+                scopes = await _reached(auth, token, await auth.scopes_of(user, asked))
                 await _apply(broadcaster, manager.watch(connection, _ids(scopes)))
         elif event_type == "subscribe":
             manager.subscribe(connection, _channels(data))
@@ -276,7 +277,8 @@ async def _recheck(
             async with lock:
                 scopes = await auth.scopes_of(user, connection.asked_scope)
                 held = await auth.held_scopes(user, connection.scope_ids)
-                await _apply(broadcaster, manager.watch(connection, _ids(scopes) | held))
+                reached = await auth.reached_scopes(token, _ids(scopes) | held)
+                await _apply(broadcaster, manager.watch(connection, reached))
         except Exception as e:  # noqa: BLE001 - checked again at the next round
             logger.debug("Could not check a socket of user %s again: %s", connection.user_id, e)
 
@@ -332,6 +334,13 @@ def _scope(data: dict[str, Any]) -> Any:
 
 def _ids(scopes: "list[Scope]") -> set[int]:
     return {scope.id for scope in scopes if scope.id is not None}
+
+
+async def _reached(auth: RealtimeAuth, token: str, scopes: "list[Scope]") -> "list[Scope]":
+    """Of the scopes of the account, those its bearer reaches as well."""
+    reached = await auth.reached_scopes(token, _ids(scopes))
+
+    return [scope for scope in scopes if scope.id in reached]
 
 
 def _channels(data: dict[str, Any]) -> list[str]:

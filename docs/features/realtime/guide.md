@@ -421,7 +421,22 @@ class AppRealtimeAuth(RealtimeAuth):
 register_service(AppRealtimeAuth, key=RealtimeAuth, force=True)
 ```
 
-Both methods also answer the checks made while a socket stays open: keep them to reading.
+A key that names only some of its owner's scopes narrows a socket the same way:
+`reached_scopes(token, scope_ids)` answers which of the account's scopes the bearer itself
+reaches, at the handshake, on a `watch` and on every check. Every one does by default.
+
+```python
+from collections.abc import Collection
+
+
+class AppRealtimeAuth(RealtimeAuth):
+    async def reached_scopes(self, token: str, scope_ids: Collection[int]) -> set[int]:
+        named = await scope_ids_named_by_key(token)
+
+        return set(scope_ids) & named if named else set(scope_ids)
+```
+
+These methods also answer the checks made while a socket stays open: keep them to reading.
 
 ## Next steps
 

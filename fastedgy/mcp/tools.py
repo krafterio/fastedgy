@@ -290,17 +290,20 @@ async def _resolve_model(name: str) -> type[BaseModel | BaseView]:
 
 def _refuse_disabled_action(name: str, model_cls: type[BaseModel | BaseView]) -> None:
     """A record tool declares the api route action it delegates to, and reaches a
-    model only where that action is enabled, as the route generator decides: a
-    model that turns an action off writes through a path of its own."""
+    model only where the app routes that action, as the route generator decides: a
+    model that turns an action off writes through a path of its own, and a model
+    the app does not route at all, one only the console routes, is not reached."""
     tool = next((tool for tool in _model_tools(False) if tool["name"] == name), {})
-    registry = get_service(RouteModelRegistry)
 
-    if "action" not in tool or not registry.is_model_registered(model_cls):
+    if "action" not in tool:
         return
 
+    registry = get_service(RouteModelRegistry)
     action = get_service(ApiRouteActionRegistry).get_action(tool["action"])
 
-    if not action.should_register(registry.get_model_options(model_cls).get("actions", {})):
+    if not registry.is_model_registered(model_cls) or not action.should_register(
+        registry.get_model_options(model_cls).get("actions", {})
+    ):
         raise HTTPException(
             status_code=405,
             detail=f"`{name}` is not available on '{model_cls.meta.tablename}': this model does not allow it.",

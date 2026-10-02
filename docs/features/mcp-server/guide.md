@@ -142,6 +142,10 @@ The `workspace` slug is required on the record tools of a multi-tenant applicati
 tools: a workspace can only add fields to a model, so its metadata is worth having before one is picked. An application
 without workspaces never sees the argument at all.
 
+A record tool reaches a model only through an action the application routes for it with `@api_route_model`. An action
+the model turns off answers `405`, and so does every record tool on a model only `@console_api_route_model` routes:
+the console guards its routes with its own dependencies, which a tool does not run.
+
 ### Filters
 
 A rule is `[field, operator, value]`, or `[field, operator]` for an operator that takes none. A group is `["&", [...]]`

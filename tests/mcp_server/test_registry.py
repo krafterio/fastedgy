@@ -9,7 +9,7 @@ import json
 import pytest
 
 from fastedgy.dependencies import get_service
-from fastedgy.mcp import McpRegistry, mcp_resource, mcp_tool
+from fastedgy.mcp import McpRegistry, mcp_resource, mcp_tool, mcp_workspace_guard
 from tests.mcp_server.helpers import payload, rpc
 
 pytestmark = pytest.mark.anyio
@@ -19,13 +19,14 @@ pytestmark = pytest.mark.anyio
 def registry():
     """A registry emptied around each test: registration is process-wide."""
     registry = get_service(McpRegistry)
-    tools, resources = dict(registry._tools), dict(registry._resources)
+    tools, resources, guards = dict(registry._tools), dict(registry._resources), list(registry._workspace_guards)
     registry._tools.clear()
     registry._resources.clear()
+    registry._workspace_guards.clear()
 
     yield registry
 
-    registry._tools, registry._resources = tools, resources
+    registry._tools, registry._resources, registry._workspace_guards = tools, resources, guards
 
 
 async def test_a_registered_tool_joins_the_catalogue_and_answers(agent, registry):
@@ -71,6 +72,31 @@ async def test_the_built_in_tools_stay(agent, registry):
     assert {"list_records", "get_model_info", "request", "extra"} <= {
         tool["name"] for tool in catalogue["result"]["tools"]
     }
+
+
+async def test_a_workspace_guard_keeps_a_member_out(agent, registry):
+    """A key narrowed to some workspaces by the application: the membership
+    alone no longer opens one."""
+    client, token, slug = agent
+    shut: set[str] = set()
+
+    @mcp_workspace_guard
+    async def not_shut(workspace) -> bool:
+        return workspace.slug not in shut
+
+    async def call(name: str, **arguments) -> dict:
+        return await rpc(client, token, "tools/call", {"name": name, "arguments": arguments})
+
+    assert payload(await call("list_workspaces")) == [{"slug": slug, "name": "Acme"}]
+    assert payload(await call("list_records", model="product", workspace=slug))["total"] == 0
+
+    shut.add(slug)
+
+    assert payload(await call("list_workspaces")) == []
+
+    refused = (await call("list_records", model="product", workspace=slug))["result"]
+    assert refused["isError"] is True
+    assert f"No workspace '{slug}'" in refused["content"][0]["text"]
 
 
 def test_a_built_in_name_is_refused(registry):

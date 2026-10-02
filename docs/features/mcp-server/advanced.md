@@ -73,6 +73,29 @@ async def read_flow(uri: str) -> dict:
 A concrete URI is routed to the resource whose template prefix it matches, the longest first, so a template may sit
 under another one's namespace.
 
+## Narrowing the workspaces a call enters
+
+The MCP endpoint runs none of the dependencies of the application's routers: a check an application adds there, such
+as a key that names only some of its owner's workspaces, does not reach the tools. Register it as a workspace guard,
+an async predicate a workspace has to pass on top of the caller's membership:
+
+```python
+from fastedgy.mcp import mcp_workspace_guard
+from services.agents import workspace_ids_of_calling_key
+
+
+@mcp_workspace_guard
+async def key_reaches(workspace) -> bool:
+    allowed = await workspace_ids_of_calling_key()
+
+    return not allowed or workspace.id in allowed
+```
+
+Every guard is asked by `enter_workspace`, so by the built-in tools, the resources and the application's own tools
+alike, and by `list_workspaces`, which leaves out a workspace a guard refuses. A refused slug answers `404`, the same as
+a workspace the caller is not a member of. The current request is in the context while a guard runs, its headers
+included.
+
 ## Registration rules
 
 Registration is additive and never silent:

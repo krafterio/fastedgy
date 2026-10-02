@@ -20,6 +20,10 @@ a ready list of MCP content blocks."""
 type ResourceReader = Callable[[str], Awaitable[Any]]
 """Takes the whole URI, gives back the value to serialize as JSON."""
 
+type WorkspaceGuard = Callable[[Any], Awaitable[bool]]
+"""Takes a workspace the caller is a member of, says whether the current call
+may enter it."""
+
 
 @dataclass(frozen=True)
 class McpTool:
@@ -53,6 +57,7 @@ class McpRegistry:
 
     _tools: dict[str, McpTool] = field(default_factory=dict)
     _resources: dict[str, McpResource] = field(default_factory=dict)
+    _workspace_guards: list[WorkspaceGuard] = field(default_factory=list)
 
     def register_tool(
         self,
@@ -100,6 +105,20 @@ class McpRegistry:
         self._resources[name] = resource
 
         return resource
+
+    def register_workspace_guard(self, guard: WorkspaceGuard) -> WorkspaceGuard:
+        self._workspace_guards.append(guard)
+
+        return guard
+
+    async def admits(self, workspace: Any) -> bool:
+        """Whether every guard lets the current call into a workspace its caller
+        is a member of."""
+        for guard in self._workspace_guards:
+            if not await guard(workspace):
+                return False
+
+        return True
 
     def get_tools(self) -> list[McpTool]:
         return list(self._tools.values())
@@ -154,12 +173,28 @@ def mcp_resource(
     return decorator
 
 
+def mcp_workspace_guard(guard: WorkspaceGuard) -> WorkspaceGuard:
+    """Register an async predicate a workspace has to pass, on top of the
+    caller's membership, before an MCP call enters it or `list_workspaces`
+    names it. The MCP server runs none of the route dependencies: an
+    application that narrows a key to some of its owner's workspaces says so
+    here as well.
+
+        @mcp_workspace_guard
+        async def key_reaches(workspace) -> bool:
+            ...
+    """
+    return get_service(McpRegistry).register_workspace_guard(guard)
+
+
 __all__ = [
     "McpRegistry",
     "McpResource",
     "McpTool",
     "ResourceReader",
     "ToolHandler",
+    "WorkspaceGuard",
     "mcp_resource",
     "mcp_tool",
+    "mcp_workspace_guard",
 ]

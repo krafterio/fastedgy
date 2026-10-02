@@ -247,7 +247,7 @@ async def get_tools() -> list[dict[str, Any]]:
 
 async def enter_workspace(slug: str | None, required: bool = True) -> None:
     """Run the rest of the call as the given workspace, refusing a slug the
-    caller is not a member of.
+    caller is not a member of, or one a workspace guard keeps it out of.
 
     The catalogue reads do not require one: a workspace can only add fields to
     a model, so its metadata is worth having even before one is picked.
@@ -271,7 +271,7 @@ async def enter_workspace(slug: str | None, required: bool = True) -> None:
     )
     workspace = getattr(workspace_user, "workspace", None) if workspace_user else None
 
-    if not workspace_user or not workspace:
+    if not workspace_user or not workspace or not await get_service(McpRegistry).admits(workspace):
         raise HTTPException(status_code=404, detail=f"No workspace '{slug}' for this user")
 
     context.set_workspace(workspace)
@@ -319,11 +319,12 @@ async def _list_workspaces() -> list[dict[str, Any]]:
     user = context.get_user()
     memberships = await model.query.select_related("workspace").filter(R("user", "=", getattr(user, "id", None))).all()
     workspaces = [getattr(membership, "workspace", None) for membership in memberships]
+    registry = get_service(McpRegistry)
 
     return [
         {"slug": workspace.slug, "name": getattr(workspace, "name", None)}
         for workspace in workspaces
-        if workspace is not None
+        if workspace is not None and await registry.admits(workspace)
     ]
 
 

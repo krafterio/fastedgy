@@ -11,8 +11,10 @@ from fastedgy.mcp.registry import (
     McpRegistry,
     McpResource,
     McpTool,
+    WorkspaceGuard,
     mcp_resource,
     mcp_tool,
+    mcp_workspace_guard,
 )
 from fastedgy.mcp.server import (
     DEFAULT_CACHE_HINTS,
@@ -30,9 +32,11 @@ __all__ = [
     "McpResponse",
     "McpTool",
     "McpTransport",
+    "WorkspaceGuard",
     "build_mcp_server",
     "create_mcp_router",
     "enter_workspace",
     "mcp_resource",
     "mcp_tool",
+    "mcp_workspace_guard",
 ]

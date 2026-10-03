@@ -1596,9 +1596,9 @@ class QueueWorkerManager:
                     idle_workers = self.worker_pool.idle_workers
 
                     self.worker_status_record.update_stats(active=busy_workers, idle=idle_workers, is_running=True)
-                    # Retry on serialization conflicts (databasez defaults to
-                    # SERIALIZABLE): a missed beat shrinks the liveness window
-                    # used by stats and the boot-recovery guard. Hard deadline
+                    # Retry on serialization conflicts and deadlocks: a missed
+                    # beat shrinks the liveness window used by stats and the
+                    # boot-recovery guard. Hard deadline
                     # under the 30s interval: a HANGING write (TCP black hole)
                     # would otherwise also block the health-file touch and
                     # flap the container — the opposite of its purpose.

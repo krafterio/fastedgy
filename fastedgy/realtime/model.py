@@ -402,9 +402,9 @@ def _publish(announcement: Announcement | None, key: Any = None) -> None:
     """Issue an announcement once the transaction its write belongs to has committed.
 
     Through [fastedgy.orm.transaction.run_signal_side_effect], which discards the
-    queue of an attempt that rolled back: under SERIALIZABLE a replayed
-    transaction would otherwise announce once per attempt, and a write that never
-    committed would announce all the same.
+    queue of an attempt that rolled back: a transaction replayed after a
+    serialization failure or a deadlock would otherwise announce once per attempt,
+    and a write that never committed would announce all the same.
     """
     if announcement is not None:
         run_signal_side_effect(*announcement, key=key)

@@ -26,7 +26,7 @@ logger = logging.getLogger("models.user_api_token")
 _HINT_LENGTH = 12
 
 # One write per window: every authenticated call otherwise updates the same
-# row, which SERIALIZABLE turns into contention on parallel calls.
+# row, and parallel calls wait on each other for its lock.
 _LAST_USED_WINDOW = timedelta(minutes=15)
 
 

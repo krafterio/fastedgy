@@ -103,7 +103,8 @@ socket they hold. A deletion asks before the row goes, like any other.
 The announcement is prepared in the write's own transaction and published after it commits,
 through [`run_signal_side_effect`](../../features/orm-extensions/overview.md).
 
-This matters more than it looks. FastEdgy's default isolation is `SERIALIZABLE` with replay:
+This matters more than it looks. FastEdgy's default isolation is `READ COMMITTED`, and a unit run
+by `@transaction` or `with_transaction()` is replayed after a serialization failure or a deadlock:
 announcing from inside the transaction told clients about a write that had not happened, and
 told them once per attempt when one was replayed.
 

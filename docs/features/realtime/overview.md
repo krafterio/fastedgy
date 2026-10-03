@@ -18,7 +18,8 @@ client watching it hears them.
 - **Identifiers only**: an event names what moved, never its content. The client reads the
   record back through the API, so the announcement never leaks a field a reader may not see.
 - **Committed writes only**: an announcement is published after the transaction commits, so
-  a rolled back attempt, or one replayed under `SERIALIZABLE`, announces nothing.
+  a rolled back attempt, or one replayed after a serialization failure or a deadlock, announces
+  nothing.
 - **Addressed**: to a scope, to one account for what belongs to a person rather than to a
   space, or to the accounts a record reaches through its relations, the members of a thread
   for its messages.

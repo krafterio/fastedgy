@@ -1,11 +1,15 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+import contextlib
 import inspect
 import os
 import shutil
 import tempfile
+import time
+import uuid
 from collections.abc import AsyncIterator, Callable, Iterator
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -16,6 +20,9 @@ from fastedgy.test import database
 from fastedgy.test.app import build_app, load_app
 
 WORKER_ID = os.environ.get("PYTEST_XDIST_WORKER", "main")
+# One launch of the suite: the workers of an xdist run share the uid their controller hands them (set before any
+# plugin loads), a run without xdist draws its own.
+RUN_ID = (os.environ.get("PYTEST_XDIST_TESTRUNUID") or uuid.uuid4().hex)[:12]
 
 database.configure_database_env(WORKER_ID)
 
@@ -30,12 +37,17 @@ os.environ.setdefault("MAIL_ADAPTER", "mock")
 os.environ.setdefault("STRICT_PASSWORD_HASH", "true")
 os.environ.setdefault("MAIL_TEMPLATES_PATH", os.path.join(os.path.dirname(__file__), "templates"))
 
-# Each worker gets an isolated storage root under the system temp directory so
-# filesystem uploads never collide across parallel pytest-xdist workers. This is
-# forced (not setdefault): xdist workers inherit the controller's environment, so
-# a default would leak the controller's path into every worker.
-STORAGE_ROOT = os.path.join(tempfile.gettempdir(), "fastedgy-test-storage", WORKER_ID)
+# Each worker of each launch gets its own storage root under the system temp
+# directory, so filesystem uploads never collide across parallel pytest-xdist
+# workers, nor across two launches of the suite at once. This is forced (not
+# setdefault): xdist workers inherit the controller's environment, so a default
+# would leak the controller's path into every worker.
+STORAGE_RUNS = os.path.join(tempfile.gettempdir(), "fastedgy-test-storage")
+STORAGE_ROOT = os.path.join(STORAGE_RUNS, RUN_ID, WORKER_ID)
 os.environ["DATA_PATH"] = STORAGE_ROOT
+
+# The folder of a launch that was killed before its teardown goes once it is that old.
+ABANDONED_AFTER = 24 * 3600
 
 
 def stored_file_path(relative_path: str) -> str:
@@ -43,14 +55,41 @@ def stored_file_path(relative_path: str) -> str:
     return os.path.join(STORAGE_ROOT, "global", relative_path)
 
 
+def restore_storage(template: Path, target: str = STORAGE_ROOT) -> None:
+    """Start a worker's storage as a copy of the one the template build left,
+    as its database starts as a clone of the template database."""
+    shutil.rmtree(target, ignore_errors=True)
+
+    if template.is_dir():
+        shutil.copytree(template, target)
+    else:
+        os.makedirs(target, exist_ok=True)
+
+
+def remove_abandoned_runs(now: float | None = None) -> None:
+    """Remove the storage folders of the launches that died before their teardown."""
+    limit = (time.time() if now is None else now) - ABANDONED_AFTER
+
+    with contextlib.suppress(OSError):
+        for entry in os.scandir(STORAGE_RUNS):
+            if entry.name != RUN_ID and entry.is_dir() and entry.stat().st_mtime < limit:
+                shutil.rmtree(entry.path, ignore_errors=True)
+
+
 @pytest.fixture(scope="session", autouse=True)
 def cleanup_storage_root() -> Iterator[None]:
     # Each worker owns its storage root, so removing it on teardown is safe under
-    # parallel runs and leaves no temporary files behind.
+    # parallel runs and leaves no temporary files behind; the folder of the
+    # launch goes with its last worker.
+    remove_abandoned_runs()
+
     try:
         yield
     finally:
         shutil.rmtree(STORAGE_ROOT, ignore_errors=True)
+
+        with contextlib.suppress(OSError):
+            os.rmdir(os.path.dirname(STORAGE_ROOT))
 
 
 @pytest.fixture(scope="session")
@@ -70,8 +109,10 @@ def setup_database(tmp_path_factory: pytest.TempPathFactory) -> Iterator[bool]:
         return
 
     shared_dir = tmp_path_factory.getbasetemp().parent if WORKER_ID != "main" else None
-    database.ensure_template_database(shared_dir, WORKER_ID)
+    storage_template = (shared_dir or tmp_path_factory.getbasetemp()) / f"{database.template_database_name()}-storage"
+    database.ensure_template_database(shared_dir, WORKER_ID, storage_template)
     database.create_worker_database(WORKER_ID)
+    restore_storage(storage_template)
 
     try:
         yield True
@@ -205,10 +246,14 @@ def override_settings(monkeypatch: pytest.MonkeyPatch) -> Callable[..., None]:
 
 
 __all__ = [
+    "RUN_ID",
+    "STORAGE_ROOT",
     "anyio_backend",
     "auth_http",
     "fresh_context",
     "override_settings",
+    "remove_abandoned_runs",
+    "restore_storage",
     "seed_data",
     "setup_app",
     "setup_database",

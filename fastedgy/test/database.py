@@ -3,6 +3,7 @@
 
 import asyncio
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -18,7 +19,15 @@ _PROJECT_ROOT = Path.cwd()
 
 
 def _resolve_base_database_url() -> str:
-    env_url = os.environ.get("FASTEDGY_TEST_DATABASE_URL") or os.environ.get("DATABASE_URL")
+    # The toolkit points DATABASE_URL at the worker database, so a worker or the template build cannot derive anything
+    # from it once the tests are active. FASTEDGY_TEST_DATABASE_URL is never rewritten: it holds in every process of a
+    # run, which is how two runs at once keep their databases apart.
+    explicit_url = os.environ.get("FASTEDGY_TEST_DATABASE_URL")
+
+    if explicit_url:
+        return explicit_url
+
+    env_url = os.environ.get("DATABASE_URL")
 
     if env_url and "FASTEDGY_TEST_ACTIVE" not in os.environ:
         return env_url
@@ -164,12 +173,19 @@ def drop_worker_database(worker_id: str) -> None:
     asyncio.run(_drop_database(worker_database_name(worker_id)))
 
 
-def _build_template_subprocess() -> None:
+def _build_template_subprocess(storage_template: Path | None = None) -> None:
     # Propagate the parent's import paths so the subprocess can resolve the
     # project app factory (e.g. ``main:app``) — pytest's ``pythonpath`` only
     # mutates the current process's ``sys.path``, not the environment.
     env = os.environ.copy()
     env["PYTHONPATH"] = os.pathsep.join(p for p in sys.path if p)
+
+    # What the build stores (a migration or a data load writing files) lands in the storage template, which each
+    # worker copies next to its clone of the template database.
+    if storage_template is not None:
+        shutil.rmtree(storage_template, ignore_errors=True)
+        storage_template.mkdir(parents=True)
+        env["DATA_PATH"] = str(storage_template)
 
     result = subprocess.run(
         [sys.executable, "-m", "fastedgy.test.build_template"],
@@ -201,9 +217,9 @@ def _wait_for_marker(marker: Path, timeout: float = 180.0) -> None:
     raise TimeoutError("Timed out waiting for the template database to be built")
 
 
-def ensure_template_database(shared_dir: Path | None, worker_id: str) -> None:
+def ensure_template_database(shared_dir: Path | None, worker_id: str, storage_template: Path | None = None) -> None:
     if worker_id == "main" or shared_dir is None:
-        _build_template_subprocess()
+        _build_template_subprocess(storage_template)
         return
 
     ready = shared_dir / f"{template_database_name()}.ready"
@@ -216,7 +232,7 @@ def ensure_template_database(shared_dir: Path | None, worker_id: str) -> None:
         return
 
     try:
-        _build_template_subprocess()
+        _build_template_subprocess(storage_template)
         ready.write_text("ok", encoding="utf-8")
     except Exception:
         ready.write_text("failed", encoding="utf-8")

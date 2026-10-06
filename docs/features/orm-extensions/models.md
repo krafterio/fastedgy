@@ -139,6 +139,21 @@ await membership.save()
 
 This keeps the field immutable at the API boundary while leaving it fully writable from trusted code (creation factories, CLI commands, data seeding).
 
+### Setting read-only fields through a queryset
+
+`update()` on a queryset drops the read-only fields it is handed. The queryset has the same `apply_readonly_values(...)`: it returns a queryset carrying the values, and every `update()` it runs writes them along with its own arguments:
+
+```python
+from fastedgy.orm.filter import R
+
+await WorkspaceUser.query.filter(R("user", "=", user_id)).apply_readonly_values({"is_default": False}).update()
+```
+
+- The values survive further chaining (`.apply_readonly_values(...).filter(...)`).
+- Only `update()` reads them: `create()`, `get_or_create()` and the writes of an instance ignore them.
+- Like any queryset write, the update is not announced by [`@realtime_model`](../realtime/overview.md).
+- An unknown field name raises `ValueError`.
+
 ## Automatic API integration
 
 Integrate with FastEdgy's API route generator:

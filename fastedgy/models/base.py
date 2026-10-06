@@ -635,9 +635,12 @@ class BaseModel(Model, metaclass=ModelMeta):
             evaluate_values=evaluate_values,
         )
 
-        overrides = (
-            getattr(model_instance, "_readonly_overrides", None) if isinstance(model_instance, BaseModel) else None
-        )
+        if isinstance(model_instance, BaseModel):
+            overrides = getattr(model_instance, "_readonly_overrides", None)
+        elif model_instance is None and phase == "prepare_update":
+            overrides = getattr(instance, "_readonly_overrides", None)
+        else:
+            overrides = None
 
         # Edgy re-injects the default of every `read_only` field holding one on
         # an update, so saving one column rewrites the others: an avatar upload

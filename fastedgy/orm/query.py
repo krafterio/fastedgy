@@ -1,6 +1,8 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+from collections.abc import Mapping
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Self, cast
 
 from edgy.core.db.querysets import (
@@ -67,6 +69,28 @@ class QuerySet(BaseQuerySet):
     name a field the model keeps off its API surface. `global_query` sets it
     True: that manager already answers for the system, and the internal
     columns are exactly what a scheduler or a service filters on."""
+
+    _readonly_overrides: Mapping[str, Any] = MappingProxyType({})
+
+    def apply_readonly_values(self, values: dict[str, Any]) -> Self:
+        """Stage values for ``read_only`` fields, written by every ``update()`` of the queryset returned.
+
+        The queryset counterpart of ``BaseModel.apply_readonly_values``: ``update()`` drops a
+        ``read_only`` field it is handed, as a save does, and writes the values staged here."""
+        for name in values:
+            if name not in self.model_class.meta.fields:
+                raise ValueError(f"Unknown field '{name}' on {self.model_class.__name__}")
+
+        queryset = self._clone()
+        queryset._readonly_overrides = MappingProxyType({**self._readonly_overrides, **values})
+
+        return cast(Self, queryset)
+
+    def _clone(self) -> QuerySet:
+        queryset = cast(QuerySet, super()._clone())
+        queryset._readonly_overrides = self._readonly_overrides
+
+        return queryset
 
     def filter(self, *clauses: Any, allow_excluded: bool | None = None, **kwargs: Any) -> QuerySet:
         # Deferred: the filter builder imports this module.

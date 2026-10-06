@@ -75,10 +75,15 @@ class ChangePasswordRequest(BaseModel):
     new_password: NewPassword
 
 
+class PasswordChanged(Token):
+    message: str
+
+
 __all__ = [
     "ChangePasswordRequest",
     "ForgotPasswordRequest",
     "NewPassword",
+    "PasswordChanged",
     "ResetPasswordRequest",
     "Token",
     "TokenRefresh",

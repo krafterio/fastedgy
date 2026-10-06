@@ -1,8 +1,8 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, cast
+from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING, Any, cast
 from uuid import uuid4
 
 from fastapi import APIRouter, Body, Depends, HTTPException, status
@@ -13,11 +13,14 @@ from fastedgy.bus import BaseEvent, Bus
 from fastedgy.config import BaseSettings
 from fastedgy.dependencies import Inject
 from fastedgy.depends.security import (
+    PASSWORD_FINGERPRINT_CLAIM,
     authenticate_user,
     create_access_token,
     create_refresh_token,
     get_current_user,
     hash_password_async,
+    token_claims,
+    token_matches_password,
     verify_password_async,
 )
 from fastedgy.i18n import _t
@@ -29,6 +32,7 @@ from fastedgy.schemas.auth import (
     ForgotPasswordValidate,
     ForgotPasswordValidateRequest,
     LoginRequest,
+    PasswordChanged,
     ResetPasswordRequest,
     Token,
     TokenRefresh,
@@ -75,9 +79,10 @@ async def login_for_access_token(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    claims = token_claims(user)
     access_token_expires = timedelta(minutes=settings.auth_access_token_expire_minutes)
-    access_token = create_access_token(data={"sub": user.email or user.username}, expires_delta=access_token_expires)
-    refresh_token = create_refresh_token(data={"sub": user.email or user.username})
+    access_token = create_access_token(data=claims, expires_delta=access_token_expires)
+    refresh_token = create_refresh_token(data=claims)
 
     await bus.dispatch(OnAuthLoginEvent(user=user, access_token=access_token, refresh_token=refresh_token))
 
@@ -121,13 +126,17 @@ async def refresh_access_token(
     else:
         user = await User.query.filter(email=sub).first()
 
-    if user is None:
+    if user is None or not token_matches_password(payload, user):
         raise credentials_exception
 
-    new_sub = user.email or user.username
+    claims, refresh_token_expires = _renewed_session(payload, user)
     access_token_expires = timedelta(minutes=settings.auth_access_token_expire_minutes)
-    new_access_token = create_access_token(data={"sub": new_sub}, expires_delta=access_token_expires)
-    new_refresh_token = create_refresh_token(data={"sub": new_sub})
+    new_access_token = create_access_token(data=claims, expires_delta=access_token_expires)
+    new_refresh_token = (
+        create_refresh_token(data=claims)
+        if refresh_token_expires is None
+        else create_refresh_token(data=claims, expires_delta=refresh_token_expires)
+    )
 
     await bus.dispatch(
         OnAuthRefreshTokenEvent(user=user, access_token=new_access_token, refresh_token=new_refresh_token)
@@ -138,6 +147,22 @@ async def refresh_access_token(
         refresh_token=new_refresh_token,
         token_type="bearer",
     )
+
+
+def _renewed_session(payload: dict[str, Any], user: "User") -> tuple[dict[str, Any], timedelta | None]:
+    """The claims a refresh hands out, and the lifetime left to its refresh token when it is not a full one.
+
+    A session opened before the password fingerprint is renewed without one, and only until the token it
+    was opened with expires: bound to the password the account holds now, a stolen token would outlive a
+    change of that password, rotation after rotation."""
+    claims = token_claims(user)
+
+    if PASSWORD_FINGERPRINT_CLAIM not in claims or PASSWORD_FINGERPRINT_CLAIM in payload:
+        return claims, None
+
+    del claims[PASSWORD_FINGERPRINT_CLAIM]
+
+    return claims, datetime.fromtimestamp(payload.get("exp", 0), UTC) - datetime.now(UTC)
 
 
 @public_router.post("/password/reset")
@@ -221,7 +246,7 @@ async def password_validate(
 async def change_password(
     data: ChangePasswordRequest,
     current_user: "User" = Depends(get_current_user),
-) -> SimpleMessage:
+) -> PasswordChanged:
     if not await verify_password_async(current_user.password, data.current_password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -230,8 +255,14 @@ async def change_password(
 
     password = await hash_password_async(data.new_password)
     await current_user.save(values={"password": password})
+    claims = token_claims(current_user)
 
-    return SimpleMessage(message=_t("Password changed successfully"))
+    return PasswordChanged(
+        message=_t("Password changed successfully"),
+        access_token=create_access_token(data=claims),
+        refresh_token=create_refresh_token(data=claims),
+        token_type="bearer",
+    )
 
 
 __all__ = [

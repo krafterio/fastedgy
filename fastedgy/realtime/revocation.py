@@ -3,6 +3,7 @@
 
 from typing import Any
 
+from fastedgy.config import BaseSettings
 from fastedgy.dependencies import get_service, has_service
 from fastedgy.depends.security import find_workspace_user_model
 from fastedgy.models.user_api_token import find_user_api_token_model
@@ -24,10 +25,11 @@ def watch_revocations() -> None:
     """Have the sockets of an account checked at once when what let them in goes.
 
     A membership or a personal API key changed or deleted, an account deleted, or
-    the email or username its session tokens name changed: every worker checks
-    the sockets of that account now rather than at their next round. What goes
-    through no ORM signal, a cascade in the database or a queryset write, is
-    caught at that next round.
+    the email or username its session tokens name changed, its password too with
+    `auth_revoke_tokens_on_password_change`: every worker checks the sockets of
+    that account now rather than at their next round. What goes through no ORM
+    signal, a cascade in the database or a queryset write, is caught at that
+    next round.
     """
     global _watched
 
@@ -84,7 +86,15 @@ async def _account_saved(
     column_values: dict[str, Any] | None = None,
     **_: Any,
 ) -> None:
-    if is_update and model_instance is not None and any(name in (column_values or {}) for name in TOKEN_SUBJECTS):
+    if not is_update or model_instance is None:
+        return
+
+    columns = TOKEN_SUBJECTS
+
+    if get_service(BaseSettings).auth_revoke_tokens_on_password_change:
+        columns = (*columns, "password")
+
+    if any(name in (column_values or {}) for name in columns):
         _recheck(getattr(model_instance, "id", None))
 
 

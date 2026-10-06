@@ -2,21 +2,31 @@
 # MIT License (see LICENSE file).
 
 from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
 import pytest
+from jose import jwt
 
 import fastedgy.api.auth as auth_api
 from fastedgy import dependencies
+from fastedgy.config import BaseSettings
 from fastedgy.dependencies import get_service
 from fastedgy.depends import security
+from fastedgy.depends.security import create_access_token, create_refresh_token, token_claims
 from fastedgy.mail import Mail, MockAdapter
+from fastedgy.orm import drain_signal_side_effects
 from fastedgy.orm.filter import R
+from fastedgy.realtime.broadcaster import WebSocketBroadcaster
+from fastedgy.realtime.revocation import watch_revocations
 from fastedgy.schemas.auth import ChangePasswordRequest
+from fastedgy.test.factories import auth_token, create_user, hashed_password
 from fastedgy.test.models.user import User
 
 PASSWORD = "correct-horse"
+
+LEGACY_HASH = "$2b$12$0GnN9bwwrzSImYer4BiNu.izB7eAJnt2uzkCAj5lFelyFM3.LlpKi"
 
 
 async def _register(
@@ -68,6 +78,19 @@ def _mailbox() -> MockAdapter:
     return adapter
 
 
+def _claims(token: str) -> dict[str, Any]:
+    settings = get_service(BaseSettings)
+
+    return jwt.decode(token, settings.auth_secret_key, algorithms=[settings.auth_algorithm])
+
+
+def _legacy_refresh_token(email: str) -> str:
+    settings = get_service(BaseSettings)
+    claims = {"sub": email, "type": "refresh", "exp": datetime.now(UTC) + timedelta(days=3)}
+
+    return jwt.encode(claims, settings.auth_secret_key, algorithm=settings.auth_algorithm)
+
+
 def _renaming_while_hashing(monkeypatch: pytest.MonkeyPatch, email: str) -> None:
     hash_password_async = auth_api.hash_password_async
 
@@ -81,6 +104,18 @@ def _renaming_while_hashing(monkeypatch: pytest.MonkeyPatch, email: str) -> None
 
 async def _name_of(email: str) -> str | None:
     return (await User.global_query.filter(R("email", "=", email)).get()).name
+
+
+def _rechecks(monkeypatch: pytest.MonkeyPatch) -> list[list[int]]:
+    watch_revocations()
+    rechecked: list[list[int]] = []
+
+    async def recheck(user_ids: Any) -> None:
+        rechecked.append(list(user_ids))
+
+    monkeypatch.setattr(get_service(WebSocketBroadcaster), "recheck_users", recheck)
+
+    return rechecked
 
 
 async def test_register_then_login_returns_tokens(setup_http: httpx.AsyncClient) -> None:
@@ -223,6 +258,122 @@ def test_a_password_checked_outside_an_application_reads_no_settings(monkeypatch
     assert ChangePasswordRequest(current_password="old", new_password="1").new_password == "1"
 
 
+async def test_changing_the_password_revokes_the_tokens_issued_before(
+    setup_http: httpx.AsyncClient, override_settings: Callable[..., None]
+) -> None:
+    override_settings(auth_revoke_tokens_on_password_change=True)
+    await _register(setup_http, "liam@example.io")
+    before = (await _login(setup_http, "liam@example.io")).json()
+
+    changed = await _change(setup_http, before["access_token"], PASSWORD, "updated-horse")
+
+    assert changed.status_code == 200
+    assert await _protected(setup_http, before["access_token"]) == 401
+    assert (await _refresh(setup_http, before["refresh_token"])).status_code == 401
+    assert await _protected(setup_http, changed.json()["access_token"]) == 200
+    assert (await _refresh(setup_http, changed.json()["refresh_token"])).status_code == 200
+
+
+async def test_resetting_the_password_revokes_the_tokens_issued_before(
+    setup_http: httpx.AsyncClient, override_settings: Callable[..., None]
+) -> None:
+    override_settings(auth_revoke_tokens_on_password_change=True)
+    await _register(setup_http, "mia@example.io")
+    before = (await _login(setup_http, "mia@example.io")).json()
+
+    assert (await _reset(setup_http, "mia@example.io", "rotated-horse")).status_code == 200
+    assert await _protected(setup_http, before["access_token"]) == 401
+    assert (await _refresh(setup_http, before["refresh_token"])).status_code == 401
+
+
+async def test_a_token_issued_before_the_fingerprint_stays_valid_until_it_expires(
+    setup_http: httpx.AsyncClient, override_settings: Callable[..., None]
+) -> None:
+    override_settings(auth_revoke_tokens_on_password_change=True)
+    await _register(setup_http, "noah@example.io")
+    current = (await _login(setup_http, "noah@example.io")).json()
+    legacy_access = create_access_token({"sub": "noah@example.io"})
+    legacy_refresh = _legacy_refresh_token("noah@example.io")
+
+    assert (await _change(setup_http, current["access_token"], PASSWORD, "updated-horse")).status_code == 200
+    assert await _protected(setup_http, legacy_access) == 200
+
+    refreshed = await _refresh(setup_http, legacy_refresh)
+
+    assert refreshed.status_code == 200
+    assert await _protected(setup_http, refreshed.json()["access_token"]) == 200
+
+
+async def test_refreshing_a_token_issued_before_the_fingerprint_never_extends_it(
+    setup_http: httpx.AsyncClient, override_settings: Callable[..., None]
+) -> None:
+    override_settings(auth_revoke_tokens_on_password_change=True)
+    await _register(setup_http, "nina@example.io")
+    current = (await _login(setup_http, "nina@example.io")).json()
+    stolen = _legacy_refresh_token("nina@example.io")
+
+    assert (await _change(setup_http, current["access_token"], PASSWORD, "updated-horse")).status_code == 200
+
+    pair = (await _refresh(setup_http, stolen)).json()
+
+    for token in (pair["access_token"], pair["refresh_token"]):
+        assert "pwf" not in _claims(token)
+
+    assert _claims(pair["refresh_token"])["exp"] == _claims(stolen)["exp"]
+
+    rotated = (await _refresh(setup_http, pair["refresh_token"])).json()
+
+    assert _claims(rotated["refresh_token"])["exp"] == _claims(stolen)["exp"]
+
+
+async def test_by_default_a_password_change_ends_no_session(setup_http: httpx.AsyncClient) -> None:
+    await _register(setup_http, "olga@example.io")
+    before = (await _login(setup_http, "olga@example.io")).json()
+
+    assert "pwf" not in _claims(before["access_token"])
+    assert (await _change(setup_http, before["access_token"], PASSWORD, "updated-horse")).status_code == 200
+    assert await _protected(setup_http, before["access_token"]) == 200
+    assert await _protected(setup_http, create_access_token({"sub": "olga@example.io", "pwf": "stale"})) == 200
+    assert (await _refresh(setup_http, before["refresh_token"])).status_code == 200
+
+    legacy_refresh = _legacy_refresh_token("olga@example.io")
+    renewed = (await _refresh(setup_http, legacy_refresh)).json()
+
+    assert "pwf" not in _claims(renewed["access_token"])
+    assert _claims(renewed["refresh_token"])["exp"] > _claims(legacy_refresh)["exp"]
+
+
+async def test_by_default_a_password_change_has_no_socket_checked_again(
+    setup_http: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    await _register(setup_http, "vic@example.io")
+    access_token = (await _login(setup_http, "vic@example.io")).json()["access_token"]
+    rechecked = _rechecks(monkeypatch)
+
+    await _change(setup_http, access_token, PASSWORD, "updated-horse")
+    await drain_signal_side_effects()
+
+    assert rechecked == []
+
+
+async def test_a_login_that_upgrades_a_bcrypt_hash_hands_out_working_tokens(
+    setup_http: httpx.AsyncClient, override_settings: Callable[..., None]
+) -> None:
+    override_settings(auth_revoke_tokens_on_password_change=True)
+    user = await create_user(email="legacy@example.io", password=LEGACY_HASH)
+    legacy_access = create_access_token({"sub": "legacy@example.io"})
+    refreshed_on_bcrypt = create_refresh_token(token_claims(user))
+
+    tokens = (await _login(setup_http, "legacy@example.io", "secret")).json()
+    upgraded = await User.query.filter(email="legacy@example.io").first()
+
+    assert upgraded is not None and upgraded.password and upgraded.password.startswith("$argon2id$")
+    assert await _protected(setup_http, tokens["access_token"]) == 200
+    assert (await _refresh(setup_http, tokens["refresh_token"])).status_code == 200
+    assert await _protected(setup_http, legacy_access) == 200
+    assert (await _refresh(setup_http, refreshed_on_bcrypt)).status_code == 401
+
+
 async def test_a_short_password_is_refused_with_a_plain_message(
     setup_http: httpx.AsyncClient, override_settings: Callable[..., None]
 ) -> None:
@@ -279,3 +430,17 @@ async def test_resetting_a_password_leaves_the_other_columns_as_the_row_holds_th
     assert await _name_of("ruth@example.io") == "Renamed meanwhile"
     assert (await _login(setup_http, "ruth@example.io", "rotated-horse")).status_code == 200
     assert (await setup_http.post("/api/auth/password/reset", json=reset)).status_code == 400
+
+
+async def test_the_test_kit_token_is_revoked_by_a_password_change(
+    setup_http: httpx.AsyncClient, override_settings: Callable[..., None]
+) -> None:
+    override_settings(auth_revoke_tokens_on_password_change=True)
+    user = await create_user(email="tess@example.io", password=PASSWORD)
+    token = auth_token(user)
+
+    assert await _protected(setup_http, token) == 200
+
+    await user.save(values={"password": hashed_password("updated-horse")})
+
+    assert await _protected(setup_http, token) == 401

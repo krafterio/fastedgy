@@ -2313,6 +2313,34 @@
         "title": "Note-Update",
         "type": "object"
       },
+      "PasswordChanged": {
+        "properties": {
+          "access_token": {
+            "title": "Access Token",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "refresh_token": {
+            "title": "Refresh Token",
+            "type": "string"
+          },
+          "token_type": {
+            "title": "Token Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "access_token",
+          "refresh_token",
+          "token_type",
+          "message"
+        ],
+        "title": "PasswordChanged",
+        "type": "object"
+      },
       "Product": {
         "additionalProperties": true,
         "properties": {
@@ -8505,7 +8533,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SimpleMessage"
+                  "$ref": "#/components/schemas/PasswordChanged"
                 }
               }
             },

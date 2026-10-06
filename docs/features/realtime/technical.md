@@ -171,8 +171,8 @@ open: a token expires, an API key is revoked, an account is deleted, a membershi
   what is addressed to the account itself.
 
 Deleting or changing a membership or a personal API key, deleting an account, or changing the email
-or username its session tokens name has the sockets of that account checked at once, on every
-worker. A write no ORM signal sees, a cascade in the database or a queryset write, waits for the next
+or username its session tokens name, its password too with `auth_revoke_tokens_on_password_change`,
+has the sockets of that account checked at once, on every worker. A write no ORM signal sees, a cascade in the database or a queryset write, waits for the next
 round. `WebSocketBroadcaster.recheck_users(user_ids)` asks for the same check from anywhere else.
 
 ## The socket protocol

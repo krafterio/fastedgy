@@ -136,10 +136,11 @@ async def create_product(name: str = "Laptop", price: str = "999.00", **extra):
 
 
 def auth_token(user) -> str:
-    """Mint an access token for an existing user (selects it by its email)."""
-    from fastedgy.depends.security import create_access_token
+    """Mint an access token for an existing user, as a login would: with `auth_revoke_tokens_on_password_change`
+    on, a change of its password revokes it."""
+    from fastedgy.depends.security import create_access_token, token_claims
 
-    return create_access_token({"sub": user.email})
+    return create_access_token(token_claims(user))
 
 
 def authenticate(client: httpx.AsyncClient, user) -> httpx.AsyncClient:

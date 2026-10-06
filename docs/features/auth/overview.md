@@ -7,6 +7,7 @@ FastEdgy provides a built-in JWT-based authentication system with user registrat
 - **JWT tokens**: Access and refresh token support
 - **Password hashing**: argon2id, with older bcrypt hashes upgraded at their next login
 - **Password policy**: an optional minimum length, checked on registration, reset and change
+- **Session revocation**: optionally, changing or resetting a password ends the sessions opened before
 - **Route protection**: Dependency injection for protected endpoints
 - **User registration**: Simple registration with email validation
 - **Password reset**: Email-based password recovery
@@ -34,6 +35,15 @@ AUTH_ALGORITHM=HS256
 AUTH_ACCESS_TOKEN_EXPIRE_MINUTES=15
 AUTH_REFRESH_TOKEN_EXPIRE_DAYS=30
 ```
+
+The password policy and the session revocation are off by default (`AUTH_PASSWORD_MIN_LENGTH=0`, `AUTH_REVOKE_TOKENS_ON_PASSWORD_CHANGE=false`). Turn them on with:
+
+```env
+AUTH_PASSWORD_MIN_LENGTH=8
+AUTH_REVOKE_TOKENS_ON_PASSWORD_CHANGE=true
+```
+
+Read [what to do before turning on the revocation](guide.md#sessions-end-with-a-password-change) first.
 
 ## Built-in endpoints
 
@@ -69,7 +79,7 @@ class User(BaseUser):
 
 - **Access token**: Short-lived (15 min default), for API access
 - **Refresh token**: Long-lived (30 days default), for token renewal
-- **JWT payload**: Contains user email and token type
+- **JWT payload**: Contains user email and token type, and with `AUTH_REVOKE_TOKENS_ON_PASSWORD_CHANGE=true` a fingerprint of the password hash, which a password change or reset invalidates
 
 ## Use cases
 

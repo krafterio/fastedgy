@@ -1,6 +1,8 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+import hashlib
+import hmac
 import logging
 import secrets
 from datetime import UTC, datetime, timedelta
@@ -38,6 +40,8 @@ oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/api/auth/token", auto_e
 # of those Claude's connector dialog offers.
 API_TOKEN_HEADER = "X-Api-Token"
 api_token_scheme = APIKeyHeader(name=API_TOKEN_HEADER, auto_error=False)
+
+PASSWORD_FINGERPRINT_CLAIM = "pwf"
 
 
 # Hashing is CPU-bound and, with argon2id, holds its memory cost for the whole
@@ -91,13 +95,44 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     return encoded_jwt
 
 
-def create_refresh_token(data: dict):
+def create_refresh_token(data: dict, expires_delta: timedelta | None = None):
     settings = get_service(BaseSettings)
     to_encode = data.copy()
-    expire = datetime.now(UTC) + timedelta(days=settings.auth_refresh_token_expire_days)
+    lifetime = timedelta(days=settings.auth_refresh_token_expire_days) if expires_delta is None else expires_delta
+    expire = datetime.now(UTC) + lifetime
     to_encode.update({"exp": expire, "type": "refresh"})
     encoded_jwt = jwt.encode(to_encode, settings.auth_secret_key, algorithm=settings.auth_algorithm)
     return encoded_jwt
+
+
+def password_fingerprint(user: "User") -> str:
+    """A short keyed digest of the stored password hash: any change of the hash changes it."""
+    secret = get_service(BaseSettings).auth_secret_key.encode()
+
+    return hmac.new(secret, (user.password or "").encode(), hashlib.sha256).hexdigest()[:16]
+
+
+def token_claims(user: "User") -> dict[str, Any]:
+    """The claims a session token of this account carries: its subject, and its password fingerprint."""
+    claims: dict[str, Any] = {"sub": user.email or getattr(user, "username", None)}
+
+    if get_service(BaseSettings).auth_revoke_tokens_on_password_change:
+        claims[PASSWORD_FINGERPRINT_CLAIM] = password_fingerprint(user)
+
+    return claims
+
+
+def token_matches_password(payload: dict[str, Any], user: "User") -> bool:
+    """Whether a session token still stands for its account's password.
+
+    A token carrying no fingerprint, issued before there was one or minted by an application without
+    `token_claims`, stands until it expires."""
+    claim = payload.get(PASSWORD_FINGERPRINT_CLAIM)
+
+    if claim is None or not get_service(BaseSettings).auth_revoke_tokens_on_password_change:
+        return True
+
+    return isinstance(claim, str) and hmac.compare_digest(claim, password_fingerprint(user))
 
 
 def email_matches(user_model: Any, email: str) -> Any:
@@ -165,8 +200,7 @@ async def rehash_password_if_needed(user: "User", raw_password: str) -> None:
         return
 
     try:
-        user.password = await hash_password_async(raw_password)
-        await user.save(values={"password": user.password})
+        await user.save(values={"password": await hash_password_async(raw_password)})
     except Exception:
         logger.exception(f"Could not upgrade the password hash of user {user.pk}")
 
@@ -237,9 +271,11 @@ async def resolve_bearer_token(token: str) -> "User | None":
     User = cast(type["User"], db_reg.get_model("User"))
 
     if hasattr(User, "username") or "username" in User.model_fields:
-        return await User.global_query.filter(Or(R("email", "=", email), R("username", "=", email))).first()
+        user = await User.global_query.filter(Or(R("email", "=", email), R("username", "=", email))).first()
+    else:
+        user = await User.global_query.filter(R("email", "=", email)).first()
 
-    return await User.global_query.filter(R("email", "=", email)).first()
+    return user if user is not None and token_matches_password(payload, user) else None
 
 
 async def get_optional_current_user(
@@ -412,6 +448,7 @@ async def get_workspace_shared_record(current_user=Depends(get_current_user)):
 
 
 __all__ = [
+    "PASSWORD_FINGERPRINT_CLAIM",
     "authenticate_user",
     "create_access_token",
     "create_refresh_token",
@@ -426,8 +463,11 @@ __all__ = [
     "hash_password_async",
     "oauth2_scheme",
     "oauth2_scheme_optional",
+    "password_fingerprint",
     "rehash_password_if_needed",
     "resolve_bearer_token",
+    "token_claims",
+    "token_matches_password",
     "verify_password",
     "verify_password_async",
 ]

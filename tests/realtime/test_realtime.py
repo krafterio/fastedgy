@@ -30,6 +30,7 @@ from fastedgy.api.realtime import _scope, websocket_endpoint
 from fastedgy.bus import Bus
 from fastedgy.config import BaseSettings
 from fastedgy.dependencies import get_service
+from fastedgy.depends.security import hash_password
 from fastedgy.orm import Database
 from fastedgy.orm.filter import R
 from fastedgy.realtime import broadcaster as broadcaster_module
@@ -2110,3 +2111,21 @@ async def test_a_column_the_write_did_not_carry_is_never_read_back(ws_manager, s
 
     assert created["id"] == child.id
     assert created["extra"] == {"label": None}
+
+
+async def test_changing_a_password_has_its_account_checked_at_once_when_asked(
+    ws_manager, scope_env, monkeypatch, override_settings
+) -> None:
+    rechecked = await _rechecks(monkeypatch)
+    admin = scope_env.admin
+
+    await admin.update(password=hash_password("another-horse"))
+    await asyncio.sleep(0.2)
+
+    assert rechecked == []
+
+    override_settings(auth_revoke_tokens_on_password_change=True)
+    await admin.update(password=hash_password("a-third-horse"))
+
+    assert await wait_until(lambda: bool(rechecked))
+    assert rechecked == [[admin.id]]

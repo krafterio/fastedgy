@@ -151,6 +151,17 @@ class RtTask(BaseModel, WorkspaceableMixin):
         tablename = "test_rt_tasks"
 
 
+@realtime_model(fields=["record"], cascade=["record"])
+class RtStep(BaseModel, WorkspaceableMixin):
+    """Goes with its record by the database: its deletion is announced all the same."""
+
+    label = fields.CharField(max_length=200, null=True)
+    record = fields.ForeignKey(RtRecord, on_delete="CASCADE", related_name="steps")
+
+    class Meta(BaseModel.Meta, WorkspaceableMixin.Meta):
+        tablename = "test_rt_steps"
+
+
 __all__ = [
     "RtBoard",
     "RtChild",
@@ -163,6 +174,7 @@ __all__ = [
     "RtReaction",
     "RtRecord",
     "RtSecret",
+    "RtStep",
     "RtTask",
     "RtThread",
 ]

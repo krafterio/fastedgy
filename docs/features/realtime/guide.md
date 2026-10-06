@@ -149,6 +149,35 @@ comes from the values being written, and each further step costs at most one que
 reads it before the row goes, so the members of a thread being deleted still hear about it
 after the cascade has taken their membership away.
 
+## Rows a database cascade deletes
+
+A foreign key declared with `on_delete="CASCADE"` lets the database delete the rows pointing at
+a deleted record, and no ORM signal sees them go. A model has their deletion announced by naming
+those keys:
+
+```python
+from fastedgy.models.workspace_user import BaseWorkspaceUser
+from fastedgy.realtime import realtime_model
+
+
+@realtime_model(user_field="user", cascade=["workspace", "user"])
+class WorkspaceUser(BaseWorkspaceUser): ...
+```
+
+Deleting a workspace or an account through `delete()` on its instance reads the memberships it
+takes along, before they go, and announces each one as deleted once the deletion is committed,
+exactly as its own deletion would be: same event, same channels, same accounts.
+
+- At most `realtime_cascade_limit` rows are read and announced per key, 100 by default: the read
+  runs inside the deletion's transaction. Past it, the rest is not announced, and a warning of
+  `fastedgy.realtime.model` says so: the clients holding those rows keep them until they read again.
+- Each row is prepared as its own deletion would be, inside the deletion's transaction: the queries
+  of a guarded model, of a declared to-many relation or of a shared root, and the calls of your
+  `RealtimeAuth` hooks, once per row.
+- One level only: the rows a cascaded row takes along in turn are not read.
+- A deletion through a queryset is not announced, and neither is what it cascades.
+- A name that is not a foreign key deleted in cascade raises `ValueError` when the model is declared.
+
 ## What rides beside the event
 
 Two things are known about a write rather than about the record, and travel on the frame

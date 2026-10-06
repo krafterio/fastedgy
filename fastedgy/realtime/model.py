@@ -6,6 +6,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any, TypeVar
 
 from fastedgy import context
+from fastedgy.config import BaseSettings
 from fastedgy.dependencies import get_service, has_service
 from fastedgy.metadata_model.generator import generate_metadata_name
 from fastedgy.orm.filter import R
@@ -60,6 +61,8 @@ class RealtimeRegistry:
         self._addressing: dict[str, tuple[str, str | None]] = {}
         self._many: dict[str, list[str]] = {}
         self._links: dict[type, tuple[str, str, str]] | None = None
+        self._cascades: dict[str, list[str]] = {}
+        self._parents: dict[type, list[tuple[str, str]]] | None = None
 
     def register(
         self,
@@ -69,11 +72,20 @@ class RealtimeRegistry:
         relations: list[str] | None = None,
         scope_field: str = "workspace",
         user_field: str | None = None,
+        cascade: list[str] | None = None,
     ) -> str:
         unknown = set(actions) - set(ACTIONS)
 
         if unknown:
             raise ValueError(f"Unknown realtime actions {sorted(unknown)}, expected any of {list(ACTIONS)}")
+
+        fields_of = getattr(getattr(model_cls, "meta", None), "fields", {})
+
+        for key in cascade or []:
+            field = fields_of.get(key)
+
+            if getattr(field, "is_m2m", False) or str(getattr(field, "on_delete", "")).upper() != "CASCADE":
+                raise ValueError(f"{model_cls.__name__}.{key} is no foreign key deleted in cascade, it cannot cascade")
 
         name = generate_metadata_name(model_cls)
         self._actions[name] = {action: actions.get(action, True) for action in ACTIONS}
@@ -81,9 +93,10 @@ class RealtimeRegistry:
         self._relations[name] = list(relations or [])
         self._classes[name] = model_cls
         self._addressing[name] = (scope_field, user_field)
-        fields_of = getattr(getattr(model_cls, "meta", None), "fields", {})
         self._many[name] = [field for field, value in fields_of.items() if getattr(value, "is_m2m", False) is True]
         self._links = None
+        self._cascades[name] = list(cascade or [])
+        self._parents = None
 
         return name
 
@@ -130,6 +143,28 @@ class RealtimeRegistry:
 
         return links.get(link_cls)
 
+    def cascades(self, parent_cls: Any) -> list[tuple[str, str]]:
+        """The models whose rows go with a row of [parent_cls] by the database, and the key naming it."""
+        parents = self._parents
+
+        if parents is None:
+            parents, resolved = {}, True
+
+            for model, keys in self._cascades.items():
+                for key in keys:
+                    try:
+                        target = self._classes[model].meta.fields[key].target
+                    except LookupError:
+                        resolved = False
+                        continue
+
+                    parents.setdefault(target, []).append((model, key))
+
+            if resolved:
+                self._parents = parents
+
+        return parents.get(parent_cls, [])
+
     def models(self) -> list[str]:
         return sorted(self._actions)
 
@@ -143,6 +178,7 @@ def realtime_model(
     relations: list[str] | None = None,
     scope_field: str = "workspace",
     user_field: str | None = None,
+    cascade: list[str] | None = None,
     **kwargs: bool,
 ):
     """Announce this model's writes to the clients watching them.
@@ -193,11 +229,17 @@ def realtime_model(
     values being written, a many-to-many or a reverse relation by reading the
     related rows, which costs a query per write and is why it is declared rather
     than assumed.
+
+    [cascade] names the foreign keys, deleted in cascade by the database, whose
+    target takes this model's rows along: they are read before the target goes,
+    `realtime_cascade_limit` at most per key, and announced as deleted once it is.
+
+        @realtime_model(user_field="user", cascade=["workspace", "user"])
     """
     wanted = {**(actions or {}), **kwargs}
 
     def decorator(model_cls: M) -> M:
-        model = registry.register(model_cls, wanted, fields, relations, scope_field, user_field)
+        model = registry.register(model_cls, wanted, fields, relations, scope_field, user_field, cascade)
 
         @post_save.connect_via(model_cls)
         async def _on_save(
@@ -289,6 +331,65 @@ async def _on_link(
 
 post_save.connect(_on_link)
 post_delete.connect(_on_link)
+
+
+async def _on_cascading_delete(sender: Any, instance: Any = None, model_instance: Any = None, **_: Any) -> None:
+    """The rows a deletion takes along by the database, announced as deleted, read while they are there."""
+    if model_instance is None or not has_service(WebSocketBroadcaster):
+        return
+
+    children = registry.cascades(sender)
+    parent_id = getattr(model_instance, "id", None)
+
+    if not children or parent_id is None:
+        return
+
+    limit = get_service(BaseSettings).realtime_cascade_limit
+    announcements: list[Announcement] = []
+
+    for model, key in children:
+        model_cls: Any = registry.model_class(model)
+
+        try:
+            rows = await model_cls.global_query.filter(R(key, "=", parent_id)).limit(limit + 1).all()
+        except Exception as e:
+            logger.warning("Could not read the %s rows going with %s %s: %s", model, sender.__name__, parent_id, e)
+            continue
+
+        if len(rows) > limit:
+            logger.warning(
+                "%s %s takes more than %d %s rows along, announced up to that", sender.__name__, parent_id, limit, model
+            )
+
+        for row in rows[:limit]:
+            announcement = await _announcement(model, "delete", row, {})
+
+            if announcement is not None:
+                announcements.append(announcement)
+
+    model_instance._realtime_cascade = announcements
+
+
+async def _on_cascaded(
+    sender: Any, instance: Any = None, model_instance: Any = None, row_count: int | None = None, **_: Any
+) -> None:
+    if model_instance is None or not registry.cascades(sender):
+        return
+
+    announcements = getattr(model_instance, "_realtime_cascade", None)
+
+    if not announcements:
+        return
+
+    model_instance._realtime_cascade = None
+
+    if row_count != 0:
+        for announcement in announcements:
+            _publish(announcement)
+
+
+pre_delete.connect(_on_cascading_delete)
+post_delete.connect(_on_cascaded)
 
 
 async def _announcement(

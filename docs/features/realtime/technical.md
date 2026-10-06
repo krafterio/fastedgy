@@ -126,6 +126,10 @@ announcement goes out, and a database cascade takes the related rows with it. On
 publication itself is deferred, and a delete is published from `post_delete`, once its row is gone:
 a client reading the record again as soon as it hears must not find it still there.
 
+The rows a database cascade takes along are announced the same way, for a model declared with
+`cascade`: the `pre_delete` of the record they point at reads them, `realtime_cascade_limit` at most
+per key, and prepares each announcement; its `post_delete` publishes them once the deletion commits.
+
 An announcement that fails never fails the write it announces. It is logged and dropped.
 
 ## When a payload is too large
@@ -298,6 +302,7 @@ All under `realtime_`, on `BaseSettings`, so a deployment says so in its own `.e
 | `realtime_tcp_keepidle` | `30` | TCP keepalive idle, in seconds, on the `LISTEN` socket. |
 | `realtime_tcp_keepintvl` | `10` | Seconds between TCP keepalive probes. |
 | `realtime_tcp_keepcnt` | `3` | Failed probes before the socket is dropped. |
+| `realtime_cascade_limit` | `100` | Rows of a model declared with `cascade` read and announced per key, when the record they point at is deleted. |
 
 ## What it costs
 
@@ -309,6 +314,7 @@ All under `realtime_`, on `BaseSettings`, so a deployment says so in its own `.e
 | A write on a guarded model | Two queries: the memberships, and one statement asking every account at once. |
 | A write under a shared root | The root, its members, and one statement asking those outside the scope. |
 | A write whose `outside_recipients` names accounts | Your hook, and one more `pg_notify` per 200 accounts named. |
+| A deletion that cascades | One query per key declared with `cascade`, then each row's own announcement, `realtime_cascade_limit` rows at most per key, inside the deletion's transaction: two more queries per row of a guarded model, one call of `RealtimeAuth.recipients` per row of a model with a `user_field`. |
 | A worker whose sockets are all gone | An announcement it does not listen for never reaches it; one that does is dropped before it is parsed. |
 | A model without `@realtime_model` | Nothing, no signal is connected. |
 | A model with it, `realtime=False` | Nothing: the announcement stops before a broadcaster is brought into being. |

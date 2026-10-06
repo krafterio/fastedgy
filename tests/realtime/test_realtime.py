@@ -51,6 +51,7 @@ from fastedgy.test.models.realtime import (
     RtReaction,
     RtRecord,
     RtSecret,
+    RtStep,
     RtTask,
     RtThread,
 )
@@ -2212,3 +2213,61 @@ async def test_a_member_of_the_scope_named_outside_it_hears_once_on_each_socket(
     await asyncio.sleep(0.2)
     assert [frame["type"] for frame in console.sent] == ["rt_record.created"]
     assert [frame["type"] for frame in app.sent] == ["rt_record.created"]
+
+
+async def test_rows_a_deletion_takes_by_cascade_are_announced_once_it_is_done(
+    ws_manager, scope_env, monkeypatch
+) -> None:
+    record = RtRecord(workspace=scope_env.scope, name="Zep")
+    await record.save()
+    steps = [RtStep(workspace=scope_env.scope, record=record, label=label) for label in ("One", "Two")]
+
+    for step in steps:
+        await step.save()
+
+    still_there: list[int] = []
+    announced: list[dict] = []
+
+    async def announce(scope_id, model, record_id, action, extra=None, related_channels=None, meta=None) -> None:
+        if model == "rt_step" and action == "deleted":
+            still_there.append(await RtStep.global_query.filter(R("id", "=", record_id)).count())
+            announced.append({"scope": scope_id, "id": record_id, "extra": extra})
+
+    monkeypatch.setattr(get_service(WebSocketBroadcaster), "broadcast_record", announce)
+    await record.delete()
+
+    assert await wait_until(lambda: len(announced) == 2)
+    assert {one["id"] for one in announced} == {step.id for step in steps}
+    assert all(one["scope"] == scope_env.scope.id and one["extra"] == {"record": record.id} for one in announced)
+    assert still_there == [0, 0]
+
+
+async def test_a_cascade_announces_no_more_rows_than_its_limit(
+    ws_manager, scope_env, monkeypatch, override_settings, caplog
+) -> None:
+    override_settings(realtime_cascade_limit=2)
+    record = RtRecord(workspace=scope_env.scope, name="Zep")
+    await record.save()
+
+    for label in ("One", "Two", "Three"):
+        await RtStep(workspace=scope_env.scope, record=record, label=label).save()
+
+    announced = _record_broadcasts(monkeypatch)
+
+    with caplog.at_level(logging.INFO, logger="fastedgy.realtime.model"):
+        await record.delete()
+
+    await announced_as(announced, "rt_record", "deleted")
+    await asyncio.sleep(0.2)
+
+    assert len(of(announced, "rt_step", "deleted")) == 2
+    assert [one.levelno for one in caplog.records if "takes more than 2 rt_step rows" in one.getMessage()] == [
+        logging.WARNING
+    ]
+
+
+async def test_a_cascade_names_a_foreign_key_the_database_deletes_with() -> None:
+    from fastedgy.realtime.model import RealtimeRegistry
+
+    with pytest.raises(ValueError, match="cascade"):
+        RealtimeRegistry().register(RtStep, {}, cascade=["label"])

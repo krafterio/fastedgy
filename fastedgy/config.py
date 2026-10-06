@@ -259,6 +259,7 @@ class BaseSettings(PydanticBaseSettings):
     realtime_tcp_keepidle: int = 30
     realtime_tcp_keepintvl: int = 10
     realtime_tcp_keepcnt: int = 3
+    realtime_cascade_limit: int = 100
 
     # Storage
     data_path: str | None = None

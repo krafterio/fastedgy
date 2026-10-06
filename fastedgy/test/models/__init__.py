@@ -36,6 +36,7 @@ from fastedgy.test.models.realtime import (
     RtReaction,
     RtRecord,
     RtSecret,
+    RtStep,
     RtTask,
     RtThread,
 )
@@ -104,6 +105,7 @@ __all__ = [
     "RtReaction",
     "RtRecord",
     "RtSecret",
+    "RtStep",
     "RtTask",
     "RtThread",
     "Tag",

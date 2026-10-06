@@ -154,10 +154,8 @@ async def password_reset(data: ResetPasswordRequest, registry: Registry = Inject
     if not user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_t("Token invalid or expired"))
 
-    user.password = await hash_password_async(data.password)
-    user.reset_pwd_token = None
-    user.reset_pwd_expires_at = None
-    await user.save()
+    password = await hash_password_async(data.password)
+    await user.save(values={"password": password, "reset_pwd_token": None, "reset_pwd_expires_at": None})
 
     return SimpleMessage(message=_t("Password updated"))
 
@@ -230,8 +228,8 @@ async def change_password(
             detail=_t("Current password is incorrect"),
         )
 
-    current_user.password = await hash_password_async(data.new_password)
-    await current_user.save()
+    password = await hash_password_async(data.new_password)
+    await current_user.save(values={"password": password})
 
     return SimpleMessage(message=_t("Password changed successfully"))
 

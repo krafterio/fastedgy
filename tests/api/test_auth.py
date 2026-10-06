@@ -4,9 +4,11 @@
 import httpx
 import pytest
 
+import fastedgy.api.auth as auth_api
 from fastedgy.dependencies import get_service
 from fastedgy.depends import security
 from fastedgy.mail import Mail, MockAdapter
+from fastedgy.orm.filter import R
 from fastedgy.test.models.user import User
 
 PASSWORD = "correct-horse"
@@ -51,6 +53,21 @@ def _mailbox() -> MockAdapter:
     adapter.clear()
 
     return adapter
+
+
+def _renaming_while_hashing(monkeypatch: pytest.MonkeyPatch, email: str) -> None:
+    hash_password_async = auth_api.hash_password_async
+
+    async def renamed_meanwhile(password: str) -> str:
+        await User.global_query.filter(R("email", "=", email)).update(name="Renamed meanwhile")
+
+        return await hash_password_async(password)
+
+    monkeypatch.setattr(auth_api, "hash_password_async", renamed_meanwhile)
+
+
+async def _name_of(email: str) -> str | None:
+    return (await User.global_query.filter(R("email", "=", email)).get()).name
 
 
 async def test_register_then_login_returns_tokens(setup_http: httpx.AsyncClient) -> None:
@@ -172,3 +189,30 @@ async def test_a_login_naming_no_account_checks_a_password_all_the_same(
     assert (await _login(setup_http, "rose@example.io", "wrong-horse")).status_code == 401
     assert (await _login(setup_http, "ghost@example.io", "wrong-horse")).status_code == 401
     assert checked == ["wrong-horse", "wrong-horse"]
+
+
+async def test_changing_a_password_leaves_the_other_columns_as_the_row_holds_them(
+    setup_http: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    await _register(setup_http, "quinn@example.io")
+    access_token = (await _login(setup_http, "quinn@example.io")).json()["access_token"]
+    _renaming_while_hashing(monkeypatch, "quinn@example.io")
+
+    assert (await _change(setup_http, access_token, PASSWORD, "updated-horse")).status_code == 200
+    assert await _name_of("quinn@example.io") == "Renamed meanwhile"
+
+
+async def test_resetting_a_password_leaves_the_other_columns_as_the_row_holds_them(
+    setup_http: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    await _register(setup_http, "ruth@example.io")
+    await setup_http.post("/api/auth/password/forgot", json={"email": "ruth@example.io"})
+    token = (await User.global_query.filter(R("email", "=", "ruth@example.io")).get()).reset_pwd_token
+    _renaming_while_hashing(monkeypatch, "ruth@example.io")
+
+    reset = {"token": token, "password": "rotated-horse"}
+
+    assert (await setup_http.post("/api/auth/password/reset", json=reset)).status_code == 200
+    assert await _name_of("ruth@example.io") == "Renamed meanwhile"
+    assert (await _login(setup_http, "ruth@example.io", "rotated-horse")).status_code == 200
+    assert (await setup_http.post("/api/auth/password/reset", json=reset)).status_code == 400

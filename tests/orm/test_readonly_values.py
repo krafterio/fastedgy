@@ -4,12 +4,14 @@
 """``apply_readonly_values``: the explicit code-side escape hatch to persist
 ``read_only`` fields, which Edgy silently drops on every regular write path."""
 
-from datetime import datetime
+from datetime import UTC, datetime
+from typing import Any
 
 import pytest
 
 from fastedgy.app import FastEdgy
 from fastedgy.orm.filter import R
+from fastedgy.orm.signals import post_save
 from fastedgy.test.factories import create_user, create_workspace, create_workspace_user
 from fastedgy.test.models.product import Product
 from fastedgy.test.models.workspace import Workspace
@@ -92,6 +94,48 @@ async def test_a_queryset_update_writes_the_read_only_values_it_was_handed(setup
 async def test_a_queryset_refuses_an_unknown_read_only_value(setup_db: FastEdgy) -> None:
     with pytest.raises(ValueError, match="Unknown field 'nope'"):
         WorkspaceUser.query.apply_readonly_values({"nope": 1})
+
+
+async def test_a_save_keeps_the_read_only_relations_in_memory_and_in_post_save(setup_db: FastEdgy) -> None:
+    membership, acme, _ = await _membership()
+    fetched = await WorkspaceUser.query.get(id=membership.id)
+    seen: list[tuple[int | None, int | None]] = []
+
+    async def saved(sender: Any, instance: WorkspaceUser, **_: Any) -> None:
+        seen.append((getattr(instance.workspace, "id", None), getattr(instance.user, "id", None)))
+
+    with post_save.connected_to(saved, sender=WorkspaceUser):
+        await fetched.save()
+
+    assert membership.user is not None
+    expected = (acme.id, membership.user.id)
+    assert seen == [expected]
+    assert (getattr(fetched.workspace, "id", None), getattr(fetched.user, "id", None)) == expected
+
+
+async def test_a_read_only_relation_assigned_then_saved_is_written(setup_db: FastEdgy) -> None:
+    membership, _, beta = await _membership()
+    fetched = await WorkspaceUser.query.get(id=membership.id)
+
+    fetched.workspace = beta
+    await fetched.save()
+
+    assert (await WorkspaceUser.query.get(id=membership.id)).workspace.id == beta.id
+
+
+async def test_a_stale_copy_writes_its_read_only_relations_back_unless_saved_with_values(setup_db: FastEdgy) -> None:
+    membership, acme, beta = await _membership()
+    partial, full, moved = [await WorkspaceUser.query.get(id=membership.id) for _ in range(3)]
+
+    moved.apply_readonly_values({"workspace": beta})
+    await moved.save()
+    await partial.save(values={"updated_at": datetime.now(UTC)})
+
+    assert (await WorkspaceUser.query.get(id=membership.id)).workspace.id == beta.id
+
+    await full.save()
+
+    assert (await WorkspaceUser.query.get(id=membership.id)).workspace.id == acme.id
 
 
 async def test_a_queryset_holds_its_staged_values_out_of_reach_of_the_others(setup_db: FastEdgy) -> None:

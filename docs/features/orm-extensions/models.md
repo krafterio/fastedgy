@@ -121,7 +121,10 @@ class WorkspaceUser(BaseModel):
     role = fields.CharChoiceField(choices=Role, default=Role.member)
 ```
 
-Read-only fields are excluded from the generated input schemas, so no `POST`, `PATCH` or [sync](../offline-sync/overview.md) payload can write them. Edgy also drops them on **every** write path — including `Model(field=...)` at construction, attribute assignment before `save()`, and `save(values={...})`. This makes them safe by default, but it also means server code cannot set them the usual way.
+Read-only fields are excluded from the generated input schemas, so no `POST`, `PATCH` or [sync](../offline-sync/overview.md) payload can write them. Every regular write path drops a read-only column: `Model(field=...)` at construction, attribute assignment before `save()`, `save(values={...})`, `update(...)` on an instance or on a queryset. A read-only foreign key is guarded at the API boundary only: `save()` writes the relation the instance holds, whether given to the constructor, assigned, or read with the row. This makes read-only columns safe by default, but it also means server code cannot set them the usual way.
+
+!!! warning "A stale copy writes its read-only relations back"
+    A full `save()` writes every read-only foreign key the instance holds, changed or not. An instance read before another request moved one (a membership re-pointed to another workspace, an owner transferred) puts the old value back when it is saved. Write only what changed with `save(values={...})`, or read the row again before saving.
 
 ### Setting read-only fields from code
 

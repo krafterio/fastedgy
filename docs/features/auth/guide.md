@@ -107,9 +107,9 @@ curl -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
 
 The built-in endpoints handle password reset flow:
 
-1. **Request reset**: `POST /auth/forgot-password`
-2. **Validate token**: `POST /auth/forgot-password/validate`
-3. **Reset password**: `POST /auth/reset-password`
+1. **Request reset**: `POST /auth/password/forgot`
+2. **Validate token**: `POST /auth/password/validate`
+3. **Reset password**: `POST /auth/password/reset`
 
 ```python
 # 1. Request password reset
@@ -157,7 +157,7 @@ class User(BaseUser):
 
 Authentication endpoints return standard HTTP errors:
 
-- **400 Bad Request**: Email already registered
+- **400 Bad Request**: Email already registered, current password incorrect, reset token invalid or expired
 - **401 Unauthorized**: Invalid credentials
 - **422 Unprocessable Entity**: Invalid request data
 

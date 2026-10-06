@@ -134,7 +134,7 @@ async def refresh_access_token(
     if user is None or not token_matches_password(payload, user):
         raise credentials_exception
 
-    claims, refresh_token_expires = _renewed_session(payload, user)
+    claims, refresh_token_expires = _renewed_session(payload, user, settings)
     access_token_expires = timedelta(minutes=settings.auth_access_token_expire_minutes)
     new_access_token = create_access_token(data=claims, expires_delta=access_token_expires)
     new_refresh_token = (
@@ -154,15 +154,19 @@ async def refresh_access_token(
     )
 
 
-def _renewed_session(payload: dict[str, Any], user: "User") -> tuple[dict[str, Any], timedelta | None]:
+def _renewed_session(
+    payload: dict[str, Any], user: "User", settings: BaseSettings
+) -> tuple[dict[str, Any], timedelta | None]:
     """The claims a refresh hands out, and the lifetime left to its refresh token when it is not a full one.
 
-    A session opened before the password fingerprint is renewed without one, and only until the token it
-    was opened with expires: bound to the password the account holds now, a stolen token would outlive a
-    change of that password, rotation after rotation."""
+    While the fingerprint is only issued, a session opened without one is renewed with it and for a full
+    lifetime, so that every session carries one by the time it is checked. Once it is checked, a session opened
+    without one is renewed without one, and only until the token it was opened with expires: bound to the
+    password the account holds now, a stolen token would outlive a change of that password, rotation after
+    rotation."""
     claims = token_claims(user)
 
-    if PASSWORD_FINGERPRINT_CLAIM not in claims or PASSWORD_FINGERPRINT_CLAIM in payload:
+    if not settings.auth_revoke_tokens_on_password_change or PASSWORD_FINGERPRINT_CLAIM in payload:
         return claims, None
 
     del claims[PASSWORD_FINGERPRINT_CLAIM]

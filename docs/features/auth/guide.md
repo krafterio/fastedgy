@@ -13,7 +13,7 @@ AUTH_ACCESS_TOKEN_EXPIRE_MINUTES=15
 AUTH_REFRESH_TOKEN_EXPIRE_DAYS=30
 ```
 
-Two settings are off by default, so an application that sets neither behaves as before they existed. Turn them on in the same file:
+Three settings are off by default, so an application that sets none behaves as before they existed. Turn the password policy and the revocation on in the same file:
 
 ```env
 AUTH_PASSWORD_MIN_LENGTH=8
@@ -22,6 +22,7 @@ AUTH_REVOKE_TOKENS_ON_PASSWORD_CHANGE=true
 
 - `AUTH_PASSWORD_MIN_LENGTH` (default `0`, no minimum): the fewest characters a new password may have, on registration, reset and change.
 - `AUTH_REVOKE_TOKENS_ON_PASSWORD_CHANGE` (default `false`): whether a password change or reset ends the sessions opened before, see [Sessions end with a password change](#sessions-end-with-a-password-change).
+- `AUTH_PASSWORD_FINGERPRINT_TOKENS` (default `false`): whether tokens carry the password fingerprint the revocation checks, without checking it. An application whose users are already signed in turns it on first, so that turning the revocation on signs nobody out for lack of the claim, see [Turning it on](#turning-it-on).
 
 ## User registration
 
@@ -163,18 +164,21 @@ With `AUTH_REVOKE_TOKENS_ON_PASSWORD_CHANGE=true`, the tokens the request was ma
 
 This is off by default. With `AUTH_REVOKE_TOKENS_ON_PASSWORD_CHANGE=true`, each access and refresh token carries `pwf`, a short keyed fingerprint of the stored password hash. A token whose fingerprint no longer matches its account is refused by every route, by `/auth/refresh` and by the realtime socket, which is checked again at once. Changing or resetting a password therefore ends every session opened before, on every device. Tokens stay stateless: nothing is stored, and the check costs one HMAC on the account already read.
 
-- A token without the claim, issued before the check existed, is accepted until it expires, and no password change can end it. Refreshing it returns tokens without the claim, whose refresh token expires when it does: a session opened before the update is never extended, and signs in again once, `AUTH_REFRESH_TOKEN_EXPIRE_DAYS` at most after the update. Bound to the password of the moment instead, a stolen token would outlive a change of that password, rotation after rotation.
-- Tokens your own code mints carry the claim when they are built from `token_claims(user)`. Built from `{"sub": email}`, they are never revoked this way, and a refresh never extends them. `auth_token(user)` of the test kit builds them from `token_claims(user)`, so a test that changes a password sees its earlier tokens refused, as a client would.
+- A token without the claim, issued before the check existed, is accepted until it expires, and no password change can end it. Refreshing it returns tokens without the claim, whose refresh token expires when it does: a session opened before the check is never extended, and signs in again once, `AUTH_REFRESH_TOKEN_EXPIRE_DAYS` at most after the check is turned on. Bound to the password of the moment instead, a stolen token would outlive a change of that password, rotation after rotation. Issuing the fingerprint first, as [Turning it on](#turning-it-on) describes, leaves no such session by then.
+- Tokens your own code mints carry the claim when they are built from `token_claims(user)`. Built from `{"sub": email}`, they are never revoked this way, and once the check is on a refresh never extends them. `auth_token(user)` of the test kit builds them from `token_claims(user)`, so a test that changes a password sees its earlier tokens refused, as a client would.
 - A new hash of the same password changes the fingerprint too. A login that upgrades a hash to the default hasher, bcrypt to argon2id for one, hands out tokens for the new hash, and tokens without the claim are not affected; any other session carrying the claim of the old hash ends, and its device signs in again once. Two first logins of one account at the same instant can end one another the same way.
 - Personal API keys do not depend on the password and are not affected, a reset included.
-- With the default `false`, tokens are minted without the claim, the claim of those already issued is not checked, a password change has no realtime socket checked again, and a refresh renews a session for a full lifetime, as before the check existed. Turning it back off after it was on accepts every token again.
+- With both settings at their default `false`, tokens are minted without the claim, the claim of those already issued is not checked, a password change has no realtime socket checked again, and a refresh renews a session for a full lifetime, as before the check existed. Turning the revocation back off after it was on accepts every token again.
 
-Before turning it on:
+### Turning it on
 
-1. Mint every token your own code issues from `token_claims(user)`, as below: a token built from `{"sub": email}` is never revoked, and a refresh never extends it.
-2. Have your clients store the pair `/auth/password/change` returns: otherwise they are signed out right after a change.
-3. Turn it on once every instance runs this version: an older one ignores the claim, so it still accepts a revoked token, and the tokens it mints carry none.
-4. Expect a new hash of a password, a login upgrading bcrypt to argon2id among them, to end the other sessions of that account: their devices sign in again once.
+An application nobody is signed in to yet sets `AUTH_REVOKE_TOKENS_ON_PASSWORD_CHANGE=true` once its clients, its own tokens and its instances are ready, as the first step below lists. Otherwise, no session open at that moment carries the claim, and each signs in again once within the next `AUTH_REFRESH_TOKEN_EXPIRE_DAYS`. `AUTH_PASSWORD_FINGERPRINT_TOKENS` spares them that by issuing the claim before it is checked, in two steps:
+
+1. **Issue the fingerprint.** Set `AUTH_PASSWORD_FINGERPRINT_TOKENS=true`. A login, a refresh and a password change hand out tokens with the claim, and a refresh gives the claim of the current password to a session opened without it, for a full lifetime: sessions go on sliding as before. Nothing checks the claim yet, so a password change ends no session and has no realtime socket checked again. While this step runs:
+    - publish the versions of your clients that store the pair `/auth/password/change` returns: once the check is on, the tokens a change was made with stop working, and a client that drops the new pair is signed out right after a change;
+    - mint every token your own code issues from `token_claims(user)`, as below: a token built from `{"sub": email}` is never revoked, and once the check is on a refresh never extends it;
+    - run this version on every instance: an older one mints tokens without the claim and ignores the one a token carries, so once the check is on it still accepts a revoked token.
+2. **Check it.** At least `AUTH_REFRESH_TOKEN_EXPIRE_DAYS` after the first step (30 days by default), and once your clients are published, set `AUTH_REVOKE_TOKENS_ON_PASSWORD_CHANGE=true` on every instance at once. Every session still open by then was opened or refreshed during the first step and carries the claim, so none signs in again for lack of it. The exception is a session that has not refreshed since a password change, a reset or a new hash of its account during the first step: its claim is the old one, and it signs in again. From then on, a password change or reset ends the sessions of its account. `AUTH_PASSWORD_FINGERPRINT_TOKENS` may stay on or go: with the check on, it changes nothing. Switch every instance together: while one still runs the first step, it renews a token another has just revoked, with the claim of the current password.
 
 ```python
 from fastedgy.depends.security import create_access_token, create_refresh_token, token_claims
@@ -186,6 +190,10 @@ def issue_tokens(user: BaseUser) -> dict[str, str]:
 
     return {"access_token": create_access_token(claims), "refresh_token": create_refresh_token(claims)}
 ```
+
+The first step has a limit: nothing checks the claim a token carries, so a session that refreshes after a password change takes the fingerprint of the new password. Until the second step, a stolen token therefore outlives a password change, as it does without either setting; once the check is on, the next change ends it.
+
+Once the check is on, expect a new hash of a password, a login upgrading bcrypt to argon2id among them, to end the other sessions of that account: their devices sign in again once. A new hash made during the first step does the same to a session that has not refreshed since, as soon as the check is on.
 
 ## Personal API keys
 

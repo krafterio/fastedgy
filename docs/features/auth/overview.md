@@ -43,7 +43,7 @@ AUTH_PASSWORD_MIN_LENGTH=8
 AUTH_REVOKE_TOKENS_ON_PASSWORD_CHANGE=true
 ```
 
-Read [what to do before turning on the revocation](guide.md#sessions-end-with-a-password-change) first.
+Read [what to do before turning on the revocation](guide.md#turning-it-on) first. An application whose users are already signed in starts with `AUTH_PASSWORD_FINGERPRINT_TOKENS=true`, which issues the password fingerprint without checking it, and turns the revocation on, on every instance at once, at least `AUTH_REFRESH_TOKEN_EXPIRE_DAYS` later: no session signs in again for lack of the claim.
 
 ## Built-in endpoints
 
@@ -79,7 +79,7 @@ class User(BaseUser):
 
 - **Access token**: Short-lived (15 min default), for API access
 - **Refresh token**: Long-lived (30 days default), for token renewal
-- **JWT payload**: Contains user email and token type, and with `AUTH_REVOKE_TOKENS_ON_PASSWORD_CHANGE=true` a fingerprint of the password hash, which a password change or reset invalidates
+- **JWT payload**: Contains user email and token type, and with `AUTH_PASSWORD_FINGERPRINT_TOKENS=true` or `AUTH_REVOKE_TOKENS_ON_PASSWORD_CHANGE=true` a fingerprint of the password hash, which a password change or reset invalidates once the revocation is on
 
 ## Use cases
 

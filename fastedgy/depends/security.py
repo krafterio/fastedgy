@@ -115,8 +115,9 @@ def password_fingerprint(user: "User") -> str:
 def token_claims(user: "User") -> dict[str, Any]:
     """The claims a session token of this account carries: its subject, and its password fingerprint."""
     claims: dict[str, Any] = {"sub": user.email or getattr(user, "username", None)}
+    settings = get_service(BaseSettings)
 
-    if get_service(BaseSettings).auth_revoke_tokens_on_password_change:
+    if settings.auth_password_fingerprint_tokens or settings.auth_revoke_tokens_on_password_change:
         claims[PASSWORD_FINGERPRINT_CLAIM] = password_fingerprint(user)
 
     return claims

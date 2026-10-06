@@ -381,6 +381,100 @@ async def test_by_default_a_password_change_has_no_socket_checked_again(
     assert rechecked == []
 
 
+async def test_with_the_fingerprint_issued_alone_a_password_change_ends_no_session(
+    setup_http: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch, override_settings: Callable[..., None]
+) -> None:
+    override_settings(auth_password_fingerprint_tokens=True)
+    await _register(setup_http, "pia@example.io")
+    before = (await _login(setup_http, "pia@example.io")).json()
+    rechecked = _rechecks(monkeypatch)
+
+    for token in (before["access_token"], before["refresh_token"]):
+        assert "pwf" in _claims(token)
+
+    changed = await _change(setup_http, before["access_token"], PASSWORD, "updated-horse")
+    await drain_signal_side_effects()
+    renewed = await _refresh(setup_http, before["refresh_token"])
+
+    assert await _protected(setup_http, before["access_token"]) == 200
+    assert renewed.status_code == 200
+    assert _claims(renewed.json()["refresh_token"])["pwf"] == _claims(changed.json()["refresh_token"])["pwf"]
+    assert rechecked == []
+
+
+async def test_with_the_fingerprint_issued_alone_a_session_without_one_gets_it_for_a_full_lifetime(
+    setup_http: httpx.AsyncClient, override_settings: Callable[..., None]
+) -> None:
+    override_settings(auth_password_fingerprint_tokens=True)
+    await _register(setup_http, "rex@example.io")
+    legacy_refresh = _legacy_refresh_token("rex@example.io")
+
+    renewed = (await _refresh(setup_http, legacy_refresh)).json()
+
+    for token in (renewed["access_token"], renewed["refresh_token"]):
+        assert "pwf" in _claims(token)
+
+    assert _claims(renewed["refresh_token"])["exp"] > _claims(legacy_refresh)["exp"]
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        {"auth_password_fingerprint_tokens": True},
+        {"auth_password_fingerprint_tokens": True, "auth_revoke_tokens_on_password_change": True},
+    ],
+)
+async def test_a_fingerprinted_session_slides_for_a_full_lifetime(
+    setup_http: httpx.AsyncClient, override_settings: Callable[..., None], values: dict[str, bool]
+) -> None:
+    override_settings(**values)
+    await _register(setup_http, "una@example.io")
+    user = await User.query.filter(email="una@example.io").first()
+    assert user is not None
+    short = create_refresh_token(token_claims(user), expires_delta=timedelta(days=3))
+
+    renewed = (await _refresh(setup_http, short)).json()
+
+    assert _claims(renewed["refresh_token"])["exp"] > _claims(short)["exp"]
+
+
+async def test_a_session_fingerprinted_before_the_revocation_is_ended_by_the_next_password_change(
+    setup_http: httpx.AsyncClient, override_settings: Callable[..., None]
+) -> None:
+    override_settings(auth_password_fingerprint_tokens=True)
+    await _register(setup_http, "rita@example.io")
+    logged_in = (await _login(setup_http, "rita@example.io")).json()
+    renewed = (await _refresh(setup_http, _legacy_refresh_token("rita@example.io"))).json()
+
+    override_settings(auth_revoke_tokens_on_password_change=True)
+
+    for pair in (logged_in, renewed):
+        assert await _protected(setup_http, pair["access_token"]) == 200
+        assert (await _refresh(setup_http, pair["refresh_token"])).status_code == 200
+
+    assert (await _change(setup_http, logged_in["access_token"], PASSWORD, "updated-horse")).status_code == 200
+
+    for pair in (logged_in, renewed):
+        assert await _protected(setup_http, pair["access_token"]) == 401
+        assert (await _refresh(setup_http, pair["refresh_token"])).status_code == 401
+
+
+async def test_with_both_settings_on_tokens_are_revoked_as_with_the_revocation_alone(
+    setup_http: httpx.AsyncClient, override_settings: Callable[..., None]
+) -> None:
+    override_settings(auth_password_fingerprint_tokens=True, auth_revoke_tokens_on_password_change=True)
+    await _register(setup_http, "sara@example.io")
+    before = (await _login(setup_http, "sara@example.io")).json()
+    legacy_refresh = _legacy_refresh_token("sara@example.io")
+    renewed = (await _refresh(setup_http, legacy_refresh)).json()
+
+    assert "pwf" not in _claims(renewed["refresh_token"])
+    assert _claims(renewed["refresh_token"])["exp"] == _claims(legacy_refresh)["exp"]
+    assert (await _change(setup_http, before["access_token"], PASSWORD, "updated-horse")).status_code == 200
+    assert await _protected(setup_http, before["access_token"]) == 401
+    assert (await _refresh(setup_http, before["refresh_token"])).status_code == 401
+
+
 async def test_a_login_that_upgrades_a_bcrypt_hash_hands_out_working_tokens(
     setup_http: httpx.AsyncClient, override_settings: Callable[..., None]
 ) -> None:

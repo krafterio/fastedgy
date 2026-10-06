@@ -312,8 +312,15 @@ def extra_field_column(model_cls: Any, field_path: str) -> Any | None:
     declared — otherwise a comparison against an already-converted value fails
     outright (``text = integer``), and ordering would put "10" before "2". The
     type comes from the field class the declared type maps to, and a text one is
-    left alone: casting it back to ``varchar(n)`` would silently truncate."""
+    left alone: casting it back to ``varchar(n)`` would silently truncate.
+
+    A stored value that does not fit the declared type (a "yes" written around
+    the validation into a boolean field, "" into an integer one) reads as NULL:
+    a bare cast would fail the filter or the sort for every record of the model.
+    The guard is ``pg_input_is_valid``, PostgreSQL 16 and later."""
+    from sqlalchemy import case, func
     from sqlalchemy import cast as sa_cast
+    from sqlalchemy.dialects import postgresql
 
     if "." in field_path or not field_path.startswith(EXTRA_FIELD_PREFIX):
         return None
@@ -331,7 +338,9 @@ def extra_field_column(model_cls: Any, field_path: str) -> Any | None:
     if sql_type is None or isinstance(sql_type, String):
         return column
 
-    return sa_cast(column, sql_type)
+    fits = func.pg_input_is_valid(column, sql_type.compile(dialect=postgresql.dialect()))
+
+    return case((fits, sa_cast(column, sql_type)))
 
 
 def pop_extra_field_values(model_cls: Any, data: dict[str, Any]) -> dict[str, Any]:

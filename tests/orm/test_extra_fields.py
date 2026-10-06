@@ -89,6 +89,21 @@ async def test_order_by_sorts_on_the_extra_field_value(setup_db: FastEdgy) -> No
         assert names[:2] == ["Beta", "Alpha"]
 
 
+async def test_a_stored_value_of_the_wrong_type_reads_as_no_value(setup_db: FastEdgy) -> None:
+    """A value written around the validation ("high" in an integer field) must not fail the filter or the sort of
+    every record: it reads as no value."""
+    with use_request():
+        _declare_extra_fields()
+        await _create_products()
+        await Product.query.create(name="Delta", price=Decimal("4.00"), extra={"priority": "high"})
+
+        filtered = filter_query(Product.query.get_queryset(), json.dumps(["extra_priority", ">=", 1]))
+        ordered = inject_order_by(Product.query.get_queryset(), "extra_priority")
+
+        assert sorted(product.name for product in await filtered.all()) == ["Alpha", "Beta"]
+        assert [product.name for product in await ordered.all()][:2] == ["Beta", "Alpha"]
+
+
 async def test_filter_matches_on_the_extra_field_value(setup_db: FastEdgy) -> None:
     with use_request():
         _declare_extra_fields()

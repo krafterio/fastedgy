@@ -9,7 +9,7 @@ hide:
 
 - Python 3.13+
 - UV (Python Package Manager recommended, see the [installation doc](https://docs.astral.sh/uv/getting-started/installation))
-- PostgreSQL 15.0+
+- PostgreSQL 16.0+
 
 ## Installation
 

@@ -33,6 +33,8 @@ AUTH_REVOKE_TOKENS_ON_PASSWORD_CHANGE=true
 
 A password shorter than `AUTH_PASSWORD_MIN_LENGTH` is refused with a `422`, as it is on reset and change; with the default `0`, any length goes. An email is refused when an account already holds it in any case: `Jean@example.com` and `jean@example.com` are one address.
 
+That refusal, a `400` with `Email already registered`, tells whoever asks that the address has an account: registration is the one built-in endpoint that does. The uniqueness whatever the case is checked by the code, not by the database: two registrations of two spellings of one address at the same instant can both go through.
+
 Or create users programmatically:
 
 ```python
@@ -135,6 +137,10 @@ The built-in endpoints handle password reset flow:
 # 3. Reset password with token
 {"token": "reset-token-from-email", "password": "new_secure_password"}
 ```
+
+The request answers `200` with the same message whether an account holds the email or not, so it tells nobody which addresses have an account. The account is looked up, given its reset token and mailed once the response is out, so neither its existence nor a slow or failing database or mail server shows in the answer: a failure is logged. The email goes to an existing account only, matched whatever its case.
+
+Each of these requests writes only its own columns, the reset token for this one, the password for a reset or a change: whatever another request changed meanwhile, a new password among it, stays as the row has it.
 
 ## Changing the password
 

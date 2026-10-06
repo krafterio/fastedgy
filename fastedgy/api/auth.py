@@ -1,11 +1,12 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+import logging
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any, cast
 from uuid import uuid4
 
-from fastapi import APIRouter, Body, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, status
 from jose import JWTError, jwt
 
 from fastedgy import context
@@ -17,6 +18,7 @@ from fastedgy.depends.security import (
     authenticate_user,
     create_access_token,
     create_refresh_token,
+    find_user,
     get_current_user,
     hash_password_async,
     token_claims,
@@ -41,6 +43,9 @@ from fastedgy.schemas.base import SimpleMessage
 
 if TYPE_CHECKING:
     from fastedgy.models.user import BaseUser as User
+
+
+logger = logging.getLogger("fastedgy.auth")
 
 
 class AuthEvent(BaseEvent):
@@ -188,38 +193,48 @@ async def password_reset(data: ResetPasswordRequest, registry: Registry = Inject
 @public_router.post("/password/forgot")
 async def password_forgot(
     data: ForgotPasswordRequest,
+    background_tasks: BackgroundTasks,
     settings: BaseSettings = Inject(BaseSettings),
-    registry: Registry = Inject(Registry),
     mail: Mail = Inject(Mail),
 ) -> SimpleMessage:
-    from fastedgy.models.user import BaseUser
-
-    User = cast(type[BaseUser], registry.get_model("User"))
-    user = await User.query.filter(email=data.email).first()
-
-    if not user:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_t("Email not found"))
-
-    user.reset_pwd_token = str(uuid4())
-    user.reset_pwd_expires_at = datetime.now(context.get_timezone()) + timedelta(hours=1)
-    await user.save()
-
-    recovery_url = f"{settings.base_url_app}/password/reset?token={user.reset_pwd_token}"
-
-    await mail.send_template(
-        f"emails/{context.get_locale()}/password_recovery.html",
-        {
-            "locale": context.get_locale(),
-            "email": user.email,
-            "recovery_url": recovery_url,
-            "base_url_app": settings.base_url_app,
-        },
-        {
-            "To": user.email,
-        },
+    background_tasks.add_task(
+        _send_recovery_email,
+        mail,
+        data.email,
+        context.get_locale(),
+        settings.base_url_app,
+        datetime.now(context.get_timezone()) + timedelta(hours=1),
     )
 
     return SimpleMessage(message=_t("Password reset email sent"))
+
+
+async def _send_recovery_email(mail: Mail, email: str, locale: str, base_url_app: str, expires_at: datetime) -> None:
+    """Look the account up and mail it a recovery link once the response is out: neither whether there is an
+    account nor how long the database and the mail server take shows in the answer.
+
+    Only the token columns are written: a full save of the account read here would put back a password
+    changed meanwhile."""
+    try:
+        user = await find_user(email)
+
+        if user is None or not user.email:
+            return
+
+        token = str(uuid4())
+        await user.save(values={"reset_pwd_token": token, "reset_pwd_expires_at": expires_at})
+        await mail.send_template(
+            f"emails/{locale}/password_recovery.html",
+            {
+                "locale": locale,
+                "email": user.email,
+                "recovery_url": f"{base_url_app}/password/reset?token={token}",
+                "base_url_app": base_url_app,
+            },
+            {"To": user.email},
+        )
+    except Exception:
+        logger.exception("Could not send the password recovery email")
 
 
 @public_router.post("/password/validate")

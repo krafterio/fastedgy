@@ -14,7 +14,8 @@ from fastedgy.cli.db.init_data import init_data
 class LazyDbGroup(cli.Group):
     """The ``db`` group registers Edgy's migration commands (which pull Alembic)
     only when the group is actually used, so unrelated commands such as ``serve``
-    never import Alembic.
+    never import Alembic. A command of its own keeps its name over Edgy's
+    homonym: ``init`` writes the FastEdgy migration environment.
     """
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -28,6 +29,7 @@ class LazyDbGroup(cli.Group):
         getLogger("alembic.runtime.plugins").setLevel(WARNING)
 
         self._operations_loaded = True
+        own = dict(self.commands)
         cli.register_commands_in_group(
             "edgy.cli.operations",
             self,
@@ -36,6 +38,7 @@ class LazyDbGroup(cli.Group):
                 cli.lifespan,
             ],
         )
+        self.commands.update(own)
 
     def list_commands(self, ctx: cli.Context) -> list[str]:
         self._ensure_operations()

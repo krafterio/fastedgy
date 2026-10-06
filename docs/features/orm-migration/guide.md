@@ -26,6 +26,12 @@ fastedgy db init
 
 This creates a migration directory with FastEdgy-optimized configuration.
 
+!!! warning "Repositories created by an older `db init`"
+    `db init` used to run Edgy's own `init` instead, whose `env.py` skips FastEdgy's revision
+    post-processing (enums, extensions, fulltext, views). `db setup` was never affected. If your
+    `migrations/env.py` does not import `fastedgy_process_revision_directives`, replace it with the
+    one of FastEdgy's template, `fastedgy/cli/db/templates/fastedgy/env.py` in the installed package.
+
 ## Creating migrations
 
 Generate a new migration based on model changes:

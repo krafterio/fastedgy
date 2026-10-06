@@ -257,8 +257,14 @@ class WebSocketBroadcaster:
         data: Any,
         channels: list[str] | None = None,
         meta: dict[str, Any] | None = None,
+        skip_scope: int | None = None,
     ) -> None:
+        """Announce something to accounts, on every socket they hold.
+
+        [skip_scope] leaves out the sockets reading that scope, for an event of the scope also announced to
+        it: they hear it there, once."""
         ids = sorted(set(user_ids))
+        extra = {"skip_scope": skip_scope} if skip_scope is not None else {}
 
         for start in range(0, len(ids), MAX_USERS_PER_NOTIFY):
             await self._publish(
@@ -269,6 +275,7 @@ class WebSocketBroadcaster:
                     "data": data,
                     "channels": channels,
                     "meta": meta or {},
+                    **extra,
                 }
             )
 
@@ -383,7 +390,8 @@ class WebSocketBroadcaster:
 
             delivered = await self._manager.deliver_to_scope(scope_id, event_type, data, channels, meta, exclude, only)
         elif target == "users":
-            delivered = await self._manager.deliver_to_users(payload["user_ids"], event_type, data, meta)
+            skip = {"skip_scope": payload["skip_scope"]} if payload.get("skip_scope") is not None else {}
+            delivered = await self._manager.deliver_to_users(payload["user_ids"], event_type, data, meta, **skip)
         elif target == "user":
             delivered = await self._manager.deliver_to_user(payload["user_id"], event_type, data, meta)
         else:

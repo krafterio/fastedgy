@@ -332,7 +332,7 @@ def _record_broadcasts(monkeypatch) -> list[dict]:
 def _user_broadcasts(monkeypatch) -> list[dict]:
     announced: list[dict] = []
 
-    async def record(user_ids, event_type, data, channels=None, meta=None) -> None:
+    async def record(user_ids, event_type, data, channels=None, meta=None, skip_scope=None) -> None:
         announced.append(
             {
                 "users": sorted(user_ids),
@@ -340,6 +340,7 @@ def _user_broadcasts(monkeypatch) -> list[dict]:
                 "data": data,
                 "channels": channels or [],
                 "meta": meta or {},
+                "skip_scope": skip_scope,
             }
         )
 
@@ -2129,3 +2130,85 @@ async def test_changing_a_password_has_its_account_checked_at_once_when_asked(
 
     assert await wait_until(lambda: bool(rechecked))
     assert rechecked == [[admin.id]]
+
+
+async def test_an_application_has_a_scope_write_reach_accounts_outside_the_scope(
+    ws_manager, scope_env, monkeypatch
+) -> None:
+    console = await create_user(email="console@example.io", name="Console")
+    hearing = {console.id, scope_env.admin.id}
+
+    async def with_the_console(scope_id: int, event_type: str, data: Any) -> set[int]:
+        return hearing
+
+    monkeypatch.setattr(get_service(RealtimeAuth), "outside_recipients", with_the_console)
+    to_users = _user_broadcasts(monkeypatch)
+    record = RtRecord(workspace=scope_env.scope, name="Zep")
+    await record.save()
+
+    created = await announced_to(to_users, "rt_record.created")
+
+    assert created["users"] == sorted(hearing)
+    assert created["data"] == {"model": "rt_record", "id": record.id}
+    assert created["channels"] == ["rt_record", f"rt_record:{record.id}"]
+    assert created["skip_scope"] == scope_env.scope.id
+
+    await record.delete()
+
+    assert (await announced_to(to_users, "rt_record.deleted"))["users"] == sorted(hearing)
+
+
+async def test_a_shared_record_reaches_a_recorder_of_the_fixed_signature_when_nobody_is_named(
+    ws_manager, scope_env, monkeypatch
+) -> None:
+    project, outsider = await _shared_project(scope_env)
+    heard: list[tuple[str, list[int]]] = []
+
+    async def record(user_ids, event_type, data, channels=None, meta=None) -> None:
+        heard.append((event_type, sorted(user_ids)))
+
+    monkeypatch.setattr(get_service(WebSocketBroadcaster), "broadcast_to_users", record)
+    task = RtTask(workspace=scope_env.scope, project=project, label="Kickoff")
+    await task.save()
+
+    assert await wait_until(lambda: ("rt_task.created", [outsider.id]) in heard)
+
+    await task.delete()
+
+    assert await wait_until(lambda: ("rt_task.deleted", [outsider.id]) in heard)
+
+
+async def test_a_delivery_to_accounts_can_leave_out_the_sockets_reading_a_scope() -> None:
+    manager = local_manager()
+    reading, elsewhere, nowhere = FakeWebSocket(), FakeWebSocket(), FakeWebSocket()
+
+    manager.watch(manager.connect(1, reading), {7})
+    manager.watch(manager.connect(1, elsewhere), {8})
+    manager.connect(1, nowhere)
+
+    assert await manager.deliver_to_users([1], "rt_record.created", {"id": 3}, skip_scope=7) == {1}
+    assert reading.sent == []
+    assert len(elsewhere.sent) == len(nowhere.sent) == 1
+
+
+async def test_a_member_of_the_scope_named_outside_it_hears_once_on_each_socket(
+    ws_manager, scope_env, monkeypatch
+) -> None:
+    broadcaster = get_service(WebSocketBroadcaster)
+    await broadcaster.ensure_listening()
+    admin = scope_env.admin
+
+    async def with_the_admin(scope_id: int, event_type: str, data: Any) -> set[int]:
+        return {admin.id}
+
+    monkeypatch.setattr(get_service(RealtimeAuth), "outside_recipients", with_the_admin)
+    console = FakeWebSocket()
+    ws_manager.connect(admin.id, console)
+    app = await hold(ws_manager, broadcaster, scope_env.scope.id, ["rt_record"], user_id=admin.id)
+
+    await RtRecord(workspace=scope_env.scope, name="Zep").save()
+
+    assert await wait_until(lambda: bool(console.sent) and bool(app.sent))
+    await asyncio.sleep(0.2)
+    assert [frame["type"] for frame in console.sent] == ["rt_record.created"]
+    assert [frame["type"] for frame in app.sent] == ["rt_record.created"]

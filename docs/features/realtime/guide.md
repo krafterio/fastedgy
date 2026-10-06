@@ -220,7 +220,11 @@ Without `channels`, it reaches every socket of the scope. With them, only those
 subscribed to one of the names given.
 
 `broadcast_to_user(user_id, event_type, data)` addresses one account instead, and
-`broadcast_to_users(user_ids, event_type, data)` several at once.
+`broadcast_to_users(user_ids, event_type, data)` several at once. `skip_scope=scope_id` leaves out
+their sockets reading that scope, for an event you also publish to it: they hear it there, once. The
+announcements of a scope model pass that keyword only for the accounts `outside_recipients` names: a
+test that replaces `broadcast_to_users` with the five arguments `user_ids, event_type, data,
+channels, meta` keeps working as long as the application names nobody.
 
 ### Saying what an event is about
 
@@ -287,6 +291,41 @@ register_service(AppRealtimeAuth, key=RealtimeAuth, force=True)
 `audience` runs on the delivery path: keep it short, and read in one go what it needs. `recipients` is
 asked once per write, by the process that writes: before the row goes for a deletion, once the write is
 committed otherwise.
+
+### Reaching accounts outside the scope
+
+A write of a model addressed to a scope reaches only the members of that scope, plus the readers of a
+shared record. `RealtimeAuth.outside_recipients` names other accounts, the administrators of a console
+who are members of no workspace for one:
+
+```python
+from typing import Any
+
+from fastedgy.dependencies import register_service
+from fastedgy.realtime import RealtimeAuth
+
+
+async def console_admins() -> set[int]: ...
+
+
+class AppRealtimeAuth(RealtimeAuth):
+    async def outside_recipients(self, scope_id: int, event_type: str, data: Any) -> Any:
+        if data["model"] in {"workspace_invitation", "subscription"}:
+            return await console_admins()
+
+        return await super().outside_recipients(scope_id, event_type, data)
+
+
+register_service(AppRealtimeAuth, key=RealtimeAuth, force=True)
+```
+
+The accounts it returns hear the event on every socket they hold, whatever scope each one reads, the
+way the readers of a shared record do. A socket reading the scope itself is the exception: the scope's
+own announcement serves it, with its channels and its guards, so it hears the event once. An account
+that is also a member of the scope therefore hears it on its console socket as well as in the scope.
+The guards of a guarded model are not asked for the sockets outside the scope, naming an account is
+the rule. Nobody is named by default. It is asked once per write, like `recipients`, and when it fails
+the scope's own announcement still goes out.
 
 !!! note "Yours are yours"
     An event you publish yourself carries no `origin`, so it is never taken for an echo and

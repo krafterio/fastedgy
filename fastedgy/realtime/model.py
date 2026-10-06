@@ -359,16 +359,20 @@ async def _announcement(
 
         channels = await _relation_channels(model, model_instance, column_values)
         model_cls = registry.model_class(model) or type(model_instance)
+        event_type = f"{model}.{event}"
+        data = {"model": model, "id": record_id, **extra}
         audience: set[int] | None = None
         elsewhere: set[int] | None = None
+        named: set[int] | None = None
 
         # A row deleted cannot be read back: who can read it, in its scope and from
         # the scopes it is shared with, is asked now, while it still can be.
         if action == "delete":
             audience = await readers(model_cls, record_id, scope_id) if is_guarded(model_cls) else None
             elsewhere = await _shared_readers(model_cls, model_instance, scope_id)
+            named = await _named_outside(scope_id, event_type, data)
 
-            if audience == set() and not elsewhere:
+            if audience == set() and not elsewhere and not named:
                 return None
 
         async def publish() -> None:
@@ -381,15 +385,14 @@ async def _announcement(
 
             # A creation or an update is read once it is committed.
             outside = elsewhere if elsewhere is not None else await _shared_readers(model_cls, model_instance, scope_id)
+            beyond = (named if named is not None else await _named_outside(scope_id, event_type, data)) - outside
+            heard_on = [model, f"{model}:{record_id}", *channels]
 
             if outside:
-                await broadcaster.broadcast_to_users(
-                    outside,
-                    f"{model}.{event}",
-                    {"model": model, "id": record_id, **extra},
-                    [model, f"{model}:{record_id}", *channels],
-                    meta,
-                )
+                await broadcaster.broadcast_to_users(outside, event_type, data, heard_on, meta)
+
+            if beyond:
+                await broadcaster.broadcast_to_users(beyond, event_type, data, heard_on, meta, skip_scope=scope_id)
 
         return publish, label
     except Exception as e:  # noqa: BLE001 - an announcement never fails the write it announces
@@ -418,6 +421,18 @@ async def _read_back(model_cls: Any, record_id: Any) -> Any:
     manager = getattr(model_cls, "global_query", None) or model_cls.query
 
     return await manager.filter(R("id", "=", record_id)).first()
+
+
+async def _named_outside(scope_id: Any, event_type: str, data: Any) -> set[int]:
+    """Whom the application names to hear a record of a scope from outside it, nobody by default. A member of the
+    scope among them still hears it on a socket reading no scope or another one; their delivery leaves out the
+    sockets reading this scope, which its own announcement serves."""
+    try:
+        return set(await get_service(RealtimeAuth).outside_recipients(scope_id, event_type, data))
+    except Exception as e:  # noqa: BLE001 - the scope's own announcement still goes out
+        logger.warning("Could not read who hears %s %s from outside its scope: %s", event_type, data.get("id"), e)
+
+        return set()
 
 
 async def _shared_readers(model_cls: Any, model_instance: Any, scope_id: Any) -> set[int]:

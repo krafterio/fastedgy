@@ -230,11 +230,17 @@ class WebSocketManager:
         event_type: str,
         data: Any,
         meta: dict[str, Any] | None = None,
+        skip_scope: int | None = None,
     ) -> set[int]:
+        """Deliver to every local socket of these accounts, but those reading [skip_scope]: an event of that
+        scope reaches them through the scope's own delivery, with its channels and its audience."""
         targets: set[Connection] = set()
 
         for user_id in user_ids:
             targets.update(self._by_user.get(user_id, ()))
+
+        if skip_scope is not None:
+            targets = {connection for connection in targets if skip_scope not in connection.scope_ids}
 
         return await self._deliver(targets, event_type, data, meta)
 

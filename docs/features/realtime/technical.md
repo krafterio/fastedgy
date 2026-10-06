@@ -98,6 +98,18 @@ scope, each asked the way the shared-record context asks: the root's `workspace_
 then the record, read as the root's workspace with the confinement filters armed. They hear it on every
 socket they hold. A deletion asks before the row goes, like any other.
 
+## Accounts outside a scope
+
+A write of a model addressed to a scope also reaches the accounts that
+`RealtimeAuth.outside_recipients(scope_id, event_type, data)` returns, nobody by default. The readers of
+a shared record keep their own `broadcast_to_users`, on every socket they hold. The accounts named here
+and not among them get a second one, only when there are any, on every socket they hold but those
+reading the scope: that call alone passes `skip_scope`, the publication carries it, and each worker
+leaves out the sockets reading that scope, which the scope's own announcement serves. A member of the
+scope named here hears the event once on each of its sockets, wherever each one is. The process that writes asks, before
+the row goes for a deletion, once the write is committed otherwise; when it fails, it is logged and the
+scope's announcement still goes out.
+
 ## Committed writes only
 
 The announcement is prepared in the write's own transaction and published after it commits,
@@ -296,6 +308,7 @@ All under `realtime_`, on `BaseSettings`, so a deployment says so in its own `.e
 | An open socket | Its bearer and its scope resolved again every `realtime_recheck_interval` seconds, a query or two each. |
 | A write on a guarded model | Two queries: the memberships, and one statement asking every account at once. |
 | A write under a shared root | The root, its members, and one statement asking those outside the scope. |
+| A write whose `outside_recipients` names accounts | Your hook, and one more `pg_notify` per 200 accounts named. |
 | A worker whose sockets are all gone | An announcement it does not listen for never reaches it; one that does is dropped before it is parsed. |
 | A model without `@realtime_model` | Nothing, no signal is connected. |
 | A model with it, `realtime=False` | Nothing: the announcement stops before a broadcaster is brought into being. |

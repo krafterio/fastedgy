@@ -158,6 +158,19 @@ class RealtimeAuth:
         """
         return user_ids
 
+    async def outside_recipients(self, scope_id: int, event_type: str, data: Any) -> Collection[int]:
+        """Who outside a scope hears a write of a model addressed to it.
+
+        The counterpart of `recipients` for a model addressed to a scope: the accounts
+        returned hear it on every socket they hold, the way the readers of a shared
+        record do, a console reading every scope for one. Nobody by default. A socket
+        reading the scope itself is left to the scope's own announcement, so it hears
+        the event once, and a member of the scope named here hears it on its other
+        sockets too. It is asked by the process that writes: before the row goes for a
+        deletion, once the write is committed otherwise.
+        """
+        return set()
+
 
 __all__ = [
     "RealtimeAuth",

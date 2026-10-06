@@ -7,6 +7,7 @@ from fastapi import APIRouter, Body, HTTPException, status
 
 from fastedgy import context
 from fastedgy.dependencies import Inject
+from fastedgy.depends.security import email_matches
 from fastedgy.i18n import _t
 from fastedgy.orm import Registry
 from fastedgy.schemas.auth import UserRegisterRequest
@@ -26,8 +27,7 @@ async def register_user(
 ) -> SimpleMessage:
     user_model = cast(type["User"], registry.get_model("User"))
 
-    existing_user = await user_model.query.filter(email=user_data.email).first()
-    if existing_user:
+    if await user_model.query.filter(email_matches(user_model, user_data.email)).exists():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_t("Email already registered"))
 
     user = user_model(

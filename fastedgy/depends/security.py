@@ -3,8 +3,9 @@
 
 import logging
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
+import sqlalchemy
 from anyio import CapacityLimiter, to_thread
 from fastapi import Depends, HTTPException, status
 from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
@@ -97,14 +98,34 @@ def create_refresh_token(data: dict):
     return encoded_jwt
 
 
-async def authenticate_user(email: str, password: str):
-    db_reg = get_service(Registry)
-    User = cast(type["User"], db_reg.get_model("User"))
+def email_matches(user_model: Any, email: str) -> Any:
+    """The rule matching an email whatever its case."""
+    return sqlalchemy.func.lower(user_model.columns.email) == sqlalchemy.func.lower(email)
+
+
+async def find_user(identifier: str) -> "User | None":
+    """The account a login names: its exact email or username, else the one email equal to it whatever the case.
+
+    Two accounts whose emails differ by case alone are told apart by the exact spelling: any other
+    spelling names neither."""
+    User = cast(type["User"], get_service(Registry).get_model("User"))
+    exact = User.columns.email == identifier
 
     if hasattr(User, "username") or "username" in User.model_fields:
-        user = await User.query.filter((User.columns.email == email) | (User.columns.username == email)).first()
-    else:
-        user = await User.query.filter(email=email).first()
+        exact = exact | (User.columns.username == identifier)
+
+    user = await User.query.filter(exact).first()
+
+    if user is not None:
+        return user
+
+    matches = await User.query.filter(email_matches(User, identifier)).limit(2).all()
+
+    return matches[0] if len(matches) == 1 else None
+
+
+async def authenticate_user(email: str, password: str):
+    user = await find_user(email)
 
     if not user or not await verify_password_async(user.password, password):
         return False
@@ -376,6 +397,8 @@ __all__ = [
     "authenticate_user",
     "create_access_token",
     "create_refresh_token",
+    "email_matches",
+    "find_user",
     "get_current_user",
     "get_current_workspace",
     "get_optional_current_user",

@@ -21,6 +21,8 @@ AUTH_REFRESH_TOKEN_EXPIRE_DAYS=30
 {"name": "John Doe", "email": "john@example.com", "password": "secure_password"}
 ```
 
+An email is refused when an account already holds it in any case: `Jean@example.com` and `jean@example.com` are one address.
+
 Or create users programmatically:
 
 ```python
@@ -55,6 +57,8 @@ async def create_user(name: str, email: str, password: str, registry: Registry =
     "token_type": "bearer",
 }
 ```
+
+The email is matched whatever its case, so `JOHN@example.com` signs in the account of `john@example.com`. Two accounts left from before whose emails differ by case alone are told apart by the exact spelling: any other spelling signs in neither.
 
 ## Protecting endpoints
 

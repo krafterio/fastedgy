@@ -2,8 +2,10 @@
 # MIT License (see LICENSE file).
 
 import httpx
+import pytest
 
 from fastedgy.dependencies import get_service
+from fastedgy.depends import security
 from fastedgy.mail import Mail, MockAdapter
 from fastedgy.test.models.user import User
 
@@ -151,3 +153,22 @@ async def test_password_reset_flow(setup_http: httpx.AsyncClient) -> None:
     assert reset.status_code == 200
 
     assert (await _login(setup_http, "ivan@example.io", "rotated-horse")).status_code == 200
+
+
+async def test_a_login_naming_no_account_checks_a_password_all_the_same(
+    setup_http: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    await _register(setup_http, "rose@example.io")
+    checked: list[str | None] = []
+    verify_password = security.verify_password
+
+    def counting(password: str | None, candidate: str | None) -> bool:
+        checked.append(candidate)
+
+        return verify_password(password, candidate)
+
+    monkeypatch.setattr(security, "verify_password", counting)
+
+    assert (await _login(setup_http, "rose@example.io", "wrong-horse")).status_code == 401
+    assert (await _login(setup_http, "ghost@example.io", "wrong-horse")).status_code == 401
+    assert checked == ["wrong-horse", "wrong-horse"]

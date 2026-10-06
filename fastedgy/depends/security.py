@@ -2,7 +2,9 @@
 # MIT License (see LICENSE file).
 
 import logging
+import secrets
 from datetime import UTC, datetime, timedelta
+from functools import cache
 from typing import TYPE_CHECKING, Any, cast
 
 import sqlalchemy
@@ -124,10 +126,26 @@ async def find_user(identifier: str) -> "User | None":
     return matches[0] if len(matches) == 1 else None
 
 
+@cache
+def _unknown_account_hash() -> str:
+    return hash_password(secrets.token_urlsafe(32))
+
+
+def _verify_unknown_account(password: str | None) -> None:
+    """Verify against a hash no password matches, so that a login naming no account costs what one naming an
+    account does: the response time tells nobody which addresses have an account."""
+    verify_password(_unknown_account_hash(), password)
+
+
 async def authenticate_user(email: str, password: str):
     user = await find_user(email)
 
-    if not user or not await verify_password_async(user.password, password):
+    if user is None or not user.password:
+        await to_thread.run_sync(_verify_unknown_account, password, limiter=_hash_limiter)
+
+        return False
+
+    if not await verify_password_async(user.password, password):
         return False
 
     await rehash_password_if_needed(user, password)

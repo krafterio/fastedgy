@@ -60,6 +60,8 @@ async def create_user(name: str, email: str, password: str, registry: Registry =
 
 The email is matched whatever its case, so `JOHN@example.com` signs in the account of `john@example.com`. Two accounts left from before whose emails differ by case alone are told apart by the exact spelling: any other spelling signs in neither.
 
+A login naming no account checks the password against a hash all the same, so it takes as long as one naming an account: the response time does not tell which addresses have one.
+
 ## Protecting endpoints
 
 ```python

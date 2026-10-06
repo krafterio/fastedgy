@@ -315,6 +315,9 @@ msgstr "Mot de passe"
 msgid "Password changed successfully"
 msgstr "Mot de passe modifié avec succès"
 
+msgid "Password must be at least {length} characters"
+msgstr "Le mot de passe doit contenir au moins {length} caractères"
+
 msgid "Password reset email sent"
 msgstr "Email de réinitialisation du mot de passe envoyé"
 

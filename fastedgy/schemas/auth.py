@@ -1,7 +1,29 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from fastedgy.schemas import BaseModel, EmailStr
+from typing import Annotated
+
+from pydantic_core import PydanticCustomError
+
+from fastedgy.schemas import AfterValidator, BaseModel, EmailStr
+
+
+def _long_enough(password: str) -> str:
+    from fastedgy.config import BaseSettings
+    from fastedgy.dependencies import get_service, has_service
+    from fastedgy.i18n import _t
+
+    minimum = get_service(BaseSettings).auth_password_min_length if has_service(BaseSettings) else 0
+
+    if len(password) < minimum:
+        message = _t("Password must be at least {length} characters", length=minimum)
+
+        raise PydanticCustomError("password_too_short", "{message}", {"message": message, "min_length": minimum})
+
+    return password
+
+
+NewPassword = Annotated[str, AfterValidator(_long_enough)]
 
 
 class Token(BaseModel):
@@ -27,7 +49,7 @@ class UserLogin(BaseModel):
 class UserRegisterRequest(BaseModel):
     name: str | None = None
     email: EmailStr
-    password: str
+    password: NewPassword
 
 
 class ForgotPasswordRequest(BaseModel):
@@ -45,17 +67,18 @@ class ForgotPasswordValidate(BaseModel):
 
 class ResetPasswordRequest(BaseModel):
     token: str
-    password: str
+    password: NewPassword
 
 
 class ChangePasswordRequest(BaseModel):
     current_password: str
-    new_password: str
+    new_password: NewPassword
 
 
 __all__ = [
     "ChangePasswordRequest",
     "ForgotPasswordRequest",
+    "NewPassword",
     "ResetPasswordRequest",
     "Token",
     "TokenRefresh",

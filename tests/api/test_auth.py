@@ -1,14 +1,19 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+from collections.abc import Callable
+from typing import Any
+
 import httpx
 import pytest
 
 import fastedgy.api.auth as auth_api
+from fastedgy import dependencies
 from fastedgy.dependencies import get_service
 from fastedgy.depends import security
 from fastedgy.mail import Mail, MockAdapter
 from fastedgy.orm.filter import R
+from fastedgy.schemas.auth import ChangePasswordRequest
 from fastedgy.test.models.user import User
 
 PASSWORD = "correct-horse"
@@ -37,6 +42,14 @@ async def _change(client: httpx.AsyncClient, access_token: str, current: str, ne
         json={"current_password": current, "new_password": new},
         headers=_auth_headers(access_token),
     )
+
+
+async def _reset(client: httpx.AsyncClient, email: str, password: str) -> httpx.Response:
+    await client.post("/api/auth/password/forgot", json={"email": email})
+    user = await User.query.filter(email=email).first()
+    assert user is not None
+
+    return await client.post("/api/auth/password/reset", json={"token": user.reset_pwd_token, "password": password})
 
 
 async def _protected(client: httpx.AsyncClient, access_token: str) -> int:
@@ -170,6 +183,56 @@ async def test_password_reset_flow(setup_http: httpx.AsyncClient) -> None:
     assert reset.status_code == 200
 
     assert (await _login(setup_http, "ivan@example.io", "rotated-horse")).status_code == 200
+
+
+async def test_a_password_shorter_than_the_minimum_is_refused_everywhere(
+    setup_http: httpx.AsyncClient, override_settings: Callable[..., None]
+) -> None:
+    override_settings(auth_password_min_length=8)
+
+    assert (await _register(setup_http, "judy@example.io", "1234567")).status_code == 422
+    assert (await _register(setup_http, "judy@example.io", "12345678")).status_code == 200
+
+    access_token = (await _login(setup_http, "judy@example.io", "12345678")).json()["access_token"]
+
+    assert (await _change(setup_http, access_token, "12345678", "")).status_code == 422
+    assert (await _reset(setup_http, "judy@example.io", "1")).status_code == 422
+    assert (await _login(setup_http, "judy@example.io", "12345678")).status_code == 200
+
+    override_settings(auth_password_min_length=4)
+
+    assert (await _register(setup_http, "kim@example.io", "1234")).status_code == 200
+
+
+async def test_by_default_a_password_of_any_length_is_accepted(setup_http: httpx.AsyncClient) -> None:
+    assert (await _register(setup_http, "vera@example.io", "123456")).status_code == 200
+
+    access_token = (await _login(setup_http, "vera@example.io", "123456")).json()["access_token"]
+
+    assert (await _change(setup_http, access_token, "123456", "654321")).status_code == 200
+    assert (await _reset(setup_http, "vera@example.io", "abcdef")).status_code == 200
+
+
+def test_a_password_checked_outside_an_application_reads_no_settings(monkeypatch: pytest.MonkeyPatch) -> None:
+    def no_settings(key: Any) -> Any:
+        raise AssertionError(f"{key} read")
+
+    monkeypatch.setattr(dependencies, "has_service", lambda key: False)
+    monkeypatch.setattr(dependencies, "get_service", no_settings)
+
+    assert ChangePasswordRequest(current_password="old", new_password="1").new_password == "1"
+
+
+async def test_a_short_password_is_refused_with_a_plain_message(
+    setup_http: httpx.AsyncClient, override_settings: Callable[..., None]
+) -> None:
+    override_settings(auth_password_min_length=8)
+    response = await _register(setup_http, "sam@example.io", "short")
+    error = response.json()["detail"][0]
+
+    assert response.status_code == 422
+    assert error["type"] == "password_too_short"
+    assert error["msg"] == "Password must be at least 8 characters"
 
 
 async def test_a_login_naming_no_account_checks_a_password_all_the_same(

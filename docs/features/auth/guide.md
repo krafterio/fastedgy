@@ -21,7 +21,7 @@ AUTH_REFRESH_TOKEN_EXPIRE_DAYS=30
 {"name": "John Doe", "email": "john@example.com", "password": "secure_password"}
 ```
 
-An email is refused when an account already holds it in any case: `Jean@example.com` and `jean@example.com` are one address.
+A password shorter than `AUTH_PASSWORD_MIN_LENGTH` is refused with a `422`, as it is on reset and change; with the default `0`, any length goes. An email is refused when an account already holds it in any case: `Jean@example.com` and `jean@example.com` are one address.
 
 Or create users programmatically:
 
@@ -165,7 +165,7 @@ Authentication endpoints return standard HTTP errors:
 
 - **400 Bad Request**: Email already registered, current password incorrect, reset token invalid or expired
 - **401 Unauthorized**: Invalid credentials
-- **422 Unprocessable Entity**: Invalid request data
+- **422 Unprocessable Entity**: Invalid request data, a password shorter than a non-zero `AUTH_PASSWORD_MIN_LENGTH` among them, with the type `password_too_short` and the minimum in `ctx.min_length`
 
 ```python
 try:

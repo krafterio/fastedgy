@@ -6,6 +6,7 @@ FastEdgy provides a built-in JWT-based authentication system with user registrat
 
 - **JWT tokens**: Access and refresh token support
 - **Password hashing**: argon2id, with older bcrypt hashes upgraded at their next login
+- **Password policy**: an optional minimum length, checked on registration, reset and change
 - **Route protection**: Dependency injection for protected endpoints
 - **User registration**: Simple registration with email validation
 - **Password reset**: Email-based password recovery

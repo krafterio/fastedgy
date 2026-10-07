@@ -3,7 +3,6 @@
 
 from alembic.autogenerate import renderers
 from alembic.operations import MigrateOperation, Operations
-from sqlalchemy import text
 
 
 def process_vector_revision_directives(context, revision, directives):
@@ -118,33 +117,15 @@ def render_disable_vector_extension(_, operation: DisableVectorExtensionOperatio
 
 
 def enable_vector_extension() -> None:
-    """
-    Enable the vector extension for PostgreSQL (pgvector).
-    This function is idempotent - it won't fail if the extension is already enabled.
-    """
-    from alembic import context
+    from alembic import op
 
-    connection = context.get_bind()
-
-    result = connection.execute(text("SELECT 1 FROM pg_extension WHERE extname = 'vector'")).fetchone()
-
-    if not result:
-        connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+    op.execute("CREATE EXTENSION IF NOT EXISTS vector")
 
 
 def disable_vector_extension() -> None:
-    """
-    Disable the vector extension for PostgreSQL (pgvector).
-    Warning: This will fail if there are still tables using the vector type.
-    """
-    from alembic import context
+    from alembic import op
 
-    connection = context.get_bind()
-
-    try:
-        connection.execute(text("DROP EXTENSION IF EXISTS vector CASCADE"))
-    except Exception:
-        pass
+    op.execute("DROP EXTENSION IF EXISTS vector CASCADE")
 
 
 __all__ = [

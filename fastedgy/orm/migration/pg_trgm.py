@@ -3,7 +3,6 @@
 
 from alembic.autogenerate import renderers
 from alembic.operations import MigrateOperation, Operations
-from sqlalchemy import text
 
 
 @Operations.register_operation("enable_pg_trgm_extension")
@@ -53,24 +52,15 @@ def render_disable_pg_trgm_extension(_, operation) -> str:
 
 
 def enable_pg_trgm_extension() -> None:
-    """Enable the pg_trgm PostgreSQL extension."""
-    from alembic import context
+    from alembic import op
 
-    connection = context.get_bind()
-    result = connection.execute(text("SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm'")).fetchone()
-    if not result:
-        connection.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
+    op.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")
 
 
 def disable_pg_trgm_extension() -> None:
-    """Disable the pg_trgm PostgreSQL extension."""
-    from alembic import context
+    from alembic import op
 
-    connection = context.get_bind()
-    try:
-        connection.execute(text("DROP EXTENSION IF EXISTS pg_trgm CASCADE"))
-    except Exception:
-        pass
+    op.execute("DROP EXTENSION IF EXISTS pg_trgm CASCADE")
 
 
 __all__ = [

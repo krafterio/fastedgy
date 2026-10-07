@@ -3,7 +3,6 @@
 
 from alembic.autogenerate import renderers
 from alembic.operations import MigrateOperation, Operations
-from sqlalchemy import text
 
 
 def process_postgis_revision_directives(context, revision, directives):
@@ -115,33 +114,15 @@ def render_disable_postgis_extension(_, operation: DisablePostGISExtensionOperat
 
 
 def enable_postgis_extension() -> None:
-    """
-    Enable the PostGIS extension for PostgreSQL.
-    This function is idempotent - it won't fail if the extension is already enabled.
-    """
-    from alembic import context
+    from alembic import op
 
-    connection = context.get_bind()
-
-    result = connection.execute(text("SELECT 1 FROM pg_extension WHERE extname = 'postgis'")).fetchone()
-
-    if not result:
-        connection.execute(text("CREATE EXTENSION IF NOT EXISTS postgis"))
+    op.execute("CREATE EXTENSION IF NOT EXISTS postgis")
 
 
 def disable_postgis_extension() -> None:
-    """
-    Disable the PostGIS extension for PostgreSQL.
-    Warning: This will fail if there are still tables using PostGIS types.
-    """
-    from alembic import context
+    from alembic import op
 
-    connection = context.get_bind()
-
-    try:
-        connection.execute(text("DROP EXTENSION IF EXISTS postgis CASCADE"))
-    except Exception:
-        pass
+    op.execute("DROP EXTENSION IF EXISTS postgis CASCADE")
 
 
 __all__ = [

@@ -451,142 +451,98 @@ class RenameEnumOperation(MigrateOperation):
         return RenameEnumOperation(self.new_name, self.old_name)
 
 
+_COLUMN = "__fastedgy_enum_column__"
+
+
+def _literal(value: str) -> str:
+    return "'" + value.replace("'", "''") + "'"
+
+
+def _enum_values(values: list[str]) -> str:
+    return ", ".join(_literal(value) for value in values)
+
+
+def _replace_enum_case(operation: ReplaceEnumOperation, nullable: bool) -> str:
+    enum_name = operation.enum_name
+    new_values = operation.new_values
+    conditions = [
+        f"WHEN {_COLUMN}::text = {_literal(old)} THEN {'null' if new is None else f'{_literal(new)}::{enum_name}'}"
+        for old, new in (operation.value_mapping or {}).items()
+    ]
+
+    if not operation.value_mapping:
+        conditions.append(
+            f"WHEN {_COLUMN}::text = ANY(ARRAY[{_enum_values(new_values)}]) THEN {_COLUMN}::text::{enum_name}"
+        )
+
+    conditions += [
+        f"WHEN LOWER({_COLUMN}::text) = LOWER({_literal(value)}) THEN {_literal(value)}::{enum_name}"
+        for value in new_values
+    ]
+    fallback = "null" if nullable or not new_values else f"{_literal(new_values[0])}::{enum_name}"
+
+    return f"CASE {' '.join(conditions)} ELSE {fallback} END"
+
+
 @Operations.implementation_for(ReplaceEnumOperation)
 def replace_enum(operations, operation: ReplaceEnumOperation) -> None:
     enum_name = operation.enum_name
     old_enum_name = f"{enum_name}_old"
-    new_values = operation.new_values
-
-    # Rename old enum
-    operations.execute(f"ALTER TYPE {enum_name} RENAME TO {old_enum_name}")
-
-    # Create new enum with new values
-    new_enum = sa.Enum(*new_values, name=enum_name)
-    new_enum.create(operations.get_bind())
-
-    # Find all tables using this enum and update them
-    result = operations.get_bind().execute(
-        sa.text(
-            "SELECT table_name, column_name, is_nullable FROM information_schema.columns WHERE udt_name = :old_enum_name"
-        ),
-        {"old_enum_name": old_enum_name},
+    target = "' || quote_ident(col.table_name) || ' ALTER COLUMN ' || quote_ident(col.column_name) || '"
+    defaults = " ".join(
+        f"IF col.table_name = {_literal(table)} AND col.column_name = {_literal(name)} THEN "
+        f"EXECUTE 'ALTER TABLE {target} SET DEFAULT ' || $default${_literal(default)}::{enum_name}$default$; "
+        "END IF;"
+        for table, columns in (operation.new_defaults or {}).items()
+        for name, default in columns.items()
+        if default is not None
     )
 
-    for row in result:
-        table_name, column_name, is_nullable = row
-        default_value = f"'{new_values[0]}'" if new_values else "null"
-
-        # First, drop any existing default to avoid cast errors during type change
-        operations.execute(f"ALTER TABLE {table_name} ALTER COLUMN {column_name} DROP DEFAULT")
-
-        # Build CASE statement for value conversion
-        if operation.value_mapping:
-            # Use custom mapping provided by user
-            case_conditions = []
-            for old_val, new_val in operation.value_mapping.items():
-                if new_val is None:
-                    case_conditions.append(f"WHEN {column_name}::text = '{old_val}' THEN null")
-                else:
-                    case_conditions.append(f"WHEN {column_name}::text = '{old_val}' THEN '{new_val}'::{enum_name}")
-
-            # Add case-insensitive fallback for unmapped values
-            case_insensitive_conditions = []
-            for new_val in new_values:
-                case_insensitive_conditions.append(
-                    f"WHEN LOWER({column_name}::text) = LOWER('{new_val}') THEN '{new_val}'::{enum_name}"
-                )
-
-            # Final fallback
-            if is_nullable == "YES":
-                final_fallback = "null"
-            else:
-                final_fallback = f"{default_value}::{enum_name}"
-
-            case_statement = f"""CASE
-                {" ".join(case_conditions)}
-                {" ".join(case_insensitive_conditions)}
-                ELSE {final_fallback}
-            END"""
-        else:
-            # Use automatic mapping (existing values that match new enum values)
-            # First try exact match, then case-insensitive match
-            case_insensitive_conditions = []
-            for new_val in new_values:
-                case_insensitive_conditions.append(
-                    f"WHEN LOWER({column_name}::text) = LOWER('{new_val}') THEN '{new_val}'::{enum_name}"
-                )
-
-            if is_nullable == "YES":
-                case_statement = f"""CASE
-                    WHEN {column_name}::text = ANY(ARRAY{new_values}) THEN {column_name}::text::{enum_name}
-                    {" ".join(case_insensitive_conditions)}
-                    ELSE null
-                END"""
-            else:
-                case_statement = f"""CASE
-                    WHEN {column_name}::text = ANY(ARRAY{new_values}) THEN {column_name}::text::{enum_name}
-                    {" ".join(case_insensitive_conditions)}
-                    ELSE {default_value}::{enum_name}
-                END"""
-
-        operations.execute(f"""
-            ALTER TABLE {table_name}
-            ALTER COLUMN {column_name}
-            TYPE {enum_name}
-            USING {case_statement}
-        """)
-
-        # Update default values if they have changed
-        new_default = None
-        if operation.new_defaults and table_name in operation.new_defaults:
-            new_default = operation.new_defaults[table_name].get(column_name)
-
-        old_default = None
-        if operation.old_defaults and table_name in operation.old_defaults:
-            old_default = operation.old_defaults[table_name].get(column_name)
-
-        # Only update if default value has actually changed
-        if new_default != old_default:
-            if new_default is not None:
-                # Set new default value
-                operations.execute(f"""
-                    ALTER TABLE {table_name}
-                    ALTER COLUMN {column_name}
-                    SET DEFAULT '{new_default}'::{enum_name}
-                """)
-            else:
-                # Remove default value
-                operations.execute(f"""
-                    ALTER TABLE {table_name}
-                    ALTER COLUMN {column_name}
-                    DROP DEFAULT
-                """)
-
-    # Drop old enum
-    sa.Enum(name=old_enum_name).drop(operations.get_bind(), checkfirst=True)
+    operations.execute(f"ALTER TYPE {enum_name} RENAME TO {old_enum_name}")
+    operations.execute(f"CREATE TYPE {enum_name} AS ENUM ({_enum_values(operation.new_values)})")
+    operations.execute(f"""
+        DO $replace_enum$
+        DECLARE
+            col record;
+        BEGIN
+            FOR col IN
+                SELECT table_name, column_name, is_nullable
+                FROM information_schema.columns
+                WHERE udt_name = {_literal(old_enum_name)}
+            LOOP
+                EXECUTE 'ALTER TABLE {target} DROP DEFAULT';
+                EXECUTE 'ALTER TABLE {target} TYPE {enum_name} USING ' || replace(
+                    CASE WHEN col.is_nullable = 'YES'
+                        THEN $nullable${_replace_enum_case(operation, True)}$nullable$
+                        ELSE $required${_replace_enum_case(operation, False)}$required$
+                    END,
+                    {_literal(_COLUMN)},
+                    quote_ident(col.column_name)
+                );
+                {defaults}
+            END LOOP;
+        END
+        $replace_enum$
+    """)
+    operations.execute(f"DROP TYPE IF EXISTS {old_enum_name}")
 
 
 @Operations.implementation_for(CreateEnumOperation)
 def create_enum(operations, operation: CreateEnumOperation) -> None:
-    result = (
-        operations.get_bind()
-        .execute(
-            sa.text("SELECT 1 FROM pg_type WHERE typname = :enum_name"),
-            {"enum_name": operation.enum_name},
-        )
-        .fetchone()
-    )
-
-    if result:
-        return
-
-    enum = sa.Enum(*operation.values, name=operation.enum_name)
-    enum.create(operations.get_bind())
+    operations.execute(f"""
+        DO $create_enum$
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = {_literal(operation.enum_name)}) THEN
+                CREATE TYPE {operation.enum_name} AS ENUM ({_enum_values(operation.values)});
+            END IF;
+        END
+        $create_enum$
+    """)
 
 
 @Operations.implementation_for(DropEnumOperation)
 def drop_enum(operations, operation: DropEnumOperation) -> None:
-    sa.Enum(name=operation.enum_name).drop(operations.get_bind(), checkfirst=True)
+    operations.execute(f"DROP TYPE IF EXISTS {operation.enum_name}")
 
 
 @Operations.implementation_for(RenameEnumOperation)

@@ -1,15 +1,20 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+from types import SimpleNamespace
 from typing import Any
 
-from sqlalchemy import Column, Integer, MetaData, Table, Text, cast, select
+import pytest
+from alembic.operations.ops import UpgradeOps
+from sqlalchemy import Column, Integer, MetaData, Table, Text, cast, exists, or_, select
 from sqlalchemy.dialects import postgresql
 
 from fastedgy.app import FastEdgy
 from fastedgy.dependencies import get_service
 from fastedgy.orm import Registry
-from fastedgy.orm.migration.view_model import normalize_sql
+from fastedgy.orm.migration import view_model
+from fastedgy.orm.migration.view_model import CreateViewOperation, compare_view, normalize_sql
+from fastedgy.orm.view import create_view
 
 # --- normalize_sql: parenthesis handling (no database) ---------------------
 
@@ -71,17 +76,13 @@ async def _view_definition(database: Any, name: str) -> str:
 async def _assert_no_false_positive(database: Any, name: str, selectable: Any) -> None:
     """Mirror the migration view-change detector for ``selectable``.
 
-    1. The normalized model definition must be valid SQL — regression guard: a
-       ``DISTINCT ON (...)`` clause must keep its required parens, otherwise the
-       ``CREATE VIEW`` below raises.
-    2. Its first-level normalization differs from PostgreSQL's stored form (the
+    1. Its first-level normalization differs from PostgreSQL's stored form (the
        no-op ``CAST`` the model keeps but PostgreSQL discards) — so the deeper DB
        round-trip is actually exercised, not short-circuited.
-    3. After a PostgreSQL round-trip both canonical forms match — the detector
+    2. After a PostgreSQL round-trip both canonical forms match — the detector
        reports no change, i.e. no false positive.
     """
     compiled = str(selectable.compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}))
-    model_def = normalize_sql(compiled)
 
     # The "existing" view, as a previous migration / metadata.create_all built it.
     await database.execute(f"DROP VIEW IF EXISTS {name} CASCADE")
@@ -90,10 +91,9 @@ async def _assert_no_false_positive(database: Any, name: str, selectable: Any) -
 
     assert normalize_sql(compiled, True) != db_def
 
-    # The deeper check recreates the view from the normalized model definition
-    # (raises here if that definition is invalid SQL) and compares canonical forms.
+    # The deeper check recreates the view from the model definition and compares canonical forms.
     await database.execute(f"DROP VIEW IF EXISTS {name} CASCADE")
-    await database.execute(f"CREATE VIEW {name} AS {model_def}")
+    await database.execute(f"CREATE VIEW {name} AS {compiled}")
     check_def = normalize_sql(await _view_definition(database, name), True)
     await database.execute(f"DROP VIEW IF EXISTS {name} CASCADE")
 
@@ -173,3 +173,45 @@ async def test_join_views_have_no_false_positive(setup_db: FastEdgy) -> None:
         await database.execute("DROP VIEW IF EXISTS test_view_join_plain CASCADE")
         await database.execute("DROP TABLE IF EXISTS test_view_device CASCADE")
         await database.execute("DROP TABLE IF EXISTS test_view_owner CASCADE")
+
+
+async def test_the_created_view_definition_runs_as_written(setup_db: FastEdgy, monkeypatch: pytest.MonkeyPatch) -> None:
+    database = get_service(Registry).database
+
+    await database.execute("DROP TABLE IF EXISTS test_view_member CASCADE")
+    await database.execute('CREATE TABLE test_view_member (id integer PRIMARY KEY, "user" integer, team integer)')
+
+    try:
+        member = Table(
+            "test_view_member",
+            MetaData(),
+            Column("id", Integer, primary_key=True),
+            Column("user", Integer),
+            Column("team", Integer),
+        )
+        other = member.alias("other")
+        selectable = select(member.c.id, member.c.user).where(
+            member.c.id > 0,
+            or_(~exists().where(other.c.team == member.c.team, other.c.id != member.c.id), member.c.user == 1),
+        )
+        view = SimpleNamespace(
+            table=create_view("test_view_emitted", selectable, MetaData()),
+            meta=SimpleNamespace(tablename="test_view_emitted"),
+        )
+        monkeypatch.setattr(view_model, "get_service", lambda _: SimpleNamespace(models={"view": view}))
+
+        def emit(connection: Any) -> list[Any]:
+            upgrade_ops = UpgradeOps(ops=[])
+            context: Any = SimpleNamespace(connection=connection, dialect=connection.dialect)
+            compare_view(context, upgrade_ops, [None])
+            return upgrade_ops.ops
+
+        async with database.connection() as connection:
+            ops = await connection.run_sync(emit)
+
+        [create] = [op for op in ops if isinstance(op, CreateViewOperation) and op.name == "test_view_emitted"]
+
+        await database.execute(f"CREATE VIEW test_view_emitted AS {create.definition}")
+    finally:
+        await database.execute("DROP VIEW IF EXISTS test_view_emitted CASCADE")
+        await database.execute("DROP TABLE IF EXISTS test_view_member CASCADE")

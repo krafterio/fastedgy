@@ -65,12 +65,10 @@ def compare_view(autogen_context: AutogenContext, upgrade_ops: UpgradeOps, schem
         if isinstance(model.table, TableView):
             for sch in schemas:
                 schema = autogen_context.dialect.default_schema_name if sch is None else sch
-                definition = normalize_sql(
-                    str(
-                        model.table.selectable.compile(
-                            dialect=autogen_context.dialect,
-                            compile_kwargs={"literal_binds": True},
-                        )
+                definition = str(
+                    model.table.selectable.compile(
+                        dialect=autogen_context.dialect,
+                        compile_kwargs={"literal_binds": True},
                     )
                 )
                 model_views[(schema, model.meta.tablename)] = definition

@@ -22,8 +22,8 @@ class Product(BaseModel, SearchableMixin, ExtendableMixin):
     reference = fields.UUIDField(null=True)
     details = fields.JSONField(null=True)
     secret_code = fields.CharField(max_length=64, null=True, exclude=True)
-    category = fields.ForeignKey(Category, null=True, related_name="products")
-    tags = fields.ManyToMany(Tag, related_name="products")
+    category = fields.ForeignKey(Category, null=True, related_name="products", lookup="name", related_lookup="name")
+    tags = fields.ManyToMany(Tag, related_name="products", lookup="name")
 
     class Meta(BaseModel.Meta, SearchableMixin.Meta, ExtendableMixin.Meta):
         tablename = "test_products"

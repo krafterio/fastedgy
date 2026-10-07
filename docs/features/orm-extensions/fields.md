@@ -224,6 +224,45 @@ class Product(BaseModel):
     category = fields.ForeignKey("Category", on_delete="CASCADE", label=_t("Category"))
 ```
 
+`lookup` lets the generated API routes also link the record by a string, matched on a field of
+the target model. It takes the field name, or a function turning the string into a Query Builder
+rule when the match needs more than an equality:
+
+```python
+from fastedgy.orm.filter import R
+
+LEGACY_CODES = {"euro": "EUR", "dollar": "USD"}
+
+
+class Account(BaseModel):
+    class Meta:
+        tablename = "accounts"
+
+    country = fields.ForeignKey("Country", null=True, lookup="iso_code")
+    currency = fields.ForeignKey(
+        "Currency",
+        null=True,
+        lookup=lambda value: R("iso_code", "=", LEGACY_CODES.get(value, value.upper())),
+    )
+```
+
+An id and the other foreign key inputs keep working, and a string that matches nothing is refused
+with a 400.
+
+`related_lookup` does the same for the reverse relation: the records the target lists under its
+`related_name` are linked by that key of the model declaring the foreign key.
+
+```python
+class Product(BaseModel):
+    class Meta:
+        tablename = "products"
+
+    category = fields.ForeignKey("Category", related_name="products", related_lookup="name")
+```
+
+`POST /api/categories {"name": "Phones", "products": ["Pixel"]}` then links the product named
+`Pixel`.
+
 ## Generic Foreign Key
 
 Polymorphic many-to-one relationship stored as a pair of sibling columns (target model name + target id). See the dedicated [Generic Foreign Key](generic-foreign-key.md) page for the full API surface (reverse relations, payloads, filtering, fields selector).
@@ -311,6 +350,9 @@ class Tag(BaseModel):
 
     products = fields.ManyToManyField("Product", related_name="tags", label=_t("Products"))
 ```
+
+`lookup` links the records by a field of the target, or by the rule a function builds from the
+string, as on a [Foreign Key](#foreign-key): `"products": ["Laptop", 3]`.
 
 ## One to One
 

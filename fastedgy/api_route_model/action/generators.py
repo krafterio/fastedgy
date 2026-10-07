@@ -50,6 +50,31 @@ class RelationOperation(
 RelationInput = Union[list[int], list[RelationOperation], list[dict[str, Any]]]
 
 
+class RelationLookupOperation(
+    RootModel[
+        Union[
+            tuple[Literal["link"], int | str],
+            tuple[Literal["unlink"], int | str],
+            tuple[Literal["delete"], int | str],
+            tuple[Literal["create"], dict[str, Any]],
+            tuple[Literal["update"], dict[str, Any]],
+            tuple[Literal["set"], list[int | str]],
+            tuple[Literal["clear"]],
+        ]
+    ]
+):
+    """A relation operation whose records may also be named by the lookup of the relation."""
+
+
+RelationLookupInput = Union[list[int | str], list[RelationLookupOperation], list[dict[str, Any]]]
+
+
+def _relation_input(field: Any) -> Any:
+    from fastedgy.api_route_model.action.relations import relation_lookup
+
+    return RelationLookupInput if relation_lookup(field) is not None else RelationInput
+
+
 class ForeignKeyObject(PydanticBaseModel):
     """Object form of a foreign key input.
 
@@ -83,6 +108,12 @@ class ForeignKeyOperation(
 # properties), or a single advanced-mode operation.
 ForeignKeyInput = Union[int, ForeignKeyObject, ForeignKeyOperation]
 
+ForeignKeyLookupInput = Union[int, str, ForeignKeyObject, ForeignKeyOperation]
+
+
+def _foreign_key_input(field: Any) -> Any:
+    return ForeignKeyLookupInput if getattr(field, "lookup", None) is not None else ForeignKeyInput
+
 
 class ReferenceObject(PydanticBaseModel):
     """Polymorphic reference input: the target model metadata name and the
@@ -114,11 +145,14 @@ def _reference_field_options(field_name: str, field: Any) -> dict[str, Any]:
     }
 
 
-def _foreign_key_field_options(field_name: str) -> dict[str, Any]:
+def _foreign_key_field_options(field_name: str, field: Any) -> dict[str, Any]:
+    lookup = getattr(field, "lookup", None)
+    by_key = "" if lookup is None else f'**Link by {lookup if isinstance(lookup, str) else "key"}:** `"value"`\n\n'
     return {
         "description": (
             f"Foreign key for {field_name}.\n\n"
             f"**Link by id:** `5`\n\n"
+            f"{by_key}"
             f'**Link by object:** `{{"id": 5}}`\n\n'
             f'**Link and update:** `{{"id": 5, "name": "New"}}`\n\n'
             f"**Unlink:** `null`\n\n"
@@ -195,7 +229,7 @@ def generate_input_create_model[M: BaseModel | BaseView](model_cls: type[M]) -> 
             # - list[int] (simple: [1,2,3] → [["set", [1,2,3]]])
             # - list[list] (advanced: [["create", {...}], ["link", 42]])
             # Using Any for advanced mode to keep OpenAPI schema simple
-            field_type = optional_field_type(RelationInput) if field.null else RelationInput
+            field_type = optional_field_type(_relation_input(field)) if field.null else _relation_input(field)
 
             fields[field_name] = (
                 field_type,
@@ -236,14 +270,14 @@ def generate_input_create_model[M: BaseModel | BaseView](model_cls: type[M]) -> 
         elif isinstance(field, ForeignKey) and not field.exclude:
             # ForeignKey accepts an id, an object ({"id": ...} with optional
             # updates) or a single advanced-mode operation.
-            options = _foreign_key_field_options(field_name)
+            options = _foreign_key_field_options(field_name, field)
             if field.null:
                 fields[field_name] = (
-                    Union[ForeignKeyInput, None],
+                    Union[_foreign_key_input(field), None],
                     PydanticField(default=None, **options),
                 )
             else:
-                fields[field_name] = (ForeignKeyInput, PydanticField(**options))
+                fields[field_name] = (_foreign_key_input(field), PydanticField(**options))
         elif not field.exclude:
             # Regular scalar field (only if not excluded)
             field_type = field.field_type
@@ -312,7 +346,7 @@ def generate_input_patch_model[M: BaseModel | BaseView](model_cls: type[M]) -> t
             # - list[list] (advanced: [["clear"], ["create", {...}], ["link", 42]])
             # Using list[list] for advanced mode to keep OpenAPI schema simple
             fields[field_name] = (
-                Union[RelationInput, None],
+                Union[_relation_input(field), None],
                 PydanticField(
                     default=None,
                     description=(
@@ -345,8 +379,8 @@ def generate_input_patch_model[M: BaseModel | BaseView](model_cls: type[M]) -> t
             # ForeignKey accepts an id, an object ({"id": ...} with optional
             # updates), null to unlink, or a single advanced-mode operation.
             fields[field_name] = (
-                Union[ForeignKeyInput, None],
-                PydanticField(default=None, **_foreign_key_field_options(field_name)),
+                Union[_foreign_key_input(field), None],
+                PydanticField(default=None, **_foreign_key_field_options(field_name, field)),
             )
         elif not field.exclude:
             # Regular scalar field (only if not excluded)
@@ -387,9 +421,12 @@ def clean_empty_strings(item_data: BaseModel) -> None:
 
 __all__ = [
     "ForeignKeyInput",
+    "ForeignKeyLookupInput",
     "ForeignKeyObject",
     "ForeignKeyOperation",
     "RelationInput",
+    "RelationLookupInput",
+    "RelationLookupOperation",
     "RelationOperation",
     "clean_empty_strings",
     "generate_input_create_model",

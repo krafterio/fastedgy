@@ -50,6 +50,53 @@ async def test_create_link_and_update_related_record(auth_http: httpx.AsyncClien
     assert refreshed["name"] == "New name"
 
 
+async def test_create_link_by_the_lookup_of_the_foreign_key(auth_http: httpx.AsyncClient) -> None:
+    category = await _make_category(auth_http, "Comics")
+
+    response = await _create_product(auth_http, category="Comics")
+
+    assert response.status_code == 200
+    assert response.json()["category"] == {"id": category["id"]}
+
+
+async def test_patch_link_by_the_lookup_of_the_foreign_key(auth_http: httpx.AsyncClient) -> None:
+    await _make_category(auth_http, "Novels")
+    poetry = await _make_category(auth_http, "Poetry")
+    product = (await _create_product(auth_http, category="Novels")).json()
+
+    response = await auth_http.patch(f"/api/test_products/{product['id']}", json={"category": "Poetry"})
+
+    assert response.status_code == 200
+    assert response.json()["category"] == {"id": poetry["id"]}
+
+
+async def test_a_lookup_that_matches_nothing_is_refused(auth_http: httpx.AsyncClient) -> None:
+    response = await _create_product(auth_http, category="Unknown")
+
+    assert response.status_code == 400
+
+
+async def test_a_lookup_function_turns_the_string_into_a_rule(setup_db: FastEdgy) -> None:
+    from fastedgy.api_route_model.action.relations import _lookup_foreign_key
+    from fastedgy.orm.filter import R
+
+    category = await Category(name="Essays").save()
+
+    found = await _lookup_foreign_key(Category, lambda value: R("name", "=", value.title()), "essays", "category")
+
+    assert found == category.id
+
+
+async def test_a_foreign_key_without_lookup_refuses_a_string(setup_db: FastEdgy) -> None:
+    from pydantic import ValidationError
+
+    from fastedgy.api_route_model.action.generators import generate_input_create_model
+    from fastedgy.test.models.comment import Comment
+
+    with pytest.raises(ValidationError):
+        generate_input_create_model(Comment).model_validate({"content": "Nice", "product": "Product"})
+
+
 async def test_create_unlink_with_null(auth_http: httpx.AsyncClient) -> None:
     response = await _create_product(auth_http, category=None)
 

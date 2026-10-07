@@ -60,6 +60,15 @@ def is_exposed_relation_field(field) -> bool:
     return not related_name.endswith("_set")
 
 
+def relation_lookup(field) -> Any:
+    from edgy.core.db.relationships.related_field import RelatedField
+
+    if isinstance(field, RelatedField):
+        return getattr(field.foreign_key, "related_lookup", None)
+
+    return getattr(field, "lookup", None)
+
+
 def get_related_model(field) -> type:
     """
     Extract the related model class from a relational field.
@@ -206,6 +215,20 @@ def _plain_foreign_key_value(value: Any) -> Any:
     return value
 
 
+async def _lookup_foreign_key(related_model: Any, lookup: Any, value: str, field_name: str) -> int:
+    from fastapi import HTTPException
+
+    from fastedgy.orm.filter import R
+
+    rule = lookup(value) if callable(lookup) else R(lookup, "=", value)
+    record = await related_model.query.filter(rule).first()
+
+    if record is None:
+        raise HTTPException(status_code=400, detail=f"No {related_model.__name__} matches {value!r} for {field_name}")
+
+    return record.id
+
+
 async def process_foreign_key_fields(
     model_cls: TypeModel,
     foreign_key_data: dict[str, Any],
@@ -240,6 +263,10 @@ async def process_foreign_key_fields(
         field = model_cls.model_fields[field_name]
         related_model = get_related_model(field)
         plain_value = _plain_foreign_key_value(value)
+        lookup = getattr(field, "lookup", None)
+
+        if lookup is not None and isinstance(plain_value, str):
+            plain_value = await _lookup_foreign_key(related_model, lookup, plain_value, field_name)
 
         ensure_relation_write_allowed(related_model, _foreign_key_record_ops(plain_value), field_name)
 
@@ -259,6 +286,24 @@ async def process_foreign_key_fields(
             deferred_deletes.append(to_delete)
 
     return resolved, deferred_deletes
+
+
+async def _lookup_relation_operation(related_model: Any, lookup: Any, operation: list, field_name: str) -> list:
+    action = operation[0] if operation else None
+
+    if action in ("link", "unlink", "delete") and isinstance(operation[1], str):
+        return [action, await _lookup_foreign_key(related_model, lookup, operation[1], field_name)]
+
+    if action == "set":
+        return [
+            action,
+            [
+                await _lookup_foreign_key(related_model, lookup, value, field_name) if isinstance(value, str) else value
+                for value in operation[1]
+            ],
+        ]
+
+    return operation
 
 
 async def process_relational_fields(
@@ -294,12 +339,20 @@ async def process_relational_fields(
         # Handle null or empty array as "clear" action
         if operations is None or (isinstance(operations, list) and len(operations) == 0):
             operations = [["clear"]]
-        elif operations and isinstance(operations[0], int):
+        elif operations and isinstance(operations[0], (int, str)):
             # Convert simple list[int] to [["set", [ids]]]
             operations = [["set", operations]]
         elif operations and isinstance(operations[0], dict):
             # Convert a plain list of objects to inline create operations
             operations = [["create", dict(op)] for op in operations]
+
+        lookup = relation_lookup(field)
+
+        if lookup is not None:
+            operations = [
+                await _lookup_relation_operation(related_model, lookup, list(operation), field_name)
+                for operation in operations
+            ]
 
         # Process all relational fields (M2M and O2M) with the same operations
         if is_relation_field(field):
@@ -324,4 +377,5 @@ __all__ = [
     "is_relation_field",
     "process_foreign_key_fields",
     "process_relational_fields",
+    "relation_lookup",
 ]

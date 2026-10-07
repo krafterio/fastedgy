@@ -60,6 +60,7 @@ def test_nullable_fk_create_schema_documents_every_input_form(setup_openapi_app:
 
     assert _variant_kinds(props["category"]) == {
         "int",  # link by id
+        "string",  # link by lookup
         "ref:ForeignKeyObject",  # link by object / link + update
         "ref:ForeignKeyOperation",  # advanced: [action, value]
         "null",  # unlink
@@ -71,6 +72,7 @@ def test_nullable_fk_update_schema_documents_every_input_form(setup_openapi_app:
 
     assert _variant_kinds(props["category"]) == {
         "int",
+        "string",
         "ref:ForeignKeyObject",
         "ref:ForeignKeyOperation",
         "null",
@@ -86,19 +88,27 @@ def test_required_fk_create_schema_excludes_null(setup_openapi_app: FastEdgy) ->
 
 
 def test_collection_create_schema_documents_simple_and_advanced(setup_openapi_app: FastEdgy) -> None:
-    props = _properties(setup_openapi_app.openapi(), "Product-Create")
-    kinds = _variant_kinds(props["tags"])
+    props = _properties(setup_openapi_app.openapi(), "Tag-Create")
+    kinds = _variant_kinds(props["products"])
 
     assert "array:int" in kinds  # simple mode: [1, 2, 3]
     assert "array:ref:RelationOperation" in kinds  # advanced mode: [["link", 1], ...]
 
 
 def test_collection_update_schema_documents_simple_and_advanced(setup_openapi_app: FastEdgy) -> None:
-    props = _properties(setup_openapi_app.openapi(), "Product-Update")
-    kinds = _variant_kinds(props["tags"])
+    props = _properties(setup_openapi_app.openapi(), "Tag-Update")
+    kinds = _variant_kinds(props["products"])
 
     assert "array:int" in kinds
     assert "array:ref:RelationOperation" in kinds
+
+
+def test_collection_with_a_lookup_documents_its_keys(setup_openapi_app: FastEdgy) -> None:
+    for schema in ("Product-Create", "Product-Update"):
+        kinds = _variant_kinds(_properties(setup_openapi_app.openapi(), schema)["tags"])
+
+        assert "array:other" in kinds  # simple mode: [1, "Red"]
+        assert "array:ref:RelationLookupOperation" in kinds  # advanced mode: [["link", "Red"], ...]
 
 
 def test_operation_models_survive_orphan_pruning(setup_openapi_app: FastEdgy) -> None:

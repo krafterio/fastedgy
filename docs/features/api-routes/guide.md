@@ -84,6 +84,15 @@ PATCH /api/products/42
 {"category": null}
 ```
 
+A foreign key declared with a `lookup` also links by a string, matched on a field of the target
+(see [Foreign Key](../orm-extensions/fields.md#foreign-key)):
+
+```bash
+# Link by lookup, with `category = fields.ForeignKey("Category", lookup="name")`
+POST /api/products/
+{"name": "Smartphone", "category": "Phones", "price": "599.99"}
+```
+
 #### Advanced mode
 
 For the remaining cases, use a single operation `[action, value]` (the same actions as
@@ -161,6 +170,18 @@ PATCH /api/products/42
 ```
 
 The simple mode automatically executes a `set` operation that replaces all existing relations.
+
+A relation declared with a `lookup` (many to many) or a `related_lookup` (the reverse of a
+foreign key) also names its records by that key, in both modes:
+
+```bash
+# With `tags = fields.ManyToMany("Tag", related_name="products", lookup="name")`
+PATCH /api/products/42
+{"tags": ["Sale", 7]}
+
+PATCH /api/products/42
+{"tags": [["link", "New"], ["unlink", "Sale"]]}
+```
 
 #### Advanced mode
 

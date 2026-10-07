@@ -1088,13 +1088,20 @@
             "anyOf": [
               {
                 "items": {
-                  "type": "integer"
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
                 },
                 "type": "array"
               },
               {
                 "items": {
-                  "$ref": "#/components/schemas/RelationOperation"
+                  "$ref": "#/components/schemas/RelationLookupOperation"
                 },
                 "type": "array"
               },
@@ -1345,13 +1352,20 @@
             "anyOf": [
               {
                 "items": {
-                  "type": "integer"
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
                 },
                 "type": "array"
               },
               {
                 "items": {
-                  "$ref": "#/components/schemas/RelationOperation"
+                  "$ref": "#/components/schemas/RelationLookupOperation"
                 },
                 "type": "array"
               },
@@ -2718,6 +2732,9 @@
                 "type": "integer"
               },
               {
+                "type": "string"
+              },
+              {
                 "$ref": "#/components/schemas/ForeignKeyObject"
               },
               {
@@ -2727,7 +2744,7 @@
                 "type": "null"
               }
             ],
-            "description": "Foreign key for category.\n\n**Link by id:** `5`\n\n**Link by object:** `{\"id\": 5}`\n\n**Link and update:** `{\"id\": 5, \"name\": \"New\"}`\n\n**Unlink:** `null`\n\n**Advanced mode:** a single operation `[\"action\", value]`\n\nAvailable actions:\n- `create` - Create a new record and link (value=object)\n- `update` - Update the record and link (value={id:X,...})\n- `link` - Link an existing record (value=id)\n- `unlink` - Remove the link (no value)\n- `delete` - Delete the record and remove the link (value=id)",
+            "description": "Foreign key for category.\n\n**Link by id:** `5`\n\n**Link by name:** `\"value\"`\n\n**Link by object:** `{\"id\": 5}`\n\n**Link and update:** `{\"id\": 5, \"name\": \"New\"}`\n\n**Unlink:** `null`\n\n**Advanced mode:** a single operation `[\"action\", value]`\n\nAvailable actions:\n- `create` - Create a new record and link (value=object)\n- `update` - Update the record and link (value={id:X,...})\n- `link` - Link an existing record (value=id)\n- `unlink` - Remove the link (no value)\n- `delete` - Delete the record and remove the link (value=id)",
             "examples": [
               5,
               {
@@ -2971,13 +2988,20 @@
             "anyOf": [
               {
                 "items": {
-                  "type": "integer"
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
                 },
                 "type": "array"
               },
               {
                 "items": {
-                  "$ref": "#/components/schemas/RelationOperation"
+                  "$ref": "#/components/schemas/RelationLookupOperation"
                 },
                 "type": "array"
               },
@@ -3209,6 +3233,9 @@
                 "type": "integer"
               },
               {
+                "type": "string"
+              },
+              {
                 "$ref": "#/components/schemas/ForeignKeyObject"
               },
               {
@@ -3218,7 +3245,7 @@
                 "type": "null"
               }
             ],
-            "description": "Foreign key for category.\n\n**Link by id:** `5`\n\n**Link by object:** `{\"id\": 5}`\n\n**Link and update:** `{\"id\": 5, \"name\": \"New\"}`\n\n**Unlink:** `null`\n\n**Advanced mode:** a single operation `[\"action\", value]`\n\nAvailable actions:\n- `create` - Create a new record and link (value=object)\n- `update` - Update the record and link (value={id:X,...})\n- `link` - Link an existing record (value=id)\n- `unlink` - Remove the link (no value)\n- `delete` - Delete the record and remove the link (value=id)",
+            "description": "Foreign key for category.\n\n**Link by id:** `5`\n\n**Link by name:** `\"value\"`\n\n**Link by object:** `{\"id\": 5}`\n\n**Link and update:** `{\"id\": 5, \"name\": \"New\"}`\n\n**Unlink:** `null`\n\n**Advanced mode:** a single operation `[\"action\", value]`\n\nAvailable actions:\n- `create` - Create a new record and link (value=object)\n- `update` - Update the record and link (value={id:X,...})\n- `link` - Link an existing record (value=id)\n- `unlink` - Remove the link (no value)\n- `delete` - Delete the record and remove the link (value=id)",
             "examples": [
               5,
               {
@@ -3484,13 +3511,20 @@
             "anyOf": [
               {
                 "items": {
-                  "type": "integer"
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
                 },
                 "type": "array"
               },
               {
                 "items": {
-                  "$ref": "#/components/schemas/RelationOperation"
+                  "$ref": "#/components/schemas/RelationLookupOperation"
                 },
                 "type": "array"
               },
@@ -5288,6 +5322,140 @@
         ],
         "title": "RelationDelimiter",
         "type": "string"
+      },
+      "RelationLookupOperation": {
+        "anyOf": [
+          {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "const": "link",
+                "type": "string"
+              },
+              {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              }
+            ],
+            "type": "array"
+          },
+          {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "const": "unlink",
+                "type": "string"
+              },
+              {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              }
+            ],
+            "type": "array"
+          },
+          {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "const": "delete",
+                "type": "string"
+              },
+              {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              }
+            ],
+            "type": "array"
+          },
+          {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "const": "create",
+                "type": "string"
+              },
+              {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            ],
+            "type": "array"
+          },
+          {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "const": "update",
+                "type": "string"
+              },
+              {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            ],
+            "type": "array"
+          },
+          {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "const": "set",
+                "type": "string"
+              },
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                },
+                "type": "array"
+              }
+            ],
+            "type": "array"
+          },
+          {
+            "maxItems": 1,
+            "minItems": 1,
+            "prefixItems": [
+              {
+                "const": "clear",
+                "type": "string"
+              }
+            ],
+            "type": "array"
+          }
+        ],
+        "description": "A relation operation whose records may also be named by the lookup of the relation.",
+        "title": "RelationLookupOperation"
       },
       "RelationOperation": {
         "anyOf": [

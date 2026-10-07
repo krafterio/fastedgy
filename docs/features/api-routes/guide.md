@@ -307,6 +307,29 @@ X-Filter: ["is_active", "=", true]
 X-Fields: name,price,category.name
 ```
 
+## Data Import
+
+The import route reads a CSV, XLSX or ODS file whose first row holds the field names or labels, the columns of `GET /api/products/import/template`:
+
+```bash
+POST /api/products/import
+Content-Type: multipart/form-data
+
+file=@products.csv
+delimiter=;
+```
+
+A CSV is read as UTF-8, or as cp1252 when it is not valid UTF-8, the encoding of spreadsheets saved on Windows. Its delimiter is detected among `;`, `,`, tab and `|` when `delimiter` is absent; pass it for any other character.
+
+The same helpers serve a route that reads a CSV of its own:
+
+```python
+from fastedgy.dataflow import decode_csv_content, detect_csv_delimiter
+
+text = decode_csv_content(await file.read())
+delimiter = detect_csv_delimiter(text)
+```
+
 ## Record Siblings
 
 A detail screen opened from a list steps to the previous and the next record of that list. Enable the action per model:

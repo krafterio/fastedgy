@@ -40,6 +40,12 @@ class ImportItemsBody(PydanticBaseModel):
     """
 
     file: UploadFile = PydanticField(description="File to import (CSV, XLSX, ODS)")
+    delimiter: str | None = PydanticField(
+        default=None,
+        min_length=1,
+        max_length=1,
+        description="Column delimiter of a CSV file, detected from its content when absent",
+    )
 
 
 class ImportApiRouteAction(BaseApiRouteAction):
@@ -77,6 +83,7 @@ def generate_import_items[M: BaseModel | BaseView](
             request,
             model_cls,
             body.file,
+            delimiter=body.delimiter,
         )
 
     return import_items
@@ -89,6 +96,7 @@ async def import_items_action[M: BaseModel | BaseView](
     query: QuerySet | BaseManager | None = None,
     transformers: list[BaseViewTransformer] | None = None,
     transformers_ctx: dict[str, Any] | None = None,
+    delimiter: str | None = None,
 ) -> ImportResult:
     """
     Import items from a file into the database.
@@ -100,6 +108,7 @@ async def import_items_action[M: BaseModel | BaseView](
         query: Optional base QuerySet for filtering
         transformers: List of transformers to apply
         transformers_ctx: Context dictionary for transformers
+        delimiter: Column delimiter of a CSV file, detected from its content when absent
 
     Returns:
         ImportResult with statistics
@@ -123,6 +132,7 @@ async def import_items_action[M: BaseModel | BaseView](
             model_cls,
             file,
             query=query,
+            delimiter=delimiter,
         )
 
         # Post-import transformers (called on success only)

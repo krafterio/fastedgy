@@ -247,6 +247,7 @@ async def import_data[M: "Model"](
     model_cls: type[M],
     file: "UploadFile",
     query: QuerySet | None = None,
+    delimiter: str | None = None,
 ) -> ImportResult:
     """
     Import data from a file (CSV, XLSX, ODS) into the database.
@@ -266,6 +267,7 @@ async def import_data[M: "Model"](
         model_cls: The model class to import into
         file: Uploaded file (CSV, XLSX, ODS)
         query: Optional base QuerySet for filtering (e.g., workspace filtering)
+        delimiter: Column delimiter of a CSV file, detected from its content when absent
 
     Returns:
         ImportResult with statistics and error details
@@ -279,7 +281,7 @@ async def import_data[M: "Model"](
     filename = file.filename.lower() if file.filename else ""
 
     if filename.endswith(".csv"):
-        rows = await parse_csv_file(file)
+        rows = await parse_csv_file(file, delimiter)
     elif filename.endswith(".xlsx"):
         rows = await parse_xlsx_file(file)
     elif filename.endswith(".ods"):
@@ -328,12 +330,40 @@ async def import_data[M: "Model"](
     return result
 
 
-async def parse_csv_file(file: "UploadFile") -> list[list[str]]:
-    """Parse CSV file and return rows."""
-    content = await file.read()
-    text = content.decode("utf-8-sig")  # Handle BOM
-    reader = csv.reader(io.StringIO(text))
-    return list(reader)
+CSV_DELIMITERS = ";,\t|"
+
+
+def decode_csv_content(content: bytes) -> str:
+    """Decode CSV content as UTF-8 (BOM dropped), or as cp1252, the encoding of spreadsheets saved on Windows."""
+    try:
+        return content.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return content.decode("cp1252", errors="replace")
+
+
+def detect_csv_delimiter(text: str) -> str:
+    """Return the delimiter a CSV text uses among `;`, `,`, tab and `|`, or `,` when the text does not tell.
+
+    The delimiter is the one that splits the most lines into the same number of columns, the widest split
+    winning a tie: a decimal comma in every amount does not take the place of a semicolon.
+    """
+    lines = [line for line in text.splitlines() if line.strip()][:50]
+    best, best_score = ",", (0, 0)
+    for delimiter in CSV_DELIMITERS:
+        widths = [len(row) for row in csv.reader(lines, delimiter=delimiter) if len(row) > 1]
+        if not widths:
+            continue
+        width = max(set(widths), key=widths.count)
+        score = (widths.count(width), width)
+        if score > best_score:
+            best, best_score = delimiter, score
+    return best
+
+
+async def parse_csv_file(file: "UploadFile", delimiter: str | None = None) -> list[list[str]]:
+    """Parse CSV file and return rows, split on the given delimiter or on the one the file uses."""
+    text = decode_csv_content(await file.read())
+    return list(csv.reader(io.StringIO(text), delimiter=delimiter or detect_csv_delimiter(text)))
 
 
 async def parse_xlsx_file(file: "UploadFile") -> list[list[str]]:
@@ -834,10 +864,13 @@ def convert_value(value: str, field) -> Any:
 
 
 __all__ = [
+    "CSV_DELIMITERS",
     "ImportErrorResponse",
     "ImportFailedError",
     "ImportResult",
     "convert_value",
+    "decode_csv_content",
+    "detect_csv_delimiter",
     "detect_identifier_field",
     "import_data",
     "map_columns",

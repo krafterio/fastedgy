@@ -45,3 +45,46 @@ async def test_import_creates_records_from_csv(auth_http: httpx.AsyncClient) -> 
 
     assert listing["total"] == 2
     assert {item["name"] for item in listing["items"]} == {"Imported A", "Imported B"}
+
+
+async def test_import_reads_the_delimiter_of_a_csv(auth_http: httpx.AsyncClient) -> None:
+    header = (await auth_http.get("/api/test_categories/import/template?format=csv")).text.splitlines()[0]
+
+    response = await auth_http.post(
+        "/api/test_categories/import",
+        files={"file": ("data.csv", header.replace(",", ";") + "\nSemicolon A;desc, with a comma\n", "text/csv")},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["created"] == 1
+
+    listing = (await auth_http.get("/api/test_categories")).json()
+
+    assert [item["name"] for item in listing["items"]] == ["Semicolon A"]
+
+
+async def test_import_splits_a_csv_on_the_given_delimiter(auth_http: httpx.AsyncClient) -> None:
+    header = (await auth_http.get("/api/test_categories/import/template?format=csv")).text.splitlines()[0]
+
+    response = await auth_http.post(
+        "/api/test_categories/import",
+        data={"delimiter": "#"},
+        files={"file": ("data.csv", header.replace(",", "#") + "\nHash A#desc; A\n", "text/csv")},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["created"] == 1
+
+    listing = (await auth_http.get("/api/test_categories")).json()
+
+    assert [item["name"] for item in listing["items"]] == ["Hash A"]
+
+
+async def test_import_refuses_a_delimiter_longer_than_a_character(auth_http: httpx.AsyncClient) -> None:
+    response = await auth_http.post(
+        "/api/test_categories/import",
+        data={"delimiter": ";;"},
+        files={"file": ("data.csv", "Name;;Description\n", "text/csv")},
+    )
+
+    assert response.status_code == 422

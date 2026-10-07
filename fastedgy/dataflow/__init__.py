@@ -9,10 +9,13 @@ from fastedgy.dataflow.exporter import (
     generate_xlsx_export,
 )
 from fastedgy.dataflow.importer import (
+    CSV_DELIMITERS,
     ImportErrorResponse,
     ImportFailedError,
     ImportResult,
     convert_value,
+    decode_csv_content,
+    detect_csv_delimiter,
     detect_identifier_field,
     import_data,
     map_columns,
@@ -33,6 +36,9 @@ __all__ = [
     "ImportErrorResponse",
     "ImportFailedError",
     "import_data",
+    "CSV_DELIMITERS",
+    "decode_csv_content",
+    "detect_csv_delimiter",
     "parse_csv_file",
     "parse_xlsx_file",
     "parse_ods_file",

@@ -239,6 +239,9 @@ nav:
       - Realtime:
         - Overview: vue/realtime/overview.md
         - User Guide: vue/realtime/guide.md
+      - Query Builder:
+        - Overview: vue/query-builder/overview.md
+        - User Guide: vue/query-builder/guide.md
     - Vue Integration:
       - Fetcher Plugin:
         - Overview: vue/fetcher-plugin/overview.md

@@ -1,6 +1,8 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+from fastedgy.config import BaseSettings
+from fastedgy.dependencies import get_service
 from fastedgy.orm import Model
 from fastedgy.orm.fields import ManyToMany
 from fastedgy.orm.filter.operators import ANY_OPERATORS, get_filter_operators
@@ -20,12 +22,15 @@ def validate_filters(
     model_cls: type[Model],
     filters: Filter | None,
     allow_excluded: bool = False,
+    crossed: int = 0,
 ) -> FilterRule | FilterCondition | None:
     if not filters:
         return None
 
     # Filter Rule
     if isinstance(filters, FilterRule):
+        _check_depth(filters.field, crossed)
+
         if _crosses_unnamed_relation(model_cls, filters.field):
             raise InvalidFilterError(f"Invalid filter field: {filters.field}")
 
@@ -35,7 +40,7 @@ def validate_filters(
             if not validate_filter_operator(model_cls, filters.field, filters.operator):
                 raise InvalidFilterError(f"Invalid operator {filters.operator} for field {filters.field}")
 
-            return _validate_any_rule(model_cls, filters, allow_excluded=allow_excluded)
+            return _validate_any_rule(model_cls, filters, allow_excluded=allow_excluded, crossed=crossed)
 
         key_rule = _related_key_rule(model_cls, filters)
 
@@ -52,7 +57,7 @@ def validate_filters(
         validated_rules = []
 
         for rule in filters.rules:
-            validated_rule = validate_filters(model_cls, rule, allow_excluded=allow_excluded)
+            validated_rule = validate_filters(model_cls, rule, allow_excluded=allow_excluded, crossed=crossed)
 
             if validated_rule:
                 validated_rules.append(validated_rule)
@@ -64,6 +69,15 @@ def validate_filters(
                 return Or(*validated_rules)
 
     raise InvalidFilterError("Invalid filter expression")
+
+
+def _check_depth(field_path: str, crossed: int) -> None:
+    """Refuse a path crossing more relations than the settings allow, the sub-filters it sits in counted."""
+    limit = get_service(BaseSettings).filter_max_depth
+    depth = crossed + field_path.count(".")
+
+    if depth > limit:
+        raise InvalidFilterError(f"Filter path {field_path} crosses {depth} relations, more than {limit}")
 
 
 def _crosses_unnamed_relation(model_cls: type[Model], field_path: str) -> bool:
@@ -101,7 +115,12 @@ def _related_key_rule(model_cls: type[Model], rule: FilterRule) -> FilterRule:
     return R(f"{rule.field}.{primary_key or 'id'}", rule.operator, rule.value)
 
 
-def _validate_any_rule(model_cls: type[Model], rule: FilterRule, allow_excluded: bool = False) -> FilterRule:
+def _validate_any_rule(
+    model_cls: type[Model],
+    rule: FilterRule,
+    allow_excluded: bool = False,
+    crossed: int = 0,
+) -> FilterRule:
     """Validate the sub-filter an ``any`` rule carries against the model it reaches.
 
     The descent is what keeps the field checks honest: without it the sub-filter
@@ -123,7 +142,13 @@ def _validate_any_rule(model_cls: type[Model], rule: FilterRule, allow_excluded:
         if sub_filters is None:
             raise InvalidFilterError(f"Operator {rule.operator} on {rule.field} takes a filter as value")
 
-    return R(rule.field, rule.operator, validate_filters(target_cls, sub_filters, allow_excluded=allow_excluded))
+    within = crossed + rule.field.count(".") + 1
+
+    return R(
+        rule.field,
+        rule.operator,
+        validate_filters(target_cls, sub_filters, allow_excluded=allow_excluded, crossed=within),
+    )
 
 
 def resolve_relation_target(model_cls: type[Model], field_path: str) -> type[Model] | None:

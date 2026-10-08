@@ -285,6 +285,11 @@ class BaseSettings(PydanticBaseSettings):
     enabled_scheduled_tasks: CsvList = []
     disabled_scheduled_tasks: CsvList = []
 
+    # Filters
+    # The relations a filter path crosses at most, those of its sub-filters
+    # included: a path that walks a relation and back has no end otherwise.
+    filter_max_depth: int = 8
+
     # Images
     image_quality: int = 80
     image_max_pixels: int | None = None

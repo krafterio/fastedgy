@@ -238,6 +238,12 @@ A reverse relation is filtered on by the name its foreign key declares with
 `related_name`. The name Edgy makes up when none is declared (`<model>s_set`)
 is refused, in the API as in the code, as it stays out of the API schemas.
 
+A path crosses at most `filter_max_depth` relations (8 by default), those
+leading to the sub-filter it sits in counted: `["category", "any",
+["products.tags.name", "=", "red"]]` crosses three. A relation and its inverse
+come back to where they started, so nothing else ends a path that walks them
+in turn; one going deeper is refused with a 422.
+
 ## Complex filtering
 
 ```bash
@@ -252,6 +258,7 @@ X-Filter: ["&", [
 ## Error responses
 
 - **422**: Invalid field, operator, or JSON format
+- **422**: A path crossing more relations than `filter_max_depth`
 - **422**: Type conversion errors
 
 ## Programmatic usage

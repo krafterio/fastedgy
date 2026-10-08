@@ -118,6 +118,49 @@ default = await WorkspaceUser.default_for(user.id)
 await other_membership.make_default()
 ```
 
+## Members of the workspace
+
+The user model belongs to every workspace at once, so it has no generated route inside one. A
+relation to a user (an owner, an assignee) still needs its records listed and searched from inside
+the workspace: `create_workspace_users_router` serves the members of the current workspace, through
+the generated list and get actions. Pagination, ordering, `X-Fields` and `X-Filter` behave as on any
+other model.
+
+```python
+from fastapi import APIRouter, Depends
+
+from fastedgy.api.workspace_users import create_workspace_users_router
+from fastedgy.depends.security import get_current_user, get_current_workspace
+
+router = APIRouter(
+    prefix="/api/{workspace}",
+    dependencies=[Depends(get_current_user), Depends(get_current_workspace)],
+)
+router.include_router(create_workspace_users_router())
+```
+
+`GET /api/{workspace}/users` lists the members, `GET /api/{workspace}/users/{id}` reads one; a user
+of another workspace answers 404. The routes start from `workspace_members(workspace)`, the users
+holding a membership through the `workspace_memberships` relation every workspace user model
+declares. An application that serves more than the memberships passes its own query:
+
+```python
+from fastedgy.api.workspace_users import create_workspace_users_router
+from fastedgy.orm.filter import Or, R
+
+
+def members_and_system(workspace):
+    return User.query.filter(
+        Or(R("workspace_memberships.workspace", "=", workspace.id), R("id", "=", SYSTEM_USER_ID)),
+        allow_excluded=True,
+    )
+
+
+router.include_router(create_workspace_users_router(members=members_and_system))
+```
+
+`members` may also be a coroutine function, for a query that needs a read first.
+
 ## Configuration
 
 Workspace multi-tenancy works with FastEdgy's context system. The workspace context is typically set by:

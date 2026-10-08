@@ -50,6 +50,7 @@ def build_app() -> FastEdgy:
         storage,
     )
     from fastedgy.api.user_api_tokens import create_user_api_tokens_router
+    from fastedgy.api.workspace_users import create_workspace_users_router
     from fastedgy.depends.security import get_current_user
 
     try:
@@ -89,8 +90,14 @@ def build_app() -> FastEdgy:
     router.include_router(create_user_api_tokens_router())
     register_api_route_models(router)
 
+    # Workspace routes: the workspace comes from the path, as in an application
+    # whose tenants are named in their URLs.
+    workspace_router = APIRouter(prefix=API_PREFIX + "/{workspace}", dependencies=[Depends(get_current_user)])
+    workspace_router.include_router(create_workspace_users_router())
+
     app.include_router(public_router)
     app.include_router(router)
+    app.include_router(workspace_router)
 
     if create_mcp_router is not None:
         # At the root, not under /api: the MCP endpoint authenticates itself.

@@ -20530,6 +20530,213 @@
           "workspaces"
         ]
       }
+    },
+    "/api/{workspace}/users": {
+      "get": {
+        "operationId": "list_workspace_users_api__workspace__users_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 1000,
+              "minimum": 0,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Order the list of items by field(s) separated by commas (ex. 'created_at:desc,name:asc')",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Order the list of items by field(s) separated by commas (ex. 'created_at:desc,name:asc')",
+              "title": "Order by"
+            }
+          },
+          {
+            "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+            "in": "header",
+            "name": "X-Fields",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+              "title": "Fields Selector"
+            }
+          },
+          {
+            "description": "Filter the list of items with the filter expression build with rules and conditions",
+            "in": "header",
+            "name": "X-Filter",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter the list of items with the filter expression build with rules and conditions",
+              "title": "Filter"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User-List"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "List Workspace Users",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/{workspace}/users/{item_id}": {
+      "get": {
+        "operationId": "get_workspace_user_api__workspace__users__item_id__get",
+        "parameters": [
+          {
+            "description": "Item ID",
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "description": "Item ID",
+              "title": "Item Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+            "in": "header",
+            "name": "X-Fields",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+              "title": "Fields Selector"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/User"
+                    },
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    }
+                  ],
+                  "title": "Response Get Workspace User Api  Workspace  Users  Item Id  Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            },
+            "description": "Item not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Get Workspace User",
+        "tags": [
+          "users"
+        ]
+      }
     }
   }
 }

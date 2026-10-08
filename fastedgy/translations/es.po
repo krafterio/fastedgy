@@ -668,3 +668,55 @@ msgstr "El modelo {model_name} no está disponible"
 msgid "{model} {model_id} not found"
 msgstr "{model} {model_id} no encontrado"
 
+
+msgid "Custom view"
+msgstr "Vista personalizada"
+
+msgid "Custom views"
+msgstr "Vistas personalizadas"
+
+msgid "Scope"
+msgstr "Ámbito"
+
+msgid "Filters"
+msgstr "Filtros"
+
+msgid "Order"
+msgstr "Orden"
+
+msgid "Grouping"
+msgstr "Agrupación"
+
+msgid "Displayed columns"
+msgstr "Columnas mostradas"
+
+msgid "Position"
+msgstr "Posición"
+
+msgid "Default view"
+msgstr "Vista predeterminada"
+
+msgid "Favorite view"
+msgstr "Vista favorita"
+
+msgid "Favorite views"
+msgstr "Vistas favoritas"
+
+msgid "View"
+msgstr "Vista"
+
+msgid "You are not allowed to manage the shared views"
+msgstr "No tiene permiso para gestionar las vistas compartidas"
+
+msgid "A view belongs to whoever saves it, or to everyone"
+msgstr "Una vista pertenece a quien la guarda, o a todos"
+
+msgid "A private view cannot be the default view of its list"
+msgstr "Una vista privada no puede ser la vista predeterminada de su lista"
+
+#, python-brace-format
+msgid "No list answers to the model {model}"
+msgstr "Ninguna lista responde al modelo {model}"
+
+msgid "A view of this list already has this name"
+msgstr "Una vista de esta lista ya tiene este nombre"

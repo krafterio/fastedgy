@@ -43,6 +43,11 @@ from fastedgy.http import (
 )
 from fastedgy.i18n import LocaleMiddleware
 from fastedgy.logger import setup_logging
+from fastedgy.models.custom_view import register_custom_view_signals, register_default_custom_view_model
+from fastedgy.models.custom_view_favorite import (
+    register_custom_view_favorite_signals,
+    register_default_custom_view_favorite_model,
+)
 from fastedgy.models.user_api_token import register_default_user_api_token_model
 from fastedgy.orm import Database, Registry, set_default_isolation_level
 from fastedgy.orm.data_ref import DataRefs
@@ -873,6 +878,27 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
                 """
             ),
         ] = False,
+        custom_views: Annotated[
+            bool,
+            Doc(
+                """
+                Whether the application keeps custom views of its lists.
+
+                Off by default. Turned on, concrete `CustomView` and
+                `CustomViewFavorite` models are registered unless the
+                application declared its own: a filter, an order and, for the
+                applications that have them, a grouping and columns, kept under
+                a name, global or for one workspace, shared or private, with the
+                view a list opens on for everyone and for each user.
+
+                **Example**
+
+                ```python
+                app = FastEdgy(custom_views=True)
+                ```
+                """
+            ),
+        ] = False,
         realtime: Annotated[
             bool,
             Doc(
@@ -986,6 +1012,10 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
         if user_api_tokens:
             register_default_user_api_token_model()
 
+        if custom_views:
+            register_default_custom_view_model()
+            register_default_custom_view_favorite_model()
+
         cast("FastEdgy[S]", self)._realtime = realtime
 
         if realtime:
@@ -996,6 +1026,10 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
             register_service(RealtimeAuth)
 
         register_lazy_models(registry)
+
+        if custom_views:
+            register_custom_view_signals()
+            register_custom_view_favorite_signals()
 
         from fastedgy.orm.signals.fulltext import register_all_fulltext_signals
         from fastedgy.storage.models.attachment import register_all_attachment_signals

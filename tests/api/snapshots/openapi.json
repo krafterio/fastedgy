@@ -1701,6 +1701,950 @@
         "title": "Comment-List",
         "type": "object"
       },
+      "CustomView": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/User"
+              },
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "display_fields": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Fields"
+          },
+          "editable": {
+            "readOnly": true,
+            "title": "Editable",
+            "type": "boolean"
+          },
+          "favorites": {
+            "anyOf": [
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/CustomViewFavorite"
+                    },
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Favorites"
+          },
+          "filters": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filters"
+          },
+          "group_by": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group By"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "is_default": {
+            "default": false,
+            "title": "Is Default",
+            "type": "boolean"
+          },
+          "model": {
+            "maxLength": 100,
+            "title": "Model",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 100,
+            "title": "Name",
+            "type": "string"
+          },
+          "order_by": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order By"
+          },
+          "scope": {
+            "default": "",
+            "maxLength": 100,
+            "title": "Scope",
+            "type": "string"
+          },
+          "sequence": {
+            "default": 0,
+            "title": "Sequence",
+            "type": "integer"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "updated_by": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/User"
+              },
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated By"
+          },
+          "user": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/User"
+              },
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User"
+          }
+        },
+        "required": [
+          "name",
+          "model",
+          "editable",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "CustomView",
+        "type": "object"
+      },
+      "CustomView-Create": {
+        "properties": {
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyObject"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyOperation"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Foreign key for created_by.\n\n**Link by id:** `5`\n\n**Link by object:** `{\"id\": 5}`\n\n**Link and update:** `{\"id\": 5, \"name\": \"New\"}`\n\n**Unlink:** `null`\n\n**Advanced mode:** a single operation `[\"action\", value]`\n\nAvailable actions:\n- `create` - Create a new record and link (value=object)\n- `update` - Update the record and link (value={id:X,...})\n- `link` - Link an existing record (value=id)\n- `unlink` - Remove the link (no value)\n- `delete` - Delete the record and remove the link (value=id)",
+            "examples": [
+              5,
+              {
+                "id": 5
+              },
+              {
+                "id": 5,
+                "name": "New"
+              },
+              [
+                "link",
+                5
+              ],
+              [
+                "create",
+                {
+                  "name": "New"
+                }
+              ],
+              [
+                "unlink"
+              ]
+            ],
+            "title": "Created By"
+          },
+          "display_fields": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Fields"
+          },
+          "favorites": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "$ref": "#/components/schemas/RelationOperation"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Relations for favorites.\n\n**Simple mode:** Array of IDs: `[1, 2, 3]`\n\n**Advanced mode:** Array of operations `[[\"action\", value], ...]`\n\nAvailable actions:\n- `create` - Create new record and link (value=object)\n- `update` - Update record and ensure link (value={id:X,...})\n- `link` - Link existing record (value=id)\n- `unlink` - Remove link without deleting (value=id)\n- `delete` - Delete record and remove link (value=id)\n- `set` - Replace all links (value=[ids])\n- `clear` - Remove all links (no value)",
+            "examples": [
+              [
+                1,
+                2,
+                3
+              ],
+              [
+                [
+                  "link",
+                  1
+                ],
+                [
+                  "create",
+                  {
+                    "name": "New"
+                  }
+                ]
+              ],
+              [
+                [
+                  "clear"
+                ],
+                [
+                  "set",
+                  [
+                    1,
+                    2,
+                    3
+                  ]
+                ]
+              ]
+            ],
+            "title": "Favorites"
+          },
+          "filters": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filters"
+          },
+          "group_by": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group By"
+          },
+          "is_default": {
+            "default": false,
+            "title": "Is Default",
+            "type": "boolean"
+          },
+          "model": {
+            "maxLength": 100,
+            "title": "Model",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 100,
+            "title": "Name",
+            "type": "string"
+          },
+          "order_by": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order By"
+          },
+          "scope": {
+            "default": "",
+            "maxLength": 100,
+            "title": "Scope",
+            "type": "string"
+          },
+          "sequence": {
+            "default": 0,
+            "title": "Sequence",
+            "type": "integer"
+          },
+          "updated_by": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyObject"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyOperation"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Foreign key for updated_by.\n\n**Link by id:** `5`\n\n**Link by object:** `{\"id\": 5}`\n\n**Link and update:** `{\"id\": 5, \"name\": \"New\"}`\n\n**Unlink:** `null`\n\n**Advanced mode:** a single operation `[\"action\", value]`\n\nAvailable actions:\n- `create` - Create a new record and link (value=object)\n- `update` - Update the record and link (value={id:X,...})\n- `link` - Link an existing record (value=id)\n- `unlink` - Remove the link (no value)\n- `delete` - Delete the record and remove the link (value=id)",
+            "examples": [
+              5,
+              {
+                "id": 5
+              },
+              {
+                "id": 5,
+                "name": "New"
+              },
+              [
+                "link",
+                5
+              ],
+              [
+                "create",
+                {
+                  "name": "New"
+                }
+              ],
+              [
+                "unlink"
+              ]
+            ],
+            "title": "Updated By"
+          },
+          "user": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyObject"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyOperation"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Foreign key for user.\n\n**Link by id:** `5`\n\n**Link by object:** `{\"id\": 5}`\n\n**Link and update:** `{\"id\": 5, \"name\": \"New\"}`\n\n**Unlink:** `null`\n\n**Advanced mode:** a single operation `[\"action\", value]`\n\nAvailable actions:\n- `create` - Create a new record and link (value=object)\n- `update` - Update the record and link (value={id:X,...})\n- `link` - Link an existing record (value=id)\n- `unlink` - Remove the link (no value)\n- `delete` - Delete the record and remove the link (value=id)",
+            "examples": [
+              5,
+              {
+                "id": 5
+              },
+              {
+                "id": 5,
+                "name": "New"
+              },
+              [
+                "link",
+                5
+              ],
+              [
+                "create",
+                {
+                  "name": "New"
+                }
+              ],
+              [
+                "unlink"
+              ]
+            ],
+            "title": "User"
+          }
+        },
+        "required": [
+          "name",
+          "model"
+        ],
+        "title": "CustomView-Create",
+        "type": "object"
+      },
+      "CustomView-List": {
+        "properties": {
+          "items": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/CustomView"
+                },
+                {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              ]
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "total_pages": {
+            "readOnly": true,
+            "title": "Total Pages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset",
+          "total_pages"
+        ],
+        "title": "CustomView-List",
+        "type": "object"
+      },
+      "CustomView-Update": {
+        "properties": {
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyObject"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyOperation"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Foreign key for created_by.\n\n**Link by id:** `5`\n\n**Link by object:** `{\"id\": 5}`\n\n**Link and update:** `{\"id\": 5, \"name\": \"New\"}`\n\n**Unlink:** `null`\n\n**Advanced mode:** a single operation `[\"action\", value]`\n\nAvailable actions:\n- `create` - Create a new record and link (value=object)\n- `update` - Update the record and link (value={id:X,...})\n- `link` - Link an existing record (value=id)\n- `unlink` - Remove the link (no value)\n- `delete` - Delete the record and remove the link (value=id)",
+            "examples": [
+              5,
+              {
+                "id": 5
+              },
+              {
+                "id": 5,
+                "name": "New"
+              },
+              [
+                "link",
+                5
+              ],
+              [
+                "create",
+                {
+                  "name": "New"
+                }
+              ],
+              [
+                "unlink"
+              ]
+            ],
+            "title": "Created By"
+          },
+          "display_fields": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Fields"
+          },
+          "favorites": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "$ref": "#/components/schemas/RelationOperation"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Relations for favorites.\n\n**Simple mode:** Array of IDs: `[1, 2, 3]`\n\n**Advanced mode:** Array of operations `[[\"action\", value], ...]`\n\nAvailable actions:\n- `create` - Create new record and link (value=object)\n- `update` - Update record and ensure link (value={id:X,...})\n- `link` - Link existing record (value=id)\n- `unlink` - Remove link without deleting (value=id)\n- `delete` - Delete record and remove link (value=id)\n- `set` - Replace all links (value=[ids])\n- `clear` - Remove all links (no value)",
+            "examples": [
+              [
+                1,
+                2,
+                3
+              ],
+              [
+                [
+                  "link",
+                  1
+                ],
+                [
+                  "create",
+                  {
+                    "name": "New"
+                  }
+                ]
+              ],
+              [
+                [
+                  "clear"
+                ],
+                [
+                  "set",
+                  [
+                    1,
+                    2,
+                    3
+                  ]
+                ]
+              ]
+            ],
+            "title": "Favorites"
+          },
+          "filters": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filters"
+          },
+          "group_by": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group By"
+          },
+          "is_default": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Default"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "order_by": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order By"
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope"
+          },
+          "sequence": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sequence"
+          },
+          "updated_by": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyObject"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyOperation"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Foreign key for updated_by.\n\n**Link by id:** `5`\n\n**Link by object:** `{\"id\": 5}`\n\n**Link and update:** `{\"id\": 5, \"name\": \"New\"}`\n\n**Unlink:** `null`\n\n**Advanced mode:** a single operation `[\"action\", value]`\n\nAvailable actions:\n- `create` - Create a new record and link (value=object)\n- `update` - Update the record and link (value={id:X,...})\n- `link` - Link an existing record (value=id)\n- `unlink` - Remove the link (no value)\n- `delete` - Delete the record and remove the link (value=id)",
+            "examples": [
+              5,
+              {
+                "id": 5
+              },
+              {
+                "id": 5,
+                "name": "New"
+              },
+              [
+                "link",
+                5
+              ],
+              [
+                "create",
+                {
+                  "name": "New"
+                }
+              ],
+              [
+                "unlink"
+              ]
+            ],
+            "title": "Updated By"
+          },
+          "user": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyObject"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyOperation"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Foreign key for user.\n\n**Link by id:** `5`\n\n**Link by object:** `{\"id\": 5}`\n\n**Link and update:** `{\"id\": 5, \"name\": \"New\"}`\n\n**Unlink:** `null`\n\n**Advanced mode:** a single operation `[\"action\", value]`\n\nAvailable actions:\n- `create` - Create a new record and link (value=object)\n- `update` - Update the record and link (value={id:X,...})\n- `link` - Link an existing record (value=id)\n- `unlink` - Remove the link (no value)\n- `delete` - Delete the record and remove the link (value=id)",
+            "examples": [
+              5,
+              {
+                "id": 5
+              },
+              {
+                "id": 5,
+                "name": "New"
+              },
+              [
+                "link",
+                5
+              ],
+              [
+                "create",
+                {
+                  "name": "New"
+                }
+              ],
+              [
+                "unlink"
+              ]
+            ],
+            "title": "User"
+          }
+        },
+        "title": "CustomView-Update",
+        "type": "object"
+      },
+      "CustomViewFavorite": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "user": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/User"
+              },
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User"
+          },
+          "view": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CustomView"
+              },
+              {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            ],
+            "title": "CustomView"
+          }
+        },
+        "required": [
+          "view",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "CustomViewFavorite",
+        "type": "object"
+      },
+      "CustomViewFavorite-Create": {
+        "properties": {
+          "view": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyObject"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyOperation"
+              }
+            ],
+            "description": "Foreign key for view.\n\n**Link by id:** `5`\n\n**Link by object:** `{\"id\": 5}`\n\n**Link and update:** `{\"id\": 5, \"name\": \"New\"}`\n\n**Unlink:** `null`\n\n**Advanced mode:** a single operation `[\"action\", value]`\n\nAvailable actions:\n- `create` - Create a new record and link (value=object)\n- `update` - Update the record and link (value={id:X,...})\n- `link` - Link an existing record (value=id)\n- `unlink` - Remove the link (no value)\n- `delete` - Delete the record and remove the link (value=id)",
+            "examples": [
+              5,
+              {
+                "id": 5
+              },
+              {
+                "id": 5,
+                "name": "New"
+              },
+              [
+                "link",
+                5
+              ],
+              [
+                "create",
+                {
+                  "name": "New"
+                }
+              ],
+              [
+                "unlink"
+              ]
+            ],
+            "title": "View"
+          }
+        },
+        "required": [
+          "view"
+        ],
+        "title": "CustomViewFavorite-Create",
+        "type": "object"
+      },
+      "CustomViewFavorite-List": {
+        "properties": {
+          "items": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/CustomViewFavorite"
+                },
+                {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              ]
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "total_pages": {
+            "readOnly": true,
+            "title": "Total Pages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset",
+          "total_pages"
+        ],
+        "title": "CustomViewFavorite-List",
+        "type": "object"
+      },
+      "CustomViewFavorite-Update": {
+        "properties": {
+          "view": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyObject"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyOperation"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Foreign key for view.\n\n**Link by id:** `5`\n\n**Link by object:** `{\"id\": 5}`\n\n**Link and update:** `{\"id\": 5, \"name\": \"New\"}`\n\n**Unlink:** `null`\n\n**Advanced mode:** a single operation `[\"action\", value]`\n\nAvailable actions:\n- `create` - Create a new record and link (value=object)\n- `update` - Update the record and link (value={id:X,...})\n- `link` - Link an existing record (value=id)\n- `unlink` - Remove the link (no value)\n- `delete` - Delete the record and remove the link (value=id)",
+            "examples": [
+              5,
+              {
+                "id": 5
+              },
+              {
+                "id": 5,
+                "name": "New"
+              },
+              [
+                "link",
+                5
+              ],
+              [
+                "create",
+                {
+                  "name": "New"
+                }
+              ],
+              [
+                "unlink"
+              ]
+            ],
+            "title": "View"
+          }
+        },
+        "title": "CustomViewFavorite-Update",
+        "type": "object"
+      },
       "DownloadUrl": {
         "properties": {
           "url": {
@@ -9162,6 +10106,1070 @@
         "summary": "Login For Access Token",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/api/custom_view_favorites": {
+      "get": {
+        "description": "Retrieve a paginated list of CustomViewFavorite items",
+        "operationId": "list_items_api_custom_view_favorites_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 1000,
+              "minimum": 0,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Order the list of items by field(s) separated by commas (ex. 'created_at:desc,name:asc')",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Order the list of items by field(s) separated by commas (ex. 'created_at:desc,name:asc')",
+              "title": "Order by"
+            }
+          },
+          {
+            "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+            "in": "header",
+            "name": "X-Fields",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+              "title": "Fields Selector"
+            }
+          },
+          {
+            "description": "Filter the list of items with the filter expression build with rules and conditions",
+            "in": "header",
+            "name": "X-Filter",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter the list of items with the filter expression build with rules and conditions",
+              "title": "Filter"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomViewFavorite-List"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "List CustomViewFavorite items",
+        "tags": [
+          "custom_view_favorites"
+        ]
+      },
+      "post": {
+        "description": "Create a new CustomViewFavorite item",
+        "operationId": "create_item_api_custom_view_favorites_post",
+        "parameters": [
+          {
+            "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+            "in": "header",
+            "name": "X-Fields",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+              "title": "Fields Selector"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomViewFavorite-Create"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/CustomViewFavorite"
+                    },
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    }
+                  ],
+                  "title": "Response Create Item Api Custom View Favorites Post"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            },
+            "description": "Invalid relation operation"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Create CustomViewFavorite",
+        "tags": [
+          "custom_view_favorites"
+        ]
+      }
+    },
+    "/api/custom_view_favorites/{item_id}": {
+      "delete": {
+        "description": "Delete a CustomViewFavorite by its ID",
+        "operationId": "delete_item_api_custom_view_favorites__item_id__delete",
+        "parameters": [
+          {
+            "description": "Item ID",
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "description": "Item ID",
+              "title": "Item Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            },
+            "description": "Item not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Delete CustomViewFavorite",
+        "tags": [
+          "custom_view_favorites"
+        ]
+      },
+      "get": {
+        "description": "Retrieve a single CustomViewFavorite by its ID",
+        "operationId": "get_item_api_custom_view_favorites__item_id__get",
+        "parameters": [
+          {
+            "description": "Item ID",
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "description": "Item ID",
+              "title": "Item Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+            "in": "header",
+            "name": "X-Fields",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+              "title": "Fields Selector"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/CustomViewFavorite"
+                    },
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    }
+                  ],
+                  "title": "Response Get Item Api Custom View Favorites  Item Id  Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            },
+            "description": "Item not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Get CustomViewFavorite",
+        "tags": [
+          "custom_view_favorites"
+        ]
+      },
+      "patch": {
+        "description": "Update an existing CustomViewFavorite by its ID",
+        "operationId": "patch_item_api_custom_view_favorites__item_id__patch",
+        "parameters": [
+          {
+            "description": "Item ID",
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "description": "Item ID",
+              "title": "Item Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+            "in": "header",
+            "name": "X-Fields",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+              "title": "Fields Selector"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomViewFavorite-Update"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/CustomViewFavorite"
+                    },
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    }
+                  ],
+                  "title": "Response Patch Item Api Custom View Favorites  Item Id  Patch"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            },
+            "description": "Invalid relation operation"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            },
+            "description": "Item not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Update CustomViewFavorite",
+        "tags": [
+          "custom_view_favorites"
+        ]
+      }
+    },
+    "/api/custom_views": {
+      "get": {
+        "description": "Retrieve a paginated list of CustomView items",
+        "operationId": "list_items_api_custom_views_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 1000,
+              "minimum": 0,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Order the list of items by field(s) separated by commas (ex. 'created_at:desc,name:asc')",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Order the list of items by field(s) separated by commas (ex. 'created_at:desc,name:asc')",
+              "title": "Order by"
+            }
+          },
+          {
+            "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+            "in": "header",
+            "name": "X-Fields",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+              "title": "Fields Selector"
+            }
+          },
+          {
+            "description": "Filter the list of items with the filter expression build with rules and conditions",
+            "in": "header",
+            "name": "X-Filter",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter the list of items with the filter expression build with rules and conditions",
+              "title": "Filter"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomView-List"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "List CustomView items",
+        "tags": [
+          "custom_views"
+        ]
+      },
+      "post": {
+        "description": "Create a new CustomView item",
+        "operationId": "create_item_api_custom_views_post",
+        "parameters": [
+          {
+            "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+            "in": "header",
+            "name": "X-Fields",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+              "title": "Fields Selector"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomView-Create"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/CustomView"
+                    },
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    }
+                  ],
+                  "title": "Response Create Item Api Custom Views Post"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            },
+            "description": "Invalid relation operation"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Create CustomView",
+        "tags": [
+          "custom_views"
+        ]
+      }
+    },
+    "/api/custom_views/export": {
+      "get": {
+        "description": "Retrieve a export of CustomView items",
+        "operationId": "export_items_api_custom_views_export_get",
+        "parameters": [
+          {
+            "description": "Export format (csv, xlsx, ods)",
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "schema": {
+              "default": "csv",
+              "description": "Export format (csv, xlsx, ods)",
+              "title": "Format",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Limit"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Order the list of items by field(s) separated by commas (ex. 'created_at:desc,name:asc')",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Order the list of items by field(s) separated by commas (ex. 'created_at:desc,name:asc')",
+              "title": "Order by"
+            }
+          },
+          {
+            "description": "Delimiter for relation values (one2many, many2many) in export cells",
+            "in": "query",
+            "name": "relation_delimiter",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/RelationDelimiter",
+              "default": "newline",
+              "description": "Delimiter for relation values (one2many, many2many) in export cells",
+              "title": "Relation delimiter"
+            }
+          },
+          {
+            "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+            "in": "header",
+            "name": "X-Fields",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+              "title": "Fields Selector"
+            }
+          },
+          {
+            "description": "Filter the list of items with the filter expression build with rules and conditions",
+            "in": "header",
+            "name": "X-Filter",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter the list of items with the filter expression build with rules and conditions",
+              "title": "Filter"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Export CustomView items",
+        "tags": [
+          "custom_views"
+        ]
+      }
+    },
+    "/api/custom_views/{item_id}": {
+      "delete": {
+        "description": "Delete a CustomView by its ID",
+        "operationId": "delete_item_api_custom_views__item_id__delete",
+        "parameters": [
+          {
+            "description": "Item ID",
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "description": "Item ID",
+              "title": "Item Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            },
+            "description": "Item not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Delete CustomView",
+        "tags": [
+          "custom_views"
+        ]
+      },
+      "get": {
+        "description": "Retrieve a single CustomView by its ID",
+        "operationId": "get_item_api_custom_views__item_id__get",
+        "parameters": [
+          {
+            "description": "Item ID",
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "description": "Item ID",
+              "title": "Item Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+            "in": "header",
+            "name": "X-Fields",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+              "title": "Fields Selector"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/CustomView"
+                    },
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    }
+                  ],
+                  "title": "Response Get Item Api Custom Views  Item Id  Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            },
+            "description": "Item not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Get CustomView",
+        "tags": [
+          "custom_views"
+        ]
+      },
+      "patch": {
+        "description": "Update an existing CustomView by its ID",
+        "operationId": "patch_item_api_custom_views__item_id__patch",
+        "parameters": [
+          {
+            "description": "Item ID",
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "description": "Item ID",
+              "title": "Item Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+            "in": "header",
+            "name": "X-Fields",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+              "title": "Fields Selector"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomView-Update"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/CustomView"
+                    },
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    }
+                  ],
+                  "title": "Response Patch Item Api Custom Views  Item Id  Patch"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            },
+            "description": "Invalid relation operation"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            },
+            "description": "Item not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Update CustomView",
+        "tags": [
+          "custom_views"
         ]
       }
     },

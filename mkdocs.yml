@@ -146,6 +146,12 @@ nav:
         - Overview: features/query-builder/overview.md
         - Usage Guide: features/query-builder/guide.md
         - Advanced Usage: features/query-builder/advanced.md
+      - Custom Views:
+        - Overview: features/custom-views/overview.md
+        - Getting Started: features/custom-views/getting-started.md
+        - User Guide: features/custom-views/guide.md
+        - Advanced Usage: features/custom-views/advanced.md
+        - Technical Details: features/custom-views/technical.md
       - Fields Selector:
         - Overview: features/fields-selector/overview.md
         - Usage Guide: features/fields-selector/guide.md

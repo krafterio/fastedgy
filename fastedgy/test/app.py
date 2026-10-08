@@ -66,7 +66,7 @@ def build_app() -> FastEdgy:
 
     _ensure_standard_actions()
 
-    app = FastEdgy(version=APP_VERSION, user_api_tokens=True, realtime=True)
+    app = FastEdgy(version=APP_VERSION, user_api_tokens=True, realtime=True, custom_views=True)
 
     get_service(Registry).init_models()
 

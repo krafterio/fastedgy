@@ -24,6 +24,14 @@ Build powerful APIs with automatic CRUD generation and advanced data handling.
 
     [Learn more →](query-builder/overview.md)
 
+-   **:material-bookmark: Custom Views**
+
+    ---
+
+    Keep a list's filter, order and columns under a name, global or per workspace, shared or private.
+
+    [Learn more →](custom-views/overview.md)
+
 -   **:material-view-column: Fields Selector**
 
     ---

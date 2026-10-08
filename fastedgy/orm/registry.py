@@ -19,6 +19,12 @@ def has_lazy_model(base: type) -> bool:
     return any(issubclass(model_class, base) for model_class in _lazy_models)
 
 
+def find_lazy_model(base: type) -> type | None:
+    """The concrete model deriving from `base` declared so far, for a framework
+    default that has to name it before the registry is up."""
+    return next((model_class for model_class in _lazy_models if issubclass(model_class, base)), None)
+
+
 def register_lazy_models(registry: Registry) -> None:
     """
     Register all models registered with the `lazy_register_model` function.
@@ -47,6 +53,7 @@ def register_lazy_models(registry: Registry) -> None:
 
 
 __all__ = [
+    "find_lazy_model",
     "has_lazy_model",
     "lazy_register_model",
     "register_lazy_models",

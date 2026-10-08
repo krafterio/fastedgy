@@ -1761,6 +1761,20 @@
       "ImportItemsBody": {
         "description": "Shared multipart body for every import endpoint.\n\nDeclared once so the OpenAPI schema references a single ``ImportItemsBody``\ninstead of generating an identical ``Body_import_items_*`` per model route.",
         "properties": {
+          "delimiter": {
+            "anyOf": [
+              {
+                "maxLength": 1,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Column delimiter of a CSV file, detected from its content when absent",
+            "title": "Delimiter"
+          },
           "file": {
             "contentMediaType": "application/octet-stream",
             "description": "File to import (CSV, XLSX, ODS)",

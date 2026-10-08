@@ -360,6 +360,25 @@ def add_inverse_relations(models: dict[type[BaseModel | BaseView], MetadataModel
                 if relation_data:
                     relations_to_add.append((target_metadata, relation_data))
 
+        for field_name, original_field in model_cls.meta.fields.items():
+            if field_name in metadata_model.fields or not getattr(original_field, "exclude", False):
+                continue
+
+            if not isinstance(original_field, ForeignKey) or isinstance(original_field, OneToOne):
+                continue
+
+            hidden_target_metadata = models.get(cast(Any, original_field).target)
+
+            if hidden_target_metadata is None:
+                continue
+
+            relation_data = _prepare_one_to_many_relation(
+                original_field, model_cls, metadata_model, hidden_target_metadata
+            )
+
+            if relation_data:
+                relations_to_add.append((hidden_target_metadata, relation_data))
+
     # Apply all collected relations after iteration is complete
     for target_metadata, (field_name, metadata_field) in relations_to_add:
         target_metadata.fields[field_name] = metadata_field
@@ -383,7 +402,7 @@ def _prepare_one_to_many_relation(
 ) -> tuple[str, MetadataField] | None:
     """Prepare one-to-many inverse relation data for target metadata."""
     related_name = getattr(foreign_key_field, "related_name", None)
-    if not related_name or related_name.endswith("_set"):
+    if not related_name or related_name == "+" or related_name.endswith("_set"):
         return None
 
     if related_name in target_metadata.fields:

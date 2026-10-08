@@ -165,6 +165,37 @@
         "title": "Annotation-Update",
         "type": "object"
       },
+      "Assignment": {
+        "description": "A row whose foreign key the API hides, while a filter on the category\nstill walks its reverse relation.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "label": {
+            "maxLength": 100,
+            "title": "Label",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "Assignment",
+        "type": "object"
+      },
       "Attachment": {
         "properties": {
           "children": {
@@ -863,6 +894,28 @@
             ],
             "title": "Annotations"
           },
+          "assignments": {
+            "anyOf": [
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Assignment"
+                    },
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignments"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -1007,6 +1060,66 @@
               ]
             ],
             "title": "Annotations"
+          },
+          "assignments": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "$ref": "#/components/schemas/RelationOperation"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Relations for assignments.\n\n**Simple mode:** Array of IDs: `[1, 2, 3]`\n\n**Advanced mode:** Array of operations `[[\"action\", value], ...]`\n\nAvailable actions:\n- `create` - Create new record and link (value=object)\n- `update` - Update record and ensure link (value={id:X,...})\n- `link` - Link existing record (value=id)\n- `unlink` - Remove link without deleting (value=id)\n- `delete` - Delete record and remove link (value=id)\n- `set` - Replace all links (value=[ids])\n- `clear` - Remove all links (no value)",
+            "examples": [
+              [
+                1,
+                2,
+                3
+              ],
+              [
+                [
+                  "link",
+                  1
+                ],
+                [
+                  "create",
+                  {
+                    "name": "New"
+                  }
+                ]
+              ],
+              [
+                [
+                  "clear"
+                ],
+                [
+                  "set",
+                  [
+                    1,
+                    2,
+                    3
+                  ]
+                ]
+              ]
+            ],
+            "title": "Assignments"
           },
           "description": {
             "anyOf": [
@@ -1264,6 +1377,66 @@
               ]
             ],
             "title": "Annotations"
+          },
+          "assignments": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "$ref": "#/components/schemas/RelationOperation"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Relations for assignments.\n\n**Simple mode:** Array of IDs: `[1, 2, 3]`\n\n**Advanced mode:** Array of operations `[[\"action\", value], ...]`\n\nAvailable actions:\n- `create` - Create new record and link (value=object)\n- `update` - Update record and ensure link (value={id:X,...})\n- `link` - Link existing record (value=id)\n- `unlink` - Remove link without deleting (value=id)\n- `delete` - Delete record and remove link (value=id)\n- `set` - Replace all links (value=[ids])\n- `clear` - Remove all links (no value)",
+            "examples": [
+              [
+                1,
+                2,
+                3
+              ],
+              [
+                [
+                  "link",
+                  1
+                ],
+                [
+                  "create",
+                  {
+                    "name": "New"
+                  }
+                ]
+              ],
+              [
+                [
+                  "clear"
+                ],
+                [
+                  "set",
+                  [
+                    1,
+                    2,
+                    3
+                  ]
+                ]
+              ]
+            ],
+            "title": "Assignments"
           },
           "description": {
             "anyOf": [

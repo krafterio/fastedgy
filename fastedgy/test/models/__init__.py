@@ -2,6 +2,7 @@
 # MIT License (see LICENSE file).
 
 from fastedgy.test.models.annotation import Annotation
+from fastedgy.test.models.assignment import Assignment
 from fastedgy.test.models.attachment import Attachment
 from fastedgy.test.models.category import Category
 from fastedgy.test.models.comment import Comment
@@ -76,6 +77,7 @@ __all__ = [
     "DEMO_MODELS",
     "STANDARD_MODELS",
     "Annotation",
+    "Assignment",
     "Attachment",
     "Category",
     "Comment",

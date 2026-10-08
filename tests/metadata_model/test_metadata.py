@@ -128,3 +128,32 @@ async def test_generic_reverse_relations_keep_a_stable_order(setup_db: FastEdgy)
 
     assert generic_reverse == sorted(generic_reverse)
     assert fields.index("name") < fields.index(generic_reverse[0])
+
+
+async def test_the_reverse_relation_of_a_hidden_foreign_key_is_described(setup_db: FastEdgy) -> None:
+    metadata = await get_service(MetadataModelRegistry).get_metadata("category")
+    assignments = metadata.fields["assignments"]
+
+    assert assignments.type == "one2many"
+    assert assignments.target == "assignment"
+    assert "any" in assignments.filter_operators
+
+
+async def test_the_described_reverse_relation_is_one_a_filter_walks(setup_db: FastEdgy) -> None:
+    from fastedgy.orm.filter import R
+    from fastedgy.test.models.assignment import Assignment
+    from fastedgy.test.models.category import Category
+
+    kept = await Category.query.create(name="Kept")
+    await Category.query.create(name="Other")
+    await Assignment.query.create(label="urgent", category=kept)
+
+    rows = await Category.query.filter(R("assignments.label", "=", "urgent")).all()
+
+    assert [row.id for row in rows] == [kept.id]
+
+
+async def test_a_foreign_key_without_reverse_relation_describes_none(setup_db: FastEdgy) -> None:
+    metadata = await get_service(MetadataModelRegistry).get_metadata("workspace")
+
+    assert "+" not in metadata.fields

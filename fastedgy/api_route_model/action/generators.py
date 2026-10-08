@@ -411,11 +411,19 @@ def optional_field_type(field_type):
         return Union[field_type, None]
 
 
-def clean_empty_strings(item_data: BaseModel) -> None:
-    """Convert empty strings to None in Pydantic model instance."""
+def clean_empty_strings(model_cls: type[BaseModel | BaseView], item_data: PydanticBaseModel) -> None:
+    """Convert empty strings to None in Pydantic model instance, except on the
+    fields that cannot be null and hold a default: an empty string is then a
+    value of theirs."""
+    fields = model_cls.meta.fields
+
     for field_name in item_data.model_fields_set:
-        value = getattr(item_data, field_name)
-        if value == "":
+        if getattr(item_data, field_name) != "":
+            continue
+
+        field = fields.get(field_name)
+
+        if field is None or field.null or not field.has_default():
             setattr(item_data, field_name, None)
 
 

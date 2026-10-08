@@ -103,7 +103,7 @@ async def create_item_action[M: BaseModel | BaseView](
     from fastedgy.orm.fields import validate_generic_reference_payload
 
     try:
-        clean_empty_strings(item_data)
+        clean_empty_strings(model_cls, item_data)
 
         dumped = item_data.model_dump(exclude_unset=True, warnings=False)
         validate_generic_reference_payload(model_cls, dumped)

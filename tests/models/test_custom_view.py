@@ -233,6 +233,21 @@ async def test_the_routes_serve_the_global_views(setup_http: httpx.AsyncClient) 
     ]
 
 
+async def test_a_view_of_the_default_list_is_saved_with_its_empty_scope(setup_http: httpx.AsyncClient) -> None:
+    client = authenticate(setup_http, await create_user(email="u@example.io"))
+
+    created = await client.post("/api/custom_views", json={"name": "Open", "model": "product", "scope": ""})
+
+    assert created.status_code == 200, created.text
+
+    patched = await client.patch(
+        f"/api/custom_views/{created.json()['id']}", json={"scope": ""}, headers={"X-Fields": "id,scope"}
+    )
+
+    assert patched.json() == {"id": created.json()["id"], "scope": ""}
+    assert (await client.post("/api/custom_views", json={"name": "", "model": "product"})).status_code == 422
+
+
 async def test_a_list_opens_on_the_favorite_of_its_user_or_of_everyone(setup_http: httpx.AsyncClient) -> None:
     user = await create_user(email="u@example.io")
     client = authenticate(setup_http, user)

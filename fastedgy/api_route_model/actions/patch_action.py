@@ -184,7 +184,7 @@ async def apply_patch_item[M: BaseModel | BaseView](
     foreign_key_data = {}
     scalar_data = {}
 
-    clean_empty_strings(item_data)
+    clean_empty_strings(model_cls, item_data)
     validate_generic_reference_payload(
         model_cls,
         {key: getattr(item_data, key) for key in item_data.model_fields_set},

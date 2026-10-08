@@ -8,6 +8,9 @@ fastedgy serve
 fastedgy serve --host 127.0.0.1 --port 3000 --no-reload
 ```
 
+The server restarts when a Python file or a translation catalog (`.po`) of the server changes,
+and not for a change under its `tests` directory.
+
 ### Database operations
 ```bash
 fastedgy db createdb

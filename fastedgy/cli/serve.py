@@ -68,6 +68,20 @@ def _build_uvicorn_log_config(settings) -> dict | None:
     }
 
 
+def _reload_options(server_path: str) -> dict:
+    """What the reloader watches: the server code and its translations, never
+    its tests. Without them uvicorn watches the cwd, the monorepo root."""
+    import os
+
+    tests_path = os.path.join(server_path, "tests")
+
+    return {
+        "reload_dirs": [server_path],
+        "reload_includes": ["*.po"],
+        "reload_excludes": [tests_path] if os.path.isdir(tests_path) else None,
+    }
+
+
 @command()
 @option("--host", default="0.0.0.0", help="Server host.")
 @option("--port", default=8000, help="Server port.")
@@ -162,8 +176,7 @@ def serve(
         host=host,
         port=port,
         reload=reload,
-        # uvicorn watches the cwd by default — the monorepo root, .git included
-        reload_dirs=[ctx.settings.server_path] if reload else None,
+        **(_reload_options(ctx.settings.server_path) if reload else {}),
         workers=http_workers,
         limit_concurrency=http_limit_concurrency,
         log_level=ctx.settings.log_level,

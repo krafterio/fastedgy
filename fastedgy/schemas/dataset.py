@@ -83,6 +83,7 @@ class MetadataField(BaseModel, frozen=True):  # pyright: ignore[reportGeneralTyp
     filter_operators: list[str]
     target: str | None = None
     targets: list[str] | None = None
+    inverse: str | None = None
     choices: dict[str, str] | None = None
     default: Any | None = None
     local_placeholder: str | None = None

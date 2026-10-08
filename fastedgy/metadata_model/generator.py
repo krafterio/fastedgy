@@ -383,6 +383,42 @@ def add_inverse_relations(models: dict[type[BaseModel | BaseView], MetadataModel
     for target_metadata, (field_name, metadata_field) in relations_to_add:
         target_metadata.fields[field_name] = metadata_field
 
+    _link_inverse_relations(models)
+
+
+def _link_inverse_relations(models: dict[type[BaseModel | BaseView], MetadataModel]) -> None:
+    """Name on each relation the one that leads back, on both sides where both are described.
+
+    Walking a relation then its inverse comes back to the records it started
+    from: what offers the relations to walk needs to know which one that is.
+    """
+    for model_cls, metadata_model in models.items():
+        for field_name, original_field in model_cls.meta.fields.items():
+            if isinstance(original_field, ManyToMany):
+                inverse = getattr(original_field, "back_populates", None) or getattr(
+                    original_field, "related_name", None
+                )
+            elif isinstance(original_field, ForeignKey):
+                inverse = getattr(original_field, "related_name", None)
+            else:
+                continue
+
+            target_metadata = models.get(cast(Any, original_field).target)
+
+            if not isinstance(inverse, str) or target_metadata is None:
+                continue
+
+            back = target_metadata.fields.get(inverse)
+
+            if back is None or back.target != metadata_model.name:
+                continue
+
+            target_metadata.fields[inverse] = back.model_copy(update={"inverse": field_name})
+            own = metadata_model.fields.get(field_name)
+
+            if own is not None:
+                metadata_model.fields[field_name] = own.model_copy(update={"inverse": inverse})
+
 
 def _find_model_by_metadata_name(
     models: dict[type[BaseModel | BaseView], MetadataModel], metadata_name: str

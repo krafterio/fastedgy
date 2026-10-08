@@ -153,6 +153,17 @@ async def test_the_described_reverse_relation_is_one_a_filter_walks(setup_db: Fa
     assert [row.id for row in rows] == [kept.id]
 
 
+async def test_a_relation_names_the_one_that_leads_back(setup_db: FastEdgy) -> None:
+    registry = get_service(MetadataModelRegistry)
+    product = await registry.get_metadata("product")
+    category = await registry.get_metadata("category")
+
+    assert product.fields["category"].inverse == "products"
+    assert category.fields["products"].inverse == "category"
+    assert category.fields["assignments"].inverse == "category"
+    assert product.fields["name"].inverse is None
+
+
 async def test_a_foreign_key_without_reverse_relation_describes_none(setup_db: FastEdgy) -> None:
     metadata = await get_service(MetadataModelRegistry).get_metadata("workspace")
 

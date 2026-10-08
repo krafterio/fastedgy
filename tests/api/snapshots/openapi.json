@@ -2995,6 +2995,17 @@
             "title": "Filter Operators",
             "type": "array"
           },
+          "inverse": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inverse"
+          },
           "label": {
             "title": "Label",
             "type": "string"

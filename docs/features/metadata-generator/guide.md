@@ -34,6 +34,8 @@ Each model field produces metadata with:
 - **searchable**: Whether field can be filtered
 - **filter_operators**: Available query operators
 - **target**: Related model name for relationships
+- **inverse**: The relation of the target model that leads back, when it is described: `products` on the
+  `category` of a product, `category` on the `products` of a category
 
 ## Field type mapping
 

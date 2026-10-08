@@ -82,7 +82,7 @@ async def create_item_action[M: BaseModel | BaseView](
     model_cls: type[M],
     item_data: BaseModel,
     fields: str | None = None,
-    transformers: list[BaseViewTransformer] | None = None,
+    transformers: list[type[BaseViewTransformer]] | None = None,
     transformers_ctx: dict[str, Any] | None = None,
 ) -> M | dict[str, Any]:
     from fastedgy.api_route_model.action import (

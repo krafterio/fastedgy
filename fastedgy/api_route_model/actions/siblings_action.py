@@ -104,7 +104,7 @@ async def siblings_item_action[M: BaseModel | BaseView](
     query: QuerySet | BaseManager | None = None,
     order_by: str | None = None,
     filters: str | None = None,
-    transformers: list[BaseViewTransformer] | None = None,
+    transformers: list[type[BaseViewTransformer]] | None = None,
     transformers_ctx: dict[str, Any] | None = None,
 ) -> RecordSiblings:
     transformers_ctx = transformers_ctx or {}

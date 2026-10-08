@@ -111,7 +111,7 @@ class ViewTransformerRegistry:
         self,
         transformer_cls: type[T],
         model_cls: TypeModel,
-        transformers: list[BaseViewTransformer] | None = None,
+        transformers: list[type[BaseViewTransformer]] | None = None,
     ) -> bool:
         return len(self.get_transformers(transformer_cls, model_cls, transformers)) > 0
 
@@ -119,7 +119,7 @@ class ViewTransformerRegistry:
         self,
         transformer_cls: type[T],
         model_cls: TypeModel | None,
-        transformers: list[BaseViewTransformer] | None = None,
+        transformers: list[type[BaseViewTransformer]] | None = None,
     ) -> list[T]:
         if not bool(getattr(transformer_cls, "__abstractmethods__", False)):
             raise ValueError(f"Transformer {transformer_cls.__name__} is not abstract")

@@ -94,7 +94,7 @@ async def import_items_action[M: BaseModel | BaseView](
     model_cls: type[M],
     file: UploadFile,
     query: QuerySet | BaseManager | None = None,
-    transformers: list[BaseViewTransformer] | None = None,
+    transformers: list[type[BaseViewTransformer]] | None = None,
     transformers_ctx: dict[str, Any] | None = None,
     delimiter: str | None = None,
 ) -> ImportResult:

@@ -73,7 +73,7 @@ async def delete_item_action[M: BaseModel | BaseView](
     item_id: int,
     query: QuerySet | BaseManager | None = None,
     not_found_message: str = "Enregistrement non trouvé",
-    transformers: list[BaseViewTransformer] | None = None,
+    transformers: list[type[BaseViewTransformer]] | None = None,
     transformers_ctx: dict[str, Any] | None = None,
 ) -> None:
     try:

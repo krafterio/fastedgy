@@ -100,7 +100,7 @@ async def patch_item_action[M: BaseModel | BaseView](
     item_data: BaseModel,
     query: QuerySet | BaseManager | None = None,
     fields: str | None = None,
-    transformers: list[BaseViewTransformer] | None = None,
+    transformers: list[type[BaseViewTransformer]] | None = None,
     transformers_ctx: dict[str, Any] | None = None,
 ) -> M | dict[str, Any]:
     try:
@@ -152,7 +152,7 @@ async def apply_patch_item[M: BaseModel | BaseView](
     item_data: BaseModel,
     query: QuerySet | BaseManager | None = None,
     fields: str | None = None,
-    transformers: list[BaseViewTransformer] | None = None,
+    transformers: list[type[BaseViewTransformer]] | None = None,
     transformers_ctx: dict[str, Any] | None = None,
 ) -> M | dict[str, Any]:
     """The body of the PATCH action, outside any transaction and error mapping."""

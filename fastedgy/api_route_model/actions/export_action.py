@@ -107,7 +107,7 @@ async def export_items_action[M: BaseModel | BaseView](
     fields: str | None = None,
     filters: str | None = None,
     relation_delimiter: RelationDelimiter = RelationDelimiter.newline,
-    transformers: list[BaseViewTransformer] | None = None,
+    transformers: list[type[BaseViewTransformer]] | None = None,
     transformers_ctx: dict[str, Any] | None = None,
 ) -> StreamingResponse:
     """

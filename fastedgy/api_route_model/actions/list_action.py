@@ -98,7 +98,7 @@ async def list_items_action[M: BaseModel | BaseView](
     order_by: str | None = None,
     fields: str | None = None,
     filters: str | None = None,
-    transformers: list[BaseViewTransformer] | None = None,
+    transformers: list[type[BaseViewTransformer]] | None = None,
     transformers_ctx: dict[str, Any] | None = None,
 ) -> Pagination[M | dict[str, Any]]:
     transformers_ctx = transformers_ctx or {}

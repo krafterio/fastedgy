@@ -80,7 +80,7 @@ class RowRead:
 def plan_row_read[M: BaseModel | BaseView](
     model_cls: type[M],
     fields: str | None,
-    transformers: list[BaseViewTransformer] | None = None,
+    transformers: list[type[BaseViewTransformer]] | None = None,
     views: bool = True,
 ) -> RowRead | None:
     """How this read is answered by its rows, or None to build the models.

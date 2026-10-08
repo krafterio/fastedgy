@@ -80,7 +80,7 @@ async def get_item_action[M: BaseModel | BaseView](
     item_id: int,
     query: QuerySet | BaseManager | None = None,
     fields: str | None = None,
-    transformers: list[BaseViewTransformer] | None = None,
+    transformers: list[type[BaseViewTransformer]] | None = None,
     transformers_ctx: dict[str, Any] | None = None,
 ) -> M | dict[str, Any]:
     query = cast(QuerySet, query or model_cls.query)
@@ -117,7 +117,7 @@ async def view_item_action[M: BaseModel | BaseView](
     model_cls: type[M],
     item: M,
     fields: str | None = None,
-    transformers: list[BaseViewTransformer] | None = None,
+    transformers: list[type[BaseViewTransformer]] | None = None,
     transformers_ctx: dict[str, Any] | None = None,
 ) -> M | dict[str, Any]:
     transformers_ctx = transformers_ctx or {}

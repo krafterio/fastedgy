@@ -82,13 +82,10 @@ useDataIterator('household', { searchFields: ['name', 'slug', 'workspace_users.u
 ## Custom views
 
 ```javascript
-import { useCustomViews, useOpeningView } from 'vue-fastedgy';
+import { useCustomViews } from 'vue-fastedgy';
 
-const opening = useOpeningView('household', { prefix: '/console', skip: () => Boolean(route.query.f) });
-const list = useDataIterator('household', { prefix: '/console', enabled: opening.ready });
+const list = useDataIterator('household', { prefix: '/console', views: { scope: '' } });
 const views = useCustomViews('household', { prefix: '/console', list });
-
-watch(opening.view, (view) => view && views.apply(view));
 
 await views.ensure(); // when the menu opens
 views.apply(view);
@@ -98,6 +95,10 @@ await views.save(views.current.value);
 await views.setDefault(view, true); // for everyone
 await views.setFavorite(view, true); // for the current user
 ```
+
+With `views`, the iterator opens on the favorite of the user, else the one of everyone, and reads
+its first page once, already on it. A URL saying what the list shows (a link, a reload) wins over it.
+`useOpeningView` reads that view alone, for a list held otherwise.
 
 The methods reject what the server refuses (a name already taken, a shared view the user does not
 manage): showing it is the interface's business.

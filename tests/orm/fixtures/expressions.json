@@ -1,0 +1,76 @@
+{
+    "description": "X-Filter expressions and what the query builder writes back after reading them. fastedgy checks that each input and its output read the same rows; vue-fastedgy checks that serializing the parsed input gives the output. Shared verbatim between the two repositories.",
+    "model": "product",
+    "cases": [
+        {"name": "nothing", "input": null, "output": null},
+        {"name": "an empty list", "input": [], "output": null},
+        {"name": "a rule", "input": ["name", "icontains", "laptop"], "output": ["name", "icontains", "laptop"]},
+        {"name": "a rule without value", "input": ["rating", "is empty"], "output": ["rating", "is empty"]},
+        {
+            "name": "a group of all",
+            "input": ["&", [["is_active", "is true"], ["quantity", ">", 0]]],
+            "output": ["&", [["is_active", "is true"], ["quantity", ">", 0]]]
+        },
+        {
+            "name": "a group of at least one",
+            "input": ["|", [["name", "=", "Novel"], ["price", "<", 10]]],
+            "output": ["|", [["name", "=", "Novel"], ["price", "<", 10]]]
+        },
+        {
+            "name": "the flat form of at least one",
+            "input": ["|", ["name", "=", "Novel"], ["quantity", "=", 0]],
+            "output": ["|", [["name", "=", "Novel"], ["quantity", "=", 0]]]
+        },
+        {
+            "name": "the flat form of all",
+            "input": ["&", ["is_active", "is true"], ["quantity", ">", 0]],
+            "output": ["&", [["is_active", "is true"], ["quantity", ">", 0]]]
+        },
+        {
+            "name": "a list reads as all",
+            "input": [["is_active", "is true"], ["quantity", ">", 0]],
+            "output": ["&", [["is_active", "is true"], ["quantity", ">", 0]]]
+        },
+        {
+            "name": "a group of one rule is that rule",
+            "input": ["&", [["name", "=", "Novel"]]],
+            "output": ["name", "=", "Novel"]
+        },
+        {
+            "name": "a nested group of one rule joins its parent",
+            "input": ["|", [["&", [["quantity", ">", 3]]], ["name", "=", "Novel"]]],
+            "output": ["|", [["quantity", ">", 3], ["name", "=", "Novel"]]]
+        },
+        {
+            "name": "groups nest",
+            "input": ["&", [["|", [["name", "icontains", "laptop"], ["name", "=", "Novel"]]], ["is_active", "is true"]]],
+            "output": ["&", [["|", [["name", "icontains", "laptop"], ["name", "=", "Novel"]]], ["is_active", "is true"]]]
+        },
+        {"name": "a list of values", "input": ["quantity", "in", [0, 5]], "output": ["quantity", "in", [0, 5]]},
+        {"name": "none of a list of values", "input": ["quantity", "not in", [0]], "output": ["quantity", "not in", [0]]},
+        {"name": "a range", "input": ["price", "between", [10, 600]], "output": ["price", "between", [10, 600]]},
+        {"name": "a relation path", "input": ["category.name", "=", "Books"], "output": ["category.name", "=", "Books"]},
+        {"name": "a relation and its key", "input": ["category", "in", [1, 2]], "output": ["category", "in", [1, 2]]},
+        {
+            "name": "at least one related record matching",
+            "input": ["tags", "any", ["name", "=", "sale"]],
+            "output": ["tags", "any", ["name", "=", "sale"]]
+        },
+        {
+            "name": "at least one related record matching a group",
+            "input": ["tags", "any", ["|", [["name", "=", "urgent"], ["name", "=", "new"]]]],
+            "output": ["tags", "any", ["|", [["name", "=", "urgent"], ["name", "=", "new"]]]]
+        },
+        {"name": "no related record at all", "input": ["tags", "not any", null], "output": ["tags", "not any", null]},
+        {
+            "name": "a block inside a group",
+            "input": ["&", [["tags", "any", null], ["is_active", "is true"]]],
+            "output": ["&", [["tags", "any", null], ["is_active", "is true"]]]
+        },
+        {
+            "name": "a block whose sub-filter is a group of one rule",
+            "input": ["tags", "not any", ["&", [["name", "=", "sale"]]]],
+            "output": ["tags", "not any", ["name", "=", "sale"]]
+        }
+    ]
+}

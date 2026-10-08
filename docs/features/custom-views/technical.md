@@ -17,7 +17,8 @@ Two global filters on `CustomViewMixin`:
 - `workspace` is the current workspace, or empty outside any workspace (only on a model that has a
   `workspace` field).
 
-A favorite carries one: `user` is the current user.
+A favorite carries one: `user` is the current user, and its view lies in the current workspace, or
+in none outside any workspace, when the view model has a `workspace` field.
 
 ## Signals
 

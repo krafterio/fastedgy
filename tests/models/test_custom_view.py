@@ -185,6 +185,28 @@ async def test_a_user_has_one_favorite_per_list(setup_db: FastEdgy) -> None:
     assert theirs == {first.id}
 
 
+async def test_a_favorite_is_read_in_the_workspace_of_its_view(setup_db: FastEdgy) -> None:
+    Favorite = find_custom_view_favorite_model()
+    assert Favorite is not None
+    acme, other = await create_workspace(slug="acme"), await create_workspace(slug="other")
+    user = await create_user(email="u@example.io")
+
+    with acting_as(user, acme):
+        in_acme = await _view("In acme")
+        await Favorite(view=in_acme).save()
+
+    with acting_as(user, other):
+        in_other = await _view("In other")
+        await Favorite(view=in_other).save()
+        seen_in_other = {favorite.view.id for favorite in await Favorite.query.all()}
+
+    with acting_as(user, acme):
+        seen_in_acme = {favorite.view.id for favorite in await Favorite.query.all()}
+
+    assert seen_in_acme == {in_acme.id}
+    assert seen_in_other == {in_other.id}
+
+
 async def test_the_routes_serve_the_global_views(setup_http: httpx.AsyncClient) -> None:
     user = await create_user(email="u@example.io")
     client = authenticate(setup_http, user)

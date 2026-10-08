@@ -20,7 +20,15 @@ if TYPE_CHECKING:
 def _own_favorites() -> Any:
     user_id = context.get_user_id()
 
-    return R("user", "=", user_id) if user_id is not None else None
+    if user_id is None:
+        return None
+
+    view_model = find_custom_view_model()
+
+    if view_model is not None and "workspace" in view_model.meta.fields:
+        return And(R("user", "=", user_id), custom_view_place(context.get_workspace_id(), "view.workspace"))
+
+    return R("user", "=", user_id)
 
 
 @global_filter(_own_favorites)

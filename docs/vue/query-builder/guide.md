@@ -103,6 +103,30 @@ its first page once, already on it. A URL saying what the list shows (a link, a 
 The methods reject what the server refuses (a name already taken, a shared view the user does not
 manage): showing it is the interface's business.
 
+## Quick filters
+
+A quick filter is a value the screen shows in a control of its own (a switch, a select, a date
+picker), and the rule that value stands for. `defineQuickFilter` makes one out of any component
+speaking `v-model`; the list reads its definition before the first page:
+
+```javascript
+import { defineQuickFilter, useDataIterator } from 'vue-fastedgy';
+
+const ClosedTickets = defineQuickFilter(
+    { name: 'closed', default: false, filter: (shown) => (shown ? null : ['status', '=', 'opened']) },
+    SwitchField,
+    () => ({ label: t('Closed tickets') })
+);
+
+const list = useDataIterator('support_ticket', { quickFilters: [ClosedTickets] });
+
+list.quick.closed; // the value applied: a boolean here, a number, a list…
+```
+
+The list keeps in the URL as `qf` the quick filters away from their default, and adds their
+rules to the filter it sends, after the expression and before the search. The query filter
+draws the quick filters of its list before its button (`QueryFilterQuickFilters`).
+
 ## The list a record came from
 
 ```javascript

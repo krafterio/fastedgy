@@ -335,6 +335,54 @@ async def recompute_fulltext(
         )
 
 
+async def recompute_fulltext_rows(
+    model_cls: "type[BaseModel]",
+    where: "sqlalchemy.ColumnElement[bool] | None" = None,
+    locales: Sequence[str] | None = None,
+) -> int:
+    """
+    Recompute the tsvectors of the rows matching `where`, every row without it,
+    in one statement per fulltext field and locale.
+
+    Rows written without the ORM's save, a bulk insert for one, get no vector
+    from the post-save signal: this indexes them afterwards. A row whose vector
+    is already right is left alone, so the pass rewrites only what is wrong.
+
+    Returns the number of rows rewritten.
+    """
+    from fastedgy.dependencies import get_service
+    from fastedgy.orm import Registry
+
+    database = get_service(Registry).database
+    rewritten = 0
+
+    for field_name, field_info in model_cls.meta.fields.items():
+        if not getattr(field_info, "is_fulltext_field", False):
+            continue
+
+        for locale in locales or _get_available_locales():
+            expression = build_tsvector_expression(model_cls, locale)
+            column_name = get_fulltext_column(model_cls, field_name, locale)
+
+            if expression is None or column_name is None:
+                continue
+
+            vector = sqlalchemy.literal_column(f"({expression})")
+            statement = (
+                model_cls.table.update()
+                .values({column_name: vector})
+                .where(model_cls.table.columns[column_name].is_distinct_from(vector))
+            )
+
+            if where is not None:
+                statement = statement.where(where)
+
+            result = await database.execute(statement)
+            rewritten += result if isinstance(result, int) else 0
+
+    return rewritten
+
+
 __all__ = [
     "SEARCH_WEIGHT_FIELD_MAP",
     "FulltextField",
@@ -347,5 +395,6 @@ __all__ = [
     "is_view_model",
     "get_searchable_fields",
     "recompute_fulltext",
+    "recompute_fulltext_rows",
     "resolve_search_weight",
 ]

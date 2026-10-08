@@ -31,6 +31,7 @@ from .field_fulltext import (
     get_pg_language,
     get_searchable_fields,
     recompute_fulltext,
+    recompute_fulltext_rows,
     resolve_search_weight,
 )
 from .field_generic_foreign_key import (
@@ -127,6 +128,7 @@ __all__ = [
     "get_pg_language",
     "get_searchable_fields",
     "recompute_fulltext",
+    "recompute_fulltext_rows",
     "resolve_generic_pair",
     "resolve_registry_generic_references",
     "resolve_search_weight",

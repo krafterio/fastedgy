@@ -113,6 +113,28 @@ async def test_fulltext_skips_an_update_touching_no_searchable_field(setup_db: F
     assert "stale" in await _fetch_col(product.id, "search_value_en::text")
 
 
+async def test_rows_written_without_save_are_indexed_in_one_pass(setup_db: FastEdgy) -> None:
+    from fastedgy.orm.fields import recompute_fulltext_rows
+
+    await Product.query.bulk_create(
+        [
+            {"name": "Sprocket", "description": "A red cog", "price": "1.50"},
+            {"name": "Gizmo", "description": "A green tool", "price": "2.50"},
+        ]
+    )
+    database = get_service(Registry).database
+    unindexed = "SELECT name FROM test_products WHERE search_value_en IS NULL ORDER BY name"
+
+    assert [row[0] for row in await database.fetch_all(unindexed)] == ["Gizmo", "Sprocket"]
+
+    rewritten = await recompute_fulltext_rows(Product, Product.table.columns.name == "Sprocket", locales=["en"])
+
+    assert rewritten == 1
+    assert [row[0] for row in await database.fetch_all(unindexed)] == ["Gizmo"]
+    assert await recompute_fulltext_rows(Product, locales=["en"]) == 1
+    assert await recompute_fulltext_rows(Product, locales=["en"]) == 0
+
+
 async def test_order_by_search_relevance(setup_db: FastEdgy) -> None:
     # The filter labels a rank expression in extra_select; ordering by the
     # fulltext field sorts on that label, not on the stored search column.

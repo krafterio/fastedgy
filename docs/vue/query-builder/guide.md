@@ -100,6 +100,20 @@ With `views`, the iterator opens on the favorite of the user, else the one of ev
 its first page once, already on it. A URL saying what the list shows (a link, a reload) wins over it.
 `useOpeningView` reads that view alone, for a list held otherwise.
 
+A list holding more than its filter and its order names it in `views.state`, by field of the view:
+the view applies it on opening and from the menu, and saves it. Its `key` is where the application
+keeps it in the URL, which then wins over the view, and `opened` tells when the opening is done:
+
+```javascript
+const groupBy = ref(null);
+
+const list = useDataIterator('flow', {
+    views: {
+        state: { group_by: { get: () => groupBy.value, set: (value) => (groupBy.value = value), key: 'group' } },
+    },
+});
+```
+
 The methods reject what the server refuses (a name already taken, a shared view the user does not
 manage): showing it is the interface's business.
 

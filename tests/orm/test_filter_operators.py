@@ -57,3 +57,22 @@ def test_an_unmapped_field_type_answers_nothing() -> None:
         pass
 
     assert _operators(Unmapped()) == []
+
+
+INTEGER_OPERATORS = ["=", "!=", "<", "<=", ">", ">=", "between", "in", "not in", "is empty", "is not empty"]
+
+
+def test_a_big_or_small_integer_offers_the_integer_operators() -> None:
+    assert _operators(fields.IntegerField()) == INTEGER_OPERATORS
+    assert _operators(fields.BigIntegerField()) == INTEGER_OPERATORS
+    assert _operators(fields.SmallIntegerField()) == INTEGER_OPERATORS
+
+
+def test_a_big_or_small_integer_value_is_read_as_an_integer() -> None:
+    """asyncpg binds a bigint parameter from an int only: a value sent as text
+    must be converted on the way in, as it is for a plain integer."""
+    from fastedgy.orm.filter.builder import _convert_value_by_field_type
+    from fastedgy.test.models.attachment import Attachment
+
+    assert _convert_value_by_field_type(Attachment, "size_bytes", "12") == 12
+    assert _convert_value_by_field_type(Attachment, "depth", ["1", "2"]) == [1, 2]

@@ -7,6 +7,7 @@ from sqlalchemy import null
 
 from fastedgy.orm.fields import (
     BaseFieldType,
+    BigIntegerField,
     BinaryField,
     BooleanField,
     CharChoiceField,
@@ -32,6 +33,7 @@ from fastedgy.orm.fields import (
     OneToOneField,
     PointField,
     RefForeignKey,
+    SmallIntegerField,
     TextField,
     TimeField,
     UUIDField,
@@ -303,6 +305,32 @@ FILTER_OPERATORS_SQL_UNPACK = {
 
 FILTER_OPERATORS_FIELD_MAP = {
     IntegerField: [
+        "=",
+        "!=",
+        "<",
+        "<=",
+        ">",
+        ">=",
+        "between",
+        "in",
+        "not in",
+        "is empty",
+        "is not empty",
+    ],
+    SmallIntegerField: [
+        "=",
+        "!=",
+        "<",
+        "<=",
+        ">",
+        ">=",
+        "between",
+        "in",
+        "not in",
+        "is empty",
+        "is not empty",
+    ],
+    BigIntegerField: [
         "=",
         "!=",
         "<",

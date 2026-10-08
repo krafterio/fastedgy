@@ -34,12 +34,14 @@ from sqlalchemy import (
 from fastedgy.orm import Model
 from fastedgy.orm.fields import (
     BaseFieldType,
+    BigIntegerField,
     DateField,
     DateTimeField,
     DecimalField,
     FloatField,
     IntegerField,
     ManyToMany,
+    SmallIntegerField,
     UUIDField,
     generic_target_name,
     resolve_generic_pair,
@@ -1269,7 +1271,7 @@ def _convert_value_by_field_type(model_cls: type[Model], field_path: str, value:
         from datetime import datetime
 
         return _convert_value(value, lambda val: datetime.fromisoformat(val))
-    elif isinstance(field, IntegerField):
+    elif isinstance(field, (IntegerField, SmallIntegerField, BigIntegerField)):
         return _convert_value(value, lambda val: int(val))
     elif isinstance(field, (FloatField, DecimalField)):
         return _convert_value(value, lambda val: float(val))

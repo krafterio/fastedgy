@@ -28,7 +28,7 @@ from fastedgy.api_route_model.params import FieldSelectorHeader, FilterHeader, O
 from fastedgy.api_route_model.view_transformer import BaseViewTransformer
 from fastedgy.depends.security import find_workspace_user_model, get_current_user
 from fastedgy.http import Request
-from fastedgy.orm.filter import And, R
+from fastedgy.orm.filter import R
 from fastedgy.orm.filter.builder import filter_query
 from fastedgy.orm.filter.parser import parse_filter_input
 from fastedgy.orm.filter.types import FilterCondition, FilterRule, InvalidFilterError
@@ -213,12 +213,10 @@ def create_account_workspaces_router(
 
     @router.put("/{slug}/default", status_code=status.HTTP_204_NO_CONTENT)
     async def make_default_workspace(slug: str, current_user=Depends(get_current_user)) -> Response:
-        membership = _membership_model()
-        found = await (
-            membership.query.select_related(_WORKSPACE)
-            .filter(And(R("user", "=", current_user.id), R(f"{_WORKSPACE}.slug", "=", slug)))
-            .first()
-        )
+        """Among the memberships the list reads, the one of [slug]: a membership
+        the list leaves out (a pending invitation) cannot become the default."""
+        query = await memberships_of(current_user)
+        found: Any = await query.select_related(_WORKSPACE).filter(R(f"{_WORKSPACE}.slug", "=", slug)).first()
 
         if found is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not_member")

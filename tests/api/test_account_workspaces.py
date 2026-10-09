@@ -8,11 +8,12 @@ import httpx
 import pytest
 from fastapi import APIRouter, Depends
 
-from fastedgy.api.account_workspaces import create_account_workspaces_router
+from fastedgy.api.account_workspaces import account_memberships, create_account_workspaces_router
 from fastedgy.api_route_model.view_transformer import GetViewTransformer
 from fastedgy.app import FastEdgy
 from fastedgy.depends.security import get_current_user
 from fastedgy.orm.field_selector import selection_includes
+from fastedgy.orm.filter import R
 from fastedgy.test.factories import authenticate, create_user, create_workspace, create_workspace_user
 
 URL = "/api/workspaces"
@@ -124,3 +125,27 @@ async def test_serves_a_name_neither_model_holds_only_when_it_is_asked(account_h
 
     assert [item["count"] for item in asked] == [1, 1, 1]
     assert all("count" not in item for item in unasked)
+
+
+async def test_cannot_make_default_a_workspace_the_list_leaves_out(
+    setup_db: FastEdgy, setup_http: httpx.AsyncClient
+) -> None:
+    """An application counting only some memberships (an active status) lists
+    none of the others, and none of them can become the default either."""
+
+    def without_beta(user):
+        return account_memberships(user).filter(R("workspace.slug", "!=", "beta"))
+
+    router = APIRouter(prefix="/api", dependencies=[Depends(get_current_user)])
+    router.include_router(create_account_workspaces_router(prefix="/listed", memberships=without_beta))
+    routes = list(router.routes)
+    setup_db.router.routes[0:0] = routes
+
+    try:
+        client = authenticate(setup_http, await _account())
+
+        assert (await client.put("/api/listed/beta/default")).status_code == 404
+        assert (await client.put("/api/listed/acme/default")).status_code == 204
+    finally:
+        for route in routes:
+            setup_db.router.routes.remove(route)

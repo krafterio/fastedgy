@@ -118,6 +118,55 @@ default = await WorkspaceUser.default_for(user.id)
 await other_membership.make_default()
 ```
 
+## The workspaces of the account
+
+A client opens one workspace at a time and lets the user switch: it needs the workspaces the account
+belongs to, outside any of them. `create_account_workspaces_router` serves them from the account's
+memberships, each item being the workspace with what only the account knows of it beside its own
+fields (`is_default`, and whatever the membership model adds: a role, an order).
+
+```python
+from fastapi import APIRouter, Depends
+
+from fastedgy.api.account_workspaces import create_account_workspaces_router
+from fastedgy.depends.security import get_current_user
+
+router = APIRouter(prefix="/api", dependencies=[Depends(get_current_user)])
+router.include_router(create_account_workspaces_router())
+```
+
+`GET /api/workspaces` is a generated list in every respect: pagination, `order_by`, `X-Fields` and
+`X-Filter` name the fields of the workspace (`name`), a path the membership does not hold reading
+through its workspace. Without `order_by`, the default comes first, then the order the membership
+model declares (`sequence`, when it has one), then the name. `PUT /api/workspaces/{slug}/default`
+makes one the account's default (`make_default()`); a slug the account is not a member of answers
+404 `not_member`.
+
+The routes start from `account_memberships(user)`, every membership of the account. An application
+that counts only some passes its own query, a function or a coroutine function:
+
+```python
+from fastedgy.orm.filter import And, R
+
+
+def active_memberships(user):
+    return WorkspaceUser.query.filter(And(R("user", "=", user.id), R("status", "=", "active")))
+
+
+router.include_router(create_account_workspaces_router(memberships=active_memberships))
+```
+
+What the application computes for the account (whether it owns the workspace, whether its
+subscription is valid) comes from view transformers of the membership model, run for this list only:
+
+```python
+router.include_router(create_account_workspaces_router(transformers=[AccountWorkspaceView]))
+```
+
+What a transformer adds to a membership goes beside the fields of the workspace.
+
+vue-fastedgy and flutter_fastedgy read this list to choose the workspace a client opens.
+
 ## Members of the workspace
 
 The user model belongs to every workspace at once, so it has no generated route inside one. A

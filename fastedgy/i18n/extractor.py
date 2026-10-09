@@ -284,7 +284,7 @@ msgstr ""
 
             clean_content += '"Content-Type: text/plain; charset=utf-8\\n"\n'
             clean_content += f'"Language: {locale}\\n"\n'
-            clean_content += f'"{plural_forms.get(locale, "nplurals=2; plural=(n != 1);")}\\n"\n'
+            clean_content += f'"Plural-Forms: {plural_forms.get(locale, "nplurals=2; plural=(n != 1);")}\\n"\n'
             clean_content += "\n"
             clean_content += messages_part
 

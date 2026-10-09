@@ -55,3 +55,12 @@ def test_post_processing_ends_each_header_line_with_one_line_break(tmp_path: Pat
     content = _clean(tmp_path, catalog)
 
     assert "\\n\\n" not in content
+
+
+def test_post_processing_names_the_plural_forms(tmp_path: Path) -> None:
+    catalog = Catalog(locale="fr")
+    catalog.add("Short", "Court")
+
+    content = _clean(tmp_path, catalog)
+
+    assert '"Plural-Forms: nplurals=2; plural=(n > 1);\\n"' in content

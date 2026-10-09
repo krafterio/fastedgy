@@ -13,7 +13,9 @@ each item is the workspace with those fields beside its own.
 The list is a generated list in every respect (pagination, ``X-Fields``,
 ``X-Filter``, ``order_by``) over the fields of the workspace: a path the
 membership does not hold reads through its workspace (``name`` is
-``workspace.name``).
+``workspace.name``). A name neither of them holds stays as asked, for a view
+transformer of the membership to serve (a count, a flag): it finds it in
+``ctx["fields"]``, as in any list.
 """
 
 from collections.abc import Callable, Coroutine
@@ -86,20 +88,28 @@ def _plain_fields(model: Any) -> list[str]:
     ]
 
 
-def _through_workspace(path: str, own: frozenset[str]) -> str:
-    return path if path.split(".", 1)[0] in own else f"{_WORKSPACE}.{path}"
+def _workspace_names(membership: Any) -> frozenset[str]:
+    workspace = _workspace_model(membership)
+
+    return frozenset(workspace.meta.fields) | frozenset(getattr(workspace, "model_computed_fields", {}))
 
 
-def _fields(fields: str | None, membership: Any, own: frozenset[str]) -> str:
+def _through_workspace(path: str, own: frozenset[str], workspace: frozenset[str]) -> str:
+    head = path.split(".", 1)[0]
+
+    return f"{_WORKSPACE}.{path}" if head not in own and head in workspace else path
+
+
+def _fields(fields: str | None, membership: Any, own: frozenset[str], workspace: frozenset[str]) -> str:
     asked = [part.strip() for part in (fields or "").split(",") if part.strip() and part.strip() != "+"]
 
     if not asked:
         asked = _plain_fields(_workspace_model(membership))
 
-    return ",".join(sorted(own) + [_through_workspace(path, own) for path in asked])
+    return ",".join(sorted(own) + [_through_workspace(path, own, workspace) for path in asked])
 
 
-def _order_by(order_by: str | None, own: frozenset[str]) -> str:
+def _order_by(order_by: str | None, own: frozenset[str], workspace: frozenset[str]) -> str:
     """In the format of every list (``name:asc,created_at:desc``), each path
     read through the workspace when the membership does not hold it."""
     if not order_by:
@@ -115,18 +125,20 @@ def _order_by(order_by: str | None, own: frozenset[str]) -> str:
     for term in (one.strip() for one in order_by.split(",")):
         if term:
             path, _, direction = term.partition(":")
-            terms.append(_through_workspace(path, own) + (f":{direction}" if direction else ""))
+            terms.append(_through_workspace(path, own, workspace) + (f":{direction}" if direction else ""))
 
     return ",".join(terms)
 
 
-def _rule(rule: FilterRule | FilterCondition, own: frozenset[str]) -> FilterRule | FilterCondition:
+def _rule(
+    rule: FilterRule | FilterCondition, own: frozenset[str], workspace: frozenset[str]
+) -> FilterRule | FilterCondition:
     """The same rule, its paths read through the workspace. What an ``any``
     block holds is relative to the relation it names, and stays as it is."""
     if isinstance(rule, FilterCondition):
-        return FilterCondition(condition=rule.condition, rules=[_rule(one, own) for one in rule.rules])
+        return FilterCondition(condition=rule.condition, rules=[_rule(one, own, workspace) for one in rule.rules])
 
-    return R(_through_workspace(rule.field, own), rule.operator, rule.value)
+    return R(_through_workspace(rule.field, own, workspace), rule.operator, rule.value)
 
 
 def _flatten(item: dict[str, Any]) -> dict[str, Any]:
@@ -149,7 +161,8 @@ def create_account_workspaces_router(
     application that counts only some (an active status). ``transformers`` are
     view transformers of the membership model run for this list only: what one
     adds to a membership (whether the account owns the workspace) goes beside
-    the fields of the workspace."""
+    the fields of the workspace, and a name it serves is in ``ctx["fields"]``
+    when the client asked for it."""
     router = APIRouter(prefix=prefix, tags=["workspaces"])
 
     async def memberships_of(user: Any) -> QuerySet:
@@ -169,6 +182,7 @@ def create_account_workspaces_router(
     ) -> dict[str, Any]:
         membership = _membership_model()
         own = _own_fields(membership)
+        workspace = _workspace_names(membership)
         query = await memberships_of(current_user)
 
         try:
@@ -177,7 +191,7 @@ def create_account_workspaces_router(
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
 
         if condition is not None:
-            query = filter_query(query, cast(FilterCondition, _rule(condition, own)))
+            query = filter_query(query, cast(FilterCondition, _rule(condition, own, workspace)))
 
         page = await list_items_action(
             request,
@@ -185,8 +199,8 @@ def create_account_workspaces_router(
             query,
             limit=limit,
             offset=offset,
-            order_by=_order_by(order_by, own),
-            fields=_fields(fields, membership, own),
+            order_by=_order_by(order_by, own, workspace),
+            fields=_fields(fields, membership, own, workspace),
             transformers=transformers,
         )
 

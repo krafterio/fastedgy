@@ -163,7 +163,21 @@ subscription is valid) comes from view transformers of the membership model, run
 router.include_router(create_account_workspaces_router(transformers=[AccountWorkspaceView]))
 ```
 
-What a transformer adds to a membership goes beside the fields of the workspace.
+What a transformer adds to a membership goes beside the fields of the workspace. A name the client
+asks for that neither the membership nor the workspace holds stays as asked in `ctx["fields"]`, so a
+transformer computes only what was asked, as in any list:
+
+```python
+from fastedgy.orm.field_selector import selection_includes
+
+
+class AccountWorkspaceView(GetViewTransformer[WorkspaceUser]):
+    async def get_view(self, request, item, item_dump, ctx):
+        if selection_includes(ctx.get("fields"), "member_count"):
+            item_dump["member_count"] = await WorkspaceUser.query.filter(R("workspace", "=", item.workspace.id)).count()
+
+        return item_dump
+```
 
 vue-fastedgy and flutter_fastedgy read this list to choose the workspace a client opens.
 

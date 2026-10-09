@@ -12,6 +12,7 @@ from fastedgy.api.account_workspaces import create_account_workspaces_router
 from fastedgy.api_route_model.view_transformer import GetViewTransformer
 from fastedgy.app import FastEdgy
 from fastedgy.depends.security import get_current_user
+from fastedgy.orm.field_selector import selection_includes
 from fastedgy.test.factories import authenticate, create_user, create_workspace, create_workspace_user
 
 URL = "/api/workspaces"
@@ -24,12 +25,19 @@ class _Mine(GetViewTransformer):
         return {**item_dump, "mine": True}
 
 
+class _Count(GetViewTransformer):
+    """What an application computes only when the client asks for it by name."""
+
+    async def get_view(self, request, item, item_dump, ctx):
+        return {**item_dump, "count": 1} if selection_includes(ctx.get("fields"), "count") else item_dump
+
+
 @pytest.fixture
 async def account_http(setup_db: FastEdgy, setup_http: httpx.AsyncClient) -> AsyncIterator[httpx.AsyncClient]:
     """The routes mounted as an application mounts them, at /api/workspaces: ahead
     of the generated routes the synthetic workspace model has there."""
     router = APIRouter(prefix="/api", dependencies=[Depends(get_current_user)])
-    router.include_router(create_account_workspaces_router(transformers=[_Mine]))
+    router.include_router(create_account_workspaces_router(transformers=[_Mine, _Count]))
     routes = list(router.routes)
     setup_db.router.routes[0:0] = routes
 
@@ -106,3 +114,13 @@ async def test_changes_the_default_only_when_asked_to(account_http: httpx.AsyncC
     assert response.status_code == 204, response.text
     assert _slugs(await client.get(URL, headers={"X-Fields": "slug"})) == ["acme", "beta", "zeta"]
     assert (await client.put(f"{URL}/other/default")).status_code == 404
+
+
+async def test_serves_a_name_neither_model_holds_only_when_it_is_asked(account_http: httpx.AsyncClient) -> None:
+    client = authenticate(account_http, await _account())
+
+    asked = (await client.get(URL, headers={"X-Fields": "slug,count"})).json()["items"]
+    unasked = (await client.get(URL, headers={"X-Fields": "slug"})).json()["items"]
+
+    assert [item["count"] for item in asked] == [1, 1, 1]
+    assert all("count" not in item for item in unasked)

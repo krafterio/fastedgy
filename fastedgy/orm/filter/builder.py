@@ -538,10 +538,7 @@ def _readable_rows(model: Any, table: Any, seen: set[int]) -> Any | None:
 
     A relation path only crosses the rows the request could read through the
     model's own query: in a workspace, the workspace itself and the rows keyed
-    to it, then the rows the model's global filters let through. Without it a
-    filter is an oracle on whatever it reaches: a member testing
-    ``created_by.workspace_memberships.workspace.name`` learns, one guess at a
-    time, the other workspaces of a colleague.
+    to it, then the rows the model's global filters let through.
 
     The global filters are the model's own rules: they compile unconfined.
     """

@@ -213,8 +213,7 @@ def create_account_workspaces_router(
 
     @router.put("/{slug}/default", status_code=status.HTTP_204_NO_CONTENT)
     async def make_default_workspace(slug: str, current_user=Depends(get_current_user)) -> Response:
-        """Among the memberships the list reads, the one of [slug]: a membership
-        the list leaves out (a pending invitation) cannot become the default."""
+        """The membership of [slug] among those the list reads."""
         query = await memberships_of(current_user)
         found: Any = await query.select_related(_WORKSPACE).filter(R(f"{_WORKSPACE}.slug", "=", slug)).first()
 

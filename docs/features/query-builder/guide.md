@@ -246,11 +246,9 @@ in turn; one going deeper is refused with a 422.
 
 A path only crosses the rows the request could read through the model it
 reaches: in a workspace, that workspace and the rows keyed to it by their
-`workspace`, then what the global filters of the model let through. A member
-filtering on `["user.workspace_memberships.workspace.name", "=", "Other"]`
-learns nothing of the other workspaces of a colleague, nor of the rows a
-global filter keeps private. An `any` block, an `or` branch and an ordering on
-a relation that fans out cross the same rows. `global_query`, and a rule
+`workspace`, then what the global filters of the model let through. An `any`
+block, an `or` branch and an ordering on a relation that fans out cross the
+same rows. `global_query`, and a rule
 allowed to reach the excluded fields (the global filters themselves), answer
 for the system and cross everything.
 

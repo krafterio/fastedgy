@@ -74,10 +74,8 @@ class QuerySet(BaseQuerySet):
     """Whether the relations a filter rule or an ordering term crosses only
     reach the rows the request may read.
 
-    True on the access-controlled managers (`Model.query`), which answer for a
-    request: a relation path is otherwise an oracle on the rows it reaches,
-    another workspace's included. False on `global_query`, which answers for
-    the system."""
+    True on `Model.query`, which answers for a request; False on
+    `global_query`, which answers for the system."""
 
     _readonly_overrides: Mapping[str, Any] = MappingProxyType({})
 

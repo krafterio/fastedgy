@@ -1,12 +1,8 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-"""A relation path only crosses the rows the request may read.
-
-Without it a filter is an oracle on whatever its path reaches: a member of a
-workspace testing the memberships of a colleague learns, one guess at a time,
-the other workspaces that colleague belongs to.
-"""
+"""A relation path only crosses the rows the request may read: those of the
+current workspace, then what the global filters of each model let through."""
 
 from collections.abc import Generator
 from contextlib import contextmanager
@@ -19,7 +15,7 @@ from fastedgy.test.factories import create_user, create_workspace, create_worksp
 from fastedgy.test.models.global_filter import GfArticle, GfDraft
 from fastedgy.test.models.workspace_user import WorkspaceUser
 
-SECRET = R("user.workspace_memberships.workspace.slug", "=", "secret")
+ELSEWHERE = R("user.workspace_memberships.workspace.slug", "=", "other")
 
 
 @contextmanager
@@ -31,15 +27,15 @@ def acting_as(workspace: Any = None, user: Any = None) -> Generator[None]:
         yield
 
 
-async def _colleagues() -> tuple[Any, Any, Any, Any]:
-    """Ada and Bob, members of acme, Ada also a member of a secret workspace."""
+async def _members() -> tuple[Any, Any, Any, Any]:
+    """Ada and Bob, members of acme, Ada also a member of other."""
     acme = await create_workspace(slug="acme")
-    secret = await create_workspace(slug="secret")
+    other = await create_workspace(slug="other")
     ada = await create_user(email="ada@example.io")
     bob = await create_user(email="bob@example.io")
     ada_in_acme = await create_workspace_user(ada, acme)
     bob_in_acme = await create_workspace_user(bob, acme)
-    await create_workspace_user(ada, secret)
+    await create_workspace_user(ada, other)
 
     return acme, bob, ada_in_acme, bob_in_acme
 
@@ -51,31 +47,33 @@ async def _members_of(workspace: Any, rule: Any) -> set[int]:
 
 
 async def test_a_path_crosses_only_the_rows_of_the_current_workspace(setup_db: FastEdgy) -> None:
-    acme, bob, _ada_in_acme, _bob_in_acme = await _colleagues()
+    acme, bob, _ada_in_acme, _bob_in_acme = await _members()
 
     with acting_as(acme, bob):
-        guessed = await _members_of(acme, SECRET)
-        through_the_manager = await filter_query(WorkspaceUser.query, And(R("workspace", "=", acme.id), SECRET)).all()
+        crossed = await _members_of(acme, ELSEWHERE)
+        through_the_manager = await filter_query(
+            WorkspaceUser.query, And(R("workspace", "=", acme.id), ELSEWHERE)
+        ).all()
         own = await _members_of(acme, R("user.workspace_memberships.workspace.slug", "=", "acme"))
 
-    assert guessed == set()
+    assert crossed == set()
     assert through_the_manager == []
     assert len(own) == 2
 
 
-async def test_an_or_branch_and_an_any_block_are_confined_alike(setup_db: FastEdgy) -> None:
-    acme, bob, _ada_in_acme, _bob_in_acme = await _colleagues()
+async def test_an_or_branch_and_an_any_block_cross_the_same_rows(setup_db: FastEdgy) -> None:
+    acme, bob, _ada_in_acme, _bob_in_acme = await _members()
 
     with acting_as(acme, bob):
-        either = await _members_of(acme, Or(SECRET, R("id", "=", 0)))
-        any_of = await _members_of(acme, R("user.workspace_memberships", "any", R("workspace.slug", "=", "secret")))
+        either = await _members_of(acme, Or(ELSEWHERE, R("id", "=", 0)))
+        any_of = await _members_of(acme, R("user.workspace_memberships", "any", R("workspace.slug", "=", "other")))
 
     assert either == set()
     assert any_of == set()
 
 
 async def test_an_ordering_aggregates_only_the_readable_rows(setup_db: FastEdgy) -> None:
-    acme, bob, ada_in_acme, bob_in_acme = await _colleagues()
+    acme, bob, ada_in_acme, bob_in_acme = await _members()
 
     with acting_as(acme, bob):
         rows = (
@@ -93,8 +91,8 @@ async def test_a_path_crosses_only_the_rows_the_global_filters_let_through(setup
     bob = await create_user(email="bob@example.io")
     article = GfArticle(title="Roadmap", stock=1, workspace=acme)
     await article.save()
-    await GfDraft(body="layoffs", article=article, author=ada, workspace=acme).save()
-    drafted = R("drafts.body", "=", "layoffs")
+    await GfDraft(body="outline", article=article, author=ada, workspace=acme).save()
+    drafted = R("drafts.body", "=", "outline")
 
     with acting_as(acme, bob):
         seen_by_bob = await GfArticle.query.filter(drafted).all()
@@ -107,14 +105,14 @@ async def test_a_path_crosses_only_the_rows_the_global_filters_let_through(setup
 
 
 async def test_the_system_crosses_every_row(setup_db: FastEdgy) -> None:
-    acme, bob, ada_in_acme, _bob_in_acme = await _colleagues()
+    acme, bob, ada_in_acme, _bob_in_acme = await _members()
 
     with acting_as(acme, bob):
-        global_rows = await WorkspaceUser.global_query.filter(SECRET).all()
-        trusted_rows = await WorkspaceUser.query.filter(SECRET, allow_excluded=True).all()
+        global_rows = await WorkspaceUser.global_query.filter(ELSEWHERE).all()
+        trusted_rows = await WorkspaceUser.query.filter(ELSEWHERE, allow_excluded=True).all()
 
     with acting_as(user=bob):
-        outside_any_workspace = await WorkspaceUser.query.filter(SECRET).all()
+        outside_any_workspace = await WorkspaceUser.query.filter(ELSEWHERE).all()
 
     assert ada_in_acme.id in {row.id for row in global_rows}
     assert ada_in_acme.id in {row.id for row in trusted_rows}

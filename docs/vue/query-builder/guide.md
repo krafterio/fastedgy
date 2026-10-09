@@ -73,6 +73,13 @@ binary, spatial and fulltext fields.
 | `view` | `cv` |
 | `search` | `q` |
 
+A list drawn inside another screen, such as a tab of a record shown over a list, leaves the URL
+to that screen with `url: false`: it reads nothing from it and writes nothing to it.
+
+```javascript
+useDataIterator('booking', { filter: ['contact', '=', contactId], url: false });
+```
+
 `searchFields` makes the search an OR of `icontains` on those fields rather than a fulltext match:
 
 ```javascript

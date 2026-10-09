@@ -25,3 +25,24 @@ def test_post_processing_keeps_a_long_first_message(tmp_path: Path) -> None:
         ids = [message.id for message in read_po(f, locale="fr") if message.id]
 
     assert ids == [long, "Short"]
+
+
+def _clean(tmp_path: Path, catalog: Catalog) -> str:
+    po_file = tmp_path / "fr.po"
+
+    with po_file.open("wb") as f:
+        write_po(f, catalog)
+
+    I18nExtractor.__new__(I18nExtractor)._post_process_po_file(str(po_file), "fr")
+
+    return po_file.read_text(encoding="utf-8")
+
+
+def test_post_processing_writes_the_header_once(tmp_path: Path) -> None:
+    catalog = Catalog(locale="fr")
+    catalog.add("Short", "Court")
+
+    content = _clean(tmp_path, catalog)
+
+    assert content.count('"Content-Type: ') == 1
+    assert content.count('msgid "Short"') == 1

@@ -269,8 +269,7 @@ class I18nExtractor:
         first_msg_match = re.search(r'\n\n((?:#[^\n]*\n)*msgid ")', content)
 
         if first_msg_match:
-            first_msg_start = content.find(first_msg_match.group(1))
-            messages_part = content[first_msg_start:]
+            messages_part = content[first_msg_match.start(1) :]
 
             clean_content = f"""# {locale.upper()} translations
 #, fuzzy

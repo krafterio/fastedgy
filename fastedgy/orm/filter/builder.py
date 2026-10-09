@@ -107,6 +107,11 @@ _NULLABILITY_OPERATORS = {
     "is not empty",
 }
 
+_FULLTEXT_OPERATORS = {
+    "search",
+    "search_fuzzy",
+}
+
 
 def build_filter_expression(
     model_cls: type[Model],
@@ -133,6 +138,9 @@ def build_filter_expression(
 
         if filters.operator in ANY_OPERATORS:
             return _build_any_expression(_root_scope(model_cls, confine), filters)
+
+        if filters.operator in _FULLTEXT_OPERATORS and "." in field:
+            return _build_relation_fulltext_expression(_root_scope(model_cls, confine), filters)
 
         if "." in field and has_duplicating_relation_path(model_cls, field):
             expression = _build_exists_expression(model_cls, filters, _root_scope(model_cls, confine))
@@ -760,6 +768,14 @@ def _build_scoped_expression(scope: ExistsScope, filters: FilterRule | FilterCon
     if filters.operator in ANY_OPERATORS:
         return _build_any_expression(scope, filters)
 
+    if filters.operator in _FULLTEXT_OPERATORS:
+        if "." in filters.field:
+            return _build_relation_fulltext_expression(scope, filters)
+
+        matched = _fulltext_matches(scope.model, filters.field, filters.operator, filters.value)
+
+        return None if matched is None else _scope_column(scope, "id").in_(matched)
+
     if FILTER_OPERATORS_SQL.get(filters.operator, None) is None:
         raise InvalidFilterError(f"Operator '{filters.operator}' is not supported inside a sub-filter")
 
@@ -781,6 +797,45 @@ def _build_scoped_expression(scope: ExistsScope, filters: FilterRule | FilterCon
         _scope_column(scope, filters.field),
         _convert_value_by_field_type(scope.model, filters.field, filters.value),
     )
+
+
+def _fulltext_matches(model_cls: type[Model], field: str, operator: str, value: Any) -> Any | None:
+    """The ids of the rows of [model_cls] a fulltext search on its own [field]
+    matches, read on its table under its own name: the search writes that name
+    into its SQL, which an alias given to the table elsewhere would not carry."""
+    build = _build_fulltext_search_expression if operator == "search" else _build_fulltext_fuzzy_expression
+    condition = build(model_cls, field, value)
+
+    if condition is None:
+        return None
+
+    return sa_select(_find_column_in_model(model_cls, "id")).where(condition)
+
+
+def _build_relation_fulltext_expression(scope: ExistsScope, filters: FilterRule) -> Any | None:
+    """A fulltext search on a relation path: an EXISTS along the path whose end
+    is one of the rows the search matches on the related model."""
+    relation, _, field = filters.field.rpartition(".")
+    target_cls, _tablename, _field = _resolve_fulltext_field(scope.model, filters.field)
+    matched = _fulltext_matches(target_cls, field, filters.operator, filters.value)
+
+    if matched is None:
+        return None
+
+    source = _scoped_relation_path_source(scope, f"{relation}.id")
+
+    if source is None:
+        raise InvalidFilterError(f"Cannot search through '{filters.field}'")
+
+    select_from, root_link_condition, final_column = source
+    subquery = (
+        sa_select(literal_column("1"))
+        .select_from(select_from)
+        .where(root_link_condition)
+        .where(final_column.in_(matched))
+    )
+
+    return exists(subquery)
 
 
 def _scope_column(scope: ExistsScope, field: str) -> Any:
@@ -1076,6 +1131,10 @@ def _add_fulltext_rank_extra_select(query: QuerySet, filters: Filter | None) -> 
     pg_language = get_pg_language(locale)
 
     for field_path, tsqueries in search_rules.items():
+        # The rows of a related model rank nothing of the queried one.
+        if "." in field_path:
+            continue
+
         _target_cls, tablename, field_name = _resolve_fulltext_field(query.model_class, field_path)
         column_name = f"{field_name}_{locale}"
         qualified_column = f"{tablename}.{column_name}"

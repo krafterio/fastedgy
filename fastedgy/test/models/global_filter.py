@@ -46,6 +46,18 @@ class GfSharedDoc(BaseModel, GfOwnedMixin):
         tablename = "test_gf_shared_docs"
 
 
+@global_filter(lambda: R("author", "=", context.get_user_id()) if context.get_user_id() else None)
+class GfDraft(BaseModel, WorkspaceableMixin):
+    """Read by its author alone, under an article everyone reads."""
+
+    body = fields.CharField(max_length=200)
+    article = fields.ForeignKey(GfArticle, null=True, related_name="drafts")
+    author: User | None = fields.ForeignKey(User, null=True, related_name=False)
+
+    class Meta(BaseModel.Meta):
+        tablename = "test_gf_drafts"
+
+
 class GfLink(BaseModel, WorkspaceableMixin):
     label = fields.CharField(max_length=200, null=True)
     doc = fields.ForeignKey(GfPrivateDoc, null=True, related_name="links")
@@ -56,6 +68,7 @@ class GfLink(BaseModel, WorkspaceableMixin):
 
 __all__ = [
     "GfArticle",
+    "GfDraft",
     "GfLink",
     "GfOwnedMixin",
     "GfPrivateDoc",

@@ -47,6 +47,7 @@ from fastedgy.orm.fields import (
     resolve_generic_pair,
 )
 from fastedgy.orm.fields.field_fulltext import escape_sql, get_pg_language
+from fastedgy.orm.filter.global_filters import global_filter_rules
 from fastedgy.orm.filter.operators import (
     ANY_OPERATORS,
     FILTER_DICT_OPERATORS_SQL,
@@ -110,6 +111,7 @@ _NULLABILITY_OPERATORS = {
 def build_filter_expression(
     model_cls: type[Model],
     filters: FilterRule | FilterCondition | None,
+    confine: bool = False,
 ) -> Any | None:
     """Compile a filter into what ``QuerySet.filter()`` takes.
 
@@ -119,6 +121,9 @@ def build_filter_expression(
     mean "the same related row satisfies both". ``A & B`` stays the
     intersection of A and B, whatever their neighbours; ``any`` is the operator
     that asks for one related record satisfying a whole sub-filter.
+
+    ``confine`` narrows every relation those subqueries cross to the rows the
+    request may read (see ``_readable_rows``).
     """
     if filters is None:
         return None
@@ -127,10 +132,10 @@ def build_filter_expression(
         field = filters.field
 
         if filters.operator in ANY_OPERATORS:
-            return _build_any_expression(_root_scope(model_cls), filters)
+            return _build_any_expression(_root_scope(model_cls, confine), filters)
 
         if "." in field and has_duplicating_relation_path(model_cls, field):
-            expression = _build_exists_expression(model_cls, filters)
+            expression = _build_exists_expression(model_cls, filters, _root_scope(model_cls, confine))
 
             if expression is not None:
                 return expression
@@ -152,7 +157,7 @@ def build_filter_expression(
         # ORM lookup joins: route them through the EXISTS builder, which knows
         # how to join on the (model, id) column pair.
         if "." in field and _path_crosses_generic_relation(model_cls, field):
-            expression = _build_exists_expression(model_cls, filters)
+            expression = _build_exists_expression(model_cls, filters, _root_scope(model_cls, confine))
             if expression is None:
                 raise InvalidFilterError(f"Cannot filter through the generic relation path '{field}'")
             return expression
@@ -238,12 +243,12 @@ def build_filter_expression(
         # For OR conditions, use EXISTS subqueries for relation-based rules
         # to ensure each branch evaluates independently with its own JOIN context
         if is_or and isinstance(rule, FilterRule) and "." in rule.field:
-            expr = _build_exists_expression(model_cls, rule)
+            expr = _build_exists_expression(model_cls, rule, _root_scope(model_cls, confine))
         else:
             expr = None
 
         if expr is None:
-            expr = build_filter_expression(model_cls, rule)
+            expr = build_filter_expression(model_cls, rule, confine)
 
         if expr is not None:
             expressions.append(expr)
@@ -269,21 +274,27 @@ class ExistsScope:
     ``model`` and ``table`` name it (the table is an alias whenever the path
     came back to one the query already used), and ``seen`` carries the tables
     the enclosing query names, so a nested subquery knows what it has to alias
-    apart.
+    apart. ``confine`` narrows the relations the subquery crosses to the rows
+    the request may read.
     """
 
     model: Any
     table: Any
     seen: set[int] = field(default_factory=set)
+    confine: bool = False
 
 
-def _root_scope(model_cls: type[Model]) -> ExistsScope:
-    return ExistsScope(model_cls, model_cls.table)
+def _root_scope(model_cls: type[Model], confine: bool = False) -> ExistsScope:
+    return ExistsScope(model_cls, model_cls.table, confine=confine)
 
 
 @dataclass
 class RelationWalk:
-    """How far a dotted relation path has been compiled into joins."""
+    """How far a dotted relation path has been compiled into joins.
+
+    A confined walk keeps the tables it lands on in ``landed`` until the path
+    is compiled, then narrows each to the rows the request may read.
+    """
 
     current_model: Any
     outer_table: Any = None
@@ -292,9 +303,11 @@ class RelationWalk:
     join_entries: list[tuple[Any, Any]] = field(default_factory=list)
     current_table: Any = None
     seen_tables: set[int] = field(default_factory=set)
+    confine: bool = False
+    landed: list[tuple[Any, Any]] = field(default_factory=list)
 
-    def use(self, table: Any, outer_table: Any) -> Any:
-        """The table this hop lands on, aliased when it is already in scope.
+    def use(self, model: Any, outer_table: Any) -> Any:
+        """The table of ``model`` this hop lands on, aliased when it is already in scope.
 
         A path may come back to a table the query already names -- the outer row's
         own table (``workspace.workspace_users`` on the membership model) or one an
@@ -303,11 +316,14 @@ class RelationWalk:
         EXISTS degenerates to "any such row exists at all": the filter silently
         stops filtering.
         """
+        table = model.table
         key = id(table)
         aliased = table is outer_table or key in self.seen_tables
         self.seen_tables.add(key)
+        landed = table.alias() if aliased else table
+        self.landed.append((model, landed))
 
-        return table.alias() if aliased else table
+        return landed
 
     def select_from(self) -> Any:
         select_from = self.from_table
@@ -370,8 +386,8 @@ def walk_relation_path(
             if current_pk is None or target_pk is None:
                 return None
 
-            through_table = walk.use(through_model.table, outer_table)
-            target_table = walk.use(target_model.table, outer_table)
+            through_table = walk.use(through_model, outer_table)
+            target_table = walk.use(target_model, outer_table)
 
             if from_table is None:
                 walk.from_table = through_table
@@ -420,7 +436,7 @@ def walk_relation_path(
             if current_pk is None:
                 return None
 
-            related_table = walk.use(related_model.table, outer_table)
+            related_table = walk.use(related_model, outer_table)
 
             if getattr(fk_field, "is_generic_foreign_key", False):
                 # Generic reverse relation: join on the id column AND pin the
@@ -456,7 +472,7 @@ def walk_relation_path(
             # Forward FK
             related_model = getattr(field_info, "target")
             pk_col = next(iter(getattr(field_info, "related_columns").keys()))
-            related_table = walk.use(related_model.table, outer_table)
+            related_table = walk.use(related_model, outer_table)
 
             if from_table is None:
                 walk.from_table = related_table
@@ -474,7 +490,7 @@ def walk_relation_path(
 
         elif hasattr(field_info, "related_model"):
             related_model = getattr(field_info, "related_model")
-            related_table = walk.use(related_model.table, outer_table)
+            related_table = walk.use(related_model, outer_table)
 
             if from_table is None:
                 walk.from_table = related_table
@@ -492,7 +508,79 @@ def walk_relation_path(
         else:
             return None
 
+    if walk.confine and walk.root_link_condition is not None:
+        # The joins are inner, so narrowing every landed table in the WHERE
+        # reads the same as narrowing each in its own ON.
+        readable = [
+            condition
+            for model, table in walk.landed
+            if (condition := _readable_rows(model, table, walk.seen_tables)) is not None
+        ]
+
+        if readable:
+            walk.root_link_condition = sa_and(walk.root_link_condition, *readable)
+
+    walk.landed.clear()
+
     return walk
+
+
+def _readable_rows(model: Any, table: Any, seen: set[int]) -> Any | None:
+    """What the request may read of ``model``, as a condition on ``table``.
+
+    A relation path only crosses the rows the request could read through the
+    model's own query: in a workspace, the workspace itself and the rows keyed
+    to it, then the rows the model's global filters let through. Without it a
+    filter is an oracle on whatever it reaches: a member testing
+    ``created_by.workspace_memberships.workspace.name`` learns, one guess at a
+    time, the other workspaces of a colleague.
+
+    The global filters are the model's own rules: they compile unconfined.
+    """
+    from fastedgy import context
+
+    conditions = []
+    workspace_id = context.get_workspace_id()
+
+    if workspace_id is not None:
+        column = _workspace_column(model, table)
+
+        if column is not None:
+            conditions.append(column == workspace_id)
+
+    scope = ExistsScope(model, table, set(seen))
+
+    for rules in global_filter_rules(model):
+        if not isinstance(rules, (FilterRule, FilterCondition)):
+            rules = parse_filter_input(cast(Any, rules))
+
+        condition = _build_scoped_expression(scope, validate_filters(model, rules, allow_excluded=True))
+
+        if condition is not None:
+            conditions.append(condition)
+
+    if not conditions:
+        return None
+
+    return conditions[0] if len(conditions) == 1 else sa_and(*conditions)
+
+
+def _workspace_column(model: Any, table: Any) -> Any | None:
+    """The column naming the workspace a row belongs to: the key of the workspace
+    model itself, the ``workspace`` key of a model holding one."""
+    from fastedgy.models.workspace import BaseWorkspace
+
+    if issubclass(model, BaseWorkspace):
+        primary_key = find_primary_key_field(model)
+
+        return table.columns[primary_key] if primary_key else None
+
+    target = getattr(model.meta.fields.get("workspace"), "target", None)
+
+    if isinstance(target, type) and issubclass(target, BaseWorkspace):
+        return table.columns["workspace"]
+
+    return None
 
 
 def _scope_walk(scope: ExistsScope, hops: list[str]) -> RelationWalk | None:
@@ -505,18 +593,22 @@ def _scope_walk(scope: ExistsScope, hops: list[str]) -> RelationWalk | None:
             outer_table=scope.table,
             current_table=scope.table,
             seen_tables=set(scope.seen) | {id(scope.model.table)},
+            confine=scope.confine,
         ),
     )
 
 
-def relation_path_source(model_cls: type[Model], resolved_field: str) -> tuple[Any, Any, Any] | None:
+def relation_path_source(
+    model_cls: type[Model], resolved_field: str, confine: bool = False
+) -> tuple[Any, Any, Any] | None:
     """Compile a dotted relation path into the pieces a correlated subquery needs.
 
     Returns ``(select_from, root_link_condition, final_column)``: the joined
     source for the far side of the path, the condition correlating it back to
-    ``model_cls``, and the column the leaf names. Returns ``None`` when a hop
-    cannot be resolved."""
-    return _scoped_relation_path_source(_root_scope(model_cls), resolved_field)
+    ``model_cls`` (and, ``confine`` given, narrowing what the path crosses to
+    the rows the request may read), and the column the leaf names. Returns
+    ``None`` when a hop cannot be resolved."""
+    return _scoped_relation_path_source(_root_scope(model_cls, confine), resolved_field)
 
 
 def _scoped_relation_path_source(scope: ExistsScope, resolved_field: str) -> tuple[Any, Any, Any] | None:
@@ -624,7 +716,9 @@ def _build_any_expression(scope: ExistsScope, filters: FilterRule) -> Any:
         sub_filters = parse_filter_input(cast(Any, sub_filters))
 
     condition = (
-        _build_scoped_expression(ExistsScope(walk.current_model, walk.current_table, walk.seen_tables), sub_filters)
+        _build_scoped_expression(
+            ExistsScope(walk.current_model, walk.current_table, walk.seen_tables, scope.confine), sub_filters
+        )
         if sub_filters
         else None
     )
@@ -712,6 +806,11 @@ def filter_query[Q: (QuerySet, BaseManager)](
     `-> QuerySet` leaves every `await filter_query(...).first()` on the caller
     side resolving to `Never`. Echoing the input type restores the ergonomics
     `Model.query.filter(...)` already had.
+
+    On a query answering for a request (`Model.query`), the relations a rule
+    crosses only reach the rows that request may read. A rule allowed to reach
+    excluded fields is the system's own, `global_query` and the global filters
+    included, and crosses everything.
     """
     has_filters = filters is not None
     built = cast(QuerySet, query)
@@ -736,7 +835,8 @@ def filter_query[Q: (QuerySet, BaseManager)](
 
         raise
 
-    expression = build_filter_expression(built.model_class, filters)
+    confine = not allow_excluded and _confines_relation_paths(query)
+    expression = build_filter_expression(built.model_class, filters, confine)
 
     if expression is not None:
         # No dedup to add: a path that fans out compiles to an EXISTS, which
@@ -749,6 +849,12 @@ def filter_query[Q: (QuerySet, BaseManager)](
     built = _add_fulltext_rank_extra_select(built, filters)
 
     return cast(Q, built)
+
+
+def _confines_relation_paths(query: Any) -> bool:
+    queryset_class = query.queryset_class if isinstance(query, BaseManager) else type(query)
+
+    return bool(getattr(queryset_class, "confines_relation_paths", False))
 
 
 def _get_fulltext_locale() -> str:

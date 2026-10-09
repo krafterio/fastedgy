@@ -15,6 +15,7 @@ from fastedgy.test.models.fs_optimize import (
 )
 from fastedgy.test.models.global_filter import (
     GfArticle,
+    GfDraft,
     GfLink,
     GfOwnedMixin,
     GfPrivateDoc,
@@ -87,6 +88,7 @@ __all__ = [
     "FsoReview",
     "FsoTag",
     "GfArticle",
+    "GfDraft",
     "GfLink",
     "GfOwnedMixin",
     "GfPrivateDoc",

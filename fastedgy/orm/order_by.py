@@ -18,7 +18,9 @@ def extra_field_column(model_cls: type[Model], field_path: str) -> Any | None:
     return resolve(model_cls, field_path)
 
 
-def aggregated_relation_column(model_cls: type[Model], field_path: str, descending: bool) -> Any | None:
+def aggregated_relation_column(
+    model_cls: type[Model], field_path: str, descending: bool, confine: bool = False
+) -> Any | None:
     """Correlated scalar subquery ordering a record by an aggregate of a fanning-out path.
 
     Joining a reverse one-to-many (or a many-to-many) to sort by one of its
@@ -29,9 +31,9 @@ def aggregated_relation_column(model_cls: type[Model], field_path: str, descendi
     smallest related value ascending and its largest descending.
 
     ``descending`` picks the aggregate, not the sort direction: the caller
-    applies that. Returns ``None`` when the path fans out nowhere (a plain
-    column or a forward relation, neither of which duplicates) or cannot be
-    resolved.
+    applies that. ``confine`` aggregates only the related rows the request may
+    read. Returns ``None`` when the path fans out nowhere (a plain column or a
+    forward relation, neither of which duplicates) or cannot be resolved.
     """
     from sqlalchemy import func
     from sqlalchemy import select as sa_select
@@ -42,7 +44,7 @@ def aggregated_relation_column(model_cls: type[Model], field_path: str, descendi
     if not has_duplicating_relation_path(model_cls, field_path):
         return None
 
-    source = relation_path_source(model_cls, field_path)
+    source = relation_path_source(model_cls, field_path, confine)
 
     if source is None:
         return None

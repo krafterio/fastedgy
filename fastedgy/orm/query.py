@@ -70,6 +70,15 @@ class QuerySet(BaseQuerySet):
     True: that manager already answers for the system, and the internal
     columns are exactly what a scheduler or a service filters on."""
 
+    confines_relation_paths: bool = False
+    """Whether the relations a filter rule or an ordering term crosses only
+    reach the rows the request may read.
+
+    True on the access-controlled managers (`Model.query`), which answer for a
+    request: a relation path is otherwise an oracle on the rows it reaches,
+    another workspace's included. False on `global_query`, which answers for
+    the system."""
+
     _readonly_overrides: Mapping[str, Any] = MappingProxyType({})
 
     def apply_readonly_values(self, values: dict[str, Any]) -> Self:
@@ -149,7 +158,7 @@ class QuerySet(BaseQuerySet):
         if not self._orders_on_aggregate(term):
             return None
 
-        return aggregated_relation_column(self.model_class, order_path(term), descending)
+        return aggregated_relation_column(self.model_class, order_path(term), descending, self.confines_relation_paths)
 
     def _orders_on_aggregate(self, order_by: str) -> bool:
         from fastedgy.orm.filter.utils import has_duplicating_relation_path

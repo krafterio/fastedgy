@@ -17,7 +17,12 @@ class AccessControlQuerySet(QuerySet):
 
     It also resolves an ``extra_<name>`` ordering term to its JSON expression:
     the workspace extra fields live in a single ``extra`` column, which the
-    ORM cannot reach from a field path."""
+    ORM cannot reach from a field path.
+
+    The relations its filter rules and ordering terms cross only reach the rows
+    the request may read."""
+
+    confines_relation_paths = True
 
     def _prepare_order_by(self, order_by: str, tables_and_models: Any) -> Any:
         from fastedgy.orm.order_by import extra_field_column

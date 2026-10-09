@@ -77,20 +77,27 @@ def global_filter(
     return decorator
 
 
+def global_filter_rules(model_cls: type) -> "list[Filter]":
+    """The rules the global filters of a model put on its reads, for the request in context."""
+    rules: "list[Filter]" = []
+
+    for gf in get_service(GlobalFilterRegistry).get_filters(model_cls):
+        if gf.apply is not None and not gf.apply(model_cls):
+            continue
+
+        filters = gf.get_filter(model_cls) if gf.takes_model else gf.get_filter()  # type: ignore[call-arg]
+
+        if filters is not None:
+            rules.append(filters)
+
+    return rules
+
+
 def apply_global_filters(queryset: "QuerySet") -> "QuerySet":
     from fastedgy.orm.filter.builder import filter_query
 
-    registry = get_service(GlobalFilterRegistry)
-    model_class = queryset.model_class
-
-    for gf in registry.get_filters(model_class):
-        if gf.apply is not None and not gf.apply(model_class):
-            continue
-
-        filters = gf.get_filter(model_class) if gf.takes_model else gf.get_filter()  # type: ignore[call-arg]
-
-        if filters is not None:
-            queryset = filter_query(queryset, filters, allow_excluded=True)
+    for filters in global_filter_rules(queryset.model_class):
+        queryset = filter_query(queryset, filters, allow_excluded=True)
 
     return queryset
 
@@ -179,5 +186,6 @@ __all__ = [
     "GlobalFilterRegistry",
     "apply_global_filters",
     "global_filter",
+    "global_filter_rules",
     "validate_write_references",
 ]

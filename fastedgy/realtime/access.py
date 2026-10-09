@@ -69,7 +69,7 @@ async def readers(model_cls: Any, record_id: Any, scope_id: int, user_ids: Colle
     if user_ids is not None:
         rule = And(rule, R("user", "in", sorted(user_ids)))
 
-    memberships = await scope_user_model.global_query.select_related("user", "workspace").filter(rule).all()
+    memberships = await scope_user_model.in_effect().select_related("user", "workspace").filter(rule).all()
     questions: dict[int, Any] = {}
 
     for membership in memberships:
@@ -171,8 +171,8 @@ async def shared_readers(model_cls: Any, model_instance: Any, scope_id: int) -> 
             continue
 
         if insiders is None:
-            users = await scope_user_model.global_query.filter(R("workspace", "=", scope_id)).values_list(
-                "user", flat=True
+            users = (
+                await scope_user_model.in_effect().filter(R("workspace", "=", scope_id)).values_list("user", flat=True)
             )
             insiders = {_id(user) for user in users}
 

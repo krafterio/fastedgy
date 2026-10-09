@@ -313,7 +313,8 @@ async def get_current_workspace(
         workspace_user = await WorkspaceUser.default_for(current_user.id)
     else:
         workspace_user = await (
-            WorkspaceUser.global_query.select_related("workspace")
+            WorkspaceUser.in_effect()
+            .select_related("workspace")
             .filter(And(R("user", "=", current_user.id), R("workspace.slug", "=", workspace_name)))
             .first()
         )
@@ -433,9 +434,9 @@ async def get_workspace_shared_record(current_user=Depends(get_current_user)):
             workspace_user_model = find_workspace_user_model()
 
             if workspace_user_model is not None:
-                workspace_user = await workspace_user_model.global_query.filter(
-                    user=current_user, workspace=workspace
-                ).first()
+                workspace_user = (
+                    await workspace_user_model.in_effect().filter(user=current_user, workspace=workspace).first()
+                )
 
             context.set_workspace_user(workspace_user)
             await load_workspace_extra_fields()

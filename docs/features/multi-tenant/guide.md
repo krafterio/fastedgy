@@ -142,18 +142,30 @@ model declares (`sequence`, when it has one), then the name. `PUT /api/workspace
 makes one the account's default (`make_default()`); a slug the account is not a member of answers
 404 `not_member`.
 
-The routes start from `account_memberships(user)`, every membership of the account. An application
-that counts only some passes its own query, a function or a coroutine function:
+The routes start from `account_memberships(user)`, the memberships of the account in effect. A
+membership model whose rows carry a state says which ones are in effect, once for every way into a
+workspace (a route under its slug, the default workspace, a socket, the tools, this list):
 
 ```python
-from fastedgy.orm.filter import And, R
+from fastedgy.models.workspace_user import BaseWorkspaceUser
+from fastedgy.orm.filter import R
 
 
-def active_memberships(user):
-    return WorkspaceUser.query.filter(And(R("user", "=", user.id), R("status", "=", "active")))
+class WorkspaceUser(BaseWorkspaceUser):
+    @classmethod
+    def effective_rule(cls):
+        return R("status", "=", "active")
+```
+
+Every membership is in effect by default. An application that lists only some of them besides passes
+its own query, a function or a coroutine function:
+
+```python
+def listed_memberships(user):
+    return account_memberships(user).filter(R("role", "!=", "guest"))
 
 
-router.include_router(create_account_workspaces_router(memberships=active_memberships))
+router.include_router(create_account_workspaces_router(memberships=listed_memberships))
 ```
 
 What the application computes for the account (whether it owns the workspace, whether its

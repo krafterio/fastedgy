@@ -265,7 +265,8 @@ async def enter_workspace(slug: str | None, required: bool = True) -> None:
 
     user = context.get_user()
     workspace_user = (
-        await model.query.select_related("workspace")
+        await model.in_effect(model.query)
+        .select_related("workspace")
         .filter(And(R("user", "=", getattr(user, "id", None)), R("workspace.slug", "=", slug)))
         .first()
     )
@@ -317,7 +318,12 @@ async def _list_workspaces() -> list[dict[str, Any]]:
         return []
 
     user = context.get_user()
-    memberships = await model.query.select_related("workspace").filter(R("user", "=", getattr(user, "id", None))).all()
+    memberships = (
+        await model.in_effect(model.query)
+        .select_related("workspace")
+        .filter(R("user", "=", getattr(user, "id", None)))
+        .all()
+    )
     workspaces = [getattr(membership, "workspace", None) for membership in memberships]
     registry = get_service(McpRegistry)
 

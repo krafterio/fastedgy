@@ -40,10 +40,10 @@ _WORKSPACE = "workspace"
 
 
 def account_memberships(user: Any) -> QuerySet:
-    """The memberships of [user], every workspace it belongs to."""
+    """The memberships of [user] in effect, every workspace it belongs to."""
     model = _membership_model()
 
-    return model.query.filter(R("user", "=", user.id))
+    return model.in_effect(model.query).filter(R("user", "=", user.id))
 
 
 def _membership_model() -> Any:

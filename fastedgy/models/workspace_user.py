@@ -1,12 +1,13 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, Any, Self
 
 from fastedgy.i18n import _ts
 from fastedgy.models.base import BaseModel
 from fastedgy.orm import fields
 from fastedgy.orm.filter import And, Or, R
+from fastedgy.orm.filter.types import FilterCondition, FilterRule
 from fastedgy.orm.transaction import with_transaction
 
 if TYPE_CHECKING:
@@ -68,13 +69,32 @@ class BaseWorkspaceUser(BaseModel):
     )
 
     @classmethod
+    def effective_rule(cls) -> "FilterRule | FilterCondition | None":
+        """What a membership meets to be in effect: to open its workspace, to be
+        listed among its user's, to let its user's socket and tools into it.
+
+        Every membership by default. An application whose memberships carry a
+        state returns the rule of those in effect, `R("status", "=", "active")`."""
+        return None
+
+    @classmethod
+    def in_effect(cls, query: Any = None) -> Any:
+        """[query], every membership unscoped by default, narrowed to the
+        memberships in effect ([effective_rule])."""
+        base = cls.global_query if query is None else query
+        rule = cls.effective_rule()
+
+        return base if rule is None else base.filter(rule)
+
+    @classmethod
     async def default_for(cls, user_id: int) -> Self | None:
         """The membership a user lands in: the one marked as default, the oldest otherwise.
 
         The oldest stands for a mark nobody set, or one that went with its row, a
         database cascade included: a user holding a membership always has one."""
         return await (
-            cls.global_query.select_related("workspace")
+            cls.in_effect()
+            .select_related("workspace")
             .filter(R("user", "=", user_id))
             .order_by("-is_default", "id")
             .first()

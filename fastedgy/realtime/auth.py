@@ -40,7 +40,8 @@ async def scope_of(user: "User", slug: Any) -> "Scope | None":
     # Unscoped: a socket carries no request, so none of the context the scoped
     # manager reads is set.
     scope_user = (
-        await scope_user_model.global_query.select_related("workspace")
+        await scope_user_model.in_effect()
+        .select_related("workspace")
         .filter(And(R("user", "=", user.id), R("workspace.slug", "=", slug)))
         .first()
     )
@@ -61,7 +62,8 @@ async def scopes_of(user: "User", slugs: Collection[Any]) -> "list[Scope]":
         return []
 
     scope_users = (
-        await scope_user_model.global_query.select_related("workspace")
+        await scope_user_model.in_effect()
+        .select_related("workspace")
         .filter(And(R("user", "=", user.id), R("workspace.slug", "in", names)))
         .all()
     )
@@ -80,9 +82,11 @@ async def held_scopes(user: "User", scope_ids: Collection[int]) -> set[int]:
     if not scope_ids or scope_user_model is None:
         return set()
 
-    scope_users = await scope_user_model.global_query.filter(
-        And(R("user", "=", user.id), R("workspace", "in", list(scope_ids)))
-    ).all()
+    scope_users = (
+        await scope_user_model.in_effect()
+        .filter(And(R("user", "=", user.id), R("workspace", "in", list(scope_ids))))
+        .all()
+    )
 
     return {
         scope_user.workspace.id

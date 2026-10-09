@@ -46,3 +46,12 @@ def test_post_processing_writes_the_header_once(tmp_path: Path) -> None:
 
     assert content.count('"Content-Type: ') == 1
     assert content.count('msgid "Short"') == 1
+
+
+def test_post_processing_ends_each_header_line_with_one_line_break(tmp_path: Path) -> None:
+    catalog = Catalog(locale="fr")
+    catalog.add("Short", "Court")
+
+    content = _clean(tmp_path, catalog)
+
+    assert "\\n\\n" not in content

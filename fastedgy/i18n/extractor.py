@@ -260,8 +260,8 @@ class I18nExtractor:
         with open(po_file, "r", encoding="utf-8") as f:
             content = f.read()
 
-        pot_creation_match = re.search(r'"POT-Creation-Date: ([^"]+)"', content)
-        po_revision_match = re.search(r'"PO-Revision-Date: ([^"]+)"', content)
+        pot_creation_match = re.search(r'"POT-Creation-Date: ([^"\\]+)', content)
+        po_revision_match = re.search(r'"PO-Revision-Date: ([^"\\]+)', content)
 
         pot_creation_date = pot_creation_match.group(1) if pot_creation_match else None
         po_revision_date = po_revision_match.group(1) if po_revision_match else None

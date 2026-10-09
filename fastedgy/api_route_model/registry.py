@@ -134,14 +134,14 @@ class ViewTransformerRegistry:
                     if issubclass(type(transformer), transformer_cls):
                         final_transformers.append(transformer)
 
-            if transformers:
-                for tmp_transformer_cls in transformers:
-                    if not callable(tmp_transformer_cls):
-                        raise ValueError("Transformer must be callable or BaseViewTransformer instance")
+        # The transformers of a single read run once, after the registered ones.
+        for tmp_transformer_cls in transformers or []:
+            if not callable(tmp_transformer_cls):
+                raise ValueError("Transformer must be callable or BaseViewTransformer instance")
 
-                    tmp_transformer = tmp_transformer_cls()
-                    if issubclass(type(tmp_transformer), transformer_cls):
-                        final_transformers.append(tmp_transformer)
+            tmp_transformer = tmp_transformer_cls()
+            if issubclass(type(tmp_transformer), transformer_cls):
+                final_transformers.append(tmp_transformer)
 
         return final_transformers
 

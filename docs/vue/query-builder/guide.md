@@ -127,6 +127,34 @@ for a change.
 useDataIterator('household', { searchFields: ['name', 'slug', 'workspace_users.user.email'] });
 ```
 
+`toggleSort(field)` sorts on a column ascending, then descending, then goes back to
+`defaultOrderBy` (or turns it around, when the default order is on that very column). A term written
+without a direction (`name`) is ascending, as the server reads it, in the option, in `order_by` and
+for `getSortDirection`.
+
+`loadMore()` adds the next page to the rows, whether the list appends or pages, and `refresh()`
+reads again every page the rows hold, in one request, without going back to the first one.
+
+A list sortable by hand (`sortable`, or the `sortable` of its metadata) sends the rank of its first
+row with the order, so that reordering a later page keeps its ranks, and takes the group its rows
+are moved to: `resequence(ids, { groupField: 'status', groupValue: 3 })`. Its `isSortable` is false
+while a search, an expression, a quick filter or the free filter narrows the list: numbering the
+rows left on screen would mix their ranks with the others'. The restrictive filter fixes the list,
+and does not count.
+
+In the all mode of the selection (`selection.all`), every record of the filter is selected but
+those unchecked one by one, in `selection.excluded`: an action on the selection sends
+`combinedFilter` with `['id', 'not in', selection.excluded]`. The selection is emptied when the
+filter changes, and kept from one page to another.
+
+`importData(file, { delimiter: ';' })` sends the delimiter of a CSV, which the server detects when
+it is left out.
+
+A screen kept from one workspace to the next keeps its list: on the switch the workspace store
+announces, the list starts over as one opened in the new workspace, its state back to the opening,
+the metadata of that workspace waited for (and the manual order and the columns of a data table
+resolved again from it), its opening view read there, then one read.
+
 ## Custom views
 
 ```javascript

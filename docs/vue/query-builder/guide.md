@@ -137,7 +137,9 @@ reads again every page the rows hold, in one request, without going back to the 
 
 A list sortable by hand (`sortable`, or the `sortable` of its metadata) sends the rank of its first
 row with the order, so that reordering a later page keeps its ranks, and takes the group its rows
-are moved to: `resequence(ids, { groupField: 'status', groupValue: 3 })`. Its `isSortable` is false
+are moved to: `resequence(ids, { groupField: 'status', groupValue: 3 })`. The order goes to
+`datasetPrefix`, else where the api model answers, else under the `prefix` option; an application
+serving its dataset routes at the root under prefixed models passes `datasetPrefix: ''`. Its `isSortable` is false
 while a search, an expression, a quick filter or the free filter narrows the list: numbering the
 rows left on screen would mix their ranks with the others'. The restrictive filter fixes the list,
 and does not count.

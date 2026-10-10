@@ -26,8 +26,9 @@ formatValidationErrors(error, defaultMessage = undefined)
 - `defaultMessage`: Optional default message (defaults to "Erreur inconnue")
 
 **Returns:**
-- `string`: Formatted error message
-- `undefined`: If no error details found
+- `string`: Formatted error message, or the default message when the server named no reason (the
+  network down, an answer without a body)
+- `undefined`: If there is no error
 
 ## Quick Example
 

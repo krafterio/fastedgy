@@ -1,369 +1,220 @@
 # Metadata Store Examples
 
-This guide shows concrete examples of what you can build using the Metadata Store to create dynamic, metadata-driven UIs.
+What a screen can draw from the metadata alone, without a line written per model. Every example
+awaits the store: `getMetadata` and `getMetadatas` return promises.
 
-## Dynamic Form Generation
+## Form fields from the metadata
 
-Build form fields automatically from metadata:
-
-```javascript
-import { useMetadataStore } from 'vue-fastedgy'
-
-// Build form fields from metadata
-const metadataStore = useMetadataStore()
-const userMetadata = await metadataStore.getMetadata('User')
-
-const formFields = Object.entries(userMetadata.fields).map(([name, field]) => ({
-  name,
-  type: field.type,
-  required: field.required,
-  label: field.label || name,
-  placeholder: field.help_text
-}))
-```
-
-## Client-Side Validation
-
-Create validation rules from backend constraints:
+The fields a form edits, with what an input needs to know about each:
 
 ```javascript
-const validateField = (fieldName, value) => {
-  const fieldMeta = userMetadata.fields[fieldName]
+import { useMetadataStore } from 'vue-fastedgy';
 
-  if (fieldMeta.required && !value) {
-    return `${fieldName} is required`
-  }
+async function formFields(model) {
+    const metadata = await useMetadataStore().getMetadata(model);
 
-  if (fieldMeta.max_length && value.length > fieldMeta.max_length) {
-    return `${fieldName} must be ${fieldMeta.max_length} characters or less`
-  }
-
-  return null
+    return Object.values(metadata?.fields ?? {})
+        .filter((field) => !field.readonly && !field.target)
+        .map((field) => ({
+            name: field.name,
+            label: field.label,
+            type: field.type,
+            required: field.required,
+            choices: field.choices ? Object.entries(field.choices) : null,
+            default: field.default,
+        }));
 }
 ```
 
-## Dynamic UI Components
+The relations are left out here: an input for one picks a record of its `target`.
 
-Generate different input types based on metadata:
+## Required fields
+
+The metadata says which fields a new record must give, not their lengths or their ranges: the
+server checks those when the record is written.
+
+```javascript
+function missingFields(metadata, values) {
+    return Object.values(metadata.fields)
+        .filter((field) => field.required && (values[field.name] ?? '') === '')
+        .map((field) => field.label);
+}
+```
+
+## Table columns
+
+The label and the type of a column, a path through the relations included:
+
+```javascript
+import { resolveFieldPath, useMetadataStore } from 'vue-fastedgy';
+
+async function tableColumns(model, keys) {
+    const metadatas = await useMetadataStore().getMetadatas();
+
+    return keys.map((key) => {
+        const field = resolveFieldPath(metadatas, model, key)?.field;
+
+        return { key, label: field?.label ?? key, type: field?.type ?? null };
+    });
+}
+
+await tableColumns('product', ['name', 'price', 'category.name']);
+```
+
+`useDataTable` takes the type of its columns from the metadata the same way.
+
+## Model catalogue
+
+Every model the server describes, with its label and what it offers:
+
+```javascript
+import { useMetadataStore } from 'vue-fastedgy';
+
+async function modelCatalogue() {
+    const metadatas = await useMetadataStore().getMetadatas();
+
+    return Object.values(metadatas ?? {}).map((metadata) => ({
+        name: metadata.name,
+        label: metadata.label_plural,
+        searchable: metadata.searchable,
+        sortable: metadata.sortable,
+        fields: Object.keys(metadata.fields).length,
+    }));
+}
+```
+
+## A dynamic form component
+
+A form for any model, saving a new record through [`useApiModel`](../api-service/overview.md):
 
 ```vue
 <template>
-  <div v-for="(field, name) in userFields" :key="name">
-    <label>{{ field.label || name }}</label>
+  <form v-if="fields.length" @submit.prevent="save">
+    <div v-for="field in fields" :key="field.name">
+      <label :for="field.name">
+        {{ field.label }}
+        <span v-if="field.required">*</span>
+      </label>
 
-    <!-- Different input types based on metadata -->
-    <input
-      v-if="field.type === 'string'"
-      :type="field.format === 'email' ? 'email' : 'text'"
-      :required="field.required"
-      :maxlength="field.max_length"
-    />
+      <select v-if="field.choices" :id="field.name" v-model="values[field.name]" :required="field.required">
+        <option v-for="(label, value) in field.choices" :key="value" :value="value">{{ label }}</option>
+      </select>
 
-    <input
-      v-else-if="field.type === 'integer'"
-      type="number"
-      :min="field.minimum"
-      :max="field.maximum"
-      :required="field.required"
-    />
+      <input v-else-if="field.type === 'boolean'" :id="field.name" v-model="values[field.name]" type="checkbox" />
 
-    <select v-else-if="field.choices" :required="field.required">
-      <option v-for="choice in field.choices" :key="choice.value" :value="choice.value">
-        {{ choice.display_name }}
-      </option>
-    </select>
-  </div>
-</template>
-```
+      <input
+        v-else-if="NUMBER_TYPES.includes(field.type)"
+        :id="field.name"
+        v-model.number="values[field.name]"
+        type="number"
+        :required="field.required"
+      />
 
-## Admin Table Columns
+      <input
+        v-else-if="field.type === 'date'"
+        :id="field.name"
+        v-model="values[field.name]"
+        type="date"
+        :required="field.required"
+      />
 
-Build table columns from metadata:
+      <textarea
+        v-else-if="field.type === 'text'"
+        :id="field.name"
+        v-model="values[field.name]"
+        :required="field.required"
+      />
 
-```javascript
-const buildTableColumns = (modelName) => {
-  const metadataStore = useMetadataStore()
-  const metadata = metadataStore.getMetadata(modelName)
-
-  return Object.entries(metadata.fields).map(([name, field]) => ({
-    key: name,
-    title: field.label || name,
-    sortable: field.type !== 'text',
-    filterable: field.choices ? 'select' : field.type === 'string' ? 'search' : 'range'
-  }))
-}
-```
-
-## API Documentation Generator
-
-Generate interactive API docs from metadata:
-
-```javascript
-const generateApiDocs = () => {
-  const metadataStore = useMetadataStore()
-  const allMetadata = metadataStore.getMetadatas()
-
-  return Object.entries(allMetadata).map(([model, metadata]) => ({
-    model,
-    fields: metadata.fields,
-    endpoints: [
-      { method: 'GET', url: `/${model.toLowerCase()}s/` },
-      { method: 'POST', url: `/${model.toLowerCase()}s/`, body: metadata.fields },
-      { method: 'GET', url: `/${model.toLowerCase()}s/{id}/` },
-      { method: 'PUT', url: `/${model.toLowerCase()}s/{id}/`, body: metadata.fields }
-    ]
-  }))
-}
-```
-
-## Simple Dynamic Form Component
-
-Here's a practical example of a dynamic form component:
-
-```vue
-<template>
-  <div class="dynamic-form">
-    <h2>{{ modelName }} Form</h2>
-
-    <form @submit.prevent="handleSubmit">
-      <div
-        v-for="(field, fieldName) in fields"
-        :key="fieldName"
-        class="form-group"
-      >
-        <label :for="fieldName">
-          {{ field.label || fieldName }}
-          <span v-if="field.required" class="required">*</span>
-        </label>
-
-        <!-- String fields -->
-        <input
-          v-if="field.type === 'string'"
-          :id="fieldName"
-          v-model="formData[fieldName]"
-          :type="getInputType(field)"
-          :required="field.required"
-          :maxlength="field.max_length"
-          :placeholder="field.help_text"
-        />
-
-        <!-- Number fields -->
-        <input
-          v-else-if="field.type === 'integer' || field.type === 'number'"
-          :id="fieldName"
-          v-model="formData[fieldName]"
-          type="number"
-          :required="field.required"
-          :min="field.minimum"
-          :max="field.maximum"
-        />
-
-        <!-- Boolean fields -->
-        <input
-          v-else-if="field.type === 'boolean'"
-          :id="fieldName"
-          v-model="formData[fieldName]"
-          type="checkbox"
-        />
-
-        <!-- Choice fields -->
-        <select
-          v-else-if="field.choices"
-          :id="fieldName"
-          v-model="formData[fieldName]"
-          :required="field.required"
-        >
-          <option value="">Choose {{ field.label || fieldName }}...</option>
-          <option
-            v-for="choice in field.choices"
-            :key="choice.value"
-            :value="choice.value"
-          >
-            {{ choice.display_name }}
-          </option>
-        </select>
-      </div>
-
-      <button type="submit" :disabled="loading">
-        {{ loading ? 'Saving...' : 'Save' }}
-      </button>
-    </form>
-  </div>
-</template>
-
-<script setup>
-import { useMetadataStore, useFetcher } from 'vue-fastedgy'
-import { ref, reactive, computed, onMounted } from 'vue'
-
-const props = defineProps(['modelName'])
-const emit = defineEmits(['saved'])
-
-const metadataStore = useMetadataStore()
-const fetcher = useFetcher()
-
-const formData = reactive({})
-const loading = ref(false)
-
-const fields = computed(() => {
-  const metadata = metadataStore.getMetadata(props.modelName)
-  return metadata?.fields || {}
-})
-
-const getInputType = (field) => {
-  switch (field.format) {
-    case 'email': return 'email'
-    case 'password': return 'password'
-    case 'url': return 'url'
-    case 'date': return 'date'
-    default: return 'text'
-  }
-}
-
-const handleSubmit = async () => {
-  loading.value = true
-
-  try {
-    const response = await fetcher.post(`/${props.modelName.toLowerCase()}s/`, formData)
-    emit('saved', response.data)
-
-    // Reset form
-    Object.keys(formData).forEach(key => {
-      formData[key] = ''
-    })
-  } catch (error) {
-    console.error('Save error:', error)
-  } finally {
-    loading.value = false
-  }
-}
-
-onMounted(async () => {
-  await metadataStore.getMetadatas()
-
-  // Initialize form data
-  Object.entries(fields.value).forEach(([fieldName, field]) => {
-    if (field.type === 'boolean') {
-      formData[fieldName] = false
-    } else {
-      formData[fieldName] = ''
-    }
-  })
-})
-</script>
-
-<style scoped>
-.dynamic-form {
-  max-width: 600px;
-  margin: 0 auto;
-}
-
-.form-group {
-  margin-bottom: 1rem;
-}
-
-label {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-weight: 500;
-}
-
-.required {
-  color: red;
-}
-
-input, select {
-  width: 100%;
-  padding: 0.5rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-}
-
-button {
-  background: #007bff;
-  color: white;
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-</style>
-```
-
-## Model Field Inspector
-
-A simple component to inspect model fields:
-
-```vue
-<template>
-  <div class="field-inspector">
-    <h3>{{ modelName }} Fields</h3>
-
-    <div v-if="loading">Loading metadata...</div>
-
-    <div v-else-if="metadata" class="fields-list">
-      <div
-        v-for="(field, name) in metadata.fields"
-        :key="name"
-        class="field-item"
-      >
-        <strong>{{ name }}</strong>
-        <span class="field-type">{{ field.type }}</span>
-        <span v-if="field.required" class="required">required</span>
-        <span v-if="field.max_length" class="constraint">max: {{ field.max_length }}</span>
-        <div v-if="field.help_text" class="help-text">{{ field.help_text }}</div>
-      </div>
+      <input v-else :id="field.name" v-model="values[field.name]" type="text" :required="field.required" />
     </div>
-  </div>
+
+    <p v-if="failed" role="alert">The record could not be saved.</p>
+
+    <button type="submit" :disabled="saving">{{ saving ? 'Saving...' : 'Save' }}</button>
+  </form>
 </template>
 
 <script setup>
-import { useMetadataStore } from 'vue-fastedgy'
-import { computed, onMounted } from 'vue'
+import { onMounted, reactive, ref } from 'vue';
+import { useApiModel, useMetadataStore } from 'vue-fastedgy';
 
-const props = defineProps(['modelName'])
-const metadataStore = useMetadataStore()
+const NUMBER_TYPES = ['integer', 'small_integer', 'big_integer', 'float', 'decimal'];
 
-const metadata = computed(() => metadataStore.getMetadata(props.modelName))
-const loading = computed(() => metadataStore.loading)
+const props = defineProps({ model: { type: String, required: true } });
+const emit = defineEmits(['saved']);
+
+const metadataStore = useMetadataStore();
+const api = useApiModel(props.model);
+
+const fields = ref([]);
+const values = reactive({});
+const saving = ref(false);
+const failed = ref(false);
 
 onMounted(async () => {
-  await metadataStore.getMetadatas()
-})
+    const metadata = await metadataStore.getMetadata(props.model);
+
+    fields.value = Object.values(metadata?.fields ?? {}).filter((field) => !field.readonly && !field.target);
+
+    for (const field of fields.value) {
+        values[field.name] = field.default ?? (field.type === 'boolean' ? false : null);
+    }
+});
+
+const save = async () => {
+    saving.value = true;
+    failed.value = false;
+
+    try {
+        const response = await api.create({ ...values });
+
+        emit('saved', response.data);
+    } catch {
+        failed.value = true;
+    } finally {
+        saving.value = false;
+    }
+};
 </script>
+```
 
-<style scoped>
-.field-item {
-  padding: 0.5rem;
-  border-bottom: 1px solid #eee;
-}
+## Model field inspector
 
-.field-type {
-  color: #666;
-  font-style: italic;
-  margin-left: 1rem;
-}
+A component listing what the metadata says of each field of a model:
 
-.required {
-  color: red;
-  font-size: 0.8rem;
-  margin-left: 0.5rem;
-}
+```vue
+<template>
+  <section>
+    <h3>{{ metadata?.label ?? model }}</h3>
 
-.constraint {
-  color: #999;
-  font-size: 0.8rem;
-  margin-left: 0.5rem;
-}
+    <p v-if="metadataStore.loading">Loading the fields...</p>
 
-.help-text {
-  font-size: 0.9rem;
-  color: #666;
-  margin-top: 0.25rem;
-}
-</style>
+    <dl v-else-if="metadata">
+      <template v-for="field in metadata.fields" :key="field.name">
+        <dt>{{ field.label }} <code>{{ field.name }}</code></dt>
+        <dd>
+          {{ field.type }}
+          <span v-if="field.target">to {{ field.target }}</span>
+          <span v-if="field.required">, required</span>
+          <span v-if="field.readonly">, read only</span>
+          <span v-if="field.choices">: {{ Object.values(field.choices).join(', ') }}</span>
+        </dd>
+      </template>
+    </dl>
+  </section>
+</template>
+
+<script setup>
+import { onMounted, ref } from 'vue';
+import { useMetadataStore } from 'vue-fastedgy';
+
+const props = defineProps({ model: { type: String, required: true } });
+
+const metadataStore = useMetadataStore();
+const metadata = ref(null);
+
+onMounted(async () => {
+    metadata.value = await metadataStore.getMetadata(props.model);
+});
+</script>
 ```

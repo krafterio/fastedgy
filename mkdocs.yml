@@ -233,7 +233,7 @@ nav:
         - Overview: vue/fetcher/overview.md
         - User Guide: vue/fetcher/guide.md
         - Advanced Features: vue/fetcher/advanced.md
-      - API Service:
+      - API Model:
         - Overview: vue/api-service/overview.md
         - User Guide: vue/api-service/guide.md
       - Realtime:

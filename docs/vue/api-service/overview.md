@@ -1,47 +1,40 @@
-# API Service
+# API Model
 
-**Generic service for CRUD operations with FastEdgy APIs**
+**The routes FastEdgy generates for a model, reached by its metadata name**
 
-The API Service provides a standardized abstraction layer for all CRUD (Create, Read, Update, Delete) operations with FastEdgy APIs. It automatically handles URL construction, query parameters, specialized headers, and FastEdgy conventions.
+`useApiModel` calls the routes the [API Routes Generator](../../features/api-routes/overview.md)
+creates for a model: list, read, create, update, delete, export and import, and the actions added
+beside them. It builds the URL, the query parameters and the `X-Fields` and `X-Filter` headers, and
+returns the response of the [fetcher](../fetcher/overview.md), the payload under `data`.
 
 ## Key features
 
-- **Complete CRUD**: List, Get, Create, Update, Delete, Export
-- **FastEdgy conventions**: Automatic support for X-Fields headers, order_by, pagination
-- **Admin mode**: Automatic switching between public and admin APIs
-- **Extensible**: Facilitates creation of specialized services
-- **Standardized types**: Consistent interface for all resources
-
-## Recommended usage
-
-Create specialized services rather than using the generic directly:
-
-```javascript
-import { useApiService } from 'vue-fastedgy'
-
-export function useTasksService() {
-    return useApiService('tasks')
-}
-
-export function useUsersService() {
-    return useApiService('users', { isAdmin: true })
-}
-```
+- **Every generated route**: `list`, `get`, `create`, `update`, `delete`, `export`,
+  `importTemplate`, `import`, and `siblings` for a model that enables it.
+- **Named by its metadata**: the model is called by its metadata name (`product`), and the URL is
+  built from the `api_name` the [metadata store](../metadata-store/overview.md) holds for it.
+- **FastEdgy conventions**: `fields` sent as `X-Fields`, `filter` as `X-Filter`, `page` and `size`
+  as `limit` and `offset`, `orderBy` as `order_by`.
+- **A prefix**: the routes of a model served under another path, `/console` for instance.
+- **Its own writes announced**: a create, an update or a delete reaches every holder watching the
+  model, in this tab, straight away.
+- **Actions beside the generated routes**: `action(method, path)`, the URL resolved like the others.
 
 ## Quick example
 
 ```javascript
-const tasksService = useTasksService()
+import { useApiModel } from 'vue-fastedgy';
 
-// Simple CRUD operations
-await tasksService.list({ page: 1, size: 20 })
-await tasksService.create({ title: 'New task' })
-await tasksService.update(123, { completed: true })
-await tasksService.delete(123)
+const api = useApiModel('product');
+
+const response = await api.list({ page: 1, size: 25, fields: ['id', 'name', 'price'], orderBy: 'price:desc' });
+
+response.data.items; // the products of the first page
+response.data.total; // how many products there are, every page together
+
+await api.update(42, { price: 19.9 });
 ```
 
 ## Get started
-
-Ready to use the API Service? Check out our guide:
 
 [User Guide](guide.md){ .md-button .md-button--primary }

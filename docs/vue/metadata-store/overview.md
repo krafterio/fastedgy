@@ -1,51 +1,38 @@
 # Metadata Store
 
-**Simple Pinia store for accessing FastEdgy dataset metadata**
+**The metadata of the models, read once for the whole application**
 
-The Metadata Store is a Pinia store that fetches and caches metadata from FastEdgy's `/dataset/metadatas` endpoint. It provides a centralized way to access model schemas and field definitions.
+The metadata store is a Pinia store holding what the `/dataset/metadatas` route of the
+[Metadata Generator](../../features/metadata-generator/overview.md) describes: every model the
+server exposes, by its metadata name, with its labels and its fields, their types, their filter
+operators and their relations. The data iterator, the query builder and `useApiModel` read it, and
+so does a screen drawing what the server describes.
 
-## Key Features
+## Key features
 
-- **Centralized Store**: Pinia store for metadata management
-- **Lazy Loading**: Fetches metadata only when first accessed
-- **Caching**: Stores metadata to avoid repeated API calls
-- **Authentication Aware**: Only fetches when user is authenticated
+- **Asynchronous**: `getMetadatas()` and `getMetadata(name)` return a promise, which resolves to
+  `null` when nothing is held: no account signed in, or a read that failed.
+- **Read once**: the first call reads, the calls made meanwhile wait for that read, the next ones
+  read nothing.
+- **Signed in only**: nothing is read for a visitor, and a sign-out forgets what was read.
+- **Read again on demand**: `METADATA_INVALIDATED` on the bus forgets it, and the next call reads.
+- **One set per workspace**: under a `/{workspace}` prefix, with the workspaces installed, each
+  workspace keeps its own, and coming back to one reads nothing.
 
-## API Methods
-
-- `fetchMetadatas()`: Force fetch metadata from API
-- `getMetadatas()`: Get all metadata (fetches if not cached)
-- `getMetadata(modelName)`: Get metadata for specific model
-- `loading`: Loading state
-- `error`: Error state
-
-## Quick Example
+## Quick example
 
 ```javascript
-import { useMetadataStore } from 'vue-fastedgy'
+import { useMetadataStore } from 'vue-fastedgy';
 
-const metadataStore = useMetadataStore()
+const metadataStore = useMetadataStore();
 
-// Get all metadata
-const allMetadata = await metadataStore.getMetadatas()
-console.log(allMetadata) // { User: {...}, Post: {...}, ... }
+const product = await metadataStore.getMetadata('product');
 
-// Get specific model metadata
-const userMetadata = await metadataStore.getMetadata('User')
-console.log(userMetadata) // { fields: {...}, relations: {...}, ... }
-
-// Check loading state
-console.log(metadataStore.loading) // true/false
-
-// Handle errors
-if (metadataStore.error) {
-  console.error('Failed to load metadata:', metadataStore.error)
-}
+product?.api_name; // 'products'
+product?.fields.status.choices; // { draft: 'Draft', published: 'Published' }
 ```
 
-## Get Started
-
-Ready to use metadata in your application? Check out our guides:
+## Get started
 
 [User Guide](guide.md){ .md-button .md-button--primary }
 [Examples & Ideas](examples.md){ .md-button }

@@ -1,286 +1,164 @@
 # Metadata Store User Guide
 
-This guide shows you how to use the Metadata Store in your Vue.js components with practical patterns.
+## Reading the metadata
 
-## Using in Components
+`getMetadatas()` resolves to every model, keyed by its metadata name, and `getMetadata(name)` to
+one of them. Both are asynchronous, and resolve to `null` when nothing is held: no account signed
+in, or a read that failed. A screen reads once mounted and keeps what the promise resolves to:
 
 ```vue
 <script setup>
-import { useMetadataStore } from 'vue-fastedgy'
-import { onMounted, computed } from 'vue'
+import { onMounted, ref } from 'vue';
+import { useMetadataStore } from 'vue-fastedgy';
 
-const metadataStore = useMetadataStore()
+const props = defineProps({ model: { type: String, required: true } });
 
-const userFields = computed(() => {
-  const metadata = metadataStore.getMetadata('User')
-  return metadata?.fields || {}
-})
+const metadataStore = useMetadataStore();
+const metadata = ref(null);
 
 onMounted(async () => {
-  // Load metadata on component mount
-  await metadataStore.getMetadatas()
-})
+    metadata.value = await metadataStore.getMetadata(props.model);
+});
 </script>
-```
 
-## Form Field Discovery
-
-Use metadata to understand what fields are available for a model:
-
-```vue
 <template>
-  <div>
-    <h3>User Fields:</h3>
-    <ul>
-      <li v-for="(field, name) in userFields" :key="name">
-        <strong>{{ name }}</strong>: {{ field.type }}
-        <span v-if="field.required">(required)</span>
-      </li>
-    </ul>
-  </div>
+  <ul v-if="metadata">
+    <li v-for="field in metadata.fields" :key="field.name">
+      {{ field.label }} <small>{{ field.type }}</small>
+    </li>
+  </ul>
 </template>
-
-<script setup>
-import { useMetadataStore } from 'vue-fastedgy'
-import { computed, onMounted } from 'vue'
-
-const metadataStore = useMetadataStore()
-
-const userFields = computed(() => {
-  const metadata = metadataStore.getMetadata('User')
-  return metadata?.fields || {}
-})
-
-onMounted(async () => {
-  await metadataStore.getMetadatas()
-})
-</script>
 ```
 
-## Validation Helper
+A `computed` calling `getMetadata` holds a promise, not the metadata: `?.fields` reads nothing from
+it, and the screen stays empty.
 
-Build validation rules from metadata:
+## What a model says
+
+| Key | |
+|---|---|
+| `name` | Its metadata name, its class in snake_case (`ProductCategory` gives `product_category`) |
+| `api_name` | The name its routes answer under, its table name |
+| `label`, `label_plural` | Its name for a person |
+| `fields` | Its fields, by name |
+| `searchable`, `search_field`, `searchable_fields` | Whether a fulltext search reads it, the field the search is matched on, the fields it covers |
+| `sortable`, `sortable_field` | Whether its records keep a manual order, and the field holding it (`sequence`) |
+| `has_extra_fields` | Whether a workspace can add fields to it |
+| `synchronizable`, `synchronizable_mode` | Whether an offline client replicates it, and how much (`full`, `partial`) |
+
+## What a field says
+
+| Key | |
+|---|---|
+| `name`, `label` | Its name, and its name for a person |
+| `type` | `char`, `text`, `integer`, `float`, `decimal`, `boolean`, `date`, `datetime`, `json`, `choice`, `char_choice`, `many2one`, `one2one`, `one2many`, `many2many`; for the other fields, the name of their class in snake_case without `Field` (`email`, `time`) |
+| `required` | Whether a new record must give it: it is not nullable, not read only, and has no default |
+| `readonly` | Whether no write can set it |
+| `default` | The value a new record starts with, `null` when there is none or when the server computes it on save |
+| `choices` | For a choice field, its values and their labels, `{ value: label }`; `null` otherwise |
+| `searchable`, `filter_operators` | Whether a filter can read it, and with which operators |
+| `target`, `targets`, `inverse` | For a relation, the model it leads to (`targets` for a reference to several), and the field of that model leading back |
+| `extra` | Whether a workspace added it, under a name starting with `extra_` |
+| `local_placeholder` | What an offline client shows until the server fills it in (`DRAFT-{seq}`) |
+
+## Choices
+
+`choices` is an object, from the value the API reads and writes to its label:
 
 ```javascript
-import { useMetadataStore } from 'vue-fastedgy'
+const metadata = await useMetadataStore().getMetadata('product');
 
-const metadataStore = useMetadataStore()
-
-const validateField = async (modelName, fieldName, value) => {
-  const metadata = await metadataStore.getMetadata(modelName)
-  const field = metadata?.fields?.[fieldName]
-
-  if (!field) return null
-
-  // Required validation
-  if (field.required && (!value || value === '')) {
-    return `${fieldName} is required`
-  }
-
-  // String length validation
-  if (field.type === 'string' && field.max_length && value.length > field.max_length) {
-    return `${fieldName} must be ${field.max_length} characters or less`
-  }
-
-  // Number range validation
-  if (field.type === 'integer' || field.type === 'number') {
-    const num = Number(value)
-    if (field.minimum !== undefined && num < field.minimum) {
-      return `${fieldName} must be at least ${field.minimum}`
-    }
-    if (field.maximum !== undefined && num > field.maximum) {
-      return `${fieldName} must be at most ${field.maximum}`
-    }
-  }
-
-  return null
-}
-
-// Usage in component
-const errors = reactive({})
-
-const validateUserForm = async (formData) => {
-  errors.email = await validateField('User', 'email', formData.email)
-  errors.age = await validateField('User', 'age', formData.age)
-
-  // Remove null errors
-  Object.keys(errors).forEach(key => {
-    if (errors[key] === null) {
-      delete errors[key]
-    }
-  })
-
-  return Object.keys(errors).length === 0
-}
+metadata.fields.status.choices; // { draft: 'Draft', published: 'Published' }
+metadata.fields.status.default; // 'draft'
 ```
 
-## Loading States
-
-Handle loading and error states properly:
+A select walks it as an object, the label first:
 
 ```vue
-<template>
-  <div>
-    <div v-if="metadataStore.loading">
-      Loading metadata...
-    </div>
-
-    <div v-else-if="metadataStore.error">
-      Error loading metadata: {{ metadataStore.error.message }}
-      <button @click="retry">Retry</button>
-    </div>
-
-    <div v-else-if="metadata">
-      <h3>{{ modelName }} Fields</h3>
-      <div v-for="(field, name) in metadata.fields" :key="name">
-        {{ name }}: {{ field.type }}
-      </div>
-    </div>
-
-    <div v-else>
-      No metadata available
-    </div>
-  </div>
-</template>
-
-<script setup>
-import { useMetadataStore } from 'vue-fastedgy'
-import { computed, onMounted } from 'vue'
-
-const props = defineProps(['modelName'])
-const metadataStore = useMetadataStore()
-
-const metadata = computed(() =>
-  metadataStore.getMetadata(props.modelName)
-)
-
-const retry = async () => {
-  await metadataStore.fetchMetadatas()
-}
-
-onMounted(async () => {
-  await metadataStore.getMetadatas()
-})
-</script>
+<select v-model="product.status">
+  <option v-for="(label, value) in field.choices" :key="value" :value="value">{{ label }}</option>
+</select>
 ```
 
-## Model Discovery
+`Object.entries(field.choices)` gives the same pairs as an array, `[value, label]`.
 
-List all available models:
+## Loading and errors
+
+`loading` is `true` while a read runs, and `error` holds what the last one ran into. A read that
+fails holds nothing, so the next call reads again:
 
 ```vue
-<template>
-  <div>
-    <h3>Available Models</h3>
-    <ul>
-      <li v-for="modelName in availableModels" :key="modelName">
-        <router-link :to="`/models/${modelName}`">
-          {{ modelName }}
-        </router-link>
-      </li>
-    </ul>
-  </div>
-</template>
-
 <script setup>
-import { useMetadataStore } from 'vue-fastedgy'
-import { computed, onMounted } from 'vue'
+import { onMounted, ref } from 'vue';
+import { useMetadataStore } from 'vue-fastedgy';
 
-const metadataStore = useMetadataStore()
+const props = defineProps({ model: { type: String, required: true } });
 
-const availableModels = computed(() => {
-  const metadata = metadataStore.getMetadatas()
-  return metadata ? Object.keys(metadata) : []
-})
+const metadataStore = useMetadataStore();
+const metadata = ref(null);
 
-onMounted(async () => {
-  await metadataStore.getMetadatas()
-})
+const load = async () => {
+    metadata.value = await metadataStore.getMetadata(props.model);
+};
+
+onMounted(load);
 </script>
+
+<template>
+  <p v-if="metadataStore.loading">Loading the fields...</p>
+  <p v-else-if="metadataStore.error">
+    The fields could not be read.
+    <button type="button" @click="load">Retry</button>
+  </p>
+  <ul v-else-if="metadata">
+    <li v-for="field in metadata.fields" :key="field.name">{{ field.label }}</li>
+  </ul>
+</template>
 ```
 
-## Conditional Field Display
+`fetchMetadatas()` reads again even what is held, and resolves to what the read ran into, `null`
+when it went well.
 
-Show/hide fields based on metadata:
+## Reading again
 
-```vue
-<template>
-  <form>
-    <div
-      v-for="(field, name) in visibleFields"
-      :key="name"
-      class="form-field"
-    >
-      <label>
-        {{ field.label || name }}
-        <span v-if="field.required">*</span>
-      </label>
+What a model describes can change while the application runs: a workspace adds a field to it.
+Whatever knows announces it on the bus, the store forgets what it holds, and the next call reads:
 
-      <input
-        v-if="field.type === 'string'"
-        :type="getInputType(field)"
-        :maxlength="field.max_length"
-        :required="field.required"
-      />
+```javascript
+import { bus, METADATA_INVALIDATED } from 'vue-fastedgy';
 
-      <input
-        v-else-if="field.type === 'integer'"
-        type="number"
-        :min="field.minimum"
-        :max="field.maximum"
-        :required="field.required"
-      />
+bus.trigger(METADATA_INVALIDATED);
+```
 
-      <select
-        v-else-if="field.choices"
-        :required="field.required"
-      >
-        <option value="">Choose...</option>
-        <option
-          v-for="choice in field.choices"
-          :key="choice.value"
-          :value="choice.value"
-        >
-          {{ choice.display_name }}
-        </option>
-      </select>
-    </div>
-  </form>
-</template>
+A read asked before the announcement does not land. A sign-out forgets everything too: the next
+account may see other fields.
 
-<script setup>
-import { useMetadataStore } from 'vue-fastedgy'
-import { computed, onMounted } from 'vue'
+## The prefix
 
-const props = defineProps(['modelName', 'hideFields'])
+The store reads `/dataset/metadatas` under its prefix, none by default:
 
-const metadataStore = useMetadataStore()
+```javascript
+useMetadataStore().setPrefix('/console'); // reads /console/dataset/metadatas
+```
 
-const visibleFields = computed(() => {
-  const metadata = metadataStore.getMetadata(props.modelName)
-  if (!metadata?.fields) return {}
+An application serving one workspace at a time sets `/{workspace}`. With the workspaces installed
+(`createWorkspaces()`), the store reads under the slug of the current workspace and keeps one set
+per workspace, and coming back to one reads nothing. `setMetadataScope(resolver)` does the same for
+another kind of scope: from the prefix, the resolver answers the scope to keep the set under and
+the prefix to read it at, `{ scope, prefix }`.
 
-  const fields = { ...metadata.fields }
+## Testing
 
-  // Hide specified fields
-  if (props.hideFields) {
-    props.hideFields.forEach(fieldName => {
-      delete fields[fieldName]
-    })
-  }
+`setMetadatas(map)` holds a set without reading it, which is what a test does before mounting a
+screen that reads the metadata:
 
-  return fields
-})
+```javascript
+import { createPinia, setActivePinia } from 'pinia';
+import { useMetadataStore } from 'vue-fastedgy';
 
-const getInputType = (field) => {
-  if (field.format === 'email') return 'email'
-  if (field.format === 'password') return 'password'
-  if (field.format === 'url') return 'url'
-  return 'text'
-}
+setActivePinia(createPinia());
 
-onMounted(async () => {
-  await metadataStore.getMetadatas()
-})
-</script>
+useMetadataStore().setMetadatas({
+    product: { name: 'product', api_name: 'products', fields: {} },
+});
 ```

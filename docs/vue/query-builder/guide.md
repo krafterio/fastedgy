@@ -107,6 +107,20 @@ to that screen with `url: false`: it reads nothing from it and writes nothing to
 useDataIterator('booking', { filter: ['contact', '=', contactId], url: false });
 ```
 
+Two lists of one screen keep their state apart with a prefix: `url: { prefix: 'done_' }` reads and
+writes every key of the list after it (`done_p`, `done_q`, `done_f`…, the keys of `views.state`
+included). The keys of every list of a page are written together, in one replace of the query.
+
+```javascript
+const open = useDataIterator('task', { filter: ['done_at', 'is empty'] });
+const done = useDataIterator('task', { filter: ['done_at', 'is not empty'], url: { prefix: 'done_' } });
+```
+
+The URL is followed: when it changes from outside (back, forward, a link to the same screen), the
+list holds what it says, as a list entered on it would (the view a new `cv` names read and opened,
+a size the URL leaves out kept), then reads once. Its own writes, late ones included, are not taken
+for a change.
+
 `searchFields` makes the search an OR of `icontains` on those fields rather than a fulltext match:
 
 ```javascript
@@ -132,7 +146,9 @@ await views.setFavorite(view, true); // for the current user
 
 With `views`, the iterator opens on the favorite of the user, else the one of everyone, and reads
 its first page once, already on it. A URL saying what the list shows (a link, a reload) wins over it.
-`useOpeningView` reads that view alone, for a list held otherwise.
+`useOpeningView` reads that view alone, for a list held otherwise. The views are read under
+`views.prefix`, else under the prefix of the api model the list was given, else under its `prefix`
+option.
 
 A list holding more than its filter and its order names it in `views.state`, by field of the view:
 the view applies it on opening and from the menu, and saves it. Its `key` is where the application

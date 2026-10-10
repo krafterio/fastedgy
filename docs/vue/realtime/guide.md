@@ -270,13 +270,14 @@ the event was about back through the API.
 
 ## Testing a view
 
-Give a holder its own reader and drive it with the change event:
+Give a holder its own reader, answering as `useApiModel` does (the page under `data`), and drive
+it with the change event:
 
 ```javascript
 import { flushPromises, mount } from '@vue/test-utils';
 import { notifyChanged, useApiCollection } from 'vue-fastedgy';
 
-const list = vi.fn().mockResolvedValue({ items: [{ id: 7 }, { id: 9 }], total: 2 });
+const list = vi.fn().mockResolvedValue({ data: { items: [{ id: 7 }, { id: 9 }], total: 2 } });
 let held;
 
 mount({

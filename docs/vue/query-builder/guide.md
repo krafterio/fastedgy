@@ -65,13 +65,40 @@ binary, spatial and fulltext fields.
 
 ## The list
 
-`useDataIterator` (and `useDataTable`, `useDataGrid`) send `[restrictive, expression, search]`.
+`useDataIterator` (and `useDataTable`, `useDataGrid`) send
+`[restrictive, filter, expression, quick filters, search]`, leaving out the parts that are empty:
+
+| Part | Set by |
+|---|---|
+| restrictive | the `filter` option, a rule, a list of rules or a function returning them: always applied |
+| `filter` | the screen's own controls: the free filter, a ref the list returns |
+| `expression` | the query builder |
+| quick filters | the values of the [quick filters](#quick-filters), through the rules they stand for |
+| search | the `search` text, 300 ms after it last changed |
+
+```javascript
+const list = useDataIterator('support_ticket', { filter: ['contact', '=', contactId] });
+
+list.filter.value = ['priority', '=', 'high']; // a select of the screen
+```
+
+The option and the ref share a name, not a role: the screen never lets go of the first, its
+controls set and clear the second. `combinedFilter` holds the whole, the filter a read and an
+export send.
 
 | State | Kept in the URL as |
 |---|---|
+| `currentPage` | `p`, from the second page on |
+| `pageSize` | `s`, read back when it is one of `availablePageSizes` |
+| `orderBy` | `order_by` (`name:asc,created_at:desc`), left out while it is `defaultOrderBy` |
 | `expression` | `f` |
 | `view` | `cv` |
+| `quick` | `qf`, the quick filters away from their default, as JSON |
 | `search` | `q` |
+| the scroll of `scrollTarget` | `sl`, restored after the first read |
+
+The free filter is not kept in the URL. A list that appends its pages (`append: true`), entered
+on `p`, reads every page up to it in one request, so the scroll it restores lands on its rows.
 
 A list drawn inside another screen, such as a tab of a record shown over a list, leaves the URL
 to that screen with `url: false`: it reads nothing from it and writes nothing to it.

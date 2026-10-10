@@ -49,12 +49,28 @@ def parse_filter_input_str(filters: str | None) -> FilterCondition | None:
         raise InvalidFilterError("Invalid JSON filter expression")
 
 
+def _is_flat_of_one(filters: list) -> bool:
+    """A joint and a single item (`["|", rule]`), where a condition holds a list of items (`["|", [rule]]`)."""
+    return (
+        len(filters) == 2
+        and filters[0] in ("&", "|")
+        and isinstance(filters[1], list)
+        and not all(isinstance(item, list) for item in filters[1])
+    )
+
+
 def parse_filter_input_array_to_tuple(filters: list | None) -> FilterTuple | None:
     if not filters:
         return None
 
     if len(filters) == 0:
         return None
+
+    # Array Flat of one item: ["|", rule], read as that item rather than as a condition over its parts
+    if _is_flat_of_one(filters):
+        parsed_item = parse_filter_input_array_to_tuple(filters[1])
+
+        return cast(FilterConditionTuple, (filters[0], [parsed_item])) if parsed_item else None
 
     # Filter Condition
     if is_condition(filters):

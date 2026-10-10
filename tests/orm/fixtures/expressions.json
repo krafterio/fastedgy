@@ -26,6 +26,7 @@
             "input": ["&", ["is_active", "is true"], ["quantity", ">", 0]],
             "output": ["&", [["is_active", "is true"], ["quantity", ">", 0]]]
         },
+        {"name": "the flat form of a single rule", "input": ["|", ["name", "=", "Novel"]], "output": ["name", "=", "Novel"]},
         {
             "name": "a list reads as all",
             "input": [["is_active", "is true"], ["quantity", ">", 0]],

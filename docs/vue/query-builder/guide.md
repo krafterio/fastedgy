@@ -142,7 +142,8 @@ are moved to: `resequence(ids, { groupField: 'status', groupValue: 3 })`. The or
 serving its dataset routes at the root under prefixed models passes `datasetPrefix: ''`. Its `isSortable` is false
 while a search, an expression, a quick filter or the free filter narrows the list: numbering the
 rows left on screen would mix their ranks with the others'. The restrictive filter fixes the list,
-and does not count.
+and does not count; nor does a quick filter that keeps the order (`keepsOrder: true`), whose rows
+are ordered among themselves, as a list of « my tasks » is.
 
 In the all mode of the selection (`selection.all`), every record of the filter is selected but
 those unchecked one by one, in `selection.excluded`: an action on the selection sends
@@ -218,7 +219,9 @@ list.quick.closed; // the value applied: a boolean here, a number, a list…
 ```
 
 The list keeps in the URL as `qf` the quick filters away from their default, and adds their
-rules to the filter it sends, after the expression and before the search. The query filter
+rules to the filter it sends, after the expression and before the search. A quick filter defined
+with `keepsOrder: true` leaves the manual order on: the rows it leaves are ordered among
+themselves (« my tasks »), where any other narrowing turns it off. The query filter
 draws the quick filters of its list before its button (`QueryFilterQuickFilters`).
 
 ## The list a record came from

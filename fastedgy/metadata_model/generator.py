@@ -256,6 +256,8 @@ def get_field_default(field: BaseFieldType) -> Any:
 
 
 def generate_metadata_field_type(field: BaseFieldType) -> str:
+    field = getattr(field, "stands_for", None) or field
+
     if name := FILTER_FIELD_TYPE_NAME_MAP.get(field.__class__.__name__):
         return name
 

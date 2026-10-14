@@ -2,7 +2,7 @@
 # MIT License (see LICENSE file).
 
 from inspect import isclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import sqlalchemy as sa
 from sqlalchemy.orm import ColumnProperty, Mapper
@@ -11,6 +11,9 @@ from sqlalchemy.orm.util import AliasedClass
 from sqlalchemy.sql.selectable import SelectBase
 
 from fastedgy.orm import BaseModelType, Model, fields
+
+if TYPE_CHECKING:
+    from fastedgy.orm.readable import Readable
 
 
 def find_primary_key_field(model_cls: type[BaseModelType] | BaseModelType) -> str | None:
@@ -124,7 +127,12 @@ def get_field_from_path(model_cls: type[Model], path: str) -> Any | None:
     return None
 
 
-async def get_value_from_path(instance: Model, path: str) -> Any | None:
+async def get_value_from_path(instance: Model, path: str, readable: "Readable | None" = None) -> Any | None:
+    """The value [path] reaches from [instance]. Given [readable], a record the
+    request may not read gives its key alone through a to-one relation, and
+    nothing through a to-many one."""
+    from fastedgy.orm.readable import relation_target
+
     async def _resolve(obj_or_list: Model | list[Model], path_parts: list[str] | None) -> Any | None:
         if not path_parts:
             return obj_or_list
@@ -153,12 +161,29 @@ async def get_value_from_path(instance: Model, path: str) -> Any | None:
 
         all_method: Any = getattr(value, "all", None)
 
+        target = relation_target(field)
+
         if all_method is not None:
             value = await all_method()
+
+            if readable is not None and target is not None and getattr(field, "is_m2m", False):
+                await readable.ask(target, [getattr(item, "pk", None) for item in value])
+                value = [item for item in value if not await readable.hides(target, getattr(item, "pk", None))]
 
             return await _resolve(value, rest or ["id"])
 
         if field and isinstance(field, (fields.ForeignKey, fields.ManyToMany)):
+            key = getattr(value, "pk", None)
+
+            if (
+                readable is not None
+                and target is not None
+                and key is not None
+                and rest not in ([], [find_primary_key_field(target) or "id"])
+                and await readable.hides(target, key)
+            ):
+                return None
+
             return await _resolve(value, rest or ["id"])
 
         if rest:

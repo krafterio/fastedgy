@@ -1808,7 +1808,7 @@ async def test_a_watch_naming_the_scope_already_read_asks_nothing(ws_manager, sc
 
 def test_only_a_model_read_narrower_than_its_scope_is_guarded() -> None:
     """The workspace filter every workspaceable model carries is the scope itself."""
-    from fastedgy.realtime.access import is_guarded
+    from fastedgy.orm.readable import is_guarded
 
     assert not is_guarded(RtRecord)
     assert not is_guarded(RtProject)

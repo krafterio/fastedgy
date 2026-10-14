@@ -378,10 +378,12 @@ async def read_rows(
     each row for whoever was named by ``seen_by``.
 
     The caller has checked :func:`can_read_rows` and what the hooks receiving an
-    item said they read.
+    item said they read. What the relations reach is narrowed to what the
+    request may read, as the model path narrows it.
     """
     from fastedgy.dependencies import get_service
     from fastedgy.orm import Registry
+    from fastedgy.orm.readable import confine_reads
 
     expression, tables = await query.as_select_with_tables()
     rows = await get_service(Registry).database.fetch_all(expression)
@@ -390,6 +392,8 @@ async def read_rows(
     for field_name, value in map_fields.items():
         if isinstance(value, list):
             await _attach_to_many(query.model_class, reads, field_name, value[0])
+
+    await confine_reads(query.model_class, reads, map_fields)
 
     allowed = _allowed_tree(seen_by) if seen_by is not None else None
     seen = (

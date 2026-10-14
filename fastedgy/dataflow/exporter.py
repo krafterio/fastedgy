@@ -25,6 +25,7 @@ from fastedgy.orm.filter import (
 )
 from fastedgy.orm.order_by import inject_order_by
 from fastedgy.orm.query import QuerySet
+from fastedgy.orm.readable import Readable
 from fastedgy.orm.utils import get_field_from_path, get_value_from_path
 
 
@@ -158,12 +159,14 @@ async def export_data[M: BaseModel | BaseView](
     converter_map = {path: conv for path, conv in field_paths_with_converters}
 
     data_rows = []
+    readable = Readable()
+    await readable.ask_reached(model_cls, items, field_names)
 
     for item in items:
         row_data = []
 
         for field_name in field_names:
-            value = await get_value_from_path(item, field_name)
+            value = await get_value_from_path(item, field_name, readable)
 
             # Apply converter if specified
             converter = converter_map.get(field_name)

@@ -22,5 +22,6 @@ Control which fields are included in API responses using the `X-Fields` header. 
 - **Invalid syntax**: Returns all fields as fallback
 - **Relations**: Automatically optimized with database JOINs
 - **Arrays**: Supports filtering nested collections
+- **Unreadable records**: A relation reaching a record the request may not read keeps its key alone
 
 [Usage Guide](guide.md){ .md-button .md-button--primary }

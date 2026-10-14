@@ -10,9 +10,10 @@ from fastedgy.config import BaseSettings
 from fastedgy.dependencies import get_service, has_service
 from fastedgy.metadata_model.generator import generate_metadata_name
 from fastedgy.orm.filter import R
+from fastedgy.orm.readable import is_guarded
 from fastedgy.orm.signals import post_delete, post_save, post_update, pre_delete
 from fastedgy.orm.transaction import run_signal_side_effect
-from fastedgy.realtime.access import is_guarded, is_shared, readers, shared_readers
+from fastedgy.realtime.access import is_shared, readers, shared_readers
 from fastedgy.realtime.auth import RealtimeAuth
 from fastedgy.realtime.broadcaster import WebSocketBroadcaster
 

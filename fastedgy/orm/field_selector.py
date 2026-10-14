@@ -1,7 +1,7 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from typing import Any, cast
 
 from fastedgy.orm import BaseModelType, Model
@@ -9,6 +9,7 @@ from fastedgy.orm.fields import BaseFieldType
 from fastedgy.orm.order_by import OrderByList
 from fastedgy.orm.prefetch import Prefetch
 from fastedgy.orm.query import QuerySet
+from fastedgy.orm.readable import confine_reads
 from fastedgy.orm.utils import extract_field_names, find_primary_key_field
 
 
@@ -564,15 +565,33 @@ async def filter_selected_fields(item: Model, fields_expr: str | list[str] | Non
     use optimize_query_filter_fields() function directly on the query
     before executing first(), get(), or all().
     """
-    map_fields = parse_field_selector_input(type(item), fields_expr)
+    return (await filter_selected_items([item], fields_expr))[0]
+
+
+async def filter_selected_items(items: Sequence[Model], fields_expr: str | list[str] | None) -> list[dict]:
+    """Filter the fields of [items] by the selection, as :func:`filter_selected_fields`
+    does for one, what their relations reach narrowed to what the request may
+    read: a to-one relation it may not read keeps its key alone, a to-many one
+    drops the record. The question is put once per model reached, for all the
+    items."""
+    if not items:
+        return []
+
+    map_fields = parse_field_selector_input(type(items[0]), fields_expr)
 
     if map_fields is None:
-        return flatten_extra_fields(item, item.model_dump())
+        return [flatten_extra_fields(item, item.model_dump()) for item in items]
 
-    filtered_item: dict = {}
-    await filter_fields(_dump_selected(item, map_fields), item, map_fields, filtered_item)
+    filtered_items: list[dict] = []
 
-    return filtered_item
+    for item in items:
+        filtered_item: dict = {}
+        await filter_fields(_dump_selected(item, map_fields), item, map_fields, filtered_item)
+        filtered_items.append(filtered_item)
+
+    await confine_reads(type(items[0]), filtered_items, map_fields)
+
+    return filtered_items
 
 
 async def filter_fields(data: dict, data_obj: Model | None, fields: dict, target: dict) -> None:
@@ -840,6 +859,7 @@ __all__ = [
     "clean_field_names_from_input",
     "filter_fields",
     "filter_selected_fields",
+    "filter_selected_items",
     "flatten_extra_fields",
     "get_computed_field_deps",
     "is_computed_field",

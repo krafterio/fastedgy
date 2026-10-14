@@ -31,7 +31,7 @@ from fastedgy.http import Request
 from fastedgy.i18n import _t
 from fastedgy.models.base import BaseModel, BaseView
 from fastedgy.orm.field_selector import (
-    filter_selected_fields,
+    filter_selected_items,
     optimize_query_filter_fields,
 )
 from fastedgy.orm.filter import (
@@ -152,9 +152,7 @@ async def list_items_action[M: BaseModel | BaseView](
 
     result_items: list[Any] = rows if rows is not None else []
 
-    for item in items:
-        item_dump = await filter_selected_fields(item, fields)
-
+    for item, item_dump in zip(items, await filter_selected_items(items, fields), strict=True):
         for transformer in vtr.get_transformers(GetViewTransformer, model_cls, transformers):
             item_dump = await transformer.get_view(request, item, item_dump, transformers_ctx)
 

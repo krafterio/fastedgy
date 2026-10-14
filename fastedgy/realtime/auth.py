@@ -6,7 +6,8 @@ from typing import TYPE_CHECKING, Any, cast
 
 from fastedgy.depends.security import find_workspace_user_model, resolve_bearer_token
 from fastedgy.orm.filter import And, R
-from fastedgy.realtime.access import is_guarded, readers
+from fastedgy.orm.readable import is_guarded
+from fastedgy.realtime.access import readers
 
 if TYPE_CHECKING:
     from fastedgy.models.user import BaseUser as User

@@ -12,43 +12,9 @@ from fastedgy import context
 from fastedgy.dependencies import get_service
 from fastedgy.depends.security import find_workspace_user_model
 from fastedgy.http import Request
-from fastedgy.orm.access_guard import ModelAccessGuardRegistry
 from fastedgy.orm.filter import And, R
-from fastedgy.orm.filter.global_filters import GlobalFilterRegistry
 
 logger = logging.getLogger("fastedgy.realtime.access")
-
-
-def is_guarded(model_cls: type) -> bool:
-    """Whether a member of a scope may be refused a record the scope holds.
-
-    A global filter or an access guard reads a model narrower than its scope:
-    what is announced about one of its records has to reach the members who can
-    read it, and no one else. The filters every workspaceable model carries are
-    the scope itself and narrow nothing within it: the workspace filter, and the
-    confinement to a shared record, which only holds inside a shared-record
-    context. Their cascade does narrow, for a model under a shareable root.
-    """
-    from fastedgy.models.mixins import _workspace_filter_applies
-    from fastedgy.orm.workspace_shareable import (
-        WorkspaceShareableRegistry,
-        shared_record_cascade_filter,
-        shared_record_confinement_filter,
-    )
-
-    for gf in get_service(GlobalFilterRegistry).get_filters(model_cls):
-        if gf.apply is _workspace_filter_applies or gf.get_filter is shared_record_confinement_filter:
-            continue
-
-        if gf.get_filter is not shared_record_cascade_filter:
-            return True
-
-        shareable = get_service(WorkspaceShareableRegistry)
-
-        if any(shareable.path_for(model_cls, root.key) not in (None, "id") for root in shareable.roots().values()):
-            return True
-
-    return get_service(ModelAccessGuardRegistry).has_guards(model_cls)
 
 
 async def readers(model_cls: Any, record_id: Any, scope_id: int, user_ids: Collection[int] | None = None) -> set[int]:
@@ -233,7 +199,6 @@ def _id(value: Any) -> Any:
 
 
 __all__ = [
-    "is_guarded",
     "is_shared",
     "readers",
     "shared_readers",

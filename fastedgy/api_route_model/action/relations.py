@@ -111,17 +111,23 @@ def is_foreign_key_field(field) -> bool:
 _RECORD_OPS = {"create", "update", "delete"}
 
 
-def ensure_relation_write_allowed(related_model: TypeModel, ops: set[str], field_name: str) -> None:
-    """Reject payload record-operations the related model's API does not allow.
+def ensure_relation_write_allowed(
+    related_model: TypeModel, ops: set[str], field_name: str, *, deny_unregistered: bool = False
+) -> None:
+    """Check the record-operations a relation payload runs on the related model.
 
-    A relation input cannot do to a related model what the API forbids on it
-    directly: when the related model is registered in the public
-    ``api_route_model`` registry, its action configuration governs the
-    record-mutating operations (``create`` requires the ``create`` action,
-    ``update`` the ``patch`` action, ``delete`` the ``delete`` action). An
-    unregistered model keeps the historical behavior (child records managed
-    through their parent). Link-level operations (link/unlink/set/clear) are
-    part of the owning side and stay untouched."""
+    When the model is registered in the public ``api_route_model`` registry, its
+    action configuration governs the record-mutating operations (``create`` needs
+    the ``create`` action, ``update`` the ``patch`` action, ``delete`` the
+    ``delete`` action).
+
+    ``deny_unregistered`` refuses those operations when the model is not
+    registered in that registry. It is set on the forward foreign-key path, where
+    a ``{"id": x, ...}`` or ``["update", ...]`` input would otherwise create,
+    update or delete a record of a model the public API does not register for
+    writing. The reverse and many-to-many paths leave it off, so a relation keeps
+    managing its own child records through their parent. Link-level operations
+    (link/unlink/set/clear) stay untouched."""
     if not ops:
         return
 
@@ -134,9 +140,24 @@ def ensure_relation_write_allowed(related_model: TypeModel, ops: set[str], field
     from fastedgy.dependencies import get_service
     from fastedgy.i18n import _t
 
+    def deny(op: str) -> None:
+        raise HTTPException(
+            status_code=403,
+            detail=_t(
+                "Relation operation '{op}' is not allowed on {model} for field '{field}'",
+                op=op,
+                model=related_model.__name__,
+                field=field_name,
+            ),
+        )
+
     registry = get_service(RouteModelRegistry)
 
     if not registry.is_model_registered(related_model):
+        if deny_unregistered:
+            for op in sorted(ops & _RECORD_OPS):
+                deny(op)
+
         return
 
     actions_options = registry.get_model_options(related_model).get("actions", {})
@@ -148,15 +169,7 @@ def ensure_relation_write_allowed(related_model: TypeModel, ops: set[str], field
 
     for op in sorted(ops & _RECORD_OPS):
         if not gates[op].should_register(actions_options):
-            raise HTTPException(
-                status_code=403,
-                detail=_t(
-                    "Relation operation '{op}' is not allowed on {model} for field '{field}'",
-                    op=op,
-                    model=related_model.__name__,
-                    field=field_name,
-                ),
-            )
+            deny(op)
 
 
 def _foreign_key_record_ops(value: Any) -> set[str]:
@@ -268,7 +281,9 @@ async def process_foreign_key_fields(
         if lookup is not None and isinstance(plain_value, str):
             plain_value = await _lookup_foreign_key(related_model, lookup, plain_value, field_name)
 
-        ensure_relation_write_allowed(related_model, _foreign_key_record_ops(plain_value), field_name)
+        ensure_relation_write_allowed(
+            related_model, _foreign_key_record_ops(plain_value), field_name, deny_unregistered=True
+        )
 
         try:
             record_id, to_delete = await process_foreign_key_operation(

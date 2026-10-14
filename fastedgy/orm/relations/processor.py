@@ -3,6 +3,7 @@
 
 """Processor for executing relation operations."""
 
+from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -13,6 +14,8 @@ from fastedgy.orm.relations.utils import (
     extract_id,
     extract_id_and_values,
 )
+
+RecordAuthorize = Callable[[str, Any, "dict[str, Any] | None"], Awaitable[None]]
 
 
 def _require_nullable(nullable: bool, field_name: str) -> None:
@@ -53,6 +56,7 @@ async def process_foreign_key_operation(
     *,
     nullable: bool,
     field_name: str,
+    authorize: "RecordAuthorize | None" = None,
 ) -> "tuple[int | None, BaseModel | None]":
     """
     Resolve a foreign key input to the id to store (or None to unlink).
@@ -93,6 +97,8 @@ async def process_foreign_key_operation(
         if update_values:
             for key, val in update_values.items():
                 setattr(record, key, val)
+            if authorize is not None:
+                await authorize("update", record, update_values)
             await record.save()
 
         return record_id, None
@@ -117,7 +123,10 @@ async def process_foreign_key_operation(
                 values = value[1]
                 if not isinstance(values, dict):
                     raise RelationOperationError(f"create requires dict of values, got: {type(values).__name__}")
-                new_record = await related_model.query.create(**values)
+                new_record = related_model(**values)
+                if authorize is not None:
+                    await authorize("create", new_record, values)
+                await new_record.save()
                 return new_record.id, None
 
             if action == "update":
@@ -125,6 +134,8 @@ async def process_foreign_key_operation(
                 record = await _get_related_or_raise(related_model, record_id)
                 for key, val in update_values.items():
                     setattr(record, key, val)
+                if authorize is not None:
+                    await authorize("update", record, update_values)
                 await record.save()
                 return record_id, None
 
@@ -132,6 +143,8 @@ async def process_foreign_key_operation(
                 _require_nullable(nullable, field_name)
                 record_id = extract_id(value[1])
                 record = await _get_related_or_raise(related_model, record_id)
+                if authorize is not None:
+                    await authorize("delete", record, None)
                 # The deletion is deferred until the owning instance is saved with
                 # the foreign key cleared, otherwise it still references the record.
                 return None, record
@@ -142,6 +155,8 @@ async def process_foreign_key_operation(
         except IndexError:
             raise RelationOperationError(f"Operation '{action}' requires a value")
         except Exception as e:
+            if hasattr(e, "status_code"):
+                raise
             raise RelationOperationError(f"Error executing {action} operation on {field_name}: {e!s}") from e
 
     raise RelationOperationError(
@@ -154,6 +169,7 @@ async def process_relation_operations(
     field_name: str,
     operations: list[list[Any]] | list[tuple[str, Any]],
     related_model: "type[BaseModel]",
+    authorize: "RecordAuthorize | None" = None,
 ) -> None:
     """
     Process relational operations (M2M or O2M) for a given field.
@@ -240,6 +256,8 @@ async def process_relation_operations(
                 # only persists the passed columns, dropping any field a
                 # pre_save signal sets on the record.
                 new_record = related_model(**values)
+                if authorize is not None:
+                    await authorize("create", new_record, values)
                 await new_record.save()
                 await relation_manager.add(new_record)
 
@@ -253,6 +271,8 @@ async def process_relation_operations(
 
                 for key, val in update_values.items():
                     setattr(record, key, val)
+                if authorize is not None:
+                    await authorize("update", record, update_values)
                 await record.save()
 
                 # Ensure it's linked
@@ -288,6 +308,8 @@ async def process_relation_operations(
                 if not record:
                     raise RelationOperationError(f"Record with id={record_id} not found in {related_model.__name__}")
 
+                if authorize is not None:
+                    await authorize("delete", record, None)
                 # The record is deleted anyway: unlinking first would write NULL
                 # into the generic columns, which a required reference forbids.
                 if generic_field is None:
@@ -326,6 +348,8 @@ async def process_relation_operations(
                 if fk_field_name and not is_fk_nullable:
                     # For NOT NULL FK, delete records directly (don't try to remove/unlink)
                     for related_instance in related_instances:
+                        if authorize is not None:
+                            await authorize("delete", related_instance, None)
                         await related_instance.delete()
                 else:
                     # For nullable FK, just remove the link
@@ -381,6 +405,8 @@ async def process_relation_operations(
                     if record.id in to_unlink:
                         # For NOT NULL FK, delete records directly; otherwise just remove the link
                         if not is_fk_nullable:
+                            if authorize is not None:
+                                await authorize("delete", record, None)
                             await record.delete()
                         else:
                             await relation_manager.remove(record)
@@ -397,4 +423,6 @@ async def process_relation_operations(
         except RelationOperationError:
             raise
         except Exception as e:
+            if hasattr(e, "status_code"):
+                raise
             raise RelationOperationError(f"Error executing {action} operation on {field_name}: {e!s}") from e

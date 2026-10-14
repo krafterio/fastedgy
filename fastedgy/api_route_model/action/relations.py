@@ -172,6 +172,57 @@ def ensure_relation_write_allowed(
             deny(op)
 
 
+def relation_record_authorizer(related_model: TypeModel) -> Any:
+    """Build the hook the relation processors call before they create, update or
+    delete a related record, so the related model's own save/delete transformers
+    run on it as they would on a direct write (per-record authorization, side
+    effects). A model without such transformers is written as before."""
+    from fastedgy import context
+    from fastedgy.api_route_model.registry import ViewTransformerRegistry
+    from fastedgy.api_route_model.view_transformer import PreDeleteTransformer, PreSaveTransformer
+    from fastedgy.dependencies import get_service
+
+    vtr = get_service(ViewTransformerRegistry)
+
+    async def authorize(op: str, record: Any, values: dict[str, Any] | None) -> None:
+        request = context.get_request()
+
+        if request is None:
+            return
+
+        ctx: dict[str, Any] = {}
+
+        if op == "delete":
+            for transformer in vtr.get_transformers(PreDeleteTransformer, related_model):
+                await transformer.pre_delete(request, record, ctx)
+
+            return
+
+        item_data = _relation_input_model(related_model, op, values)
+
+        for transformer in vtr.get_transformers(PreSaveTransformer, related_model):
+            await transformer.pre_save(request, record, item_data, ctx, op == "create")
+
+    return authorize
+
+
+def _relation_input_model(related_model: TypeModel, op: str, values: dict[str, Any] | None) -> Any:
+    from pydantic import ValidationError
+
+    from fastedgy.api_route_model.action.generators import (
+        generate_input_create_model,
+        generate_input_patch_model,
+    )
+
+    generate = generate_input_create_model if op == "create" else generate_input_patch_model
+    model = generate(related_model)
+
+    try:
+        return model(**(values or {}))
+    except ValidationError:
+        return model.model_construct()
+
+
 def _foreign_key_record_ops(value: Any) -> set[str]:
     """The record-mutating operations a plain foreign key input implies."""
     if isinstance(value, dict):
@@ -291,6 +342,7 @@ async def process_foreign_key_fields(
                 plain_value,
                 nullable=getattr(field, "null", False),
                 field_name=field_name,
+                authorize=relation_record_authorizer(related_model),
             )
         except RelationOperationError as e:
             raise HTTPException(status_code=400, detail=str(e))
@@ -379,7 +431,13 @@ async def process_relational_fields(
             )
 
             try:
-                await process_relation_operations(instance, field_name, operations, related_model)
+                await process_relation_operations(
+                    instance,
+                    field_name,
+                    operations,
+                    related_model,
+                    authorize=relation_record_authorizer(related_model),
+                )
             except RelationOperationError as e:
                 raise HTTPException(status_code=400, detail=str(e))
 

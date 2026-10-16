@@ -21,6 +21,7 @@ from pydantic import (
 from pydantic_core import PydanticUndefined
 
 from fastedgy.models.base import BaseModel, BaseView
+from fastedgy.orm.registry import has_pending_models
 from fastedgy.schemas import create_model
 
 
@@ -198,9 +199,17 @@ def _extra_config(model_cls: Any) -> dict[str, Any]:
     return {"__config__": ConfigDict(extra="allow")}
 
 
-@cache
 def generate_input_create_model[M: BaseModel | BaseView](model_cls: type[M]) -> type[M]:
-    """Generate Pydantic input model for POST with M2M/O2M support."""
+    """Generate Pydantic input model for POST with M2M/O2M support.
+
+    One per model once the app has registered its models. A body built before (a `ModelCreate[M]`
+    read by a route module imported ahead of the app) lacks the reverse relations the registration
+    adds: the routes generated afterwards get a body of their own."""
+    return _input_create_model(model_cls, has_pending_models())
+
+
+@cache
+def _input_create_model[M: BaseModel | BaseView](model_cls: type[M], _pending: bool) -> type[M]:
     from edgy.core.db.fields.foreign_keys import ForeignKey
 
     from fastedgy.api_route_model.action.relations import is_exposed_relation_field
@@ -314,9 +323,14 @@ def generate_input_create_model[M: BaseModel | BaseView](model_cls: type[M]) -> 
     return cast(type[M], create_model(f"{model_cls.__name__}-Create", **_extra_config(model_cls), **fields))
 
 
-@cache
 def generate_input_patch_model[M: BaseModel | BaseView](model_cls: type[M]) -> type[M]:
-    """Generate Pydantic input model for PATCH with M2M/O2M support."""
+    """Generate Pydantic input model for PATCH with M2M/O2M support, one per model once the app has
+    registered its models (see `generate_input_create_model`)."""
+    return _input_patch_model(model_cls, has_pending_models())
+
+
+@cache
+def _input_patch_model[M: BaseModel | BaseView](model_cls: type[M], _pending: bool) -> type[M]:
     from edgy.core.db.fields.foreign_keys import ForeignKey
 
     from fastedgy.api_route_model.action.relations import is_exposed_relation_field

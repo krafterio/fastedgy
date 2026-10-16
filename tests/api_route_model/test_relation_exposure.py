@@ -1,6 +1,8 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+import pytest
+
 from fastedgy.api_route_model.action import (
     generate_input_create_model,
     generate_input_patch_model,
@@ -58,6 +60,25 @@ def test_explicit_and_m2m_relations_are_exposed(setup_openapi_app: FastEdgy) -> 
 
     for generated in _input_models(Category):
         assert "products" in generated.model_fields
+
+
+def test_a_body_built_before_the_registration_is_not_kept(
+    setup_openapi_app: FastEdgy, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A route module imported ahead of the app reads `ModelUpdate[M]` while the models still wait for
+    # their registration, before their reverse relations exist: that body must not become the one the
+    # routes generated afterwards reuse.
+    from fastedgy.orm import registry
+
+    monkeypatch.setattr(registry, "_lazy_models", {Product})
+    early = _input_models(Workspace)
+    again = _input_models(Workspace)
+    monkeypatch.setattr(registry, "_lazy_models", set())
+    registered = _input_models(Workspace)
+
+    assert early == again
+    assert all(before is not after for before, after in zip(early, registered, strict=True))
+    assert registered == _input_models(Workspace)
 
 
 def test_is_exposed_relation_field_classification(setup_openapi_app: FastEdgy) -> None:

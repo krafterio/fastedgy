@@ -25,6 +25,12 @@ def find_lazy_model(base: type) -> type | None:
     return next((model_class for model_class in _lazy_models if issubclass(model_class, base)), None)
 
 
+def has_pending_models() -> bool:
+    """True while declared models wait for the app to add them to the registry: until then their
+    relations, the reverse ones above all, are not resolved."""
+    return bool(_lazy_models)
+
+
 def register_lazy_models(registry: Registry) -> None:
     """
     Register all models registered with the `lazy_register_model` function.
@@ -55,6 +61,7 @@ def register_lazy_models(registry: Registry) -> None:
 __all__ = [
     "find_lazy_model",
     "has_lazy_model",
+    "has_pending_models",
     "lazy_register_model",
     "register_lazy_models",
 ]

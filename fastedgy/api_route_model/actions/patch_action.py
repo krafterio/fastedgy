@@ -212,7 +212,7 @@ async def apply_patch_item[M: BaseModel | BaseView](
         scalar_data["extra"] = merge_extra_field_values(getattr(item, "extra", None), extra_values)
 
     # Resolve foreign keys to their ids (creating/updating related records as needed)
-    resolved_fk, deferred_fk_deletes = await process_foreign_key_fields(model_cls, foreign_key_data)
+    resolved_fk, deferred_fk_deletes = await process_foreign_key_fields(model_cls, foreign_key_data, item)
     scalar_data.update(resolved_fk)
 
     # Update scalar fields. A ValueError raised by a field's input

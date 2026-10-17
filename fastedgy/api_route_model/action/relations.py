@@ -296,6 +296,7 @@ async def _lookup_foreign_key(related_model: Any, lookup: Any, value: str, field
 async def process_foreign_key_fields(
     model_cls: TypeModel,
     foreign_key_data: dict[str, Any],
+    instance: BaseModel | None = None,
 ) -> tuple[dict[str, int | None], list[BaseModel]]:
     """
     Resolve foreign key inputs to the ids to store on the instance.
@@ -308,6 +309,7 @@ async def process_foreign_key_fields(
     Args:
         model_cls: The model class
         foreign_key_data: Dictionary of field_name -> foreign key input
+        instance: The record written, whose keys ``delete`` acts on; none on a creation
 
     Returns:
         A tuple of (field_name -> resolved id or None, records to delete after save)
@@ -335,6 +337,7 @@ async def process_foreign_key_fields(
         ensure_relation_write_allowed(
             related_model, _foreign_key_record_ops(plain_value), field_name, deny_unregistered=True
         )
+        current = getattr(instance, field_name, None) if instance is not None else None
 
         try:
             record_id, to_delete = await process_foreign_key_operation(
@@ -343,6 +346,7 @@ async def process_foreign_key_fields(
                 nullable=getattr(field, "null", False),
                 field_name=field_name,
                 authorize=relation_record_authorizer(related_model),
+                current_id=getattr(current, "pk", current),
             )
         except RelationOperationError as e:
             raise HTTPException(status_code=400, detail=str(e))

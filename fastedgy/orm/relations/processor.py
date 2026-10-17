@@ -70,6 +70,7 @@ async def process_foreign_key_operation(
     nullable: bool,
     field_name: str,
     authorize: "RecordAuthorize | None" = None,
+    current_id: int | None = None,
 ) -> "tuple[int | None, BaseModel | None]":
     """
     Resolve a foreign key input to the id to store (or None to unlink).
@@ -78,6 +79,7 @@ async def process_foreign_key_operation(
     to assign to the foreign key column, together with an optional record to
     delete once the owning instance has been saved (``delete`` action) so the
     deletion does not run while the foreign key still references the record.
+    ``delete`` only takes the record the key holds now (``current_id``).
 
     Accepts:
         - None: unlink (requires a nullable relation)
@@ -155,6 +157,8 @@ async def process_foreign_key_operation(
             if action == "delete":
                 _require_nullable(nullable, field_name)
                 record_id = extract_id(value[1])
+                if record_id != current_id:
+                    raise RelationOperationError(f"Record with id={record_id} is not linked through {field_name}")
                 record = await _get_related_or_raise(related_model, record_id)
                 if authorize is not None:
                     await authorize("delete", record, None)

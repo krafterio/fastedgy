@@ -115,7 +115,7 @@ collections, applied to one record):
 - **object `{"id": ..., ...}` / `["update", {...}]`** - Link a record and update its properties
 - **`null` / `["unlink"]`** - Remove the link without deleting the record (nullable foreign keys only)
 - **`["create", {...}]`** - Create a record and link it in a single request
-- **`["delete", id]`** - Permanently delete the record and remove the link
+- **`["delete", id]`** - Permanently delete the record the foreign key holds and remove the link
 
 **Examples:**
 
@@ -135,6 +135,9 @@ PATCH /api/products/42
 
 !!! note "Required foreign keys"
     A required (non-nullable) foreign key cannot be unlinked: `null` and `["unlink"]` are rejected.
+
+`["delete", id]` takes the record the foreign key holds: any other id is rejected (400), and a creation has
+none to delete.
 
 Foreign keys can be filtered by related fields too:
 

@@ -174,6 +174,18 @@ async def test_operation_delete_removes_record_and_link(auth_http: httpx.AsyncCl
     assert (await auth_http.get(f"/api/test_categories/{category['id']}")).status_code == 404
 
 
+async def test_operation_delete_takes_the_record_the_key_holds(auth_http: httpx.AsyncClient) -> None:
+    linked = await _make_category(auth_http, "Linked")
+    other = await _make_category(auth_http, "Other")
+    product = (await _create_product(auth_http, category=linked["id"])).json()
+
+    response = await auth_http.patch(f"/api/test_products/{product['id']}", json={"category": ["delete", other["id"]]})
+
+    assert response.status_code == 400
+    assert (await auth_http.get(f"/api/test_categories/{other['id']}")).status_code == 200
+    assert (await auth_http.get(f"/api/test_products/{product['id']}")).json()["category"]["id"] == linked["id"]
+
+
 async def test_link_missing_record_returns_400(auth_http: httpx.AsyncClient) -> None:
     response = await _create_product(auth_http, category=999999)
 

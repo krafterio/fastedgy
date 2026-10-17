@@ -212,8 +212,8 @@ For large collections or partial updates, use granular operations to avoid perfo
 - **`update`** - Modify a linked record and ensure the link exists
 - **`delete`** - Permanently remove a linked record
 
-A one-to-many child is deleted as it is, even when its foreign key is required; a many-to-many link is removed with
-it.
+`unlink` and `delete` act on a record the relation holds: any other id is rejected (400). A one-to-many child is
+deleted as it is, even when its foreign key is required; a many-to-many link is removed with it.
 
 **Examples:**
 

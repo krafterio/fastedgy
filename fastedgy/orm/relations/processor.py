@@ -50,6 +50,19 @@ async def _get_related_or_raise(related_model: "type[BaseModel]", record_id: int
         raise RelationOperationError(f"Record with id={record_id} not found in {related_model.__name__}")
 
 
+async def _get_linked_or_raise(
+    relation_manager: Any, related_model: "type[BaseModel]", record_id: int, field_name: str
+) -> "BaseModel":
+    """The record of ``record_id`` among those the relation holds: ``unlink``
+    and ``delete`` act on a record of the relation, never on another row."""
+    record = await _get_related_or_raise(related_model, record_id)
+
+    if record.id not in {linked.id for linked in await relation_manager.all()}:
+        raise RelationOperationError(f"Record with id={record_id} is not linked through {field_name}")
+
+    return record
+
+
 async def process_foreign_key_operation(
     related_model: "type[BaseModel]",
     value: Any,
@@ -292,21 +305,13 @@ async def process_relation_operations(
 
             elif action == "unlink":
                 _, value = op_tuple
-                record_id = extract_id(value)
-
-                record = await related_model.query.get(id=record_id)
-                if not record:
-                    raise RelationOperationError(f"Record with id={record_id} not found in {related_model.__name__}")
+                record = await _get_linked_or_raise(relation_manager, related_model, extract_id(value), field_name)
 
                 await relation_manager.remove(record)
 
             elif action == "delete":
                 _, value = op_tuple
-                record_id = extract_id(value)
-
-                record = await related_model.query.get(id=record_id)
-                if not record:
-                    raise RelationOperationError(f"Record with id={record_id} not found in {related_model.__name__}")
+                record = await _get_linked_or_raise(relation_manager, related_model, extract_id(value), field_name)
 
                 if authorize is not None:
                     await authorize("delete", record, None)

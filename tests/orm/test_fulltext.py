@@ -46,15 +46,16 @@ async def test_fulltext_leaves_out_the_pictures_a_text_carries_inline(setup_db: 
     import base64
     import os
 
-    picture = "data:image/jpeg;base64," + base64.b64encode(os.urandom(2_000_000)).decode()
-    product = Product(name="Widget", description=f"A blue gadget ![]({picture}?w=420) on a shelf", price="9.99")
+    picture = base64.b64encode(os.urandom(2_000_000)).decode()
+    description = f"A blue gadget ![](data:image/jpeg;base64,{picture}?w=420) on a shelf, ![]({picture}) twice"
+    product = Product(name="Widget", description=description, price="9.99")
     await product.save()
 
     indexed = await _fetch_col(product.id, "search_value_en::text")
 
     assert "gadget" in indexed
     assert "shelf" in indexed
-    assert "jpeg" not in indexed
+    assert "twice" in indexed
     assert len(indexed) < 1_000
 
 

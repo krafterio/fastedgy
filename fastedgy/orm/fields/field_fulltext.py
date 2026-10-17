@@ -230,10 +230,11 @@ def get_primary_key_field(model_cls: "type[BaseModel]") -> str | None:
     return None
 
 
-# A picture carried inline in a text, its bytes written in base64 in a data URI.
-# It holds no word, and its letters would swell the vector past the megabyte
-# PostgreSQL stores: the save of the record would fail.
-_INLINE_DATA = r"data:[a-z]+/[a-z0-9.+-]+;base64,[a-z0-9+/=]+"
+# A picture carried inline in a text, its bytes written in base64, behind a
+# data URI or bare: a run of base64 letters far longer than any word. It holds
+# no word, and its letters would swell the vector past the megabyte PostgreSQL
+# stores: the save of the record would fail.
+_INLINE_DATA = r"[a-z0-9+/=]{200,}"
 
 
 def build_tsvector_expression(model_cls: "type[BaseModel]", locale: str) -> str | None:

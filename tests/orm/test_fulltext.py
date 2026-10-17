@@ -42,6 +42,22 @@ async def _fetch_col(product_id: int | None, col: str) -> str:
     return str(row[0])
 
 
+async def test_fulltext_leaves_out_the_pictures_a_text_carries_inline(setup_db: FastEdgy) -> None:
+    import base64
+    import os
+
+    picture = "data:image/jpeg;base64," + base64.b64encode(os.urandom(2_000_000)).decode()
+    product = Product(name="Widget", description=f"A blue gadget ![]({picture}?w=420) on a shelf", price="9.99")
+    await product.save()
+
+    indexed = await _fetch_col(product.id, "search_value_en::text")
+
+    assert "gadget" in indexed
+    assert "shelf" in indexed
+    assert "jpeg" not in indexed
+    assert len(indexed) < 1_000
+
+
 async def test_fulltext_unchanged_source_writes_nothing(setup_db: FastEdgy) -> None:
     from fastedgy.orm.signals.fulltext import _handle_fulltext_save
 

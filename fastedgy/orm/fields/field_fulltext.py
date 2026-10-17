@@ -230,9 +230,17 @@ def get_primary_key_field(model_cls: "type[BaseModel]") -> str | None:
     return None
 
 
+# A picture carried inline in a text, its bytes written in base64 in a data URI.
+# It holds no word, and its letters would swell the vector past the megabyte
+# PostgreSQL stores: the save of the record would fail.
+_INLINE_DATA = r"data:[a-z]+/[a-z0-9.+-]+;base64,[a-z0-9+/=]+"
+
+
 def build_tsvector_expression(model_cls: "type[BaseModel]", locale: str) -> str | None:
     """
     Build the SQL expression computing the tsvector of a record, for one locale.
+
+    The pictures a text carries inline (`_INLINE_DATA`) are left out.
 
     The expression reads the table's own columns, never Python values: a partial
     save carries only the fields it loaded, and feeding those to the tsvector
@@ -264,7 +272,8 @@ def build_tsvector_expression(model_cls: "type[BaseModel]", locale: str) -> str 
         else:
             source = f"{quoted}::text"
 
-        parts.append(f"setweight(to_tsvector('{pg_language}', unaccent(coalesce({source}, ''))), '{weight}')")
+        text = f"regexp_replace(coalesce({source}, ''), '{_INLINE_DATA}', ' ', 'gi')"
+        parts.append(f"setweight(to_tsvector('{pg_language}', unaccent({text})), '{weight}')")
 
     if not parts:
         return None

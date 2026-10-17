@@ -19,9 +19,10 @@ from fastapi.params import Depends
 from fastapi.responses import JSONResponse, Response
 from fastapi.utils import generate_unique_id
 from starlette.middleware import Middleware
+from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.routing import BaseRoute
-from starlette.types import Lifespan
+from starlette.types import ASGIApp, Lifespan
 from typing_extensions import Doc
 
 import fastedgy.models.data_record  # noqa: F401
@@ -1126,6 +1127,32 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
         except Exception:
             pass  # Don't break lifespan for this
 
+    def build_middleware_stack(self) -> ASGIApp:
+        """The stack of the app, the CORS middlewares added by the project outermost.
+
+        Starlette answers an unhandled error in ServerErrorMiddleware, outside
+        every middleware the app adds: that 500 would leave without the CORS
+        headers, and a browser on another origin would read a network failure
+        instead of the error the server gave.
+        """
+        cors = [middleware for middleware in self.user_middleware if _is_cors(middleware)]
+
+        if not cors:
+            return super().build_middleware_stack()
+
+        user_middleware = self.user_middleware
+        self.user_middleware = [middleware for middleware in user_middleware if not _is_cors(middleware)]
+
+        try:
+            app = super().build_middleware_stack()
+        finally:
+            self.user_middleware = user_middleware
+
+        for cls, args, kwargs in reversed(cors):
+            app = cls(app, *args, **kwargs)
+
+        return app
+
     def openapi(self) -> dict[str, Any]:
         from fastedgy.api_route_model.openapi import prune_orphan_schemas
 
@@ -1144,6 +1171,10 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
 
     def get_service(self, key: type[T] | Token[T] | str) -> T:
         return get_service(key)
+
+
+def _is_cors(middleware: Middleware) -> bool:
+    return isinstance(middleware.cls, type) and issubclass(middleware.cls, CORSMiddleware)
 
 
 __all__ = [

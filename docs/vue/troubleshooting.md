@@ -19,6 +19,8 @@ app.add_middleware(
 )
 ```
 
+FastEdgy keeps the CORS middleware outermost, outside the handler of unhandled errors: a 500 carries the CORS headers too, so the browser reports the server error instead of a network failure.
+
 ## Environment Variable Not Loading
 
 Make sure your `.env` file is in the project root and that `BASE_URL` is properly set:

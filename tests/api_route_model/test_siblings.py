@@ -25,9 +25,24 @@ async def test_siblings_follow_the_order_of_a_text_field(auth_http: httpx.AsyncC
     alpha = await make_product(auth_http, name="Alpha")
     charlie = await make_product(auth_http, name="Charlie")
 
-    assert await _siblings(auth_http, bravo["id"], "name") == {"previous": alpha["id"], "next": charlie["id"]}
-    assert await _siblings(auth_http, alpha["id"], "name") == {"previous": None, "next": bravo["id"]}
-    assert await _siblings(auth_http, alpha["id"], "name:desc") == {"previous": bravo["id"], "next": None}
+    assert await _siblings(auth_http, bravo["id"], "name") == {
+        "previous": alpha["id"],
+        "next": charlie["id"],
+        "position": 2,
+        "total": 3,
+    }
+    assert await _siblings(auth_http, alpha["id"], "name") == {
+        "previous": None,
+        "next": bravo["id"],
+        "position": 1,
+        "total": 3,
+    }
+    assert await _siblings(auth_http, alpha["id"], "name:desc") == {
+        "previous": bravo["id"],
+        "next": None,
+        "position": 3,
+        "total": 3,
+    }
 
 
 async def test_siblings_break_ties_on_the_id(auth_http: httpx.AsyncClient) -> None:
@@ -35,7 +50,12 @@ async def test_siblings_break_ties_on_the_id(auth_http: httpx.AsyncClient) -> No
     second = await make_product(auth_http, name="Same")
     third = await make_product(auth_http, name="Same")
 
-    assert await _siblings(auth_http, second["id"], "name") == {"previous": first["id"], "next": third["id"]}
+    assert await _siblings(auth_http, second["id"], "name") == {
+        "previous": first["id"],
+        "next": third["id"],
+        "position": 2,
+        "total": 3,
+    }
 
 
 async def test_siblings_stay_within_the_filter(auth_http: httpx.AsyncClient) -> None:
@@ -48,7 +68,12 @@ async def test_siblings_stay_within_the_filter(auth_http: httpx.AsyncClient) -> 
 
     rule = ["category", "=", books["id"]]
 
-    assert await _siblings(auth_http, alpha["id"], "name", rule) == {"previous": None, "next": charlie["id"]}
+    assert await _siblings(auth_http, alpha["id"], "name", rule) == {
+        "previous": None,
+        "next": charlie["id"],
+        "position": 1,
+        "total": 2,
+    }
 
 
 async def test_siblings_of_a_record_outside_the_filter_are_empty(auth_http: httpx.AsyncClient) -> None:
@@ -59,7 +84,12 @@ async def test_siblings_of_a_record_outside_the_filter_are_empty(auth_http: http
 
     rule = ["category", "=", books["id"]]
 
-    assert await _siblings(auth_http, stray["id"], "name", rule) == {"previous": None, "next": None}
+    assert await _siblings(auth_http, stray["id"], "name", rule) == {
+        "previous": None,
+        "next": None,
+        "position": None,
+        "total": None,
+    }
 
 
 async def test_siblings_follow_a_relation_path(auth_http: httpx.AsyncClient) -> None:
@@ -69,7 +99,12 @@ async def test_siblings_follow_a_relation_path(auth_http: httpx.AsyncClient) -> 
     last = await make_product(auth_http, name="Alpha", category=zeta["id"])
     first = await make_product(auth_http, name="Bravo", category=beta["id"])
 
-    assert await _siblings(auth_http, first["id"], "category.name") == {"previous": None, "next": last["id"]}
+    assert await _siblings(auth_http, first["id"], "category.name") == {
+        "previous": None,
+        "next": last["id"],
+        "position": 1,
+        "total": 2,
+    }
 
 
 async def test_siblings_reject_an_invalid_filter(auth_http: httpx.AsyncClient) -> None:

@@ -139,7 +139,7 @@ await api.action('post', '/42/activate');
 
 const neighbours = await api.siblings(42, { filter: ['is_active', '=', true], orderBy: 'name:asc' });
 
-neighbours.data; // { previous: 17, next: 58 }
+neighbours.data; // { previous: 17, next: 58, position: 4, total: 120 }
 ```
 
 `action(method, path, body, query, options)` reaches a route the model answers to outside the
@@ -150,7 +150,8 @@ query go as headers either way. Unlike `create`, `update` and `delete`, an actio
 in the tab.
 
 `siblings` reads the [siblings route](../../features/api-routes/guide.md#record-siblings) of a
-model that enables it: the ids either side of one, in the list a filter and an order describe.
+model that enables it: the ids either side of one, in the list a filter and an order describe, and
+where it stands in that list.
 
 ## Prefix
 

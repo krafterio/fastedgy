@@ -339,7 +339,7 @@ A detail screen opened from a list steps to the previous and the next record of 
 class Product(Model): ...
 ```
 
-The client sends the filter and the ordering of the list it comes from, and gets the neighbouring ids back, `null` at an end of the list or when the record is outside it:
+The client sends the filter and the ordering of the list it comes from, and gets the neighbouring ids back, `null` at an end of the list or when the record is outside it, with where the record stands: its `position` in the list, from 1, among its `total` (both `null` outside it):
 
 ```bash
 GET /api/products/42/siblings?order_by=name:asc
@@ -347,7 +347,7 @@ X-Filter: ["category", "=", 3]
 ```
 
 ```json
-{"previous": 17, "next": 58}
+{"previous": 17, "next": 58, "position": 4, "total": 120}
 ```
 
 The order is the one the list route returns, `id` breaking the ties, whatever field it sorts on.

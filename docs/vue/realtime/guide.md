@@ -129,7 +129,7 @@ hands the filter and the ordering of the list to the holder, which asks the mode
 ```javascript
 import { useApiSiblings } from 'vue-fastedgy';
 
-const { previous, next, status } = useApiSiblings('company', () => route.params.id, () => ({
+const { previous, next, position, total, status } = useApiSiblings('company', () => route.params.id, () => ({
     filter: ['country', '=', 'FR'],
     orderBy: 'name:asc',
 }));
@@ -138,7 +138,8 @@ const { previous, next, status } = useApiSiblings('company', () => route.params.
 It follows the id and the query, keeping only the answer of the last id asked when steps
 outrun the server, and re-reads after a write on the model anywhere, a burst collapsed like a
 list's. The previous neighbours stay until the new ones arrive: a pager disables itself while
-`status` is `loading`.
+`status` is `loading`. `position` and `total` say where the record stands (4 of 120), both
+`null` when it is outside the list.
 
 ## Listening without holding
 

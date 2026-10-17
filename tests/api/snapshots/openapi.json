@@ -6408,7 +6408,7 @@
         "type": "object"
       },
       "RecordSiblings": {
-        "description": "The ids either side of a record, null at an end of the list or outside it.",
+        "description": "The ids either side of a record, null at an end of the list or outside it, and where it stands in the list:\nits position from 1 among the total, both null outside it.",
         "properties": {
           "next": {
             "anyOf": [
@@ -6421,6 +6421,17 @@
             ],
             "title": "Next"
           },
+          "position": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
           "previous": {
             "anyOf": [
               {
@@ -6431,6 +6442,17 @@
               }
             ],
             "title": "Previous"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
           }
         },
         "title": "RecordSiblings",

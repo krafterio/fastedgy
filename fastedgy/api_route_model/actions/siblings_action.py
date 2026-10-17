@@ -7,7 +7,9 @@ A detail screen opened from a list steps to the previous and the next record of
 that list. The client sends the list's own ``X-Filter`` and ``order_by``, and the
 action answers with the two neighbouring ids, read in the order the list route
 itself would return them: the same scoping transformers, the same filter
-compiler, the same ordering, ``id`` breaking the ties.
+compiler, the same ordering, ``id`` breaking the ties. It also says where the
+record stands: its position in that list, from 1, and how many records the list
+holds.
 
 The neighbours come from ``LAG``/``LEAD`` over that query rather than from a
 ``field > value`` rule, which the query builder refuses on text, choice and
@@ -45,10 +47,13 @@ from fastedgy.schemas import BaseModel as BaseSchema
 
 
 class RecordSiblings(BaseSchema):
-    """The ids either side of a record, null at an end of the list or outside it."""
+    """The ids either side of a record, null at an end of the list or outside it, and where it stands in the list:
+    its position from 1 among the total, both null outside it."""
 
     previous: int | None = None
     next: int | None = None
+    position: int | None = None
+    total: int | None = None
 
 
 class SiblingsApiRouteAction(BaseApiRouteAction):
@@ -137,6 +142,8 @@ async def siblings_item_action[M: BaseModel | BaseView](
                 table.c.id.label("id"),
                 func.lag(table.c.id).over(order_by=ordering).label("previous"),
                 func.lead(table.c.id).over(order_by=ordering).label("next"),
+                func.row_number().over(order_by=ordering).label("position"),
+                func.count().over().label("total"),
             )
             .order_by(None)
             .limit(None)
@@ -144,7 +151,9 @@ async def siblings_item_action[M: BaseModel | BaseView](
             .subquery()
         )
 
-        row = await query.database.fetch_one(select(ranked.c.previous, ranked.c.next).where(ranked.c.id == item_id))
+        row = await query.database.fetch_one(
+            select(ranked.c.previous, ranked.c.next, ranked.c.position, ranked.c.total).where(ranked.c.id == item_id)
+        )
     except InvalidFilterError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except HTTPException:
@@ -158,7 +167,14 @@ async def siblings_item_action[M: BaseModel | BaseView](
     if row is None:
         return RecordSiblings()
 
-    return RecordSiblings(previous=row._mapping["previous"], next=row._mapping["next"])
+    mapping = row._mapping
+
+    return RecordSiblings(
+        previous=mapping["previous"],
+        next=mapping["next"],
+        position=mapping["position"],
+        total=mapping["total"],
+    )
 
 
 __all__ = [

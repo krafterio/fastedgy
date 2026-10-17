@@ -230,6 +230,19 @@ GET /storage/download/photos/image.jpg
 
 # Force download (with Content-Disposition header)
 GET /storage/download/photos/image.jpg?force_download=true
+
+# An attachment, by its id
+GET /storage/download/attachments/42
+```
+
+Mount `attachments_router` before `router`: the file route takes any path, and would read `attachments/42` as the
+path of a file.
+
+```python
+from fastedgy.api import storage
+
+app.include_router(storage.attachments_router)
+app.include_router(storage.router)
 ```
 
 ### Signed download urls

@@ -310,9 +310,11 @@ async def process_relation_operations(
 
                 if authorize is not None:
                     await authorize("delete", record, None)
-                # The record is deleted anyway: unlinking first would write NULL
-                # into the generic columns, which a required reference forbids.
-                if generic_field is None:
+                # The record is deleted anyway: unlinking a one-to-many child
+                # first would write NULL into its foreign key (or its generic
+                # columns), which a required one forbids. Only a many-to-many
+                # link lives apart from the record.
+                if getattr(instance.meta.fields.get(field_name), "is_m2m", False):
                     await relation_manager.remove(record)
                 await record.delete()
 

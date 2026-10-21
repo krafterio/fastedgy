@@ -56,6 +56,10 @@ class WebSocketBroadcaster:
         self._tcp_keepcnt = settings.realtime_tcp_keepcnt
         self._followed: set[str] = set()
         self._pg_conn: Any = None
+        # asyncpg runs one operation at a time on a connection: the sockets
+        # following their scopes, the supervisor and the heartbeat take turns
+        # on the LISTEN one.
+        self._conn_lock = asyncio.Lock()
         self._listener_task: asyncio.Task | None = None
         self._supervisor_task: asyncio.Task | None = None
         self._consumer_tasks: list[asyncio.Task] = []
@@ -147,8 +151,9 @@ class WebSocketBroadcaster:
 
         self._followed.add(channel)
 
-        if self._pg_conn is not None:
-            await self._add_listener(self._pg_conn, channel)
+        async with self._conn_lock:
+            if self._pg_conn is not None:
+                await self._add_listener(self._pg_conn, channel)
 
     async def unfollow(self, scope_id: int | None) -> None:
         """Stop hearing a scope this process no longer holds a socket for."""
@@ -162,8 +167,9 @@ class WebSocketBroadcaster:
 
         self._followed.discard(channel)
 
-        if self._pg_conn is not None:
-            await self._remove_listener(self._pg_conn, channel)
+        async with self._conn_lock:
+            if self._pg_conn is not None:
+                await self._remove_listener(self._pg_conn, channel)
 
     async def broadcast_to_scope(
         self,
@@ -475,19 +481,19 @@ class WebSocketBroadcaster:
         say nothing about it, which is the failure nobody would notice.
         """
         held = {self.scope_channel(scope_id) for scope_id in self._manager.scopes()}
-        stale = self._followed - held
 
-        for channel in stale:
-            self._followed.discard(channel)
+        async with self._conn_lock:
+            for channel in self._followed - held:
+                self._followed.discard(channel)
 
-            if self._pg_conn is not None:
-                await self._remove_listener(self._pg_conn, channel)
+                if self._pg_conn is not None:
+                    await self._remove_listener(self._pg_conn, channel)
 
-        for channel in held - self._followed:
-            self._followed.add(channel)
+            for channel in held - self._followed:
+                self._followed.add(channel)
 
-            if self._pg_conn is not None:
-                await self._add_listener(self._pg_conn, channel)
+                if self._pg_conn is not None:
+                    await self._add_listener(self._pg_conn, channel)
 
     async def _listen(self) -> None:
         """Hold a LISTEN connection, re-establishing it whenever it drops."""
@@ -551,14 +557,17 @@ class WebSocketBroadcaster:
                 raise RuntimeError("Cannot access underlying asyncpg connection for LISTEN")
 
             self._enable_keepalive(pg_conn)
-            await self._add_listener(pg_conn, self._channel)
 
-            # A new connection is listening to nothing: what this worker still
-            # serves is said again on it.
-            for channel in list(self._followed):
-                await self._add_listener(pg_conn, channel)
+            async with self._conn_lock:
+                await self._add_listener(pg_conn, self._channel)
 
-            self._pg_conn = pg_conn
+                # A new connection is listening to nothing: what this worker
+                # still serves is said again on it.
+                for channel in list(self._followed):
+                    await self._add_listener(pg_conn, channel)
+
+                self._pg_conn = pg_conn
+
             self._listening.set()
             logger.info("Listening on PG channel '%s' and %d scopes", self._channel, len(self._followed))
 
@@ -573,14 +582,17 @@ class WebSocketBroadcaster:
                     # Through the connection context rather than the raw
                     # asyncpg one, so a dead connection is invalidated by the
                     # pool instead of being handed out again.
-                    await asyncio.wait_for(conn_ctx.execute("SELECT 1"), timeout=self._heartbeat_timeout)
+                    async with self._conn_lock:
+                        await asyncio.wait_for(conn_ctx.execute("SELECT 1"), timeout=self._heartbeat_timeout)
             finally:
                 self._listening.clear()
-                self._pg_conn = None
-                await self._remove_listener(pg_conn, self._channel)
 
-                for channel in list(self._followed):
-                    await self._remove_listener(pg_conn, channel)
+                async with self._conn_lock:
+                    self._pg_conn = None
+                    await self._remove_listener(pg_conn, self._channel)
+
+                    for channel in list(self._followed):
+                        await self._remove_listener(pg_conn, channel)
 
     async def _database_reachable(self) -> bool:
         """Probe the database through the managed pool.
@@ -613,8 +625,10 @@ class WebSocketBroadcaster:
         if add_listener is None:
             raise RuntimeError("Connection missing add_listener")
 
+        # Bounded like the heartbeat: a dead connection must not hold the lock
+        # the heartbeat waits on to find out it is dead.
         if inspect.iscoroutinefunction(add_listener):
-            await add_listener(channel, self._on_notify)
+            await asyncio.wait_for(add_listener(channel, self._on_notify), timeout=self._heartbeat_timeout)
         else:
             add_listener(channel, self._on_notify)
 
@@ -626,7 +640,7 @@ class WebSocketBroadcaster:
 
             if remove_listener:
                 if inspect.iscoroutinefunction(remove_listener):
-                    await remove_listener(channel, self._on_notify)
+                    await asyncio.wait_for(remove_listener(channel, self._on_notify), timeout=self._heartbeat_timeout)
                 else:
                     remove_listener(channel, self._on_notify)
         except Exception as e:  # noqa: BLE001 - the connection is being dropped anyway

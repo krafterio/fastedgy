@@ -1056,6 +1056,44 @@ async def test_an_audience_is_announced_over_several_notifies_and_an_empty_one_n
     assert [one["only"] for one in published] == [[1, 2], [3, 4], [5]]
 
 
+class OneOperationAtATime:
+    """A LISTEN connection that refuses a second operation while one runs, as asyncpg does."""
+
+    def __init__(self) -> None:
+        self.busy = False
+        self.listening: set[str] = set()
+
+    async def _run(self) -> None:
+        if self.busy:
+            raise RuntimeError("cannot perform operation: another operation is in progress")
+
+        self.busy = True
+
+        try:
+            await asyncio.sleep(0.01)
+        finally:
+            self.busy = False
+
+    async def add_listener(self, channel: str, callback: Any) -> None:
+        await self._run()
+        self.listening.add(channel)
+
+    async def remove_listener(self, channel: str, callback: Any) -> None:
+        await self._run()
+        self.listening.discard(channel)
+
+
+async def test_the_scopes_followed_at_once_reach_the_connection_one_after_the_other(setup_db) -> None:
+    instance = unstarted()
+    connection = OneOperationAtATime()
+    instance._pg_conn = connection
+
+    await asyncio.gather(*(instance.follow(scope_id) for scope_id in range(1, 6)))
+    await asyncio.gather(instance.unfollow(1), instance.unfollow(2), instance.follow(6))
+
+    assert connection.listening == {instance.scope_channel(scope_id) for scope_id in (3, 4, 5, 6)}
+
+
 async def test_the_accounts_watching_an_event_are_told_to_the_bus(broadcaster, ws_manager) -> None:
     bus = get_service(Bus)
     heard: list[OnRealtimeDeliveredEvent] = []

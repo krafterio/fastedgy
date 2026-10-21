@@ -185,3 +185,20 @@ async def test_a_foreign_key_rule_refuses_a_record(setup_db: FastEdgy) -> None:
 
     with pytest.raises(InvalidFilterError):
         await FsoProduct.query.filter(R("category", "in", [category])).all()
+
+
+async def test_a_choice_rule_names_a_member_of_its_enum(setup_db: FastEdgy) -> None:
+    from fastedgy.models.workspace_extra_field import WorkspaceExtraFieldType
+    from fastedgy.test.models.workspace_extra_field import WorkspaceExtraField
+
+    model = WorkspaceExtraField
+    member = next(iter(WorkspaceExtraFieldType))
+
+    await model.global_query.filter(R("field_type", "=", member.name)).all()
+    await model.global_query.filter(R("field_type", "in", [member, member.name])).all()
+
+    with pytest.raises(InvalidFilterError):
+        await model.global_query.filter(R("field_type", "=", "custom")).all()
+
+    with pytest.raises(InvalidFilterError):
+        await model.global_query.filter(R("field_type", "not in", [member.name, "custom"])).all()

@@ -1,10 +1,12 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+from enum import Enum
+
 from fastedgy.config import BaseSettings
 from fastedgy.dependencies import get_service
 from fastedgy.orm import Model
-from fastedgy.orm.fields import ManyToMany
+from fastedgy.orm.fields import CharChoiceField, ChoiceField, ManyToMany
 from fastedgy.orm.filter.operators import ANY_OPERATORS, get_filter_operators
 from fastedgy.orm.filter.types import (
     And,
@@ -15,7 +17,7 @@ from fastedgy.orm.filter.types import (
     Or,
     R,
 )
-from fastedgy.orm.utils import find_primary_key_field
+from fastedgy.orm.utils import find_primary_key_field, get_field_from_path
 
 
 def validate_filters(
@@ -50,6 +52,8 @@ def validate_filters(
         if not validate_filter_operator(model_cls, filters.field, filters.operator):
             raise InvalidFilterError(f"Invalid operator {filters.operator} for field {filters.field}")
 
+        _check_choice_value(model_cls, key_rule)
+
         return key_rule
 
     # Filter Condition
@@ -69,6 +73,29 @@ def validate_filters(
                 return Or(*validated_rules)
 
     raise InvalidFilterError("Invalid filter expression")
+
+
+def _check_choice_value(model_cls: type[Model], rule: FilterRule) -> None:
+    """A choice is compared with a member of its enum: anything else would reach the database, which refuses it."""
+    if rule.operator not in ("=", "!=", "in", "not in"):
+        return
+
+    field = get_field_from_path(model_cls, rule.field)
+    choices = getattr(field, "choices", None)
+
+    if (
+        not isinstance(field, ChoiceField | CharChoiceField)
+        or not isinstance(choices, type)
+        or not issubclass(choices, Enum)
+    ):
+        return
+
+    names = {member.name for member in choices}
+    values = rule.value if isinstance(rule.value, list | tuple | set) else [rule.value]
+
+    for value in values:
+        if value is not None and (value.name if isinstance(value, Enum) else value) not in names:
+            raise InvalidFilterError(f"Invalid value {value!r} for field {rule.field}")
 
 
 def _check_depth(field_path: str, crossed: int) -> None:

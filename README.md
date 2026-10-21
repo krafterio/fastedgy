@@ -129,15 +129,32 @@ This project uses the **[Conventional Commits](https://www.conventionalcommits.o
 
 ### Conventional Commits Scopes used
 
-| Scope   | Description                                             |
-|---------|---------------------------------------------------------|
-| core    | Core backend logic and main platform features           |
-| cli     | CLI commands and related functionality                  |
-| orm     | ORM models, migrations, and related logic               |
-| auth    | Authentication and authorization mechanisms             |
-| api     | REST API endpoints, routes, and controllers             |
-| config  | Global configuration and environment settings           |
-| project | Project structure, global files, and overall management |
+| Scope     | Description                                                   |
+|-----------|---------------------------------------------------------------|
+| core      | Core backend logic and main platform features                 |
+| api       | REST API endpoints, routes, and controllers                   |
+| auth      | Authentication and authorization mechanisms                   |
+| bus       | Event bus and its listeners                                   |
+| cli       | CLI commands and related functionality                        |
+| config    | Global configuration and environment settings                 |
+| dataflow  | Data import and export                                        |
+| di        | Dependency injection container and service resolution         |
+| health    | Readiness, shutdown drain and deploy window                   |
+| http      | HTTP middlewares, client and error responses                  |
+| i18n      | Translations and locale resolution                            |
+| logger    | Logging setup and formatting                                  |
+| mail      | Email sending and templates                                   |
+| mcp       | MCP server, its tools and resources                           |
+| metadata  | Metadata of the models exposed to the clients                 |
+| orm       | ORM models, migrations, and related logic                     |
+| project   | Project structure, global files, and overall management       |
+| queue     | Queued tasks and their workers                                |
+| realtime  | WebSocket connections, broadcasts and change announcements    |
+| scheduler | Scheduled tasks run on a cron expression                      |
+| schema    | Pydantic schemas and serialization                            |
+| security  | Password hashing, tokens and request security helpers         |
+| storage   | File storage, uploads and their adapters                      |
+| test      | Testing toolkit shipped to the applications                   |
 
 Contributing
 ------------

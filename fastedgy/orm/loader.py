@@ -25,6 +25,7 @@ from fastedgy.storage.routing import is_global_storage_model
 @dataclass(frozen=True)
 class IdRef:
     key: str
+    update: bool = True
 
 
 @dataclass(frozen=True)
@@ -54,6 +55,7 @@ class _Record:
     model_cls: type[BaseModel]
     model_name: str
     payload: dict[str, Any] = field(default_factory=dict)
+    update: bool = True
 
 
 def _build_model_map(registry: Registry) -> dict[str, type[BaseModel]]:
@@ -78,7 +80,7 @@ def _read_records(path: str) -> list[dict[str, Any]]:
     return data
 
 
-def _extract_key(entry: dict[str, Any], source: str) -> tuple[str, dict[str, Any]]:
+def _extract_key(entry: dict[str, Any], source: str) -> tuple[IdRef, dict[str, Any]]:
     marker = entry.get("id")
 
     if not isinstance(marker, IdRef):
@@ -86,7 +88,7 @@ def _extract_key(entry: dict[str, Any], source: str) -> tuple[str, dict[str, Any
 
     payload = {name: value for name, value in entry.items() if name != "id"}
 
-    return marker.key, payload
+    return marker, payload
 
 
 def _ref_keys(payload: dict[str, Any]) -> set[str]:
@@ -167,6 +169,13 @@ async def _apply_record(
     server_path: str,
     report: LoadReport,
 ) -> None:
+    if not record.update:
+        known = await DataRecord.query.get_or_none(key=record.key)
+
+        if known is not None:
+            resolved[record.key] = known.record_id
+            return
+
     model_cls = record.model_cls
     scalars: dict[str, Any] = {}
     relations: dict[str, list[int]] = {}
@@ -276,8 +285,16 @@ async def load_data(data_dir: str | None = None) -> LoadReport:
         model_name = generate_metadata_name(model_cls)
 
         for entry in _read_records(file_path):
-            key, payload = _extract_key(entry, file_path)
-            records.append(_Record(key=key, model_cls=model_cls, model_name=model_name, payload=payload))
+            marker, payload = _extract_key(entry, file_path)
+            records.append(
+                _Record(
+                    key=marker.key,
+                    model_cls=model_cls,
+                    model_name=model_name,
+                    payload=payload,
+                    update=marker.update,
+                )
+            )
 
     ordered = _topo_sort(records)
 

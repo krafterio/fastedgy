@@ -7,6 +7,7 @@ FastEdgy provides an init-data loader to seed reference data declaratively and i
 - **Declarative data files**: One file per model under the server `data/` directory, exposing a `data` list of records
 - **Stable external IDs**: Each record is tagged with `id("my_key")`, decoupling seed data from auto-incremented primary keys
 - **Idempotent upsert**: Re-running compares the stored record and only creates or updates what changed
+- **Create-only records**: `id("my_key", update=False)` seeds a record once and leaves it to the application afterwards
 - **Relation resolution**: `ref("my_key")` wires foreign keys, one-to-many and many-to-many relations across files
 - **File uploads**: `file("path")` uploads an asset through the Storage service and stores the resulting path
 - **Automatic ordering**: Dependencies expressed with `ref(...)` are topologically sorted, even across files

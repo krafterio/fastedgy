@@ -64,6 +64,50 @@ async def test_rerun_without_changes_skips_update(setup_db: FastEdgy, tmp_path: 
     assert report.updated == 0
 
 
+async def test_create_only_record_keeps_what_was_changed_since(setup_db: FastEdgy, tmp_path: Path) -> None:
+    _write(tmp_path, "category.py", 'data = [{"id": id("cat", update=False), "name": "Books"}]')
+
+    assert (await load_data(data_dir=str(tmp_path))).created == 1
+
+    category = await Category.query.get()
+    category.name = "Edited in production"
+    await category.save()
+
+    _write(tmp_path, "category.py", 'data = [{"id": id("cat", update=False), "name": "Literature"}]')
+    report = await load_data(data_dir=str(tmp_path))
+
+    assert (report.created, report.updated) == (0, 0)
+    assert (await Category.query.get()).name == "Edited in production"
+
+
+async def test_create_only_record_deleted_since_stays_deleted(setup_db: FastEdgy, tmp_path: Path) -> None:
+    _write(tmp_path, "category.py", 'data = [{"id": id("cat", update=False), "name": "Books"}]')
+
+    await load_data(data_dir=str(tmp_path))
+    await (await Category.query.get()).delete()
+    report = await load_data(data_dir=str(tmp_path))
+
+    assert report.created == 0
+    assert await Category.query.count() == 0
+
+
+async def test_create_only_record_is_still_a_ref_target(setup_db: FastEdgy, tmp_path: Path) -> None:
+    _write(tmp_path, "category.py", 'data = [{"id": id("cat", update=False), "name": "Books"}]')
+
+    await load_data(data_dir=str(tmp_path))
+
+    _write(
+        tmp_path,
+        "product.py",
+        'data = [{"id": id("p"), "name": "Novel", "price": "9.00", "category": ref("cat")}]',
+    )
+    await load_data(data_dir=str(tmp_path))
+
+    product = await Product.query.select_related("category").get(name="Novel")
+
+    assert product.category.name == "Books"
+
+
 async def test_unknown_ref_raises(setup_db: FastEdgy, tmp_path: Path) -> None:
     _write(
         tmp_path,

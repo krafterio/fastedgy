@@ -80,6 +80,21 @@ data = [
 
 The loader reads the file, uploads it through the Storage service (in the model's directory, using global storage when the model has no `workspace` field) and stores the returned path in the field. The upload happens once: on later runs, a field that already holds a value is left as is.
 
+## Create-only records with `id(..., update=False)`
+
+Some records are seeded once and then owned by the people who run the application: a default setting, a first campaign, a record edited from the admin console. Mark them with `update=False`:
+
+```python
+# data/experiment.py
+from fastedgy.orm.loader import id
+
+data = [
+    {"id": id("experiment_onboarding", update=False), "key": "onboarding", "name": "Onboarding"},
+]
+```
+
+The loader creates the record the first time its key is unknown, and registers the key as usual. From then on it leaves the record alone: its fields and relations keep what was changed since, and a record deleted since is not created again. The key still resolves for `ref("...")`.
+
 ## Dependency ordering
 
 Records are sorted so that every `ref(...)` target loads first, even when the dependency lives in another file. In the example above, `country.py` is always applied before `state.py` because each state references a country. You never manage the order manually; a circular reference is reported as an error.

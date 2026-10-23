@@ -53,6 +53,7 @@ from fastedgy.models.user_api_token import register_default_user_api_token_model
 from fastedgy.orm import Database, Registry, set_default_isolation_level
 from fastedgy.orm.data_ref import DataRefs
 from fastedgy.orm.registry import register_lazy_models
+from fastedgy.orm.transaction import register_connection_invalidation
 from fastedgy.timezone import setup_timezone
 
 T = TypeVar("T")
@@ -989,6 +990,7 @@ class FastEdgy[S: BaseSettings = BaseSettings](FastAPI):
         )
 
         set_default_isolation_level(settings.database_isolation_level)
+        register_connection_invalidation()
 
         register_service(HasherRegistry)
 

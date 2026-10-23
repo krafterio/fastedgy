@@ -10,7 +10,10 @@ from contextvars import ContextVar
 from functools import wraps
 from typing import Any, TypeVar, overload
 
+from asyncpg.exceptions import InterfaceError, InternalClientError
 from databasez.sqlalchemy import SQLAlchemyTransaction
+from sqlalchemy import event
+from sqlalchemy.engine import Engine, ExceptionContext
 from sqlalchemy.exc import DBAPIError
 
 from fastedgy.dependencies import get_service
@@ -179,6 +182,36 @@ def is_disconnect_error(exc: BaseException) -> bool:
     orig = getattr(exc, "orig", None)
     text = f"{exc} {orig}".lower()
     return any(marker in text for marker in _DISCONNECT_MARKERS)
+
+
+def is_desynchronized_connection_error(exc: BaseException | None) -> bool:
+    """Return True when the driver reports a connection still caught in an
+    earlier operation ("another operation is in progress"): a statement left
+    half done, by a plan a migration invalidated or a cancelled request, has the
+    connection answer every later statement with the same error.
+    """
+    seen: set[int] = set()
+    while exc is not None and id(exc) not in seen:
+        seen.add(id(exc))
+        if isinstance(exc, InternalClientError) or (
+            isinstance(exc, InterfaceError) and "another operation is in progress" in str(exc)
+        ):
+            return True
+        exc = exc.__cause__ or exc.__context__
+    return False
+
+
+def invalidate_desynchronized_connection(context: ExceptionContext) -> None:
+    """Have the pool discard a desynchronized connection, and it alone, instead
+    of handing it to the next request: the database itself is fine."""
+    if is_desynchronized_connection_error(context.original_exception):
+        context.is_disconnect = True
+        context.invalidate_pool_on_disconnect = False
+
+
+def register_connection_invalidation() -> None:
+    if not event.contains(Engine, "handle_error", invalidate_desynchronized_connection):
+        event.listen(Engine, "handle_error", invalidate_desynchronized_connection)
 
 
 def is_serialization_error(exc: BaseException) -> bool:
@@ -449,8 +482,11 @@ def transaction(
 
 
 __all__ = [
+    "invalidate_desynchronized_connection",
+    "is_desynchronized_connection_error",
     "is_disconnect_error",
     "is_serialization_error",
+    "register_connection_invalidation",
     "retry_on_serialization",
     "transaction",
     "with_transaction",

@@ -90,6 +90,18 @@ async def test_a_list_answers_the_same_from_its_rows(auth_http: httpx.AsyncClien
     assert from_rows["items"][0]["price"] == from_models["items"][0]["price"]
 
 
+async def test_a_many_to_many_asked_for_its_keys_alone_answers_them_from_its_rows(
+    auth_http: httpx.AsyncClient,
+) -> None:
+    tags = [await make_tag(auth_http, name) for name in ("beta", "alpha")]
+    await make_product(auth_http, name="Laptop", tags=[tag["id"] for tag in tags])
+
+    from_rows, from_models = await _both_ways(auth_http, "/api/test_products", "name,tags.id", Product)
+
+    assert from_rows == from_models
+    assert sorted(tag["id"] for tag in from_rows["items"][0]["tags"]) == sorted(tag["id"] for tag in tags)
+
+
 async def test_a_choice_answers_the_same_from_its_row(auth_http: httpx.AsyncClient) -> None:
     await auth_http.post(
         "/api/workspace_extra_fields",

@@ -458,7 +458,11 @@ async def _attach_to_many(
     for row in rows:
         mapping = row._mapping
         owner = mapping.get(_column_of(_real_model_cls(holder), owner_key) or "")
-        share = _read_level(mapping, target, sub_map, target_key or "", tables)
+        share = (
+            (_read_level(mapping, holder, {target_key: sub_map}, "", tables) or {}).get(target_key)
+            if target_key
+            else _read_level(mapping, target, sub_map, "", tables)
+        )
 
         if owner is None or share is None:
             continue

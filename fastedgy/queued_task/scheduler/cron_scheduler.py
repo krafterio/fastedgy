@@ -3,7 +3,7 @@
 
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from cronsim import CronSim
 
@@ -89,13 +89,15 @@ class CronScheduler:
     def _cron_matches(self, cron_expr: str, dt: datetime) -> bool:
         """Check if a cron expression matches the given datetime.
 
-        Uses cronsim to compute the next occurrence from one minute before
-        the target time. If the next occurrence equals the target, it matches.
+        Uses cronsim to compute the next occurrence from the instant one minute
+        before the target, and compares instants: on the autumn clock change the
+        repeated hour fires once, and a time skipped in spring fires at the first
+        minute after the gap, as cron does.
         """
-        one_minute_before = dt - timedelta(minutes=1)
-        it = CronSim(cron_expr, one_minute_before)
-        next_fire = next(it)
-        return next_fire == dt
+        instant = dt.astimezone(UTC)
+        one_minute_before = (instant - timedelta(minutes=1)).astimezone(dt.tzinfo)
+        next_fire = next(CronSim(cron_expr, one_minute_before))
+        return next_fire.astimezone(UTC) == instant
 
     async def _create_task_if_not_exists(self, task_def: ScheduledTaskDef) -> None:
         """Create a QueuedTask for the scheduled task, with duplicate prevention."""

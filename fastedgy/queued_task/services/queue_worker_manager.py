@@ -7,7 +7,7 @@ import signal
 import socket
 import time
 from collections import Counter
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
@@ -821,7 +821,7 @@ class QueueWorkerManager:
             type["QueuedTaskWorker"],
             self.registry.get_model("QueuedTaskWorker"),
         )
-        alive_threshold = datetime.now(context.get_timezone()) - timedelta(minutes=2)
+        alive_threshold = datetime.now(UTC) - timedelta(minutes=2)
         other_alive = await QueuedTaskWorker.query.filter(
             QueuedTaskWorker.columns.last_heartbeat >= alive_threshold,
             QueuedTaskWorker.columns.is_running.is_(True),
@@ -1437,7 +1437,7 @@ class QueueWorkerManager:
 
         uptime = None
         if self.stats["started_at"]:
-            uptime = (datetime.now(context.get_timezone()) - self.stats["started_at"]).total_seconds()
+            uptime = (datetime.now(UTC) - self.stats["started_at"]).total_seconds()
 
         return {
             "is_running": self.is_running,
@@ -1648,7 +1648,7 @@ class QueueWorkerManager:
                 registry.get_model("QueuedTaskWorker"),
             )
             alive_servers = await QueuedTaskWorker.query.filter(
-                QueuedTaskWorker.columns.last_heartbeat >= datetime.now(context.get_timezone()) - timedelta(minutes=2),
+                QueuedTaskWorker.columns.last_heartbeat >= datetime.now(UTC) - timedelta(minutes=2),
                 QueuedTaskWorker.columns.is_running == True,
             ).all()
 

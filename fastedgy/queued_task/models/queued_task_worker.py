@@ -2,7 +2,7 @@
 # MIT License (see LICENSE file).
 
 import socket
-from datetime import datetime
+from datetime import UTC, datetime
 
 from fastedgy import context
 from fastedgy.i18n import _ts
@@ -56,7 +56,7 @@ class QueuedTaskWorkerMixin(Model):
         """Check if server is alive (heartbeat within last 2 minutes)"""
         if not self.last_heartbeat:
             return False
-        return (datetime.now(context.get_timezone()) - self.last_heartbeat).total_seconds() < 120
+        return (datetime.now(UTC) - self.last_heartbeat).total_seconds() < 120
 
     def update_stats(self, active: int, idle: int, is_running: bool = True):
         """Update worker statistics"""

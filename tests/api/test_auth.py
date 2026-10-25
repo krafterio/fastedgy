@@ -4,6 +4,7 @@
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import httpx
 import pytest
@@ -224,6 +225,27 @@ async def test_forgot_password_does_not_tell_a_mail_that_failed(
     response = await setup_http.post("/api/auth/password/forgot", json={"email": "heidi@example.io"})
 
     assert response.status_code == 200
+
+
+async def test_a_recovery_link_lasts_an_hour_across_the_autumn_clock_change(
+    setup_http: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sent_at = datetime(2026, 10, 25, 0, 30, tzinfo=UTC)
+
+    class Frozen(datetime):
+        @classmethod
+        def now(cls, tz: Any = None) -> datetime:  # type: ignore[override]
+            return sent_at.astimezone(tz) if tz else sent_at.replace(tzinfo=None)
+
+    await _register(setup_http, "judy@example.io")
+    monkeypatch.setattr(auth_api.context, "get_timezone", lambda: ZoneInfo("Europe/Paris"))
+    monkeypatch.setattr(auth_api, "datetime", Frozen)
+
+    await setup_http.post("/api/auth/password/forgot", json={"email": "judy@example.io"})
+
+    user = await User.query.filter(email="judy@example.io").first()
+    assert user is not None
+    assert user.reset_pwd_expires_at == sent_at + timedelta(hours=1)
 
 
 async def test_password_reset_flow(setup_http: httpx.AsyncClient) -> None:

@@ -3,10 +3,9 @@
 
 import logging
 from collections.abc import Callable
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from fastedgy import context as fastedgy_context
 from fastedgy.dependencies import get_service
 from fastedgy.orm import Registry
 from fastedgy.queued_task.models.queued_task import QueuedTaskState
@@ -56,7 +55,7 @@ class Scheduler:
         """
         # Calculate execution date
         if isinstance(run_at, timedelta):
-            date_enqueued = datetime.now(fastedgy_context.get_timezone()) + run_at
+            date_enqueued = datetime.now(UTC) + run_at
         else:
             date_enqueued = run_at
 

@@ -207,7 +207,7 @@ async def password_forgot(
         data.email,
         context.get_locale(),
         settings.base_url_app,
-        datetime.now(context.get_timezone()) + timedelta(hours=1),
+        datetime.now(UTC) + timedelta(hours=1),
     )
 
     return SimpleMessage(message=_t("Password reset email sent"))

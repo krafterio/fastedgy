@@ -26,9 +26,7 @@ class CustomView(BaseCustomView):
             fields.Index(fields=["user"], suffix="idx_custom_views"),
         ]
 
-    workspace = fields.ForeignKey(
-        "Household", null=True, on_delete="CASCADE", related_name=False, exclude=True
-    )
+    workspace = fields.ForeignKey("Household", null=True, on_delete="CASCADE", related_name=False, exclude=True)
 
     @classmethod
     def can_manage_shared(cls) -> bool:

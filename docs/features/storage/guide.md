@@ -381,6 +381,7 @@ copies it block by block, and the S3 adapter sends a large file in parts. `uploa
 ```python
 import tempfile
 
+
 @app.post("/export")
 async def export(storage: Storage = Inject(Storage)):
     with tempfile.TemporaryFile() as file:

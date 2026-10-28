@@ -5,9 +5,11 @@ import httpx
 import pytest
 
 from fastedgy.app import FastEdgy
+from fastedgy.metadata_model.generator import generate_metadata_field
 from fastedgy.orm.relations.processor import process_foreign_key_operation
 from fastedgy.orm.relations.utils import RelationOperationError
 from fastedgy.test.models.category import Category
+from fastedgy.test.models.entry import INBOX, Entry
 
 
 async def _make_category(http: httpx.AsyncClient, name: str) -> dict:
@@ -199,3 +201,43 @@ async def test_required_foreign_key_cannot_be_unlinked(setup_openapi_app: FastEd
 
     with pytest.raises(RelationOperationError, match="required"):
         await process_foreign_key_operation(Category, ["unlink"], nullable=False, field_name="category")
+
+
+async def test_a_creation_may_leave_out_an_input_optional_key_the_server_fills(auth_http: httpx.AsyncClient) -> None:
+    response = await auth_http.post("/api/test_entries", json={"label": "Receipt"})
+
+    assert response.status_code == 200, response.text
+    category = (await auth_http.get(f"/api/test_categories/{response.json()['category']['id']}")).json()
+    assert category["name"] == INBOX
+
+
+async def test_a_creation_may_send_null_on_an_input_optional_key(auth_http: httpx.AsyncClient) -> None:
+    response = await auth_http.post("/api/test_entries", json={"label": "Receipt", "category": None})
+
+    assert response.status_code == 200, response.text
+    assert response.json()["category"]["id"] is not None
+
+
+async def test_an_input_optional_key_keeps_the_record_given(auth_http: httpx.AsyncClient) -> None:
+    category = await _make_category(auth_http, "Travel")
+
+    response = await auth_http.post("/api/test_entries", json={"label": "Train", "category": category["id"]})
+
+    assert response.status_code == 200, response.text
+    assert response.json()["category"] == {"id": category["id"]}
+
+
+async def test_an_update_still_refuses_null_on_an_input_optional_key(auth_http: httpx.AsyncClient) -> None:
+    entry = (await auth_http.post("/api/test_entries", json={"label": "Receipt"})).json()
+
+    response = await auth_http.patch(f"/api/test_entries/{entry['id']}", json={"category": None})
+
+    assert response.status_code == 400
+
+
+async def test_the_metadata_does_not_require_an_input_optional_key(setup_openapi_app: FastEdgy) -> None:
+    assert generate_metadata_field(Entry, Entry.meta.fields["category"]).required is False
+
+
+async def test_an_input_optional_key_stays_not_null_in_the_database(setup_openapi_app: FastEdgy) -> None:
+    assert Entry.table.columns["category"].nullable is False

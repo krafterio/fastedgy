@@ -280,7 +280,7 @@ def generate_metadata_field(model_cls: type[Model], field: BaseFieldType) -> Met
     field_type = generate_metadata_field_type(field)
     readonly = field.read_only
     has_default = field.default is not None and field.default != PydanticUndefined
-    required = not field.null and not field.read_only
+    required = not field.null and not field.read_only and not getattr(field, "input_optional", False)
 
     if find_primary_key_field(model_cls) == field.name:
         readonly = True

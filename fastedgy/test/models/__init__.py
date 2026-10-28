@@ -6,6 +6,7 @@ from fastedgy.test.models.assignment import Assignment
 from fastedgy.test.models.attachment import Attachment
 from fastedgy.test.models.category import Category
 from fastedgy.test.models.comment import Comment
+from fastedgy.test.models.entry import Entry
 from fastedgy.test.models.fs_optimize import (
     FsoBrand,
     FsoCategory,
@@ -82,6 +83,7 @@ __all__ = [
     "Attachment",
     "Category",
     "Comment",
+    "Entry",
     "FsoBrand",
     "FsoCategory",
     "FsoProduct",

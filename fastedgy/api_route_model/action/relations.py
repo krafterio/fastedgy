@@ -327,6 +327,10 @@ async def process_foreign_key_fields(
 
     for field_name, value in foreign_key_data.items():
         field = model_cls.model_fields[field_name]
+
+        if value is None and instance is None and getattr(field, "input_optional", False):
+            continue
+
         related_model = get_related_model(field)
         plain_value = _plain_foreign_key_value(value)
         lookup = getattr(field, "lookup", None)

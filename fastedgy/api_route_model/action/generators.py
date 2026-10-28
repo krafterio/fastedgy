@@ -280,7 +280,7 @@ def _input_create_model[M: BaseModel | BaseView](model_cls: type[M], _pending: b
             # ForeignKey accepts an id, an object ({"id": ...} with optional
             # updates) or a single advanced-mode operation.
             options = _foreign_key_field_options(field_name, field)
-            if field.null:
+            if field.null or getattr(field, "input_optional", False):
                 fields[field_name] = (
                     Union[_foreign_key_input(field), None],
                     PydanticField(default=None, **options),

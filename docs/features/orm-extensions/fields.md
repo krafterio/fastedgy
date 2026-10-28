@@ -263,6 +263,37 @@ class Product(BaseModel):
 `POST /api/categories {"name": "Phones", "products": ["Pixel"]}` then links the product named
 `Pixel`.
 
+`input_optional=True` keeps a non-nullable key required in the database while the generated API
+routes accept a creation without it, for a key the server knows how to fill. The body may leave it
+out or send `null`, the metadata no longer marks it required, and a `pre_save` signal fills it
+before the insert:
+
+```python
+from fastedgy.orm.filter import R
+from fastedgy.orm.signals import pre_save
+
+
+class Entry(BaseModel):
+    class Meta:
+        tablename = "entries"
+
+    label = fields.CharField(max_length=100)
+    category = fields.ForeignKey("Category", on_delete="CASCADE", input_optional=True)
+
+
+@pre_save.connect_via(Entry)
+async def file_in_inbox(_, instance, values, column_values, is_update=False, **kwargs) -> None:
+    if is_update or column_values.get("category") is not None:
+        return
+
+    inbox = await Category.query.filter(R("name", "=", "Inbox")).first() or await Category(name="Inbox").save()
+    instance.category = inbox
+    values["category"] = column_values["category"] = inbox.id
+```
+
+The column stays `NOT NULL`: a write that nothing fills fails at the insert instead of storing
+`null`. An update still refuses `null` on the key, as for any required foreign key.
+
 ## Generic Foreign Key
 
 Polymorphic many-to-one relationship stored as a pair of sibling columns (target model name + target id). See the dedicated [Generic Foreign Key](generic-foreign-key.md) page for the full API surface (reverse relations, payloads, filtering, fields selector).

@@ -32,6 +32,8 @@ class FilesystemAdapter(StorageAdapter):
 
     @staticmethod
     def _open(full: Path, start: int = 0) -> tuple[BinaryIO, int]:
+        if full.is_dir():
+            raise FileNotFoundError(full)
         file = open(full, "rb")  # noqa: SIM115 - closed by the chunk iterator it is handed to
         if start:
             file.seek(start)
@@ -107,7 +109,9 @@ class FilesystemAdapter(StorageAdapter):
         return self._full_path(path).exists()
 
     async def read(self, path: str) -> bytes:
-        return await to_thread.run_sync(self._full_path(path).read_bytes)
+        file, _ = await to_thread.run_sync(self._open, self._full_path(path))
+        with file:
+            return await to_thread.run_sync(file.read)
 
     async def read_stream(self, path: str, chunk_size: int = 1024 * 1024) -> AsyncIterator[bytes]:
         file, _ = await to_thread.run_sync(self._open, self._full_path(path))

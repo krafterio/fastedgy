@@ -35,6 +35,17 @@ async def test_a_missing_file_is_not_found(adapter: FilesystemAdapter) -> None:
         await adapter.open_stream("nowhere.txt")
 
 
+async def test_a_directory_is_not_a_file(adapter: FilesystemAdapter) -> None:
+    await adapter.write("household/3/notes.txt", b"hello")
+
+    with pytest.raises(FileNotFoundError):
+        await adapter.open_stream("household/3")
+    with pytest.raises(FileNotFoundError):
+        await adapter.open_stream("")
+    with pytest.raises(FileNotFoundError):
+        await adapter.read("household/3")
+
+
 async def test_old_files_then_the_directory_are_removed(adapter: FilesystemAdapter, tmp_path: Path) -> None:
     await adapter.write("cache/old.bin", b"1")
     await adapter.write("cache/new.bin", b"2")

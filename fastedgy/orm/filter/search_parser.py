@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 
 # Unicode DOUBLE quote characters → normalized to ASCII ", the phrase delimiter.
 # The single ones are deliberately absent: a phone keyboard types an apostrophe
@@ -25,6 +26,7 @@ def _normalize_input(raw: str) -> str:
     - Convert Unicode double quote variants to ASCII "
     - Turn every apostrophe form into a separator
     - Keep +, -, alphanumeric, spaces, and ASCII "
+    - Turn a character that expands to punctuation (½ → 1⁄2) into a separator
     - Strip everything else
     """
     # Normalize quotes, then split on apostrophes
@@ -34,7 +36,7 @@ def _normalize_input(raw: str) -> str:
     # Keep only: alphanumeric, spaces, ", +, -
     result = []
     for ch in raw:
-        if ch.isalnum() or ch in (" ", '"', "+", "-"):
+        if (ch.isalnum() and unicodedata.normalize("NFKC", ch).isalnum()) or ch in (" ", '"', "+", "-"):
             result.append(ch)
         else:
             result.append(" ")

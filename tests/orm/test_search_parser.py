@@ -49,3 +49,11 @@ def test_quoted_phrase_still_builds_a_proximity_query() -> None:
 
 def test_operators_are_preserved() -> None:
     assert parse_search_input("+bio -sucre lait") == "lait:* & (bio:*) & !(sucre:*)"
+
+
+@pytest.mark.parametrize(
+    ("raw", "parsed"),
+    [("paprika½", "paprika:*"), ("½ cuillère", "cuillère:*"), ("⅓ tasse", "tasse:*")],
+)
+def test_a_vulgar_fraction_is_a_separator(raw: str, parsed: str) -> None:
+    assert parse_search_input(raw) == parsed

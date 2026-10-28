@@ -566,6 +566,8 @@ FILTER_OPERATORS_FIELD_MAP = {
         "is not empty",
     ],
     JSONField: [
+        "contains",
+        "not contains",
         "is empty",
         "is not empty",
     ],

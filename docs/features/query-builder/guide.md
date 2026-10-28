@@ -133,6 +133,21 @@ GET /api/orders/
 X-Filter: ["created_at", ">=", "2024-01-01T00:00:00Z"]
 ```
 
+A day relative to the one the filter is read is an expression (see
+[Dynamic values](#dynamic-values)): `` ["created_at", ">=", "`today(-30)`"] ``.
+
+### JSONField
+**Operators**: `contains`, `not contains`, `is empty`, `is not empty`
+
+`contains` is PostgreSQL's `@>`: a scalar is an element of the array the field
+holds, a list or an object is contained as a whole.
+
+**Example**:
+```bash
+GET /api/contacts/
+X-Filter: ["tags", "contains", "vip"]
+```
+
 ### ChoiceField
 **Operators**: `=`, `!=`, `in`, `not in`, `is empty`, `is not empty`
 
@@ -251,6 +266,32 @@ block, an `or` branch and an ordering on a relation that fans out cross the
 same rows. `global_query`, and a rule
 allowed to reach the excluded fields (the global filters themselves), answer
 for the system and cross everything.
+
+## Dynamic values
+
+A value written between backticks is an expression, evaluated each time the
+filter is read rather than when it was written, in the format of the domains
+of Kastor. A filter stored in a saved view or a segment keeps meaning "the
+last thirty days" whatever the day:
+
+```bash
+GET /api/orders/
+X-Filter: ["created_at", ">=", "`today(-30)`"]
+
+GET /api/orders/
+X-Filter: ["created_at", "between", ["`today(-60)`", "`today(-30)`"]]
+```
+
+| Function | Returns |
+|----------|---------|
+| `today(offset)` | The ISO day (UTC) moved by `offset` days, `today()` for today |
+| `now()` | The ISO instant |
+
+The expression holds numbers, strings, `true`, `false`, `null`, lists, a unary
+`-` or `+`, `+ - * / %` and calls to these functions (`today(-3 * 7)`).
+Anything else, or an expression longer than 200 characters, answers a 422.
+Expressions are evaluated inside an `any` sub-filter and inside a list
+(`between`, `in`) too.
 
 ## Complex filtering
 

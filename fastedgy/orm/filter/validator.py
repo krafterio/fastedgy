@@ -7,6 +7,7 @@ from fastedgy.config import BaseSettings
 from fastedgy.dependencies import get_service
 from fastedgy.orm import Model
 from fastedgy.orm.fields import CharChoiceField, ChoiceField, ManyToMany
+from fastedgy.orm.filter.expressions import resolve
 from fastedgy.orm.filter.operators import ANY_OPERATORS, get_filter_operators
 from fastedgy.orm.filter.types import (
     And,
@@ -44,7 +45,9 @@ def validate_filters(
 
             return _validate_any_rule(model_cls, filters, allow_excluded=allow_excluded, crossed=crossed)
 
-        key_rule = _related_key_rule(model_cls, filters)
+        # The expressions of the value are evaluated here, once per build: a
+        # stored `today(-30)` reads the day the filter is applied.
+        key_rule = _related_key_rule(model_cls, R(filters.field, filters.operator, resolve(filters.value)))
 
         if not validate_filter_field(model_cls, key_rule.field, allow_excluded=allow_excluded):
             raise InvalidFilterError(f"Invalid filter field: {filters.field}")

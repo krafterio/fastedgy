@@ -5,6 +5,9 @@ from dataclasses import dataclass, field
 from typing import Any, cast
 
 from sqlalchemy import (
+    JSON as SaJSON,
+)
+from sqlalchemy import (
     Text as SaText,
 )
 from sqlalchemy import (
@@ -20,6 +23,7 @@ from sqlalchemy import (
     exists,
     literal_column,
     text,
+    type_coerce,
 )
 from sqlalchemy import (
     not_ as sa_not,
@@ -30,6 +34,7 @@ from sqlalchemy import (
 from sqlalchemy import (
     select as sa_select,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 
 from fastedgy.orm import Model
 from fastedgy.orm.fields import (
@@ -40,6 +45,7 @@ from fastedgy.orm.fields import (
     DecimalField,
     FloatField,
     IntegerField,
+    JSONField,
     ManyToMany,
     SmallIntegerField,
     UUIDField,
@@ -111,6 +117,19 @@ _FULLTEXT_OPERATORS = {
     "search",
     "search_fuzzy",
 }
+
+_JSON_OPERATORS = {
+    "contains",
+    "not contains",
+}
+
+
+def _json_contains(column: Any, operator: str, value: Any) -> Any:
+    """A JSON column holds the value (``@>``): a scalar is an element of its
+    array, a list or an object is contained as a whole."""
+    held = type_coerce(column, JSONB).contains(value if isinstance(value, list | dict) else [value])
+
+    return held if operator == "contains" else sa_not(held)
 
 
 def build_filter_expression(
@@ -188,6 +207,9 @@ def build_filter_expression(
 
         if "." not in field and getattr(field_type, "is_generic_foreign_key", False):
             return _build_generic_reference_expression(model_cls, cast(Any, field_type), filters)
+
+        if "." not in field and filters.operator in _JSON_OPERATORS and isinstance(field_type, JSONField):
+            return _json_contains(_find_column_in_model(model_cls, field), filters.operator, filters.value)
 
         # Pattern operators build a LIKE: a UUID column must be compared as
         # text (PostgreSQL has no uuid ~~ text operator).
@@ -629,6 +651,9 @@ def _scoped_relation_path_source(scope: ExistsScope, resolved_field: str) -> tup
 def _exists_leaf_condition(filters: FilterRule, final_column: Any, value: Any) -> Any:
     """The predicate a rule puts on the column its path ends at."""
     operator_method = FILTER_OPERATORS_SQL[filters.operator]
+
+    if filters.operator in _JSON_OPERATORS and isinstance(getattr(final_column, "type", None), SaJSON):
+        return _json_contains(final_column, filters.operator, value)
 
     if filters.operator in _PATTERN_OPERATORS and isinstance(getattr(final_column, "type", None), SaUuid):
         # A UUID column compares as text under pattern operators (PostgreSQL

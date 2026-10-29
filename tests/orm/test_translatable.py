@@ -5,6 +5,8 @@ from collections.abc import Callable
 from typing import Any
 
 import pytest
+from pydantic import ValidationError
+from sqlalchemy.exc import StatementError
 
 from fastedgy import context
 from fastedgy.app import FastEdgy
@@ -24,7 +26,7 @@ def locales(override_settings: Callable[..., None]) -> None:
     override_settings(available_locales=["en", "fr", "de"], fallback_locale="en")
 
 
-async def _create(title: str = "Chair", **values: Any) -> Course:
+async def _create(title: str | dict[str, str | None] = "Chair", **values: Any) -> Course:
     course = Course(code=values.pop("code", "C1"), title=title, **values)
     await course.save()
 
@@ -132,6 +134,55 @@ async def test_a_message_to_translate_writes_every_locale_it_is_translated_in(
         assert course.title == "Utilisateur"
 
     assert await read_translations(course, "title") == {"en": "User", "fr": "Utilisateur"}
+
+
+async def test_translations_keyed_by_locale_set_each_of_them(setup_db: FastEdgy) -> None:
+    course = await _create({"fr": "Chaise", "de": "Stuhl"})
+
+    assert await read_translations(course, "title") == {"en": "Chaise", "fr": "Chaise", "de": "Stuhl"}
+    assert course.title == "Chaise"
+
+    await course.update(title={"en": "Chair", "de": None})
+
+    assert await read_translations(course, "title") == {"en": "Chair", "fr": "Chaise"}
+
+    with context.locale("fr"):
+        assert (await _get(course)).title == "Chaise"
+
+
+async def test_a_write_refuses_a_locale_outside_the_available_ones(setup_db: FastEdgy) -> None:
+    with pytest.raises(ValidationError, match="Unavailable locale: it"):
+        Course(code="C1", title={"it": "Sedia"})
+
+    course = await _create("Chair")
+
+    with pytest.raises(StatementError, match="Unavailable locale: it"):
+        await course.update(title={"it": "Sedia"})
+
+    with context.locale("it"), pytest.raises(StatementError, match="Unavailable locale: it"):
+        await course.update(title="Sedia")
+
+    assert await read_translations(course, "title") == {"en": "Chair"}
+
+
+async def test_each_translation_is_validated_as_the_text_it_is(setup_db: FastEdgy) -> None:
+    with pytest.raises(ValidationError, match="at most 40 characters"):
+        Course(code="C1", title={"fr": "x" * 41})
+
+    with pytest.raises(ValidationError, match="fallback locale en is required"):
+        Course(code="C1", title={"en": None, "fr": "Chaise"})
+
+    assert Course(code="C1", title={"en": "a", "fr": "b", "de": "c"}).title == {"en": "a", "fr": "b", "de": "c"}
+    assert Course(code="C1", title="Chair", summary={"en": None}).summary == {"en": None}
+
+
+def test_a_translatable_field_is_neither_unique_nor_a_primary_key() -> None:
+    from edgy.exceptions import FieldDefinitionError
+
+    from fastedgy.orm import fields
+
+    with pytest.raises(FieldDefinitionError, match="neither unique nor a primary key"):
+        fields.CharField(max_length=40, translatable=True, unique=True)
 
 
 async def test_every_write_path_merges_into_the_document(setup_db: FastEdgy) -> None:
@@ -268,3 +319,17 @@ async def test_the_data_loader_rewrites_a_message_whose_translations_changed(
 
     assert report.updated == 1
     assert await read_translations(await Course.query.get(code="U"), "title") == {"en": "User"}
+
+
+async def test_the_data_loader_writes_translations_keyed_by_locale(setup_db: FastEdgy, tmp_path: Any) -> None:
+    from fastedgy.orm.loader import load_data
+
+    (tmp_path / "course.py").write_text(
+        "from fastedgy.orm.loader import id\n\n"
+        'data = [{"id": id("course_chair"), "code": "C", "title": {"en": "Chair", "fr": "Chaise"}}]\n',
+        encoding="utf-8",
+    )
+
+    assert (await load_data(str(tmp_path))).created == 1
+    assert (await load_data(str(tmp_path))).updated == 0
+    assert await read_translations(await Course.query.get(code="C"), "title") == {"en": "Chair", "fr": "Chaise"}

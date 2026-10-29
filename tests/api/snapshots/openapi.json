@@ -2067,6 +2067,24 @@
                 "type": "string"
               },
               {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "propertyNames": {
+                  "enum": [
+                    "en"
+                  ]
+                },
+                "type": "object"
+              },
+              {
                 "type": "null"
               }
             ],
@@ -2124,15 +2142,56 @@
                 "type": "string"
               },
               {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "propertyNames": {
+                  "enum": [
+                    "en"
+                  ]
+                },
+                "type": "object"
+              },
+              {
                 "type": "null"
               }
             ],
             "title": "Summary"
           },
           "title": {
-            "maxLength": 40,
-            "title": "Title",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "maxLength": 40,
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "propertyNames": {
+                  "enum": [
+                    "en"
+                  ]
+                },
+                "type": "object"
+              }
+            ],
+            "title": "Title"
           }
         },
         "required": [
@@ -2193,6 +2252,24 @@
             "anyOf": [
               {
                 "type": "string"
+              },
+              {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "propertyNames": {
+                  "enum": [
+                    "en"
+                  ]
+                },
+                "type": "object"
               },
               {
                 "type": "null"
@@ -2259,6 +2336,24 @@
                 "type": "string"
               },
               {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "propertyNames": {
+                  "enum": [
+                    "en"
+                  ]
+                },
+                "type": "object"
+              },
+              {
                 "type": "null"
               }
             ],
@@ -2269,6 +2364,25 @@
               {
                 "maxLength": 40,
                 "type": "string"
+              },
+              {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "maxLength": 40,
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "propertyNames": {
+                  "enum": [
+                    "en"
+                  ]
+                },
+                "type": "object"
               },
               {
                 "type": "null"

@@ -217,10 +217,15 @@ async def _apply_record(
         changed = False
 
         for name, value in scalars.items():
-            if isinstance(value, TranslatableString) and is_translatable(model_cls.meta.fields.get(name)):
-                # The record reads one locale: what the message must match is
-                # every translation the catalogs now hold.
+            translatable = is_translatable(model_cls.meta.fields.get(name))
+
+            # The record reads one locale: a message must match every
+            # translation the catalogs now hold, translations the locales they name.
+            if translatable and isinstance(value, TranslatableString):
                 differs = await read_translations(existing, name) != translations_of(value)
+            elif translatable and isinstance(value, dict):
+                stored = await read_translations(existing, name)
+                differs = any(stored.get(locale) != text for locale, text in value.items())
             else:
                 current = getattr(existing, name, None)
                 differs = getattr(current, "id", current) != value

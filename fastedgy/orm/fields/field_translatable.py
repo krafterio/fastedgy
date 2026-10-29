@@ -1,15 +1,19 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from typing import Annotated, Any, cast
 
 import sqlalchemy
+from annotated_types import MaxLen, MinLen
 from edgy.core.db.context_vars import CURRENT_PHASE
-from edgy.core.db.fields.base import Field
+from edgy.core.db.fields.base import BaseField, Field
 from edgy.core.db.fields.factories import FieldFactory
 from edgy.core.db.fields.types import BaseFieldType
-from pydantic import ValidatorFunctionWrapHandler, WrapValidator
+from edgy.exceptions import FieldDefinitionError
+from pydantic import GetJsonSchemaHandler, StringConstraints, ValidatorFunctionWrapHandler, WrapValidator
+from pydantic.json_schema import JsonSchemaValue
+from pydantic_core import CoreSchema
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.sql.compiler import SQLCompiler
@@ -30,6 +34,26 @@ def _fallback_locale() -> str:
     from fastedgy.context import get_fallback_locale
 
     return get_fallback_locale()
+
+
+def _available_locales() -> list[str]:
+    from fastedgy.config import BaseSettings
+    from fastedgy.dependencies import get_service, has_service
+
+    if not has_service(BaseSettings):
+        return []
+
+    settings = get_service(BaseSettings)
+
+    return list(dict.fromkeys([settings.fallback_locale, *settings.available_locales]))
+
+
+def _check_locales(locales: Iterable[str]) -> None:
+    available = _available_locales()
+    unknown = [locale for locale in locales if locale not in available]
+
+    if unknown:
+        raise ValueError(f"Unavailable locale: {', '.join(unknown)} (available: {', '.join(available)})")
 
 
 def _locale_param(name: str, resolve: Callable[[], str]) -> BindParameter[str]:
@@ -73,8 +97,9 @@ class Translatable(TypeDecorator[Any]):
     reads something. Writing the text a locale already reads changes nothing:
     saving a record read through the fallback does not turn that fallback into
     a translation of its own. ``None`` removes the current locale, and a column
-    left with none is ``NULL``. A message marked with ``_ts`` replaces every
-    locale with its translations, as a ``dict`` of the locales does.
+    left with none is ``NULL``. A ``dict`` of locales sets each of them the
+    same way, and a message marked with ``_ts`` replaces every locale with its
+    translations. A locale outside the available ones is refused.
     """
 
     impl = JSONB
@@ -97,12 +122,18 @@ class Translatable(TypeDecorator[Any]):
         if isinstance(value, TranslatableString):
             return {"replace": True, "set": translations_of(value)}
 
+        fallback = _fallback_locale()
+
         if isinstance(value, dict):
-            return {"replace": True, "set": value}
+            _check_locales(value)
+            texts = {locale: None if text is None else str(text) for locale, text in value.items()}
+            first = next((text for text in texts.values() if text is not None), None)
+
+            return {"missing": {fallback: first}, "set": texts}
 
         locale = _current_locale()
-        fallback = _fallback_locale()
         text = None if value is None else str(value)
+        _check_locales([locale])
 
         return {"read": [locale, fallback, text], "missing": {fallback: text}, "set": {locale: text}}
 
@@ -184,9 +215,50 @@ def _compile_translatable_write(element: _TranslatableWrite, compiler: SQLCompil
     return f"(SELECT CASE WHEN {unchanged} THEN {current} ELSE {merged} END FROM (SELECT {payload} AS p) AS _t)"
 
 
-def _keep_translatable_string(value: Any, handler: ValidatorFunctionWrapHandler) -> Any:
-    # A message to translate reaches the column as it is, to be written in every locale.
-    return value if isinstance(value, TranslatableString) else handler(value)
+class _AvailableLocale:
+    """A key of the translations a write takes: its schema lists the available locales."""
+
+    def __get_pydantic_json_schema__(self, schema: CoreSchema, handler: GetJsonSchemaHandler) -> JsonSchemaValue:
+        json_schema = handler(schema)
+        locales = _available_locales()
+
+        if locales:
+            json_schema["enum"] = locales
+
+        return json_schema
+
+
+def _validate_translations(nullable: bool) -> Callable[[Any, ValidatorFunctionWrapHandler], Any]:
+    def validate(value: Any, handler: ValidatorFunctionWrapHandler) -> Any:
+        # A message to translate reaches the column as it is, to be written in every locale.
+        if isinstance(value, TranslatableString):
+            return value
+
+        if not isinstance(value, dict):
+            return handler(value)
+
+        _check_locales(value)
+        fallback = _fallback_locale()
+
+        if not nullable and fallback in value and value[fallback] is None:
+            raise ValueError(f"The text of the fallback locale {fallback} is required")
+
+        return {locale: None if text is None else handler(text) for locale, text in value.items()}
+
+    return validate
+
+
+def _bounds_text(metadata: Any) -> bool:
+    return isinstance(metadata, MaxLen | MinLen) or getattr(metadata, "pattern", None) is not None
+
+
+def _written_text(document: dict[str, Any]) -> Any:
+    """What the current locale reads in the translations just written: theirs, the fallback's, the first text."""
+    for locale in (_current_locale(), _fallback_locale()):
+        if document.get(locale) is not None:
+            return document[locale]
+
+    return next((text for text in document.values() if text is not None), None)
 
 
 class TranslatableOptions(FieldFactory):
@@ -200,13 +272,49 @@ class TranslatableOptions(FieldFactory):
         return super().get_column_type(kwargs)
 
     @classmethod
+    def validate(cls, kwargs: dict[str, Any]) -> None:
+        super().validate(kwargs)
+
+        if kwargs.get("translatable") and (kwargs.get("unique") or kwargs.get("primary_key")):
+            raise FieldDefinitionError(
+                detail="A translatable field can be neither unique nor a primary key: it holds one text per locale"
+            )
+
+    @classmethod
     def get_pydantic_type(cls, kwargs: dict[str, Any]) -> Any:
         field_type = super().get_pydantic_type(kwargs)
 
-        if kwargs.get("translatable"):
-            return Annotated[field_type, WrapValidator(_keep_translatable_string)]
+        if not kwargs.get("translatable"):
+            return field_type
 
-        return field_type
+        # A write takes a text, or its translations keyed by locale: in JSON
+        # `"Chair"` or `{"en": "Chair", "fr": "Chaise"}`. A read gives the text.
+        text = Annotated[
+            field_type,
+            StringConstraints(
+                min_length=kwargs.get("min_length"),
+                max_length=kwargs.get("max_length"),
+                pattern=kwargs.get("pattern"),
+            ),
+        ]
+        translations = dict[Annotated[str, _AvailableLocale()], text | None]
+        validator = WrapValidator(
+            _validate_translations(bool(kwargs.get("null"))),
+            json_schema_input_type=text | translations,
+        )
+
+        return Annotated[text, validator]
+
+    @classmethod
+    def build_field(cls, **kwargs: Any) -> BaseFieldType:
+        field = super().build_field(**kwargs)
+
+        # The text type carries the length and the pattern: on the field, they
+        # would bound the translations a write takes by their count of locales.
+        if kwargs.get("translatable") and isinstance(field, BaseField):
+            field.metadata = [metadata for metadata in field.metadata if not _bounds_text(metadata)]
+
+        return field
 
     # These overrides call the field class itself, never `original_fn`: Edgy
     # copies a field into every model inheriting it, and the copy keeps the
@@ -223,9 +331,15 @@ class TranslatableOptions(FieldFactory):
 
     @classmethod
     def to_model(cls, field_obj: BaseFieldType, field_name: str, value: Any, **kwargs: Any) -> dict[str, Any]:
-        # Once written, the record holds the text of its locale, not the message.
-        if isinstance(value, TranslatableString) and CURRENT_PHASE.get() in ("post_insert", "post_update"):
-            value = str(value)
+        # Once written, the record holds the text of its locale, not the
+        # message or the translations. After an update with translations
+        # missing that locale, the text is the one they lead it to read: a
+        # load reads what the row holds.
+        if CURRENT_PHASE.get() in ("post_insert", "post_update"):
+            if isinstance(value, TranslatableString):
+                value = str(value)
+            elif isinstance(value, dict):
+                value = _written_text(value)
 
         return type(field_obj).to_model(field_obj, field_name, value)
 

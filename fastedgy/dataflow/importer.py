@@ -3,15 +3,19 @@
 
 import csv
 import io
+import re
 from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.exc import DataError, IntegrityError, ProgrammingError
 
+from fastedgy import context
+from fastedgy.dataflow.exporter import parse_field_with_converter, translation_locale
 from fastedgy.i18n import _t
 from fastedgy.metadata_model.utils import get_field_label_from_path
 from fastedgy.orm import transaction
+from fastedgy.orm.fields import is_translatable
 from fastedgy.orm.filter import R
 from fastedgy.orm.query import QuerySet
 from fastedgy.schemas import BaseModel, ValidationError
@@ -417,6 +421,7 @@ def map_columns(headers: list[str], model_cls: "type[Model]") -> dict[str, str]:
     Supports:
     - Technical names: "name", "user.email"
     - Labels: "Name", "User / Email"
+    - One locale of a translatable field: "title:fr", "Title (fr)"
 
     Args:
         headers: List of column headers from file
@@ -432,9 +437,11 @@ def map_columns(headers: list[str], model_cls: "type[Model]") -> dict[str, str]:
             continue
 
         header_clean = header.strip()
+        translation = _translation_column(model_cls, header_clean)
 
-        # Try direct match with field name (technical)
-        if "." in header_clean:
+        if translation:
+            mapping[header] = translation
+        elif "." in header_clean:
             # Nested field (e.g., "user.email")
             mapping[header] = header_clean
         elif header_clean in model_cls.meta.fields:
@@ -447,6 +454,38 @@ def map_columns(headers: list[str], model_cls: "type[Model]") -> dict[str, str]:
                 mapping[header] = field_name
 
     return mapping
+
+
+_LOCALE_LABEL = re.compile(r"(.+) \(([^()]+)\)")
+
+
+def _translation_column(model_cls: "type[Model]", header: str) -> str | None:
+    """The ``field:locale`` a header names for one locale of a translatable field: ``title:fr`` or ``Title (fr)``."""
+    path, locale = parse_field_with_converter(header)
+
+    if translation_locale(model_cls, path, locale):
+        return header
+
+    labelled = _LOCALE_LABEL.fullmatch(header)
+    field_name = find_field_by_label(model_cls, labelled[1]) if labelled else None
+
+    if labelled and field_name and translation_locale(model_cls, field_name, labelled[2]):
+        return f"{field_name}:{labelled[2]}"
+
+    return None
+
+
+def _add_translation(model_data: dict[str, Any], field_name: str, locale: str, text: Any) -> None:
+    """Gather the columns of a translatable field into its translations, a text of its own read as the current
+    locale's."""
+    current = model_data.get(field_name)
+    translations = current if isinstance(current, dict) else {}
+
+    if isinstance(current, str):
+        translations[context.get_locale()] = current
+
+    translations[locale] = text
+    model_data[field_name] = translations
 
 
 def find_field_by_label(model_cls: "type[Model]", label: str) -> str | None:
@@ -610,6 +649,15 @@ async def process_row(
         if field_name == identifier_field and not existing_record:
             continue
 
+        # One locale of a translatable field: an empty cell leaves it as it is
+        path, locale = parse_field_with_converter(field_name)
+
+        if locale and translation_locale(model_cls, path, locale):
+            if value and value.strip():
+                _add_translation(model_data, path, locale, convert_value(value, model_cls.meta.fields[path]))
+
+            continue
+
         # Handle nested fields (relations)
         if "." in field_name:
             await process_relational_field(model_cls, field_name, value, model_data, relational_data)
@@ -621,6 +669,8 @@ async def process_row(
             # Check if it's a direct relational field (Many2one, Many2many, One2many)
             if is_relation_field(field):
                 await process_relational_field(model_cls, field_name, value, model_data, relational_data)
+            elif isinstance(model_data.get(field_name), dict):
+                _add_translation(model_data, field_name, context.get_locale(), convert_value(value, field))
             else:
                 # Regular scalar field
                 model_data[field_name] = convert_value(value, field)
@@ -798,6 +848,10 @@ def convert_value(value: str, field) -> Any:
         return None
 
     value = value.strip()
+
+    # A text, whose type names constraints the type sniffing below would mistake for another
+    if is_translatable(field):
+        return value
 
     # Get field type
     field_type = getattr(field, "field_type", None) or type(field).__name__

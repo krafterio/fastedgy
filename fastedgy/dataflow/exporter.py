@@ -3,6 +3,7 @@
 
 import csv
 import io
+from collections.abc import Sequence
 from datetime import date, datetime
 from enum import Enum
 from typing import Any
@@ -19,6 +20,7 @@ from fastedgy.orm.field_selector import (
     clean_field_names_from_input,
     optimize_query_filter_fields,
 )
+from fastedgy.orm.fields import available_locales, fetch_translations, is_translatable
 from fastedgy.orm.filter import (
     InvalidFilterError,
     filter_query,
@@ -44,6 +46,42 @@ def parse_field_with_converter(field_expr: str) -> tuple[str, str | None]:
         parts = field_expr.rsplit(":", 1)
         return parts[0], parts[1]
     return field_expr, None
+
+
+def translation_locale(model_cls: type, field_path: str, converter: str | None) -> str | None:
+    """The locale a column names on a translatable field of the model (``title:fr``), None on any other column."""
+    if not converter or "." in field_path or converter not in available_locales():
+        return None
+
+    fields = getattr(getattr(model_cls, "meta", None), "fields", {})
+
+    return converter if is_translatable(fields.get(field_path)) else None
+
+
+def column_label(model_cls: type, field_path: str, converter: str | None) -> str:
+    """The header of a column: the label of its field, ``Title (fr)`` for one locale of a translatable field."""
+    label = get_field_label_from_path(model_cls, field_path)
+
+    return f"{label} ({converter})" if translation_locale(model_cls, field_path, converter) else label
+
+
+def expand_columns(
+    field_names: list[str],
+    expressions: Sequence[tuple[str, str | None]],
+) -> list[tuple[str, str | None]]:
+    """The columns of the field names, each one once per converter the expressions name for it, in their order.
+
+    A field takes several converters: one column per locale of a translatable field.
+    """
+    converters: dict[str, list[str | None]] = {}
+
+    for path, converter in expressions:
+        named = converters.setdefault(path, [])
+
+        if converter not in named:
+            named.append(converter)
+
+    return [(name, converter) for name in field_names for converter in converters.get(name) or [None]]
 
 
 def apply_export_converter(model_cls: type, field_path: str, value: Any, converter: str | None) -> Any:
@@ -155,8 +193,9 @@ async def export_data[M: BaseModel | BaseView](
         # No converters for auto-generated field list
         field_paths_with_converters = [(name, None) for name in field_names]
 
-    # Build a map of field_path -> converter for quick lookup
-    converter_map = {path: conv for path, conv in field_paths_with_converters}
+    columns = expand_columns(field_names, field_paths_with_converters)
+    translated = [name for name, converter in columns if translation_locale(model_cls, name, converter)]
+    documents = await fetch_translations(model_cls, [item.id for item in items], list(dict.fromkeys(translated)))
 
     data_rows = []
     readable = Readable()
@@ -165,19 +204,22 @@ async def export_data[M: BaseModel | BaseView](
     for item in items:
         row_data = []
 
-        for field_name in field_names:
-            value = await get_value_from_path(item, field_name, readable)
+        for field_name, converter in columns:
+            locale = translation_locale(model_cls, field_name, converter)
 
-            # Apply converter if specified
-            converter = converter_map.get(field_name)
-            if converter is not None:
-                value = apply_export_converter(model_cls, field_name, value, converter)
+            if locale is not None:
+                value = documents.get(item.id, {}).get(field_name, {}).get(locale)
+            else:
+                value = await get_value_from_path(item, field_name, readable)
+
+                if converter is not None:
+                    value = apply_export_converter(model_cls, field_name, value, converter)
 
             row_data.append(format_value(value, relation_delimiter))
 
         data_rows.append(row_data)
 
-    field_labels = [get_field_label_from_path(model_cls, field_name) for field_name in field_names]
+    field_labels = [column_label(model_cls, field_name, converter) for field_name, converter in columns]
 
     if format.lower() == "csv":
         return generate_csv_export(field_labels, data_rows, f"{model_cls.__name__}_export.csv")
@@ -309,10 +351,13 @@ def generate_ods_export(field_names: list[str], data_rows: list[list[str]], file
 
 __all__ = [
     "apply_export_converter",
+    "column_label",
+    "expand_columns",
     "export_data",
     "format_value",
     "generate_csv_export",
     "generate_ods_export",
     "generate_xlsx_export",
     "parse_field_with_converter",
+    "translation_locale",
 ]

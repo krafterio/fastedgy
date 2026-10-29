@@ -112,3 +112,30 @@ async def test_the_translations_route_is_typed_and_only_on_translatable_models(a
         "type": "object",
     }
 
+
+async def test_a_spreadsheet_holds_one_column_per_locale(
+    auth_http: httpx.AsyncClient, override_settings: Callable[..., None]
+) -> None:
+    override_settings(available_locales=["en", "fr"], fallback_locale="en")
+    columns = {"X-Fields": "code,title:en,title:fr"}
+
+    template = await auth_http.get("/api/test_courses/import/template?format=csv", headers=columns)
+
+    assert template.text.splitlines()[0] == "Code,Title (en),Title (fr)"
+
+    imported = await auth_http.post(
+        "/api/test_courses/import",
+        files={"file": ("data.csv", "Code,Title (en),title:fr\nC1,Chair,Chaise\nC2,Table,\n", "text/csv")},
+    )
+
+    assert imported.json()["created"] == 2
+    assert await read_translations(await Course.query.get(code="C1"), "title") == {"en": "Chair", "fr": "Chaise"}
+    assert await read_translations(await Course.query.get(code="C2"), "title") == {"en": "Table"}
+
+    exported = await auth_http.get("/api/test_courses/export?format=csv&order_by=code", headers=columns)
+
+    assert exported.text.splitlines() == ["ID,Code,Title (en),Title (fr)", "1,C1,Chair,Chaise", "2,C2,Table,"]
+
+    await auth_http.post("/api/test_courses/import", files={"file": ("data.csv", "Code,Title\nC3,Lamp\n", "text/csv")})
+
+    assert await read_translations(await Course.query.get(code="C3"), "title") == {"en": "Lamp"}

@@ -87,15 +87,20 @@ async def import_template_action[M: BaseModel | BaseView](
         StreamingResponse with the import template (only field names, no data)
     """
     from fastedgy.dataflow.exporter import (
+        column_label,
+        expand_columns,
         generate_csv_export,
         generate_ods_export,
         generate_xlsx_export,
+        parse_field_with_converter,
     )
-    from fastedgy.metadata_model.utils import get_field_label_from_path
     from fastedgy.orm.field_selector import clean_field_names_from_input
 
+    # A field may name a converter: one locale of a translatable field (`title:fr`)
+    expressions = [parse_field_with_converter(part.strip()) for part in (fields or "").split(",") if part.strip()]
+
     # Get field names to include in template
-    field_names = clean_field_names_from_input(model_cls, fields)
+    field_names = clean_field_names_from_input(model_cls, [path for path, _ in expressions] or None)
 
     if not field_names or len(field_names) == 1 and field_names[0] == "id":
         # Default: exclude primary key, read-only, and auto-managed fields
@@ -122,7 +127,9 @@ async def import_template_action[M: BaseModel | BaseView](
             field_names = [f for f in field_names if f != "id"]
 
     # Get field labels for headers
-    field_labels = [get_field_label_from_path(model_cls, field_name) for field_name in field_names]
+    field_labels = [
+        column_label(model_cls, name, converter) for name, converter in expand_columns(field_names, expressions)
+    ]
 
     # Generate template with only headers (no data rows)
     data_rows = []  # Empty data rows for template

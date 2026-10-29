@@ -13,6 +13,7 @@ from fastedgy.orm.fields import (
     ForeignKey,
     ManyToMany,
     OneToOne,
+    available_locales,
     get_searchable_fields,
     is_translatable,
 )
@@ -311,6 +312,7 @@ def generate_metadata_field(model_cls: type[Model], field: BaseFieldType) -> Met
         required=required and not readonly and not has_default,
         searchable=searchable,
         translatable=is_translatable(field),
+        locales=available_locales() if is_translatable(field) else None,
         extra=False,
         filter_operators=filter_operators,
         target=generate_metadata_name(target_model) if target_model else None,

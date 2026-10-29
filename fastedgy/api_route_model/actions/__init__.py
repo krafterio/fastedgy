@@ -13,6 +13,7 @@ from fastedgy.api_route_model.actions.list_action import ListApiRouteAction
 from fastedgy.api_route_model.actions.patch_action import PatchApiRouteAction
 from fastedgy.api_route_model.actions.siblings_action import SiblingsApiRouteAction
 from fastedgy.api_route_model.actions.sync_action import SyncApiRouteAction
+from fastedgy.api_route_model.actions.translations_action import TranslationsApiRouteAction
 
 __all__ = [
     "CreateApiRouteAction",
@@ -25,4 +26,5 @@ __all__ = [
     "PatchApiRouteAction",
     "SiblingsApiRouteAction",
     "SyncApiRouteAction",
+    "TranslationsApiRouteAction",
 ]

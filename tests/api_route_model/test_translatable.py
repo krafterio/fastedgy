@@ -83,3 +83,32 @@ async def test_the_schema_of_a_translatable_field_reads_a_string_and_writes_tran
             "type": "object",
         },
     ]
+
+
+async def test_the_translations_route_reads_every_locale_of_a_record(
+    auth_http: httpx.AsyncClient, override_settings: Callable[..., None]
+) -> None:
+    override_settings(available_locales=["en", "fr"], fallback_locale="en")
+    created = (
+        await auth_http.post("/api/test_courses", json={"code": "C1", "title": {"en": "Chair", "fr": "Chaise"}})
+    ).json()
+
+    response = await auth_http.get(f"/api/test_courses/{created['id']}/translations")
+
+    assert response.status_code == 200
+    assert response.json() == {"title": {"en": "Chair", "fr": "Chaise"}, "summary": {}, "body": {}}
+    assert (await auth_http.get("/api/test_courses/999999/translations")).status_code == 404
+
+
+async def test_the_translations_route_is_typed_and_only_on_translatable_models(auth_http: httpx.AsyncClient) -> None:
+    spec = (await auth_http.get("/openapi.json")).json()
+
+    assert "/api/test_courses/{item_id}/translations" in spec["paths"]
+    assert "/api/test_categories/{item_id}/translations" not in spec["paths"]
+    assert spec["components"]["schemas"]["Course-Translations"]["properties"]["title"] == {
+        "additionalProperties": {"type": "string"},
+        "propertyNames": {"enum": ["en"]},
+        "title": "Title",
+        "type": "object",
+    }
+

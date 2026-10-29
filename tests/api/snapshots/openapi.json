@@ -2246,6 +2246,53 @@
         "title": "Course-List",
         "type": "object"
       },
+      "Course-Translations": {
+        "properties": {
+          "body": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "enum": [
+                "en"
+              ]
+            },
+            "title": "Body",
+            "type": "object"
+          },
+          "summary": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "enum": [
+                "en"
+              ]
+            },
+            "title": "Summary",
+            "type": "object"
+          },
+          "title": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "enum": [
+                "en"
+              ]
+            },
+            "title": "Title",
+            "type": "object"
+          }
+        },
+        "required": [
+          "title",
+          "summary",
+          "body"
+        ],
+        "title": "Course-Translations",
+        "type": "object"
+      },
       "Course-Update": {
         "properties": {
           "body": {
@@ -3915,6 +3962,20 @@
               }
             ],
             "title": "Local Placeholder"
+          },
+          "locales": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locales"
           },
           "name": {
             "title": "Name",
@@ -17898,6 +17959,69 @@
           }
         ],
         "summary": "Update Course",
+        "tags": [
+          "test_courses"
+        ]
+      }
+    },
+    "/api/test_courses/{item_id}/translations": {
+      "get": {
+        "description": "Retrieve every locale of the translatable fields of a single Course",
+        "operationId": "translations_item_api_test_courses__item_id__translations_get",
+        "parameters": [
+          {
+            "description": "Item ID",
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "description": "Item ID",
+              "title": "Item Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Course-Translations"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            },
+            "description": "Item not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Get Course translations",
         "tags": [
           "test_courses"
         ]

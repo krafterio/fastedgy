@@ -328,9 +328,12 @@ async def test_a_duplicate_carries_every_locale(setup_db: FastEdgy) -> None:
     assert await read_translations(copy, "summary") == {"en": "Copied"}
 
 
-async def test_the_metadata_says_which_fields_are_translatable(setup_db: FastEdgy) -> None:
-    assert generate_metadata_field(Course, Course.meta.fields["title"]).translatable is True
-    assert generate_metadata_field(Course, Course.meta.fields["code"]).translatable is False
+async def test_the_metadata_says_which_fields_are_translatable_and_in_which_locales(setup_db: FastEdgy) -> None:
+    title = generate_metadata_field(Course, Course.meta.fields["title"])
+    code = generate_metadata_field(Course, Course.meta.fields["code"])
+
+    assert (title.translatable, title.locales) == (True, ["en", "fr", "de"])
+    assert (code.translatable, code.locales) == (False, None)
 
 
 async def test_the_data_loader_rewrites_a_message_whose_translations_changed(

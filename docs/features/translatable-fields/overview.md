@@ -26,11 +26,14 @@ class Product(BaseModel):
 - Writes merge into the stored document: a locale is set without touching the others
 - A dict keyed by locale writes several locales at once, in Python as in a JSON body, described by the OpenAPI schema
 - `_ts("...")` writes every locale at once, from your translation catalogs
+- A read falls back from `fr-CA` to `fr`, then to the fallback locale, then to the first text
+- `GET /{id}/translations` answers every locale of a record, and the metadata lists the locales
+- Exports and imports hold one column per locale (`name:fr`, `Name (fr)`)
 - Filters, the query builder, ordering and relation paths compare the text of the current locale
 - Full-text search vectors built per locale, with the fallback
 - `duplicate()` copies every translation
 - Field metadata says which fields are translatable
-- Alembic autogenerate converts existing data when a field turns translatable, and back
+- Alembic autogenerate converts existing data when a field turns translatable, and back, and `op.fill_translatable_fallback` follows a change of fallback locale
 
 ## Quick example
 

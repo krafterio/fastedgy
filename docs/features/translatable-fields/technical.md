@@ -20,10 +20,15 @@ The whole feature lives in one SQLAlchemy type, `Translatable` (`fastedgy/orm/fi
 ## Reading
 
 ```sql
-SELECT coalesce(products.name ->> $1, products.name ->> $2) AS name FROM products
+SELECT coalesce(
+  products.name ->> $1,                                -- the locale, fr-CA
+  products.name ->> $2,                                -- its language, fr
+  products.name ->> $3,                                -- the fallback locale
+  jsonb_path_query_first(products.name, '$.*') #>> '{}'  -- the first text
+) AS name FROM products
 ```
 
-The two locales are bound parameters resolved on every execution, not compiled into the SQL: the compiled statement is cached and shared by every locale. The column's result processor is disabled, so the driver hands back the text as it is.
+The locales are bound parameters resolved on every execution, not compiled into the SQL: the compiled statement is cached and shared by every locale. `coalesce` stops at the first text, so the last resort only runs on a document lacking the fallback. The column's result processor is disabled, so the driver hands back the text as it is.
 
 ## Comparing and ordering
 
@@ -35,7 +40,7 @@ The value bound for the column is a payload:
 
 | Value | Payload |
 |-------|---------|
-| `str` or `None` | `{"read": [locale, fallback, text], "missing": {fallback: text}, "set": {locale: text}}` |
+| `str` or `None` | `{"read": [locale, language, fallback, text], "missing": {fallback: text}, "set": {locale: text}}` |
 | `dict` | `{"missing": {fallback: first text}, "set": {locale: text, ...}}` |
 | `TranslatableString` | `{"replace": true, "set": {locale: translation, ...}}` |
 
@@ -47,8 +52,9 @@ The locales of a `str` or a `dict` must be available ones: the bind raises a `Va
 SET name = (
   SELECT CASE
     WHEN _t.p ? 'read'
-     AND coalesce(name ->> (_t.p -> 'read' ->> 0), name ->> (_t.p -> 'read' ->> 1))
-         IS NOT DISTINCT FROM (_t.p -> 'read' ->> 2)
+     AND coalesce(name ->> (_t.p -> 'read' ->> 0), name ->> (_t.p -> 'read' ->> 1),
+                  name ->> (_t.p -> 'read' ->> 2), jsonb_path_query_first(name, '$.*') #>> '{}')
+         IS NOT DISTINCT FROM (_t.p -> 'read' ->> 3)
     THEN name
     ELSE nullif(jsonb_strip_nulls(
       coalesce(_t.p -> 'missing', '{}') ||
@@ -72,7 +78,7 @@ The update reaches the row's document by the name of its column, which `Translat
 
 ## Full-text search
 
-`build_tsvector_expression` reads a translatable source as `coalesce(col ->> 'fr', col ->> 'en')`. The save signal recomputes the vector of every available locale in one `UPDATE`, skipped when no vector changes: a write in one locale may fill the fallback, and every locale without a text of its own reads it.
+`build_tsvector_expression` reads a translatable source with the chain of a read in the locale of the vector, its locales as literals: `coalesce(col ->> 'fr', col ->> 'en', jsonb_path_query_first(col, '$.*') #>> '{}')`. The save signal recomputes the vector of every available locale in one `UPDATE`, skipped when no vector changes: a write in one locale may fill the fallback, and every locale without a text of its own reads it.
 
 ## Migrations
 
@@ -85,6 +91,19 @@ The update reaches the row's document by the name of its column, which `Translat
 
 Alembic renders no `postgresql_using`, hence the operations of their own. The fallback locale is the one configured when the migration is generated. The rest of an `alter_column` (nullability, default, comment) stays in place after the conversion. A `Translatable` column compiles to `JSONB`, so a schema in line with the models produces no migration.
 
+`fill_translatable_fallback(table, column, fallback_locale, from_locale=None)` is written by hand, the fallback being a setting:
+
+```sql
+UPDATE products SET name = name || jsonb_build_object('fr', coalesce(name -> 'en', jsonb_path_query_first(name, '$.*')))
+WHERE name IS NOT NULL AND name <> '{}'::jsonb AND NOT name ? 'fr'
+```
+
+## API
+
+- `TranslationsApiRouteAction` registers `GET /{item_id}/translations` on a model holding a translatable field, nothing on any other. Its response model, built once per model, gives each translatable field as `dict[TranslationLocale, str]`. It runs the `PreLoadRecordViewTransformer`s, checks the record through the model's query, then reads the documents with `fetch_translations`.
+- `MetadataField.locales` lists `available_locales()` for a translatable field: the fallback first, then the other available locales.
+- The dataflow takes a locale as the converter of a translatable field (`expand_columns`, `column_label`, `translation_locale` in `fastedgy.dataflow.exporter`): an export reads the documents of the page with `fetch_translations`, an import gathers the columns of a field into its translations.
+
 ## Reference
 
 | Name | Module | Description |
@@ -93,13 +112,15 @@ Alembic renders no `postgresql_using`, hence the operations of their own. The fa
 | `translated(column)` | `fastedgy.orm.fields` | The text of the current locale, any other column unchanged |
 | `is_translatable(field)` | `fastedgy.orm.fields` | Whether a field is declared `translatable=True` |
 | `read_translations(record, name)` | `fastedgy.orm.fields` | Every locale a stored record holds |
+| `fetch_translations(model, keys, names=None)` | `fastedgy.orm.fields` | Every locale of many records, in one statement |
+| `available_locales()` | `fastedgy.orm.fields` | The locales a write accepts, the fallback first |
+| `language_of(locale)` | `fastedgy.orm.fields` | The language of a regional locale, `fr` for `fr-CA` |
 | `translations_of(message)` | `fastedgy.orm.fields` | The translations a `_ts()` message writes |
 | `context.locale(code)` | `fastedgy.context` | Read and write in a locale for a block |
 | `translatable_from_text`, `text_from_translatable` | `fastedgy.orm.migration` | SQL of the conversions, for hand-written migrations |
+| `op.fill_translatable_fallback(...)` | `fastedgy.orm.migration` | Give every record a text in a new fallback locale |
 
 ## Limits
 
-- A read returns one locale: an API read gives one language, `read_translations()` gives every locale in Python.
-- Changing `fallback_locale` later leaves the stored documents as they are: a record without the new fallback reads `None` in a locale it has no text in.
 - `distinct("name")` on a translatable field compares the stored documents, and cannot lead an `order_by("name")`.
 - After an `update()` with a dict missing the current locale, the instance reads the text the dict leads it to: `load()` reads what the row holds.

@@ -31,7 +31,7 @@ AVAILABLE_LOCALES=["en","fr","de"]
 ```
 
 - `fallback_locale` is the locale every record always has a text in, and the one a locale without a translation reads.
-- `available_locales` is what the `Accept-Language` header can select, and the locales `_ts()` writes.
+- `available_locales` is what the `Accept-Language` header can select, the locales a write accepts, and the locales `_ts()` writes. A regional locale (`fr-CA`) sits beside its language (`fr`).
 
 ## Choose the locale
 
@@ -55,7 +55,14 @@ Outside a request, in a command for instance, `context.set_locale("fr")` sets th
 
 ## Read
 
-A read answers the text of the current locale, the fallback locale's when it has none, and `None` when neither has one:
+A read answers the first text it finds, in this order:
+
+1. The current locale, `fr-CA`
+2. Its language, `fr`
+3. The fallback locale
+4. The first text the record holds, which only a record written before the fallback changed lacks the fallback for
+
+It is `None` when the record holds no text at all.
 
 ```python
 product = await Product.query.create(name="Chair")
@@ -124,12 +131,13 @@ A dict of locales updates the record when one of the locales it names holds anot
 
 ### Read every translation
 
-`read_translations()` returns the document a stored record holds, every locale at once:
+`read_translations()` returns the document a stored record holds, every locale at once, and `fetch_translations()` those of many records in one statement:
 
 ```python
-from fastedgy.orm.fields import read_translations
+from fastedgy.orm.fields import fetch_translations, read_translations
 
 await read_translations(product, "name")  # {"en": "Chair", "fr": "Chaise"}
+await fetch_translations(Product, [1, 2])  # {1: {"name": {...}, "description": {...}}, 2: {...}}
 ```
 
 ## Query
@@ -195,11 +203,40 @@ A locale outside `available_locales`, or a text breaking the constraints of the 
 }
 ```
 
-The field metadata (`/api/dataset/metadatas`) carries `"translatable": true`, so a client knows to offer one input per language.
+### Read every translation of a record
+
+Every model holding a translatable field gets a route answering all its translations, typed in OpenAPI as `<Model>-Translations`:
+
+```bash
+curl /api/products/1/translations
+# {"name": {"en": "Chair", "fr": "Chaise"}, "description": {}}
+```
+
+It reads the record through the same scoping as `GET /api/products/1`, and answers `404` when that one would. The translations go back through the regular patch, as an object keyed by locale.
+
+### Metadata
+
+The field metadata (`/api/dataset/metadatas`) carries `"translatable": true` and `"locales"`, the available locales with the fallback first, so a client knows to offer one input per language:
+
+```json
+{"name": "name", "type": "char", "translatable": true, "locales": ["en", "fr", "de"]}
+```
+
+## Export and import
+
+A field selector naming a locale of a translatable field (`name:fr`) gives one column per locale, headed `Name (fr)`, in the exports and the import templates:
+
+```bash
+curl /api/products/export?format=xlsx -H "X-Fields: reference,name:en,name:fr,name:de"
+curl /api/products/import/template?format=csv -H "X-Fields: reference,name:en,name:fr"
+# Reference,Name (en),Name (fr)
+```
+
+An import reads those columns, by their label or as `name:fr`, as the translations keyed by locale: an empty cell leaves its locale as it is. A column of the field itself (`Name`) writes the locale of the request.
 
 ## Full-text search
 
-A translatable field is searchable like any text field. The vector of each locale reads the text of that locale, the fallback's when it has none, and a save recomputes the vectors of every locale.
+A translatable field is searchable like any text field. The vector of each locale reads the text a read in that locale gives, and a save recomputes the vectors of every locale.
 
 ## Duplicate a record
 
@@ -236,7 +273,18 @@ op.alter_column(
 
 Changing `max_length`, or moving between `CharField` and `TextField`, needs no migration: the column stays a `jsonb` document.
 
+### Change the fallback locale
+
+The fallback locale is a setting, no part of the schema: autogenerate cannot see it change. The records written before still read their first text, but a migration giving each of them a text in the new fallback keeps the reads, the filters and the search in line:
+
+```python
+def upgrade():
+    op.fill_translatable_fallback("products", "name", "fr", from_locale="en")
+```
+
+Each record without a text in `fr` takes its `en` one, else its first text. One call per translatable column.
+
 ## Best practices
 
-- **Keep the fallback locale stable**: every record holds a text in it, and the reads rely on it.
+- **Keep the fallback locale stable**, and fill the new one in a migration when it changes.
 - **Seed with `_ts()`**: reference data then follows your catalogs on every `init-data` run.

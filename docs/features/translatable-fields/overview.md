@@ -24,6 +24,7 @@ class Product(BaseModel):
 - Stored as `jsonb`: `{"en": "Chair", "fr": "Chaise"}`
 - Locale from the `Accept-Language` header, a queued task, or a `with context.locale(...)` block
 - Writes merge into the stored document: a locale is set without touching the others
+- A dict keyed by locale writes several locales at once, in Python as in a JSON body, described by the OpenAPI schema
 - `_ts("...")` writes every locale at once, from your translation catalogs
 - Filters, the query builder, ordering and relation paths compare the text of the current locale
 - Full-text search vectors built per locale, with the fallback

@@ -83,8 +83,21 @@ The rules every write follows, whether it comes from `save()`, `update()`, `Quer
 - **The fallback is filled**: a record created in `fr` gets its text in the fallback locale too, `{"en": "Chaise", "fr": "Chaise"}`, so every locale reads something.
 - **Rewriting what a locale reads changes nothing**: a record read in `fr` through the fallback, then saved for another field, does not turn the fallback text into a French translation.
 - **`None` removes the locale**: the other locales keep their text. A document left without any locale is `NULL`.
+- **Only the available locales**: a write in a locale outside `available_locales` (and the fallback) raises a `ValueError`.
 
-### Write every locale at once
+### Write several locales
+
+A dict keyed by locale sets each locale it names, with the same rules: the others keep their text, `None` removes one, and the fallback is filled from the first text when the record has none yet.
+
+```python
+product = await Product.query.create(name={"en": "Chair", "fr": "Chaise"})
+
+await product.update(name={"de": "Stuhl", "fr": None})  # {"en": "Chair", "de": "Stuhl"}
+```
+
+Each text is validated as a plain value would be (`max_length`, `min_length`, `pattern`), the keys must be available locales, and a field that is not `null=True` refuses `None` for its fallback locale. Until it is saved, the attribute holds the dict; once saved, it reads the text of the current locale.
+
+### Write every locale from the catalogs
 
 A message marked with `_ts()` writes its translation in every available locale, read from your `.po` catalogs. Only the locales the message is translated in are stored, the fallback always:
 
@@ -103,8 +116,11 @@ from fastedgy.orm.loader import id
 
 data = [
     {"id": id("category_furniture"), "name": _ts("Furniture")},
+    {"id": id("category_lighting"), "name": {"en": "Lighting", "fr": "Luminaires"}},
 ]
 ```
+
+A dict of locales updates the record when one of the locales it names holds another text.
 
 ### Read every translation
 
@@ -150,12 +166,33 @@ longest = func.max(func.length(translated(Product.table.columns.name)))
 
 ## API
 
-The routes of an `@api_route_model` need nothing more. A request reads and writes in the language of its `Accept-Language` header, and the OpenAPI schema of the field stays a `string`:
+The routes of an `@api_route_model` need nothing more. A request reads and writes in the language of its `Accept-Language` header:
 
 ```bash
 curl -X PATCH /api/products/1 -H "Accept-Language: fr" -d '{"name": "Chaise"}'
 curl /api/products/1 -H "Accept-Language: fr"   # "name": "Chaise"
 curl /api/products/1                            # "name": "Chair"
+```
+
+A create or a patch also takes the translations keyed by locale, whatever the language of the request:
+
+```bash
+curl -X PATCH /api/products/1 -d '{"name": {"en": "Chair", "fr": "Chaise", "de": "Stuhl"}}'
+```
+
+A locale outside `available_locales`, or a text breaking the constraints of the field, answers `422`. The OpenAPI schema says it: the field reads as a `string`, and the create and update bodies take a `string` or an object whose keys are the available locales:
+
+```json
+{
+  "anyOf": [
+    {"maxLength": 200, "type": "string"},
+    {
+      "additionalProperties": {"anyOf": [{"maxLength": 200, "type": "string"}, {"type": "null"}]},
+      "propertyNames": {"enum": ["en", "fr", "de"]},
+      "type": "object"
+    }
+  ]
+}
 ```
 
 The field metadata (`/api/dataset/metadatas`) carries `"translatable": true`, so a client knows to offer one input per language.
@@ -203,4 +240,3 @@ Changing `max_length`, or moving between `CharField` and `TextField`, needs no m
 
 - **Keep the fallback locale stable**: every record holds a text in it, and the reads rely on it.
 - **Seed with `_ts()`**: reference data then follows your catalogs on every `init-data` run.
-- **Avoid `unique=True`**: a unique index compares whole documents, not the text of a locale.

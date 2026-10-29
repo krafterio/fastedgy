@@ -11,7 +11,11 @@ The whole feature lives in one SQLAlchemy type, `Translatable` (`fastedgy/orm/fi
 | `process_bind_param` | Turns the written value into a payload describing the write |
 | `bind_expression` | Merges the payload into the document the row holds |
 
-`TranslatableOptions` is the factory mixin of `CharField`, `TextField`, `RichTextField` and `HTMLField`: with the option set, it gives the field the `Translatable` column type and lets a `_ts()` message through Pydantic validation.
+`TranslatableOptions` is the factory mixin of `CharField`, `TextField`, `RichTextField` and `HTMLField`. With the option set, it gives the field the `Translatable` column type, refuses `unique` and `primary_key`, and builds its Pydantic type:
+
+- the text, carrying `max_length`, `min_length` and `pattern`, which leave the field itself: there they would bound a dict of translations by its count of locales;
+- a wrap validator taking that text, a `_ts()` message as it is, or a dict of available locales whose each text is validated as the text;
+- `json_schema_input_type`, so the validation schema (request bodies) is `text | {locale: text | null}` and the serialization schema (responses) the text alone. The keys list the available locales when the schema is generated.
 
 ## Reading
 
@@ -32,8 +36,10 @@ The value bound for the column is a payload:
 | Value | Payload |
 |-------|---------|
 | `str` or `None` | `{"read": [locale, fallback, text], "missing": {fallback: text}, "set": {locale: text}}` |
+| `dict` | `{"missing": {fallback: first text}, "set": {locale: text, ...}}` |
 | `TranslatableString` | `{"replace": true, "set": {locale: translation, ...}}` |
-| `dict` | `{"replace": true, "set": document}` |
+
+The locales of a `str` or a `dict` must be available ones: the bind raises a `ValueError` otherwise, the last check of a write that skipped validation (`update()`, `QuerySet.update()`).
 
 `bind_expression` wraps it in a scalar subquery merging it into the current document, `NULL` on an insert:
 
@@ -93,6 +99,7 @@ Alembic renders no `postgresql_using`, hence the operations of their own. The fa
 
 ## Limits
 
-- A read returns one locale: an API call reads or writes one language, `read_translations()` gives every locale in Python.
+- A read returns one locale: an API read gives one language, `read_translations()` gives every locale in Python.
 - Changing `fallback_locale` later leaves the stored documents as they are: a record without the new fallback reads `None` in a locale it has no text in.
-- The locales of a write are not checked against `available_locales`.
+- `distinct("name")` on a translatable field compares the stored documents, and cannot lead an `order_by("name")`.
+- After an `update()` with a dict missing the current locale, the instance reads the text the dict leads it to: `load()` reads what the row holds.

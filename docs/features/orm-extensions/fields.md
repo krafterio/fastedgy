@@ -71,6 +71,8 @@ class User(BaseModel):
     name = fields.CharField(max_length=100, label=_t("Name"))
 ```
 
+With `translatable=True`, a `CharField`, a `TextField`, a `RichTextField` or an `HTMLField` keeps one value per locale: see [Translatable fields](../translatable-fields/overview.md).
+
 ## Choice
 
 Choice field for predefined options.

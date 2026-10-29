@@ -80,6 +80,14 @@ Enhanced database capabilities with advanced field types and migration tools.
 
     [Learn more →](orm-migration/overview.md)
 
+-   **:material-translate-variant: Translatable Fields**
+
+    ---
+
+    Text fields holding one value per locale, read and written in the locale of the request.
+
+    [Learn more →](translatable-fields/overview.md)
+
 -   **:material-database-import: Init Data**
 
     ---

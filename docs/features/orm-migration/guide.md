@@ -98,6 +98,16 @@ FastEdgy automatically:
 - Creates vector columns with proper dimensions
 - Handles vector-specific operations
 
+## Model with translatable field
+
+Turning a text field `translatable=True` changes its column to `jsonb`. The migration converts the stored values, each text becoming the text of the fallback locale:
+
+```python
+op.convert_to_translatable("products", "name", fallback_locale="en", existing_type=sa.VARCHAR(length=200))
+```
+
+Turning it back keeps the text of the fallback locale with `op.convert_from_translatable(...)`. See [Translatable fields](../translatable-fields/guide.md#migrate-an-existing-field).
+
 ## Running migrations
 
 Apply migrations to the database:

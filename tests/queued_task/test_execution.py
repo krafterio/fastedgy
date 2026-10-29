@@ -50,3 +50,15 @@ async def test_run_async_task_performs_db_side_effect(setup_db: FastEdgy) -> Non
     assert result["status"] == "success"
     assert reloaded.state == QueuedTaskState.done
     assert await Category.query.filter(Category.columns.name == "FromTask").count() == 1
+
+
+async def test_a_task_runs_in_the_locale_it_was_enqueued_in(setup_db: FastEdgy) -> None:
+    from fastedgy import context
+
+    with context.locale("fr"):
+        task = await queue().add_task_async(tasks.current_locale, max_retries=0)
+
+    result, _ = await run_task_now(task)
+
+    assert result["result"] == "fr"
+    assert context.get_locale() == context.get_fallback_locale()

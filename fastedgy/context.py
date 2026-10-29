@@ -54,20 +54,57 @@ def get_timezone() -> ZoneInfo:
     return get_timezone_info()
 
 
-def set_locale(locale: str) -> None:
+_locale: ContextVar[str | None] = ContextVar("context_locale", default=None)
+
+
+def set_locale(locale: str | None) -> None:
+    """Set the locale of the request, or of the current context outside one (a queued task, a command)."""
     req = get_request()
     if req:
         req.state.locale = locale
+    else:
+        _locale.set(locale)
+
+
+@contextmanager
+def locale(code: str) -> Generator[None]:
+    """Read and write in another locale for the duration of a `with` block.
+
+    Wins over the locale of the request, so a route, a task or a command can
+    write the translation of another language:
+
+        with context.locale("fr"):
+            product.name = "Chaise"
+            await product.save()
+    """
+    token = _locale.set(code)
+
+    try:
+        yield
+    finally:
+        _locale.reset(token)
 
 
 def get_locale() -> str:
     from fastedgy.config import BaseSettings
     from fastedgy.dependencies import get_service
 
+    scoped = _locale.get()
+
+    if scoped:
+        return scoped
+
     req = get_request()
 
-    if req and hasattr(req.state, "locale"):
+    if req and getattr(req.state, "locale", None):
         return req.state.locale
+
+    return get_service(BaseSettings).fallback_locale
+
+
+def get_fallback_locale() -> str:
+    from fastedgy.config import BaseSettings
+    from fastedgy.dependencies import get_service
 
     return get_service(BaseSettings).fallback_locale
 
@@ -204,6 +241,7 @@ def get_params() -> dict[str, Any]:
 
 
 __all__ = [
+    "get_fallback_locale",
     "get_locale",
     "get_map_workspace_extra_fields",
     "get_workspace_extra_fields_by_model",
@@ -215,6 +253,7 @@ __all__ = [
     "get_workspace",
     "get_workspace_extra_fields",
     "get_workspace_user",
+    "locale",
     "params",
     "reset_request",
     "set_locale",

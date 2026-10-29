@@ -29,3 +29,21 @@ def test_locale_and_timezone_context() -> None:
     with use_request(locale="fr", timezone="Europe/Paris"):
         assert context.get_locale() == "fr"
         assert context.get_timezone() == ZoneInfo("Europe/Paris")
+
+
+def test_a_locale_block_wins_over_the_request_and_ends_with_it() -> None:
+    with use_request(locale="fr"):
+        with context.locale("de"):
+            assert context.get_locale() == "de"
+
+        assert context.get_locale() == "fr"
+
+
+async def test_a_locale_set_outside_a_request_holds_for_the_context(setup_app: FastEdgy) -> None:
+    context.set_locale("fr")
+
+    assert context.get_locale() == "fr"
+
+    context.set_locale(None)
+
+    assert context.get_locale() == context.get_fallback_locale()

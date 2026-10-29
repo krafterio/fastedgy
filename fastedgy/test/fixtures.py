@@ -165,6 +165,7 @@ async def fresh_context(anyio_backend: str) -> AsyncIterator[None]:
     from fastedgy import context
 
     token = context.set_request(None)
+    context.set_locale(None)
 
     try:
         yield

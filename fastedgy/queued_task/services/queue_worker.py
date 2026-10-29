@@ -2,6 +2,7 @@
 # MIT License (see LICENSE file).
 
 import asyncio
+import contextvars
 import importlib
 import inspect
 import logging
@@ -416,7 +417,10 @@ class QueueWorker:
                     finally:
                         loop.call_soon_threadsafe(finished.set)
 
-                awaitable = loop.run_in_executor(None, _run_sync)
+                # The thread runs in a copy of this context: what the pre-run
+                # hooks restored (the user, the workspace, the locale) holds
+                # for a sync function too.
+                awaitable = loop.run_in_executor(None, contextvars.copy_context().run, _run_sync)
 
             timeout = int(self.config.task_timeout or 0)
             if timeout > 0:

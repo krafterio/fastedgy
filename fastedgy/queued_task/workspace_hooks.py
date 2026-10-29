@@ -36,6 +36,18 @@ async def save_workspace_context(task) -> None:
     )
 
 
+@on_pre_create
+async def save_locale_context(task) -> None:
+    """Capture the locale the task is enqueued in, so it reads and writes the same translations"""
+    task.context["_locale"] = task.context.get("_locale", context.get_locale())
+
+
+@on_pre_run
+async def restore_locale_context(task) -> None:
+    """Restore the locale the task was enqueued in"""
+    context.set_locale(task.context.get("_locale"))
+
+
 @on_pre_run
 async def restore_workspace_context(task) -> None:
     """Restore workspace context before executing a task"""
@@ -101,4 +113,5 @@ async def restore_workspace_context(task) -> None:
 async def cleanup_workspace_context(task, result=None, error=None) -> None:
     """Clean up workspace context after task execution"""
     context.set_request(None)
+    context.set_locale(None)
     logger.debug(f"Cleaned up workspace context for task {task.id}")

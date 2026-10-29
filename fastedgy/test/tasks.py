@@ -32,6 +32,12 @@ def blocking_sync(timeout: float = 30.0) -> str:
     return "released"
 
 
+def current_locale() -> str:
+    from fastedgy import context
+
+    return context.get_locale()
+
+
 def release_blocking_sync() -> None:
     _blocking_sync_release.set()
 
@@ -44,6 +50,7 @@ __all__ = [
     "add_numbers",
     "blocking_sync",
     "boom",
+    "current_locale",
     "make_category",
     "release_blocking_sync",
     "reset_blocking_sync",

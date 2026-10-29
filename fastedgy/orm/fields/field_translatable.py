@@ -1,7 +1,7 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from typing import Annotated, Any, cast
 
 import sqlalchemy
@@ -30,13 +30,23 @@ def _current_locale() -> str:
     return get_locale()
 
 
+def language_of(locale: str) -> str:
+    """The language a regional locale belongs to, ``fr`` for ``fr-CA``: the locale it reads before the fallback."""
+    return locale.replace("_", "-").split("-")[0]
+
+
+def _current_language() -> str:
+    return language_of(_current_locale())
+
+
 def _fallback_locale() -> str:
     from fastedgy.context import get_fallback_locale
 
     return get_fallback_locale()
 
 
-def _available_locales() -> list[str]:
+def available_locales() -> list[str]:
+    """The locales a translatable field holds a text in, the fallback locale first."""
     from fastedgy.config import BaseSettings
     from fastedgy.dependencies import get_service, has_service
 
@@ -49,7 +59,7 @@ def _available_locales() -> list[str]:
 
 
 def _check_locales(locales: Iterable[str]) -> None:
-    available = _available_locales()
+    available = available_locales()
     unknown = [locale for locale in locales if locale not in available]
 
     if unknown:
@@ -62,19 +72,28 @@ def _locale_param(name: str, resolve: Callable[[], str]) -> BindParameter[str]:
     return sqlalchemy.bindparam(name, callable_=resolve, type_=sqlalchemy.Text, unique=True)
 
 
+# The text of a document in no locale in particular, its first one: what a
+# document left without the fallback still reads, the fallback changed since.
+FIRST_VALUE_SQL = "jsonb_path_query_first({document}, '$.*')"
+FIRST_TEXT_SQL = FIRST_VALUE_SQL + " #>> '{{}}'"
+
+
 def _localized(column: Any) -> ColumnElement[str]:
     document = sqlalchemy.type_coerce(column, JSONB)
     extract = document.op("->>", return_type=sqlalchemy.Text)
+    first = sqlalchemy.func.jsonb_path_query_first(document, sqlalchemy.literal_column("'$.*'"))
 
     return sqlalchemy.func.coalesce(
         extract(_locale_param("locale", _current_locale)),
+        extract(_locale_param("language", _current_language)),
         extract(_locale_param("fallback_locale", _fallback_locale)),
+        first.op("#>>", return_type=sqlalchemy.Text)(sqlalchemy.literal_column("'{}'")),
         type_=sqlalchemy.Text,
     )
 
 
 def translated(column: Any) -> Any:
-    """The text a translatable column holds in the current locale, else in the fallback locale.
+    """The text a translatable column reads in the current locale, as a select of it gives it.
 
     Any other column is returned as it is. Comparisons and ordering already go
     through it; a SQL function taking the column (``min``, ``lower``) needs it
@@ -88,9 +107,10 @@ def translated(column: Any) -> Any:
 class Translatable(TypeDecorator[Any]):
     """The column of a translatable field: one text per locale, ``{"en": "Chair", "fr": "Chaise"}``.
 
-    Read, it is the text of the current locale, the fallback locale's when it
-    has none: the document itself never leaves the database. Compared or
-    ordered, it is that same text.
+    Read, it is the text of the current locale, else of its language (``fr``
+    for ``fr-CA``), else of the fallback locale, else the first text the
+    document holds: the document itself never leaves the database. Compared
+    or ordered, it is that same text.
 
     Written, a text sets the current locale and leaves the others alone. The
     fallback locale receives it too while it has nothing, so every locale
@@ -135,7 +155,11 @@ class Translatable(TypeDecorator[Any]):
         text = None if value is None else str(value)
         _check_locales([locale])
 
-        return {"read": [locale, fallback, text], "missing": {fallback: text}, "set": {locale: text}}
+        return {
+            "read": [locale, language_of(locale), fallback, text],
+            "missing": {fallback: text},
+            "set": {locale: text},
+        }
 
     def result_processor(self, dialect: Any, coltype: Any) -> None:
         return None
@@ -204,13 +228,14 @@ def _compile_translatable_write(element: _TranslatableWrite, compiler: SQLCompil
 
         current = compiler.process(column, include_table=True)
 
-    read = f"coalesce({current} ->> (_t.p -> 'read' ->> 0), {current} ->> (_t.p -> 'read' ->> 1))"
+    reads = ", ".join(f"{current} ->> (_t.p -> 'read' ->> {index})" for index in range(3))
+    read = f"coalesce({reads}, {FIRST_TEXT_SQL.format(document=current)})"
     kept = f"CASE WHEN _t.p ? 'replace' THEN '{{}}'::jsonb ELSE coalesce({current}, '{{}}'::jsonb) END"
     merged = (
         f"nullif(jsonb_strip_nulls(coalesce(_t.p -> 'missing', '{{}}'::jsonb) || {kept} "
         f"|| coalesce(_t.p -> 'set', '{{}}'::jsonb)), '{{}}'::jsonb)"
     )
-    unchanged = f"_t.p ? 'read' AND {read} IS NOT DISTINCT FROM (_t.p -> 'read' ->> 2)"
+    unchanged = f"_t.p ? 'read' AND {read} IS NOT DISTINCT FROM (_t.p -> 'read' ->> 3)"
 
     return f"(SELECT CASE WHEN {unchanged} THEN {current} ELSE {merged} END FROM (SELECT {payload} AS p) AS _t)"
 
@@ -220,12 +245,16 @@ class _AvailableLocale:
 
     def __get_pydantic_json_schema__(self, schema: CoreSchema, handler: GetJsonSchemaHandler) -> JsonSchemaValue:
         json_schema = handler(schema)
-        locales = _available_locales()
+        locales = available_locales()
 
         if locales:
             json_schema["enum"] = locales
 
         return json_schema
+
+
+TranslationLocale = Annotated[str, _AvailableLocale()]
+"""A locale keying the translations of a field: an available one."""
 
 
 def _validate_translations(nullable: bool) -> Callable[[Any, ValidatorFunctionWrapHandler], Any]:
@@ -253,8 +282,9 @@ def _bounds_text(metadata: Any) -> bool:
 
 
 def _written_text(document: dict[str, Any]) -> Any:
-    """What the current locale reads in the translations just written: theirs, the fallback's, the first text."""
-    for locale in (_current_locale(), _fallback_locale()):
+    """What the current locale reads in the translations just written: theirs, its language's, the fallback's, the
+    first text."""
+    for locale in (_current_locale(), _current_language(), _fallback_locale()):
         if document.get(locale) is not None:
             return document[locale]
 
@@ -297,7 +327,7 @@ class TranslatableOptions(FieldFactory):
                 pattern=kwargs.get("pattern"),
             ),
         ]
-        translations = dict[Annotated[str, _AvailableLocale()], text | None]
+        translations = dict[TranslationLocale, text | None]
         validator = WrapValidator(
             _validate_translations(bool(kwargs.get("null"))),
             json_schema_input_type=text | translations,
@@ -348,6 +378,41 @@ def is_translatable(field: Any) -> bool:
     return getattr(field, "translatable", False) is True
 
 
+def translatable_fields(model_cls: Any) -> list[str]:
+    """The names of the translatable fields of a model."""
+    return [name for name, field in model_cls.meta.fields.items() if is_translatable(field)]
+
+
+async def fetch_translations(
+    model_cls: Any,
+    keys: Iterable[Any],
+    field_names: Sequence[str] | None = None,
+) -> dict[Any, dict[str, dict[str, str]]]:
+    """Every locale the translatable fields of stored records hold, by primary key, read in one statement.
+
+    A record left out of the answer is not stored; a field holding nothing gives ``{}``.
+    """
+    names = list(field_names) if field_names is not None else translatable_fields(model_cls)
+    keys = list(keys)
+
+    if not names or not keys:
+        return {}
+
+    table = model_cls.table
+    key = table.columns[model_cls.pkcolumns[0]]
+    documents = [
+        sqlalchemy.type_coerce(table.columns[name], JSONB).label(f"document_{i}") for i, name in enumerate(names)
+    ]
+    rows = await model_cls.database.fetch_all(
+        sqlalchemy.select(key.label("record_key"), *documents).where(key.in_(keys))
+    )
+
+    return {
+        row._mapping["record_key"]: {name: row._mapping[f"document_{i}"] or {} for i, name in enumerate(names)}
+        for row in rows
+    }
+
+
 async def read_translations(record: Any, field_name: str) -> dict[str, str]:
     """Every locale a translatable field of a stored record holds, as the row keeps them."""
     column = record.table.columns[field_name]
@@ -357,10 +422,17 @@ async def read_translations(record: Any, field_name: str) -> dict[str, str]:
 
 
 __all__ = [
+    "FIRST_TEXT_SQL",
+    "FIRST_VALUE_SQL",
     "Translatable",
     "TranslatableOptions",
+    "TranslationLocale",
+    "available_locales",
+    "fetch_translations",
     "is_translatable",
+    "language_of",
     "read_translations",
+    "translatable_fields",
     "translated",
     "translations_of",
 ]

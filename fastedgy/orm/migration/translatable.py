@@ -108,6 +108,79 @@ class ConvertFromTranslatableOperation(MigrateOperation):
         )
 
 
+def fill_translatable_fallback_sql(
+    table_name: str,
+    column_name: str,
+    fallback_locale: str,
+    from_locale: str | None = None,
+    schema: str | None = None,
+) -> str:
+    """The SQL giving every document of a translatable column a text in ``fallback_locale``.
+
+    A document already holding one is left alone; the others take the text of
+    ``from_locale``, else their first text.
+    """
+    from fastedgy.orm.fields.field_translatable import FIRST_VALUE_SQL
+
+    table = f"{_identifier(schema)}.{_identifier(table_name)}" if schema else _identifier(table_name)
+    column = _identifier(column_name)
+    first = FIRST_VALUE_SQL.format(document=column)
+    source = f"coalesce({column} -> {_literal(from_locale)}, {first})" if from_locale else first
+
+    return (
+        f"UPDATE {table} SET {column} = {column} || jsonb_build_object({_literal(fallback_locale)}, {source}) "
+        f"WHERE {column} IS NOT NULL AND {column} <> '{{}}'::jsonb AND NOT {column} ? {_literal(fallback_locale)}"
+    )
+
+
+@Operations.register_operation("fill_translatable_fallback")
+class FillTranslatableFallbackOperation(MigrateOperation):
+    """Give every document of a translatable column a text in the new fallback locale.
+
+    Written by hand when ``fallback_locale`` changes: the setting is no part of
+    the schema, so autogenerate cannot see it.
+    """
+
+    def __init__(
+        self,
+        table_name: str,
+        column_name: str,
+        fallback_locale: str,
+        from_locale: str | None = None,
+        schema: str | None = None,
+    ) -> None:
+        self.table_name = table_name
+        self.column_name = column_name
+        self.fallback_locale = fallback_locale
+        self.from_locale = from_locale
+        self.schema = schema
+
+    @classmethod
+    def fill_translatable_fallback(
+        cls,
+        operations: Operations,
+        table_name: str,
+        column_name: str,
+        fallback_locale: str,
+        from_locale: str | None = None,
+        schema: str | None = None,
+    ) -> None:
+        return operations.invoke(cls(table_name, column_name, fallback_locale, from_locale, schema))
+
+
+@Operations.implementation_for(FillTranslatableFallbackOperation)
+def fill_translatable_fallback(operations: Operations, operation: FillTranslatableFallbackOperation) -> None:
+    operations.execute(
+        fill_translatable_fallback_sql(
+            operation.table_name,
+            operation.column_name,
+            operation.fallback_locale,
+            operation.from_locale,
+            operation.schema,
+        )
+    )
+
+
 @Operations.implementation_for(ConvertToTranslatableOperation)
 def convert_to_translatable(operations: Operations, operation: ConvertToTranslatableOperation) -> None:
     operations.alter_column(
@@ -248,6 +321,8 @@ def process_translatable_revision_directives(context: Any, revision: Any, direct
 __all__ = [
     "ConvertFromTranslatableOperation",
     "ConvertToTranslatableOperation",
+    "FillTranslatableFallbackOperation",
+    "fill_translatable_fallback_sql",
     "process_translatable_revision_directives",
     "text_from_translatable",
     "translatable_from_text",

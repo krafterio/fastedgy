@@ -268,6 +268,39 @@ async def test_a_relation_reads_filters_and_orders_in_the_locale(setup_db: FastE
         assert (course.title, course.category.name) == ("Abat-jour", "Lighting")
 
 
+async def test_a_regional_locale_reads_its_language_before_the_fallback(
+    setup_db: FastEdgy, override_settings: Callable[..., None]
+) -> None:
+    override_settings(available_locales=["en", "fr", "fr-CA"], fallback_locale="en")
+    course = await _create({"en": "Chair", "fr": "Chaise"})
+
+    with context.locale("fr-CA"):
+        assert (await _get(course)).title == "Chaise"
+        assert await Course.query.filter(title="Chaise").count() == 1
+
+        await course.update(title="Chaise berçante")
+
+    assert await read_translations(course, "title") == {"en": "Chair", "fr": "Chaise", "fr-CA": "Chaise berçante"}
+
+
+async def test_a_document_without_the_fallback_reads_its_first_text(setup_db: FastEdgy) -> None:
+    course = await _create("Chair")
+    database = get_service(Registry).database
+
+    await database.execute(
+        """UPDATE test_courses SET title = '{"de": "Stuhl"}'::jsonb WHERE id = :id""", {"id": course.id}
+    )
+
+    assert (await _get(course)).title == "Stuhl"
+    assert await Course.query.filter(title="Stuhl").count() == 1
+
+    loaded = await _get(course)
+    loaded.code = "C2"
+    await loaded.save()
+
+    assert await read_translations(course, "title") == {"de": "Stuhl"}
+
+
 # --- What builds on the field ------------------------------------------------
 
 
@@ -278,7 +311,7 @@ async def test_the_vector_of_a_locale_reads_its_text_then_the_fallback(setup_db:
     expression = build_tsvector_expression(Course, "fr")
 
     assert expression is not None
-    assert "coalesce(\"title\" ->> 'fr', \"title\" ->> 'en')" in expression
+    assert 'coalesce("title" ->> \'fr\', "title" ->> \'en\', jsonb_path_query_first("title"' in expression
     assert "chais" in str(await _row(course, f"({expression})::text"))
     assert "chais" in str(await _row(course, "search_value_en::text"))
 

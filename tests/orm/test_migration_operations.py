@@ -223,3 +223,45 @@ async def test_the_schema_of_a_translatable_model_needs_no_migration(setup_db: F
 
     async with get_service(Registry).database.connection() as connection:
         assert await connection.run_sync(diff) == []
+
+
+def test_filling_a_new_fallback_writes_its_sql_without_a_database() -> None:
+    def run(op: Any) -> None:
+        op.fill_translatable_fallback("courses", "title", "fr", from_locale="en")
+
+    sql = _offline(run)
+
+    assert (
+        """UPDATE "courses" SET "title" = "title" || jsonb_build_object('fr', """
+        """coalesce("title" -> 'en', jsonb_path_query_first("title", '$.*'))) """
+        """WHERE "title" IS NOT NULL AND "title" <> '{}'::jsonb AND NOT "title" ? 'fr';"""
+    ) in sql
+
+
+async def test_filling_a_new_fallback_gives_it_a_text_in_every_document(setup_db: FastEdgy) -> None:
+    database = get_service(Registry).database
+    documents = ['{"en": "Chair"}', '{"de": "Stuhl"}', '{"en": "Table", "fr": "Table basse"}', None]
+
+    await database.execute("DROP TABLE IF EXISTS test_translatable_fallback")
+
+    try:
+        await database.execute("CREATE TABLE test_translatable_fallback (id integer PRIMARY KEY, title jsonb)")
+
+        for index, document in enumerate(documents, start=1):
+            await database.execute(
+                "INSERT INTO test_translatable_fallback VALUES (:id, CAST(:title AS jsonb))",
+                {"id": index, "title": document},
+            )
+
+        await _online(lambda op: op.fill_translatable_fallback("test_translatable_fallback", "title", "fr", "en"))
+
+        rows = await database.fetch_all("SELECT title FROM test_translatable_fallback ORDER BY id")
+
+        assert [row[0] for row in rows] == [
+            {"en": "Chair", "fr": "Chair"},
+            {"de": "Stuhl", "fr": "Stuhl"},
+            {"en": "Table", "fr": "Table basse"},
+            None,
+        ]
+    finally:
+        await database.execute("DROP TABLE IF EXISTS test_translatable_fallback")

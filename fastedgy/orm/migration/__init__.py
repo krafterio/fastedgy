@@ -11,6 +11,7 @@ from .postgis import (
 )
 from .system import process_system_objects_revision_directives
 from .translatable import (
+    fill_translatable_fallback_sql,
     process_translatable_revision_directives,
     text_from_translatable,
     translatable_from_text,
@@ -56,6 +57,7 @@ __all__ = [
     "enable_unaccent_extension",
     "enable_vector_extension",
     "fastedgy_process_revision_directives",
+    "fill_translatable_fallback_sql",
     "process_enum_revision_directives",
     "process_fulltext_revision_directives",
     "process_postgis_revision_directives",

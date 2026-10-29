@@ -20,7 +20,7 @@ from sqlalchemy.dialects.postgresql import TSVECTOR
 
 from .field_html import HTMLField
 from .field_phone import PhoneField
-from .field_translatable import Translatable
+from .field_translatable import FIRST_TEXT_SQL, Translatable, language_of
 
 if TYPE_CHECKING:
     from fastedgy.models.base import BaseModel
@@ -251,8 +251,8 @@ def build_tsvector_expression(model_cls: "type[BaseModel]", locale: str) -> str 
     """
     Build the SQL expression computing the tsvector of a record, for one locale.
 
-    A translatable field contributes its text in that locale, the fallback
-    locale's when it has none, as a read in that locale shows it. The pictures
+    A translatable field contributes the text a read in that locale gives: its
+    own, its language's, the fallback locale's, the first one. The pictures
     a text carries inline (`_INLINE_DATA`) are left out.
 
     The expression reads the table's own columns, never Python values: a partial
@@ -281,8 +281,9 @@ def build_tsvector_expression(model_cls: "type[BaseModel]", locale: str) -> str 
         quoted = f'"{column.name}"'
 
         if isinstance(column.type, Translatable):
-            fallback = _get_fallback_locale()
-            source = f"coalesce({quoted} ->> '{escape_sql(locale)}', {quoted} ->> '{escape_sql(fallback)}')"
+            locales = dict.fromkeys([locale, language_of(locale), _get_fallback_locale()])
+            reads = ", ".join(f"{quoted} ->> '{escape_sql(code)}'" for code in locales)
+            source = f"coalesce({reads}, {FIRST_TEXT_SQL.format(document=quoted)})"
         elif isinstance(column.type, sqlalchemy.JSON):
             source = f"{quoted} ->> '{escape_sql(locale)}'"
         else:

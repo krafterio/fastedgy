@@ -14,6 +14,7 @@ from fastedgy.orm.fields import (
     ManyToMany,
     OneToOne,
     get_searchable_fields,
+    is_translatable,
 )
 from fastedgy.orm.filter import FILTER_FIELD_TYPE_NAME_MAP, get_filter_operators
 from fastedgy.orm.utils import find_primary_key_field
@@ -309,6 +310,7 @@ def generate_metadata_field(model_cls: type[Model], field: BaseFieldType) -> Met
         readonly=readonly,
         required=required and not readonly and not has_default,
         searchable=searchable,
+        translatable=is_translatable(field),
         extra=False,
         filter_operators=filter_operators,
         target=generate_metadata_name(target_model) if target_model else None,

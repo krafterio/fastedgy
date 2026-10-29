@@ -16,6 +16,8 @@ from edgy.core.db.querysets import (
     QuerySet as BaseQuerySet,
 )
 
+from fastedgy.orm.fields.field_translatable import translated
+
 
 class QuerySet(BaseQuerySet):
     """The queryset every FastEdgy manager hands out.
@@ -140,7 +142,11 @@ class QuerySet(BaseQuerySet):
             column = self._aggregate_column(order_by, order_by.startswith("-"))
 
         if column is None:
-            return super()._prepare_order_by(order_by, tables_and_models)
+            column = super()._prepare_order_by(order_by, tables_and_models)
+
+            # A descending term already went through the column's comparator;
+            # an ascending one is the bare column, a translatable document.
+            return translated(column)
 
         return column.desc() if order_by.startswith("-") else column
 

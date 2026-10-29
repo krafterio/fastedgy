@@ -5,12 +5,15 @@ import io
 from collections.abc import Callable
 from typing import Any
 
+import sqlalchemy as sa
+from alembic.autogenerate import compare_metadata, produce_migrations, render_python_code
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
 
 from fastedgy.app import FastEdgy
 from fastedgy.dependencies import get_service
 from fastedgy.orm import Registry
+from fastedgy.orm.fields import Translatable
 from fastedgy.orm.migration import (
     disable_pg_trgm_extension,
     disable_postgis_extension,
@@ -20,7 +23,9 @@ from fastedgy.orm.migration import (
     enable_postgis_extension,
     enable_unaccent_extension,
     enable_vector_extension,
+    process_translatable_revision_directives,
 )
+from fastedgy.orm.migration.translatable import ConvertFromTranslatableOperation, ConvertToTranslatableOperation
 
 
 def _offline(run: Callable[[Operations], None]) -> str:
@@ -125,3 +130,96 @@ async def test_replacing_an_enum_maps_its_values_and_keeps_the_default_of_its_co
         await database.execute("DROP TABLE IF EXISTS test_enum_task")
         await database.execute("DROP TYPE IF EXISTS test_enum_status")
         await database.execute("DROP TYPE IF EXISTS test_enum_status_old")
+
+
+def test_the_translatable_conversions_write_their_sql_without_a_database() -> None:
+    def run(op: Any) -> None:
+        op.convert_to_translatable("courses", "title", fallback_locale="en", existing_type=sa.VARCHAR(40))
+        op.convert_from_translatable("courses", "title", fallback_locale="en", type_=sa.VARCHAR(40))
+
+    sql = _offline(run)
+
+    assert (
+        "ALTER TABLE courses ALTER COLUMN title TYPE JSONB "
+        """USING CASE WHEN "title" IS NULL THEN NULL ELSE jsonb_build_object('en', "title") END;"""
+    ) in sql
+    assert """ALTER TABLE courses ALTER COLUMN title TYPE VARCHAR(40) USING "title" ->> 'en';""" in sql
+
+
+def _diff(connection: Any, table: sa.Table) -> Any:
+    context = MigrationContext.configure(
+        connection,
+        opts={
+            "compare_type": True,
+            "include_name": lambda name, kind, _: kind != "table" or name == table.name,
+        },
+    )
+    script = produce_migrations(context, table.metadata)
+    process_translatable_revision_directives(context, None, [script])
+
+    return script
+
+
+async def test_a_text_column_turning_translatable_keeps_its_values_as_the_fallback(setup_db: FastEdgy) -> None:
+    database = get_service(Registry).database
+    translatable = sa.Table(
+        "test_translatable_migration",
+        sa.MetaData(),
+        sa.Column("id", sa.Integer, primary_key=True),
+        sa.Column("name", Translatable(), nullable=True),
+    )
+    scripts: list[Any] = []
+
+    await database.execute("DROP TABLE IF EXISTS test_translatable_migration")
+
+    try:
+        await database.execute("CREATE TABLE test_translatable_migration (id integer PRIMARY KEY, name varchar(40))")
+        await database.execute("INSERT INTO test_translatable_migration VALUES (1, 'Chair'), (2, NULL)")
+
+        async with database.connection() as connection:
+            scripts.append(await connection.run_sync(_diff, translatable))
+
+        upgrade = scripts[0].upgrade_ops.ops[0].ops
+        downgrade = scripts[0].downgrade_ops.ops[0].ops
+
+        assert [type(op) for op in upgrade] == [ConvertToTranslatableOperation]
+        assert [type(op) for op in downgrade] == [ConvertFromTranslatableOperation]
+        assert (
+            "op.convert_to_translatable('test_translatable_migration', 'name', fallback_locale='en', "
+            "existing_type=sa.VARCHAR(length=40))"
+        ) in render_python_code(scripts[0].upgrade_ops)
+
+        await _online(lambda op: op.invoke(upgrade[0]))
+
+        rows = await database.fetch_all("SELECT id, name FROM test_translatable_migration ORDER BY id")
+
+        assert [tuple(row) for row in rows] == [(1, {"en": "Chair"}), (2, None)]
+
+        async with database.connection() as connection:
+            assert (await connection.run_sync(_diff, translatable)).upgrade_ops.is_empty()
+
+        await _online(lambda op: op.invoke(downgrade[0]))
+
+        rows = await database.fetch_all("SELECT id, name FROM test_translatable_migration ORDER BY id")
+
+        assert [tuple(row) for row in rows] == [(1, "Chair"), (2, None)]
+    finally:
+        await database.execute("DROP TABLE IF EXISTS test_translatable_migration")
+
+
+async def test_the_schema_of_a_translatable_model_needs_no_migration(setup_db: FastEdgy) -> None:
+    from fastedgy.test.models.course import Course
+
+    def diff(connection: Any) -> list[Any]:
+        context = MigrationContext.configure(
+            connection,
+            opts={
+                "compare_type": True,
+                "include_object": lambda _, name, kind, *__: kind != "table" or name == "test_courses",
+            },
+        )
+
+        return compare_metadata(context, Course.table.metadata)
+
+    async with get_service(Registry).database.connection() as connection:
+        assert await connection.run_sync(diff) == []

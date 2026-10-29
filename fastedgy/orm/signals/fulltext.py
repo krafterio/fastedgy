@@ -10,8 +10,7 @@ from edgy.core.signals import post_save, post_update
 from sqlalchemy.exc import DBAPIError
 
 from fastedgy.orm.fields.field_fulltext import (
-    build_tsvector_expression,
-    get_fulltext_column,
+    get_fulltext_assignments,
     get_primary_key_field,
     get_searchable_fields,
     is_view_model,
@@ -53,8 +52,6 @@ async def _handle_fulltext_save(instance: Any, **kwargs: dict[str, Any]) -> None
     try:
         from sqlalchemy import text
 
-        from fastedgy import context
-
         model_cls = type(instance)
         searchable_fields = get_searchable_fields(model_cls)
 
@@ -72,12 +69,6 @@ async def _handle_fulltext_save(instance: Any, **kwargs: dict[str, Any]) -> None
             if not written & set(searchable_fields):
                 return
 
-        locale = context.get_locale()
-        expression = build_tsvector_expression(model_cls, locale)
-
-        if expression is None:
-            return
-
         pk_field = get_primary_key_field(model_cls)
 
         if pk_field is None:
@@ -88,27 +79,24 @@ async def _handle_fulltext_save(instance: Any, **kwargs: dict[str, Any]) -> None
         if record_pk is None:
             return
 
+        # Every locale, not only the one of the save: a translatable field
+        # written in one locale fills its fallback too, and every locale
+        # without a text of its own reads the fallback's, so their vectors
+        # change with it. One statement still rewrites the row only once.
+        assignments = get_fulltext_assignments(model_cls)
+
+        if not assignments:
+            return
+
         tablename = str(model_cls.meta.tablename)
+        targets = ", ".join(f'"{column}" = {expression}' for column, expression in assignments)
+        # Skip the write entirely when every recomputed tsvector is unchanged:
+        # a no-op UPDATE would still create a new row version (heap + every
+        # index incl. the GIN) and generate WAL on every save of the record.
+        changed = " OR ".join(f'"{column}" IS DISTINCT FROM ({expression})' for column, expression in assignments)
+        sql = text(f'UPDATE {tablename} SET {targets} WHERE "{pk_field}" = :pk_value AND ({changed})')
 
-        for field_name, field_info in model_cls.meta.fields.items():
-            if not getattr(field_info, "is_fulltext_field", False):
-                continue
-
-            column_name = get_fulltext_column(model_cls, field_name, locale)
-
-            if column_name is None:
-                continue
-
-            target = f'"{column_name}"'
-            # Skip the write entirely when the recomputed tsvector is unchanged:
-            # a no-op UPDATE would still create a new row version (heap + every
-            # index incl. the GIN) and generate WAL on every save of the record.
-            sql = text(
-                f"UPDATE {tablename} SET {target} = {expression} "
-                f'WHERE "{pk_field}" = :pk_value AND {target} IS DISTINCT FROM ({expression})'
-            )
-
-            await model_cls.meta.registry.database.execute(sql, {"pk_value": record_pk})
+        await model_cls.meta.registry.database.execute(sql, {"pk_value": record_pk})
 
     except DBAPIError:
         # A database error here (typically a serialization conflict 40001 under

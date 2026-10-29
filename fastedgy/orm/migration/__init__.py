@@ -10,6 +10,11 @@ from .postgis import (
     process_postgis_revision_directives,
 )
 from .system import process_system_objects_revision_directives
+from .translatable import (
+    process_translatable_revision_directives,
+    text_from_translatable,
+    translatable_from_text,
+)
 from .unaccent import disable_unaccent_extension, enable_unaccent_extension
 from .vector import (
     disable_vector_extension,
@@ -35,6 +40,7 @@ def fastedgy_process_revision_directives(context, revision, directives):
     process_vector_revision_directives(context, revision, directives)
     process_postgis_revision_directives(context, revision, directives)
     process_fulltext_revision_directives(context, revision, directives)
+    process_translatable_revision_directives(context, revision, directives)
 
     # Ensure view model operations are in the correct order
     process_view_model_revision_directives(context, revision, directives)
@@ -54,5 +60,8 @@ __all__ = [
     "process_fulltext_revision_directives",
     "process_postgis_revision_directives",
     "process_system_objects_revision_directives",
+    "process_translatable_revision_directives",
     "process_vector_revision_directives",
+    "text_from_translatable",
+    "translatable_from_text",
 ]

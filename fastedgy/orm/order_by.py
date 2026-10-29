@@ -49,10 +49,17 @@ def aggregated_relation_column(
     if source is None:
         return None
 
+    from fastedgy.orm.fields import translated
+
     select_from, root_link_condition, final_column = source
     aggregate = func.max if descending else func.min
 
-    return sa_select(aggregate(final_column)).select_from(select_from).where(root_link_condition).scalar_subquery()
+    return (
+        sa_select(aggregate(translated(final_column)))
+        .select_from(select_from)
+        .where(root_link_condition)
+        .scalar_subquery()
+    )
 
 
 def inject_order_by(query: QuerySet, order_by: OrderByInput) -> QuerySet:

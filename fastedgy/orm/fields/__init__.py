@@ -62,6 +62,14 @@ from .field_rich_text import RichTextField
 from .field_small_integer import SmallIntegerField
 from .field_text import TextField
 from .field_time import TimeField
+from .field_translatable import (
+    Translatable,
+    TranslatableOptions,
+    is_translatable,
+    read_translations,
+    translated,
+    translations_of,
+)
 from .field_url import URLField
 from .field_uuid import UUIDField
 from .field_vector import Vector, VectorField
@@ -118,6 +126,8 @@ __all__ = [
     "SmallIntegerField",
     "TextField",
     "TimeField",
+    "Translatable",
+    "TranslatableOptions",
     "URLField",
     "UUIDField",
     "UniqueConstraint",
@@ -127,10 +137,14 @@ __all__ = [
     "generic_target_name",
     "get_pg_language",
     "get_searchable_fields",
+    "is_translatable",
+    "read_translations",
     "recompute_fulltext",
     "recompute_fulltext_rows",
     "resolve_generic_pair",
     "resolve_registry_generic_references",
     "resolve_search_weight",
+    "translated",
+    "translations_of",
     "validate_generic_reference_payload",
 ]

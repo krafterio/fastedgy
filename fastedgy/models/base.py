@@ -755,9 +755,45 @@ class BaseModel(Model, metaclass=ModelMeta):
         """
         target = type(self)(**self.duplicate_values(values))
         await target.save(force_insert=True)
+        await self.duplicate_translations(target, values)
         await self.duplicate_to_many(target)
 
         return target
+
+    async def duplicate_translations(self, target: Self, values: dict[str, Any] | None = None) -> None:
+        """Carry every locale of the translatable fields over to ``target``.
+
+        A copy starts from what the record reads, the text of the current
+        locale: the other locales are copied from the row itself. A field
+        ``values`` states is the caller's, and is left as it was written.
+        """
+        from sqlalchemy import select, type_coerce
+        from sqlalchemy.dialects.postgresql import JSONB
+
+        from fastedgy.orm.copy import is_copyable_field
+        from fastedgy.orm.fields import is_translatable
+
+        names = [
+            name
+            for name, field in self.meta.fields.items()
+            if is_translatable(field) and is_copyable_field(field) and name not in (values or {})
+        ]
+
+        if not names:
+            return
+
+        table = self.table
+        source = table.alias("source")
+        pkcolumns = type(self).pkcolumns
+        documents = {
+            table.columns[name]: select(type_coerce(source.columns[name], JSONB))
+            .where(*(source.columns[pk] == getattr(self, pk) for pk in pkcolumns))
+            .scalar_subquery()
+            for name in names
+        }
+        statement = table.update().where(*(table.columns[pk] == getattr(target, pk) for pk in pkcolumns))
+
+        await self.database.execute(statement.values(documents))
 
 
 class BaseView(Model, metaclass=ModelMeta):

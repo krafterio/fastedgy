@@ -6,6 +6,7 @@ from fastedgy.test.models.assignment import Assignment
 from fastedgy.test.models.attachment import Attachment
 from fastedgy.test.models.category import Category
 from fastedgy.test.models.comment import Comment
+from fastedgy.test.models.course import Course
 from fastedgy.test.models.entry import Entry
 from fastedgy.test.models.fs_optimize import (
     FsoBrand,
@@ -69,6 +70,7 @@ DEMO_MODELS = [
     Note,
     Annotation,
     Ticket,
+    Course,
 ]
 
 ALL_MODELS = STANDARD_MODELS + DEMO_MODELS
@@ -83,6 +85,7 @@ __all__ = [
     "Attachment",
     "Category",
     "Comment",
+    "Course",
     "Entry",
     "FsoBrand",
     "FsoCategory",

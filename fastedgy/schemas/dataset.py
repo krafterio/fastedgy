@@ -79,6 +79,7 @@ class MetadataField(BaseModel, frozen=True):  # pyright: ignore[reportGeneralTyp
     readonly: bool
     required: bool
     searchable: bool
+    translatable: bool = False
     extra: bool
     filter_operators: list[str]
     target: str | None = None

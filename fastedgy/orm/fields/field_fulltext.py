@@ -20,6 +20,7 @@ from sqlalchemy.dialects.postgresql import TSVECTOR
 
 from .field_html import HTMLField
 from .field_phone import PhoneField
+from .field_translatable import Translatable
 
 if TYPE_CHECKING:
     from fastedgy.models.base import BaseModel
@@ -104,6 +105,15 @@ def _get_available_locales() -> list[str]:
         return settings.available_locales
     except Exception:
         return ["en"]
+
+
+def _get_fallback_locale() -> str:
+    try:
+        from fastedgy.context import get_fallback_locale
+
+        return get_fallback_locale()
+    except Exception:
+        return "en"
 
 
 class FulltextField(BaseField):
@@ -241,7 +251,9 @@ def build_tsvector_expression(model_cls: "type[BaseModel]", locale: str) -> str 
     """
     Build the SQL expression computing the tsvector of a record, for one locale.
 
-    The pictures a text carries inline (`_INLINE_DATA`) are left out.
+    A translatable field contributes its text in that locale, the fallback
+    locale's when it has none, as a read in that locale shows it. The pictures
+    a text carries inline (`_INLINE_DATA`) are left out.
 
     The expression reads the table's own columns, never Python values: a partial
     save carries only the fields it loaded, and feeding those to the tsvector
@@ -268,7 +280,10 @@ def build_tsvector_expression(model_cls: "type[BaseModel]", locale: str) -> str 
 
         quoted = f'"{column.name}"'
 
-        if isinstance(column.type, sqlalchemy.JSON):
+        if isinstance(column.type, Translatable):
+            fallback = _get_fallback_locale()
+            source = f"coalesce({quoted} ->> '{escape_sql(locale)}', {quoted} ->> '{escape_sql(fallback)}')"
+        elif isinstance(column.type, sqlalchemy.JSON):
             source = f"{quoted} ->> '{escape_sql(locale)}'"
         else:
             source = f"{quoted}::text"
@@ -287,6 +302,24 @@ def get_fulltext_column(model_cls: "type[BaseModel]", field_name: str, locale: s
     column = model_cls.table.columns.get(f"{field_name}_{locale}")
 
     return column.name if column is not None else None
+
+
+def get_fulltext_assignments(model_cls: "type[BaseModel]") -> list[tuple[str, str]]:
+    """The tsvector column of every fulltext field and available locale, each with the expression computing it."""
+    assignments: list[tuple[str, str]] = []
+
+    for field_name, field_info in model_cls.meta.fields.items():
+        if not getattr(field_info, "is_fulltext_field", False):
+            continue
+
+        for locale in _get_available_locales():
+            column_name = get_fulltext_column(model_cls, field_name, locale)
+            expression = build_tsvector_expression(model_cls, locale)
+
+            if column_name is not None and expression is not None:
+                assignments.append((column_name, expression))
+
+    return assignments
 
 
 async def recompute_fulltext(
@@ -399,6 +432,7 @@ __all__ = [
     "SearchWeight",
     "build_tsvector_expression",
     "escape_sql",
+    "get_fulltext_assignments",
     "get_fulltext_column",
     "get_pg_language",
     "get_primary_key_field",

@@ -13,11 +13,13 @@ from starlette.datastructures import Headers, UploadFile
 
 from fastedgy.config import BaseSettings
 from fastedgy.dependencies import get_service, has_service
+from fastedgy.i18n import TranslatableString
 from fastedgy.metadata_model.generator import generate_metadata_name
 from fastedgy.models.base import BaseModel
 from fastedgy.models.data_record import DataRecord
 from fastedgy.orm import Registry, with_transaction
 from fastedgy.orm.data_ref import DataRefs
+from fastedgy.orm.fields import is_translatable, read_translations, translations_of
 from fastedgy.storage import Storage
 from fastedgy.storage.routing import is_global_storage_model
 
@@ -215,10 +217,15 @@ async def _apply_record(
         changed = False
 
         for name, value in scalars.items():
-            current = getattr(existing, name, None)
-            current = getattr(current, "id", current)
+            if isinstance(value, TranslatableString) and is_translatable(model_cls.meta.fields.get(name)):
+                # The record reads one locale: what the message must match is
+                # every translation the catalogs now hold.
+                differs = await read_translations(existing, name) != translations_of(value)
+            else:
+                current = getattr(existing, name, None)
+                differs = getattr(current, "id", current) != value
 
-            if current != value:
+            if differs:
                 setattr(existing, name, value)
                 changed = True
 

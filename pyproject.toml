@@ -16,6 +16,7 @@ dependencies = [
     "bcrypt ~= 4.3",
     "click ~= 8.2",
     "cronsim ~= 2.7",
+    "cryptography >= 44",
     "dill ~= 0.4",
     # Capped below 0.36 until the save signals are adapted: the bump changes
     # what a handler receives as `instance`, and Edgy re-saves a foreign key

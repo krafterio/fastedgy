@@ -197,6 +197,9 @@ class BaseSettings(PydanticBaseSettings):
     auth_password_min_length: int = 0
     api_token_prefix: str = "fet_"
 
+    # Vault: the Fernet key that seals the secrets the application keeps (`fastedgy.vault`)
+    secrets_encryption_key: str = ""
+
     # Password
     strict_password_hash: bool = False
 

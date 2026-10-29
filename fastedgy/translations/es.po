@@ -290,6 +290,9 @@ msgstr ""
 "No se ha solicitado ninguna acción. Indique group_field o sequence_field "
 "para reordenar la secuencia"
 
+msgid "No encryption key is configured (SECRETS_ENCRYPTION_KEY)"
+msgstr "No hay ninguna clave de cifrado configurada (SECRETS_ENCRYPTION_KEY)"
+
 msgid "No files uploaded"
 msgstr "No se ha subido ningún archivo"
 
@@ -433,6 +436,9 @@ msgid ""
 msgstr ""
 "Otra operación está usando el recurso en este momento. Vuelva a "
 "intentarlo dentro de unos instantes."
+
+msgid "The secret cannot be read with the current encryption key"
+msgstr "El secreto no se puede leer con la clave de cifrado actual"
 
 msgid "The type field cannot be changed"
 msgstr "El campo type no se puede modificar"

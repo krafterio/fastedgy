@@ -290,6 +290,9 @@ msgstr ""
 "Keine Aktion angefordert. Bitte geben Sie group_field oder sequence_field"
 " für die Neusequenzierung an"
 
+msgid "No encryption key is configured (SECRETS_ENCRYPTION_KEY)"
+msgstr "Es ist kein Verschlüsselungsschlüssel konfiguriert (SECRETS_ENCRYPTION_KEY)"
+
 msgid "No files uploaded"
 msgstr "Keine Dateien hochgeladen"
 
@@ -433,6 +436,9 @@ msgid ""
 msgstr ""
 "Die Ressource wird gerade von einem anderen Vorgang verwendet. Bitte "
 "versuchen Sie es in wenigen Augenblicken erneut."
+
+msgid "The secret cannot be read with the current encryption key"
+msgstr "Das Geheimnis kann mit dem aktuellen Verschlüsselungsschlüssel nicht gelesen werden"
 
 msgid "The type field cannot be changed"
 msgstr "Das Feld type kann nicht geändert werden"

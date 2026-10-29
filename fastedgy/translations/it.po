@@ -290,6 +290,9 @@ msgstr ""
 "Nessuna azione richiesta. Fornire group_field o sequence_field per il "
 "risequenziamento"
 
+msgid "No encryption key is configured (SECRETS_ENCRYPTION_KEY)"
+msgstr "Nessuna chiave di cifratura è configurata (SECRETS_ENCRYPTION_KEY)"
+
 msgid "No files uploaded"
 msgstr "Nessun file caricato"
 
@@ -431,6 +434,9 @@ msgid ""
 msgstr ""
 "La risorsa è attualmente in uso da parte di un'altra operazione. "
 "Riprovare tra qualche istante."
+
+msgid "The secret cannot be read with the current encryption key"
+msgstr "Il segreto non può essere letto con la chiave di cifratura attuale"
 
 msgid "The type field cannot be changed"
 msgstr "Il campo type non può essere modificato"

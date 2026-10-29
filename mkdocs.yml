@@ -188,6 +188,9 @@ nav:
         - User Guide: features/container-service/guide.md
         - Advanced Usage: features/container-service/advanced.md
         - Technical Details: features/container-service/technical.md
+      - Vault:
+        - Overview: features/vault/overview.md
+        - Usage Guide: features/vault/guide.md
       - Queued Tasks:
         - Overview: features/queued-tasks/overview.md
         - Getting Started: features/queued-tasks/getting-started.md

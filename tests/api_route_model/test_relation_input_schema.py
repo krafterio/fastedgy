@@ -147,12 +147,20 @@ def test_pruning_leaves_no_dangling_ref(setup_openapi_app: FastEdgy) -> None:
 
 def _fk_adapter(create: bool = True) -> TypeAdapter[Any]:
     generate = generate_input_create_model if create else generate_input_patch_model
-    return TypeAdapter(generate(Product).model_fields["category"].annotation)
+    annotation = generate(Product).model_fields["category"].annotation
+
+    assert annotation is not None
+
+    return TypeAdapter(annotation)
 
 
 def _collection_adapter(create: bool = True) -> TypeAdapter[Any]:
     generate = generate_input_create_model if create else generate_input_patch_model
-    return TypeAdapter(generate(Product).model_fields["tags"].annotation)
+    annotation = generate(Product).model_fields["tags"].annotation
+
+    assert annotation is not None
+
+    return TypeAdapter(annotation)
 
 
 @pytest.mark.parametrize(

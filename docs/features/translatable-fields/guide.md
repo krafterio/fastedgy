@@ -60,9 +60,9 @@ A read answers the first text it finds, in this order:
 1. The current locale, `fr-CA`
 2. Its language, `fr`
 3. The fallback locale
-4. The first text the record holds, which only a record written before the fallback changed lacks the fallback for
+4. The text of its only locale, when the record holds a single one: only a record written before the fallback changed lacks the fallback
 
-It is `None` when the record holds no text at all.
+It is `None` when the record holds no text at all, or several texts and none of these locales.
 
 ```python
 product = await Product.query.create(name="Chair")
@@ -102,7 +102,7 @@ product = await Product.query.create(name={"en": "Chair", "fr": "Chaise"})
 await product.update(name={"de": "Stuhl", "fr": None})  # {"en": "Chair", "de": "Stuhl"}
 ```
 
-Each text is validated as a plain value would be (`max_length`, `min_length`, `pattern`), the keys must be available locales, and a field that is not `null=True` refuses `None` for its fallback locale. Until it is saved, the attribute holds the dict; once saved, it reads the text of the current locale.
+Each text is validated as a plain value would be (`max_length`, `min_length`, `pattern`), the keys must be available locales, and a field that is not `null=True` refuses `None` for its fallback locale. A record created with such a field takes a text in one locale at least: `{}` or `{"de": None}` raises a `ValueError`, a `422` through the API. Until it is saved, the attribute holds the dict; once saved, it reads the text of the current locale.
 
 ### Write every locale from the catalogs
 
@@ -232,7 +232,7 @@ curl /api/products/import/template?format=csv -H "X-Fields: reference,name:en,na
 # Reference,Name (en),Name (fr)
 ```
 
-An import reads those columns, by their label or as `name:fr`, as the translations keyed by locale: an empty cell leaves its locale as it is. A column of the field itself (`Name`) writes the locale of the request.
+An import reads those columns, by their label or as `name:fr`, as the translations keyed by locale: an empty cell leaves its locale as it is. A column of the field itself (`Name`) writes the locale of the request. A file holding both a column of the field itself and a column of one of its locales is refused with a `400`, either would overwrite the other.
 
 ## Full-text search
 
@@ -275,14 +275,14 @@ Changing `max_length`, or moving between `CharField` and `TextField`, needs no m
 
 ### Change the fallback locale
 
-The fallback locale is a setting, no part of the schema: autogenerate cannot see it change. The records written before still read their first text, but a migration giving each of them a text in the new fallback keeps the reads, the filters and the search in line:
+The fallback locale is a setting, no part of the schema: autogenerate cannot see it change. The records written before read nothing in a locale they lack, unless they hold a single text: a migration giving each of them a text in the new fallback keeps the reads, the filters and the search in line:
 
 ```python
 def upgrade():
     op.fill_translatable_fallback("products", "name", "fr", from_locale="en")
 ```
 
-Each record without a text in `fr` takes its `en` one, else its first text. One call per translatable column.
+Each record without a text in `fr` takes its `en` one; a record holding neither stays as it is. One call per translatable column.
 
 ## Best practices
 

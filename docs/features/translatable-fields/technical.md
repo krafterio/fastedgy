@@ -21,14 +21,15 @@ The whole feature lives in one SQLAlchemy type, `Translatable` (`fastedgy/orm/fi
 
 ```sql
 SELECT coalesce(
-  products.name ->> $1,                                -- the locale, fr-CA
-  products.name ->> $2,                                -- its language, fr
-  products.name ->> $3,                                -- the fallback locale
-  jsonb_path_query_first(products.name, '$.*') #>> '{}'  -- the first text
+  products.name ->> $1,  -- the locale, fr-CA
+  products.name ->> $2,  -- its language, fr
+  products.name ->> $3,  -- the fallback locale
+  jsonb_path_query_first(jsonb_path_query_array(products.name, '$.*'), 'strict $ ? (@.size() == 1)') ->> 0
+                         -- the text of its only locale
 ) AS name FROM products
 ```
 
-The locales are bound parameters resolved on every execution, not compiled into the SQL: the compiled statement is cached and shared by every locale. `coalesce` stops at the first text, so the last resort only runs on a document lacking the fallback. The column's result processor is disabled, so the driver hands back the text as it is.
+The locales are bound parameters resolved on every execution, not compiled into the SQL: the compiled statement is cached and shared by every locale. `coalesce` stops at the first text, so the last resort only runs on a document lacking the fallback. It answers a document holding a single text, whichever its locale, and `NULL` for one holding several: the order of the keys of a `jsonb` document says nothing of the locales. The column's result processor is disabled, so the driver hands back the text as it is.
 
 ## Comparing and ordering
 
@@ -53,7 +54,8 @@ SET name = (
   SELECT CASE
     WHEN _t.p ? 'read'
      AND coalesce(name ->> (_t.p -> 'read' ->> 0), name ->> (_t.p -> 'read' ->> 1),
-                  name ->> (_t.p -> 'read' ->> 2), jsonb_path_query_first(name, '$.*') #>> '{}')
+                  name ->> (_t.p -> 'read' ->> 2),
+                  jsonb_path_query_first(jsonb_path_query_array(name, '$.*'), 'strict $ ? (@.size() == 1)') ->> 0)
          IS NOT DISTINCT FROM (_t.p -> 'read' ->> 3)
     THEN name
     ELSE nullif(jsonb_strip_nulls(
@@ -78,7 +80,7 @@ The update reaches the row's document by the name of its column, which `Translat
 
 ## Full-text search
 
-`build_tsvector_expression` reads a translatable source with the chain of a read in the locale of the vector, its locales as literals: `coalesce(col ->> 'fr', col ->> 'en', jsonb_path_query_first(col, '$.*') #>> '{}')`. The save signal recomputes the vector of every available locale in one `UPDATE`, skipped when no vector changes: a write in one locale may fill the fallback, and every locale without a text of its own reads it.
+`build_tsvector_expression` reads a translatable source with the chain of a read in the locale of the vector, its locales as literals: `coalesce(col ->> 'fr', col ->> 'en', <the text of its only locale>)`. The save signal recomputes the vector of every available locale in one `UPDATE`, skipped when no vector changes: a write in one locale may fill the fallback, and every locale without a text of its own reads it.
 
 ## Migrations
 
@@ -91,12 +93,14 @@ The update reaches the row's document by the name of its column, which `Translat
 
 Alembic renders no `postgresql_using`, hence the operations of their own. The fallback locale is the one configured when the migration is generated. The rest of an `alter_column` (nullability, default, comment) stays in place after the conversion. A `Translatable` column compiles to `JSONB`, so a schema in line with the models produces no migration.
 
-`fill_translatable_fallback(table, column, fallback_locale, from_locale=None)` is written by hand, the fallback being a setting:
+`fill_translatable_fallback(table, column, fallback_locale, from_locale)` is written by hand, the fallback being a setting:
 
 ```sql
-UPDATE products SET name = name || jsonb_build_object('fr', coalesce(name -> 'en', jsonb_path_query_first(name, '$.*')))
-WHERE name IS NOT NULL AND name <> '{}'::jsonb AND NOT name ? 'fr'
+UPDATE products SET name = name || jsonb_build_object('fr', name -> 'en')
+WHERE name ? 'en' AND NOT name ? 'fr'
 ```
+
+A document holding neither locale is left as it is.
 
 ## API
 

@@ -26,7 +26,7 @@ class Product(BaseModel):
 - Writes merge into the stored document: a locale is set without touching the others
 - A dict keyed by locale writes several locales at once, in Python as in a JSON body, described by the OpenAPI schema
 - `_ts("...")` writes every locale at once, from your translation catalogs
-- A read falls back from `fr-CA` to `fr`, then to the fallback locale, then to the text of the only locale a record holds
+- A read falls back from `fr-CA` to `fr`, then to the fallback locale, then to the available locales in their order
 - `GET /{id}/translations` answers every locale of a record, and the metadata lists the locales
 - Exports and imports hold one column per locale (`name:fr`, `Name (fr)`)
 - Filters, the query builder, ordering and relation paths compare the text of the current locale

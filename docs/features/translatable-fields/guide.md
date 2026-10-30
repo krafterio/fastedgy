@@ -60,7 +60,8 @@ A read answers the first text it finds, in this order:
 1. The current locale, `fr-CA`
 2. Its language, `fr`
 3. The fallback locale
-4. The text of its only locale, when the record holds a single one: only a record written before the fallback changed lacks the fallback
+4. Each available locale, in the order of `available_locales`: only a record written before the fallback changed lacks the fallback
+5. The text of its only locale, when the record holds a single one outside them
 
 It is `None` when the record holds no text at all, or several texts and none of these locales.
 
@@ -275,7 +276,7 @@ Changing `max_length`, or moving between `CharField` and `TextField`, needs no m
 
 ### Change the fallback locale
 
-The fallback locale is a setting, no part of the schema: autogenerate cannot see it change. The records written before read nothing in a locale they lack, unless they hold a single text: a migration giving each of them a text in the new fallback keeps the reads, the filters and the search in line:
+The fallback locale is a setting, no part of the schema: autogenerate cannot see it change. The records written before read their first available locale, in the order of `available_locales`, in a locale they lack: a migration giving each of them a text in the new fallback keeps the reads, the filters and the search in line:
 
 ```python
 def upgrade():

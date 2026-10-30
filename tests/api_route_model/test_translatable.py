@@ -85,7 +85,7 @@ async def test_an_update_leaving_a_required_field_without_text_names_it(
     response = await auth_http.patch(f"/api/test_courses/{created['id']}", json={"title": {"de": None}})
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "A required field is missing: 'title'."
+    assert response.json()["detail"] == "A required field is missing: 'Title'."
     assert await read_translations(await Course.query.get(id=created["id"]), "title") == {"de": "Stuhl"}
 
 

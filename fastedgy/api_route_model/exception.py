@@ -8,9 +8,21 @@ from fastapi.exceptions import RequestValidationError
 from sqlalchemy.exc import DBAPIError, IntegrityError
 
 from fastedgy.i18n import _t
+from fastedgy.metadata_model.utils import get_field_label_from_path
+from fastedgy.orm import Model
 from fastedgy.orm.exceptions import ObjectNotFound
 from fastedgy.orm.transaction import is_serialization_error
 from fastedgy.schemas import ErrorDetails, ValidationError
+
+
+def _field_labels(model_cls: type | None, columns: str) -> str:
+    """The labels the metadata gives the fields of columns named by the database, ``code, workspace_id``."""
+    names = [column.strip() for column in columns.split(",")]
+
+    if not (isinstance(model_cls, type) and issubclass(model_cls, Model)):
+        return ", ".join(names)
+
+    return ", ".join(get_field_label_from_path(model_cls, name) for name in names)
 
 
 def handle_action_exception(
@@ -50,7 +62,7 @@ def handle_action_exception(
                 detail = str(
                     _t(
                         "An entry with this value already exists for the field '{field_name}'.",
-                        field_name=field_name,
+                        field_name=_field_labels(model_cls, field_name),
                     )
                 )
             else:
@@ -80,7 +92,9 @@ def handle_action_exception(
             field_name = error_msg.split('column "')[1].split('"')[0] if 'column "' in error_msg else None
 
             if field_name:
-                detail = str(_t("A required field is missing: '{field_name}'.", field_name=field_name))
+                detail = str(
+                    _t("A required field is missing: '{field_name}'.", field_name=_field_labels(model_cls, field_name))
+                )
             else:
                 detail = str(_t("A required field is missing."))
 

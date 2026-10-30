@@ -142,3 +142,19 @@ async def test_a_spreadsheet_holds_one_column_per_locale(
     await auth_http.post("/api/test_courses/import", files={"file": ("data.csv", "Code,Title\nC3,Lamp\n", "text/csv")})
 
     assert await read_translations(await Course.query.get(code="C3"), "title") == {"en": "Lamp"}
+
+
+async def test_an_import_refuses_a_field_written_whole_and_in_one_of_its_locales(
+    auth_http: httpx.AsyncClient, override_settings: Callable[..., None]
+) -> None:
+    override_settings(available_locales=["en", "fr"], fallback_locale="en")
+
+    for header in ("Code,Title,Title (fr)", "Code,title:fr,title"):
+        response = await auth_http.post(
+            "/api/test_courses/import", files={"file": ("data.csv", f"{header}\nC1,Chair,Chaise\n", "text/csv")}
+        )
+
+        assert response.status_code == 400
+        assert "Two columns write the same field: title" in response.text
+
+    assert await Course.query.count() == 0

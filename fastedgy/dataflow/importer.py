@@ -305,6 +305,13 @@ async def import_data[M: "Model"](
 
     # Map column headers to field names
     field_mapping = map_columns(headers, model_cls)
+    written_twice = field_written_whole_and_by_locale(field_mapping)
+
+    if written_twice:
+        raise HTTPException(
+            status_code=400,
+            detail=_t("Two columns write the same field: {field}", field=written_twice),
+        )
 
     # Detect identifier field (primary key or unique field)
     identifier_field = detect_identifier_field(model_cls, field_mapping)
@@ -454,6 +461,19 @@ def map_columns(headers: list[str], model_cls: "type[Model]") -> dict[str, str]:
                 mapping[header] = field_name
 
     return mapping
+
+
+def field_written_whole_and_by_locale(field_mapping: dict[str, str]) -> str | None:
+    """The translatable field the columns write whole and in one of its locales, each overwriting the other."""
+    fields = set(field_mapping.values())
+
+    for field_name in field_mapping.values():
+        path, locale = parse_field_with_converter(field_name)
+
+        if locale and path in fields:
+            return path
+
+    return None
 
 
 _LOCALE_LABEL = re.compile(r"(.+) \(([^()]+)\)")
@@ -926,6 +946,7 @@ __all__ = [
     "decode_csv_content",
     "detect_csv_delimiter",
     "detect_identifier_field",
+    "field_written_whole_and_by_locale",
     "import_data",
     "map_columns",
     "parse_csv_file",

@@ -456,6 +456,9 @@ msgid "Type"
 msgstr "Tipo"
 
 #, python-brace-format
+msgid "Two columns write the same field: {field}"
+msgstr "Dos columnas escriben el mismo campo: {field}"
+
 msgid "Unsupported export format: {format}"
 msgstr "Formato de exportación no compatible: {format}"
 

@@ -5,6 +5,8 @@ from collections.abc import Callable
 
 import httpx
 
+from fastedgy.dependencies import get_service
+from fastedgy.orm import Registry
 from fastedgy.orm.fields import read_translations
 from fastedgy.test.models.course import Course
 
@@ -69,6 +71,22 @@ async def test_a_request_refuses_translations_it_cannot_store(
     assert textless.status_code == 422
     assert "title takes at least one text" in textless.text
     assert await Course.query.count() == 0
+
+
+async def test_an_update_leaving_a_required_field_without_text_names_it(
+    auth_http: httpx.AsyncClient, override_settings: Callable[..., None]
+) -> None:
+    override_settings(available_locales=["en", "fr", "de"], fallback_locale="en")
+    created = (await auth_http.post("/api/test_courses", json={"code": "C1", "title": "Chair"})).json()
+    await get_service(Registry).database.execute(
+        """UPDATE test_courses SET title = '{"de": "Stuhl"}'::jsonb WHERE id = :id""", {"id": created["id"]}
+    )
+
+    response = await auth_http.patch(f"/api/test_courses/{created['id']}", json={"title": {"de": None}})
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "A required field is missing: 'title'."
+    assert await read_translations(await Course.query.get(id=created["id"]), "title") == {"de": "Stuhl"}
 
 
 async def test_the_schema_of_a_translatable_field_reads_a_string_and_writes_translations(

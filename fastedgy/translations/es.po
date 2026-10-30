@@ -17,6 +17,9 @@ msgstr "Un valor numérico es demasiado grande para el campo."
 msgid "A required field is missing."
 msgstr "Falta un campo obligatorio."
 
+msgid "A required field is missing: '{field_name}'."
+msgstr "Falta un campo obligatorio: '{field_name}'."
+
 msgid "Active Workers"
 msgstr "Workers activos"
 

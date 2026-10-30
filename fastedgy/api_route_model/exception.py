@@ -76,7 +76,14 @@ def handle_action_exception(
             or "null value" in error_msg.lower()
             or "NotNullViolationError" in str(e.orig.__class__.__name__)
         ):
-            detail = str(_t("A required field is missing."))
+            # Extract the column from "null value in column "field_name" of relation ..."
+            field_name = error_msg.split('column "')[1].split('"')[0] if 'column "' in error_msg else None
+
+            if field_name:
+                detail = str(_t("A required field is missing: '{field_name}'.", field_name=field_name))
+            else:
+                detail = str(_t("A required field is missing."))
+
             raise HTTPException(status_code=400, detail=detail)
 
         # Generic integrity error

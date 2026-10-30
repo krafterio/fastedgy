@@ -61,10 +61,13 @@ async def test_a_request_refuses_translations_it_cannot_store(
 
     unknown = await auth_http.post("/api/test_courses", json={"code": "C1", "title": {"it": "Sedia"}})
     too_long = await auth_http.post("/api/test_courses", json={"code": "C1", "title": {"fr": "x" * 41}})
+    textless = await auth_http.post("/api/test_courses", json={"code": "C1", "title": {"fr": None}})
 
     assert unknown.status_code == 422
     assert "Unavailable locale: it" in unknown.text
     assert too_long.status_code == 422
+    assert textless.status_code == 422
+    assert "title takes at least one text" in textless.text
     assert await Course.query.count() == 0
 
 

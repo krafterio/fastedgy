@@ -232,13 +232,12 @@ def test_filling_a_new_fallback_writes_its_sql_without_a_database() -> None:
     sql = _offline(run)
 
     assert (
-        """UPDATE "courses" SET "title" = "title" || jsonb_build_object('fr', """
-        """coalesce("title" -> 'en', jsonb_path_query_first("title", '$.*'))) """
-        """WHERE "title" IS NOT NULL AND "title" <> '{}'::jsonb AND NOT "title" ? 'fr';"""
+        """UPDATE "courses" SET "title" = "title" || jsonb_build_object('fr', "title" -> 'en') """
+        """WHERE "title" ? 'en' AND NOT "title" ? 'fr';"""
     ) in sql
 
 
-async def test_filling_a_new_fallback_gives_it_a_text_in_every_document(setup_db: FastEdgy) -> None:
+async def test_filling_a_new_fallback_gives_it_the_text_of_the_locale_named(setup_db: FastEdgy) -> None:
     database = get_service(Registry).database
     documents = ['{"en": "Chair"}', '{"de": "Stuhl"}', '{"en": "Table", "fr": "Table basse"}', None]
 
@@ -259,7 +258,7 @@ async def test_filling_a_new_fallback_gives_it_a_text_in_every_document(setup_db
 
         assert [row[0] for row in rows] == [
             {"en": "Chair", "fr": "Chair"},
-            {"de": "Stuhl", "fr": "Stuhl"},
+            {"de": "Stuhl"},
             {"en": "Table", "fr": "Table basse"},
             None,
         ]

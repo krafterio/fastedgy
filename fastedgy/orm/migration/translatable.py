@@ -112,24 +112,21 @@ def fill_translatable_fallback_sql(
     table_name: str,
     column_name: str,
     fallback_locale: str,
-    from_locale: str | None = None,
+    from_locale: str,
     schema: str | None = None,
 ) -> str:
     """The SQL giving every document of a translatable column a text in ``fallback_locale``.
 
     A document already holding one is left alone; the others take the text of
-    ``from_locale``, else their first text.
+    ``from_locale``, and one holding neither stays as it is.
     """
-    from fastedgy.orm.fields.field_translatable import FIRST_VALUE_SQL
-
     table = f"{_identifier(schema)}.{_identifier(table_name)}" if schema else _identifier(table_name)
     column = _identifier(column_name)
-    first = FIRST_VALUE_SQL.format(document=column)
-    source = f"coalesce({column} -> {_literal(from_locale)}, {first})" if from_locale else first
+    source = f"{column} -> {_literal(from_locale)}"
 
     return (
         f"UPDATE {table} SET {column} = {column} || jsonb_build_object({_literal(fallback_locale)}, {source}) "
-        f"WHERE {column} IS NOT NULL AND {column} <> '{{}}'::jsonb AND NOT {column} ? {_literal(fallback_locale)}"
+        f"WHERE {column} ? {_literal(from_locale)} AND NOT {column} ? {_literal(fallback_locale)}"
     )
 
 
@@ -146,7 +143,7 @@ class FillTranslatableFallbackOperation(MigrateOperation):
         table_name: str,
         column_name: str,
         fallback_locale: str,
-        from_locale: str | None = None,
+        from_locale: str,
         schema: str | None = None,
     ) -> None:
         self.table_name = table_name
@@ -162,7 +159,7 @@ class FillTranslatableFallbackOperation(MigrateOperation):
         table_name: str,
         column_name: str,
         fallback_locale: str,
-        from_locale: str | None = None,
+        from_locale: str,
         schema: str | None = None,
     ) -> None:
         return operations.invoke(cls(table_name, column_name, fallback_locale, from_locale, schema))

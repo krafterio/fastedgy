@@ -72,22 +72,29 @@ def _locale_param(name: str, resolve: Callable[[], str]) -> BindParameter[str]:
     return sqlalchemy.bindparam(name, callable_=resolve, type_=sqlalchemy.Text, unique=True)
 
 
-# The text of a document in no locale in particular, its first one: what a
+# The text of a document holding a single locale, whichever it is: what a
 # document left without the fallback still reads, the fallback changed since.
-FIRST_VALUE_SQL = "jsonb_path_query_first({document}, '$.*')"
-FIRST_TEXT_SQL = FIRST_VALUE_SQL + " #>> '{{}}'"
+# One holding several reads none, the order of its keys meaning nothing.
+SOLE_TEXT_PATH = "strict $ ? (@.size() == 1)"
+SOLE_TEXT_SQL = "jsonb_path_query_first(jsonb_path_query_array({document}, '$.*'), '" + SOLE_TEXT_PATH + "') ->> 0"
+
+
+def _sole_text(document: Any) -> ColumnElement[str]:
+    texts = sqlalchemy.func.jsonb_path_query_array(document, sqlalchemy.literal_column("'$.*'"))
+    sole = sqlalchemy.func.jsonb_path_query_first(texts, sqlalchemy.literal_column(f"'{SOLE_TEXT_PATH}'"))
+
+    return sole.op("->>", return_type=sqlalchemy.Text)(sqlalchemy.literal_column("0"))
 
 
 def _localized(column: Any) -> ColumnElement[str]:
     document = sqlalchemy.type_coerce(column, JSONB)
     extract = document.op("->>", return_type=sqlalchemy.Text)
-    first = sqlalchemy.func.jsonb_path_query_first(document, sqlalchemy.literal_column("'$.*'"))
 
     return sqlalchemy.func.coalesce(
         extract(_locale_param("locale", _current_locale)),
         extract(_locale_param("language", _current_language)),
         extract(_locale_param("fallback_locale", _fallback_locale)),
-        first.op("#>>", return_type=sqlalchemy.Text)(sqlalchemy.literal_column("'{}'")),
+        _sole_text(document),
         type_=sqlalchemy.Text,
     )
 
@@ -108,9 +115,9 @@ class Translatable(TypeDecorator[Any]):
     """The column of a translatable field: one text per locale, ``{"en": "Chair", "fr": "Chaise"}``.
 
     Read, it is the text of the current locale, else of its language (``fr``
-    for ``fr-CA``), else of the fallback locale, else the first text the
-    document holds: the document itself never leaves the database. Compared
-    or ordered, it is that same text.
+    for ``fr-CA``), else of the fallback locale, else the text of its only
+    locale, ``NULL`` for a document holding several: the document itself never
+    leaves the database. Compared or ordered, it is that same text.
 
     Written, a text sets the current locale and leaves the others alone. The
     fallback locale receives it too while it has nothing, so every locale
@@ -229,7 +236,7 @@ def _compile_translatable_write(element: _TranslatableWrite, compiler: SQLCompil
         current = compiler.process(column, include_table=True)
 
     reads = ", ".join(f"{current} ->> (_t.p -> 'read' ->> {index})" for index in range(3))
-    read = f"coalesce({reads}, {FIRST_TEXT_SQL.format(document=current)})"
+    read = f"coalesce({reads}, {SOLE_TEXT_SQL.format(document=current)})"
     kept = f"CASE WHEN _t.p ? 'replace' THEN '{{}}'::jsonb ELSE coalesce({current}, '{{}}'::jsonb) END"
     merged = (
         f"nullif(jsonb_strip_nulls(coalesce(_t.p -> 'missing', '{{}}'::jsonb) || {kept} "
@@ -282,8 +289,8 @@ def _bounds_text(metadata: Any) -> bool:
 
 
 def _written_text(document: dict[str, Any]) -> Any:
-    """What the current locale reads in the translations just written: theirs, its language's, the fallback's, the
-    first text."""
+    """What the current locale reads in the translations just written: theirs, its language's, the fallback's, which a
+    write naming none fills from its first text."""
     for locale in (_current_locale(), _current_language(), _fallback_locale()):
         if document.get(locale) is not None:
             return document[locale]
@@ -361,11 +368,24 @@ class TranslatableOptions(FieldFactory):
 
     @classmethod
     def to_model(cls, field_obj: BaseFieldType, field_name: str, value: Any, **kwargs: Any) -> dict[str, Any]:
+        phase = CURRENT_PHASE.get()
+
+        # A record built by a caller is one to create: a required field takes a
+        # text in one locale at least, where an update may clear any but the fallback.
+        if (
+            phase == "init"
+            and is_translatable(field_obj)
+            and not field_obj.null
+            and isinstance(value, dict)
+            and all(text is None for text in value.values())
+        ):
+            raise ValueError(f"The translatable field {field_name} takes at least one text")
+
         # Once written, the record holds the text of its locale, not the
         # message or the translations. After an update with translations
         # missing that locale, the text is the one they lead it to read: a
         # load reads what the row holds.
-        if CURRENT_PHASE.get() in ("post_insert", "post_update"):
+        if phase in ("post_insert", "post_update"):
             if isinstance(value, TranslatableString):
                 value = str(value)
             elif isinstance(value, dict):
@@ -422,8 +442,7 @@ async def read_translations(record: Any, field_name: str) -> dict[str, str]:
 
 
 __all__ = [
-    "FIRST_TEXT_SQL",
-    "FIRST_VALUE_SQL",
+    "SOLE_TEXT_SQL",
     "Translatable",
     "TranslatableOptions",
     "TranslationLocale",

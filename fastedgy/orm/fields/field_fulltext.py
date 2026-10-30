@@ -20,7 +20,7 @@ from sqlalchemy.dialects.postgresql import TSVECTOR
 
 from .field_html import HTMLField
 from .field_phone import PhoneField
-from .field_translatable import FIRST_TEXT_SQL, Translatable, language_of
+from .field_translatable import SOLE_TEXT_SQL, Translatable, language_of
 
 if TYPE_CHECKING:
     from fastedgy.models.base import BaseModel
@@ -283,7 +283,7 @@ def build_tsvector_expression(model_cls: "type[BaseModel]", locale: str) -> str 
         if isinstance(column.type, Translatable):
             locales = dict.fromkeys([locale, language_of(locale), _get_fallback_locale()])
             reads = ", ".join(f"{quoted} ->> '{escape_sql(code)}'" for code in locales)
-            source = f"coalesce({reads}, {FIRST_TEXT_SQL.format(document=quoted)})"
+            source = f"coalesce({reads}, {SOLE_TEXT_SQL.format(document=quoted)})"
         elif isinstance(column.type, sqlalchemy.JSON):
             source = f"{quoted} ->> '{escape_sql(locale)}'"
         else:

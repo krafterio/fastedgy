@@ -176,6 +176,24 @@ async def test_each_translation_is_validated_as_the_text_it_is(setup_db: FastEdg
     assert Course(code="C1", title="Chair", summary={"en": None}).summary == {"en": None}
 
 
+@pytest.mark.parametrize("title", [{}, {"de": None}, {"fr": None, "de": None}])
+async def test_a_required_field_is_created_with_one_text_at_least(
+    setup_db: FastEdgy, title: dict[str, str | None]
+) -> None:
+    with pytest.raises(ValueError, match="title takes at least one text"):
+        Course(code="C1", title=title)
+
+    assert Course(code="C1", title="Chair", summary={}).summary == {}
+
+
+async def test_an_update_clears_any_locale_of_a_required_field_but_the_fallback(setup_db: FastEdgy) -> None:
+    course = await _create({"en": "Chair", "de": "Stuhl"})
+
+    await course.update(title={"de": None})
+
+    assert await read_translations(course, "title") == {"en": "Chair"}
+
+
 def test_a_translatable_field_is_neither_unique_nor_a_primary_key() -> None:
     from edgy.exceptions import FieldDefinitionError
 
@@ -283,7 +301,7 @@ async def test_a_regional_locale_reads_its_language_before_the_fallback(
     assert await read_translations(course, "title") == {"en": "Chair", "fr": "Chaise", "fr-CA": "Chaise berçante"}
 
 
-async def test_a_document_without_the_fallback_reads_its_first_text(setup_db: FastEdgy) -> None:
+async def test_a_document_without_the_fallback_reads_its_only_text(setup_db: FastEdgy) -> None:
     course = await _create("Chair")
     database = get_service(Registry).database
 
@@ -301,6 +319,20 @@ async def test_a_document_without_the_fallback_reads_its_first_text(setup_db: Fa
     assert await read_translations(course, "title") == {"de": "Stuhl"}
 
 
+async def test_a_document_without_the_fallback_reads_none_of_several_texts(setup_db: FastEdgy) -> None:
+    course = await _create("Chair", summary="Wooden")
+    database = get_service(Registry).database
+
+    await database.execute(
+        """UPDATE test_courses SET summary = '{"de": "Holz", "it": "Legno"}'::jsonb WHERE id = :id""",
+        {"id": course.id},
+    )
+
+    assert (await _get(course)).summary is None
+    assert await Course.query.filter(summary="Holz").count() == 0
+    assert await Course.query.filter(summary="Legno").count() == 0
+
+
 # --- What builds on the field ------------------------------------------------
 
 
@@ -311,7 +343,9 @@ async def test_the_vector_of_a_locale_reads_its_text_then_the_fallback(setup_db:
     expression = build_tsvector_expression(Course, "fr")
 
     assert expression is not None
-    assert 'coalesce("title" ->> \'fr\', "title" ->> \'en\', jsonb_path_query_first("title"' in expression
+    assert (
+        'coalesce("title" ->> \'fr\', "title" ->> \'en\', jsonb_path_query_first(jsonb_path_query_array("title"'
+    ) in expression
     assert "chais" in str(await _row(course, f"({expression})::text"))
     assert "chais" in str(await _row(course, "search_value_en::text"))
 

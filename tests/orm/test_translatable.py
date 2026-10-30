@@ -319,17 +319,38 @@ async def test_a_document_without_the_fallback_reads_its_only_text(setup_db: Fas
     assert await read_translations(course, "title") == {"de": "Stuhl"}
 
 
-async def test_a_document_without_the_fallback_reads_none_of_several_texts(setup_db: FastEdgy) -> None:
+async def test_a_document_without_the_fallback_reads_the_first_available_locale_it_holds(setup_db: FastEdgy) -> None:
     course = await _create("Chair", summary="Wooden")
     database = get_service(Registry).database
 
     await database.execute(
-        """UPDATE test_courses SET summary = '{"de": "Holz", "it": "Legno"}'::jsonb WHERE id = :id""",
+        """UPDATE test_courses SET title = '{"de": "Stuhl", "fr": "Chaise"}'::jsonb,
+        summary = '{"de": "Holz", "it": "Legno"}'::jsonb WHERE id = :id""",
+        {"id": course.id},
+    )
+
+    loaded = await _get(course)
+
+    assert (loaded.title, loaded.summary) == ("Chaise", "Holz")
+    assert await Course.query.filter(title="Chaise").count() == 1
+    assert await Course.query.filter(summary="Legno").count() == 0
+
+    loaded.code = "C2"
+    await loaded.save()
+
+    assert await read_translations(course, "title") == {"de": "Stuhl", "fr": "Chaise"}
+
+
+async def test_a_document_holding_several_locales_none_available_reads_none(setup_db: FastEdgy) -> None:
+    course = await _create("Chair", summary="Wooden")
+    database = get_service(Registry).database
+
+    await database.execute(
+        """UPDATE test_courses SET summary = '{"it": "Legno", "es": "Madera"}'::jsonb WHERE id = :id""",
         {"id": course.id},
     )
 
     assert (await _get(course)).summary is None
-    assert await Course.query.filter(summary="Holz").count() == 0
     assert await Course.query.filter(summary="Legno").count() == 0
 
 
@@ -344,7 +365,8 @@ async def test_the_vector_of_a_locale_reads_its_text_then_the_fallback(setup_db:
 
     assert expression is not None
     assert (
-        'coalesce("title" ->> \'fr\', "title" ->> \'en\', jsonb_path_query_first(jsonb_path_query_array("title"'
+        "coalesce(\"title\" ->> 'fr', \"title\" ->> 'en', \"title\" ->> 'de', "
+        'jsonb_path_query_first(jsonb_path_query_array("title"'
     ) in expression
     assert "chais" in str(await _row(course, f"({expression})::text"))
     assert "chais" in str(await _row(course, "search_value_en::text"))

@@ -14,11 +14,12 @@ from edgy.exceptions import FieldDefinitionError
 from pydantic import GetJsonSchemaHandler, StringConstraints, ValidatorFunctionWrapHandler, WrapValidator
 from pydantic.json_schema import JsonSchemaValue
 from pydantic_core import CoreSchema
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.sql.compiler import SQLCompiler
 from sqlalchemy.sql.elements import BindParameter, ColumnElement
 from sqlalchemy.sql.operators import OperatorType
+from sqlalchemy.sql.visitors import InternalTraversal
 from sqlalchemy.types import TypeDecorator
 
 from ...i18n import TranslatableString
@@ -72,9 +73,9 @@ def _locale_param(name: str, resolve: Callable[[], str]) -> BindParameter[str]:
     return sqlalchemy.bindparam(name, callable_=resolve, type_=sqlalchemy.Text, unique=True)
 
 
-# The text of a document holding a single locale, whichever it is: what a
-# document left without the fallback still reads, the fallback changed since.
-# One holding several reads none, the order of its keys meaning nothing.
+# The text of a document holding a single locale, whichever it is, outside the
+# available ones: what is left to read once the fallback changed and no available
+# locale is held. One holding several reads none, the order of its keys meaning nothing.
 SOLE_TEXT_PATH = "strict $ ? (@.size() == 1)"
 SOLE_TEXT_SQL = "jsonb_path_query_first(jsonb_path_query_array({document}, '$.*'), '" + SOLE_TEXT_PATH + "') ->> 0"
 
@@ -86,6 +87,40 @@ def _sole_text(document: Any) -> ColumnElement[str]:
     return sole.op("->>", return_type=sqlalchemy.Text)(sqlalchemy.literal_column("0"))
 
 
+def _available_text_sql(document: str, locales: str) -> str:
+    """The text of the first of ``locales`` (a set of texts, in order) the document holds."""
+    return (
+        f"(SELECT {document} ->> _available.locale FROM {locales} WITH ORDINALITY "
+        f"AS _available(locale, position) WHERE {document} ? _available.locale "
+        f"ORDER BY _available.position LIMIT 1)"
+    )
+
+
+class _AvailableText(ColumnElement[str]):
+    """The text of the first available locale a document holds, in the order of the settings."""
+
+    inherit_cache = True
+    _traverse_internals = [
+        ("document", InternalTraversal.dp_clauseelement),
+        ("locales", InternalTraversal.dp_clauseelement),
+    ]
+
+    def __init__(self, document: ColumnElement[Any]) -> None:
+        self.document = document
+        # The list is bound, not compiled in: the compiled form is shared by every settings.
+        self.locales = sqlalchemy.bindparam(
+            "available_locales", callable_=available_locales, type_=ARRAY(sqlalchemy.Text), unique=True
+        )
+        self.type = sqlalchemy.Text()
+
+
+@compiles(_AvailableText)
+def _compile_available_text(element: _AvailableText, compiler: SQLCompiler, **kw: Any) -> str:
+    locales = f"unnest({compiler.process(element.locales, **kw)})"
+
+    return _available_text_sql(compiler.process(element.document, **kw), locales)
+
+
 def _localized(column: Any) -> ColumnElement[str]:
     document = sqlalchemy.type_coerce(column, JSONB)
     extract = document.op("->>", return_type=sqlalchemy.Text)
@@ -94,6 +129,7 @@ def _localized(column: Any) -> ColumnElement[str]:
         extract(_locale_param("locale", _current_locale)),
         extract(_locale_param("language", _current_language)),
         extract(_locale_param("fallback_locale", _fallback_locale)),
+        _AvailableText(document),
         _sole_text(document),
         type_=sqlalchemy.Text,
     )
@@ -115,9 +151,10 @@ class Translatable(TypeDecorator[Any]):
     """The column of a translatable field: one text per locale, ``{"en": "Chair", "fr": "Chaise"}``.
 
     Read, it is the text of the current locale, else of its language (``fr``
-    for ``fr-CA``), else of the fallback locale, else the text of its only
-    locale, ``NULL`` for a document holding several: the document itself never
-    leaves the database. Compared or ordered, it is that same text.
+    for ``fr-CA``), else of the fallback locale, else of the first available
+    locale it holds in the order of the settings, else the text of its only
+    locale, ``NULL`` for a document holding several others: the document
+    itself never leaves the database. Compared or ordered, it is that same text.
 
     Written, a text sets the current locale and leaves the others alone. The
     fallback locale receives it too while it has nothing, so every locale
@@ -164,6 +201,7 @@ class Translatable(TypeDecorator[Any]):
 
         return {
             "read": [locale, language_of(locale), fallback, text],
+            "available": available_locales(),
             "missing": {fallback: text},
             "set": {locale: text},
         }
@@ -236,7 +274,8 @@ def _compile_translatable_write(element: _TranslatableWrite, compiler: SQLCompil
         current = compiler.process(column, include_table=True)
 
     reads = ", ".join(f"{current} ->> (_t.p -> 'read' ->> {index})" for index in range(3))
-    read = f"coalesce({reads}, {SOLE_TEXT_SQL.format(document=current)})"
+    available = _available_text_sql(current, "jsonb_array_elements_text(_t.p -> 'available')")
+    read = f"coalesce({reads}, {available}, {SOLE_TEXT_SQL.format(document=current)})"
     kept = f"CASE WHEN _t.p ? 'replace' THEN '{{}}'::jsonb ELSE coalesce({current}, '{{}}'::jsonb) END"
     merged = (
         f"nullif(jsonb_strip_nulls(coalesce(_t.p -> 'missing', '{{}}'::jsonb) || {kept} "

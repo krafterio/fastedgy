@@ -429,12 +429,13 @@ async def _attach_to_many(
         return
 
     holder, owner_key, target_key, target = plan
+    owner_column = _column_of(_real_model_cls(holder), owner_key)
     owned = [read[owner_key_name] for read in reads if read.get(owner_key_name) is not None]
 
     for read in reads:
         read[field_name] = []
 
-    if not owned:
+    if not owned or owner_column is None:
         return
 
     order_by = _target_default_order(target)
@@ -448,7 +449,8 @@ async def _attach_to_many(
         selection = {**selection, **kept, **sub_map}
 
     query: Any = holder.meta.managers["query_related"].get_queryset()
-    query = query.filter(**{f"{owner_key}__{owner_key_name}__in": owned})
+    # On the key the row holds: through the owner's, Edgy joins the owner and reads all of it.
+    query = query.filter(holder.table.c[owner_column].in_(owned))
     query = _inject_relation_default_order(apply_field_map_optimizations(query, selection), order_by)
 
     expression, tables = await query.as_select_with_tables()
@@ -457,7 +459,7 @@ async def _attach_to_many(
 
     for row in rows:
         mapping = row._mapping
-        owner = mapping.get(_column_of(_real_model_cls(holder), owner_key) or "")
+        owner = mapping.get(owner_column)
         share = (
             (_read_level(mapping, holder, {target_key: sub_map}, "", tables) or {}).get(target_key)
             if target_key

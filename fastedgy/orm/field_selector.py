@@ -296,6 +296,7 @@ def _prefetch_attr(field_name: str) -> str:
 
 def _to_many_prefetch(model_cls: type[BaseModelType], field_name: str, fields_map: dict[str, Any]) -> Prefetch | None:
     from edgy.core.db.relationships.related_field import RelatedField
+    from edgy.core.db.relationships.utils import crawl_relationship
 
     field = model_cls.meta.fields.get(field_name)
 
@@ -326,6 +327,16 @@ def _to_many_prefetch(model_cls: type[BaseModelType], field_name: str, fields_ma
 
             if nested is not None:
                 queryset = queryset.prefetch_related(nested)
+
+    # Edgy joins each related row back to the record it serves, to file it
+    # under that record's key: the key is all the join has to read.
+    reverse_path = crawl_relationship(model_cls, field_name, traverse_last=True).reverse_path
+
+    if reverse_path:
+        pk = find_primary_key_field(model_cls)
+        columns_map = model_cls.meta.field_to_column_names
+        unread = [f"{reverse_path}__{name}" for name in model_cls.meta.fields if name != pk and columns_map.get(name)]
+        queryset = queryset.defer(*queryset._defer, *unread)
 
     return Prefetch(
         related_name=field_name,

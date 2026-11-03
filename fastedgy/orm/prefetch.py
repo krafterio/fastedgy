@@ -10,7 +10,10 @@ It hands the prefetch to every model built from a row, the models joined into
 it included, and bakes it for whichever arrives first: joined rows reaching it
 first, the batch ends up keyed by their model and the rows that own the
 relation find nothing under their own keys. The bake is held here per model,
-and a model that does not carry the relation is answered without one.
+and a model that does not carry the relation is answered without one. Outside
+a batch, a record read alone, the joined model reads the relation as its own
+and fails on a field it does not carry: a prefetch names a relation of the
+model queried, so a model joined into its row is left out of it.
 
 What a row then finds missing, Edgy reads again row by row, which is the N+1
 the prefetch was there to avoid, and on a many-to-many it filters the target on
@@ -18,14 +21,15 @@ the name of the relation, a column the target does not carry. The batch covers
 every row it was built from, so a key it does not hold is an empty relation and
 is answered as such.
 
-TODO: drop once Edgy bakes per model and answers an empty relation itself
-(still both in 0.36.1).
+TODO: drop once Edgy bakes per model, answers an empty relation itself and
+keeps a prefetch to the model queried (still all three in 0.36.1).
 """
 
 import asyncio
 from collections import defaultdict
 from typing import Any
 
+from edgy.core.db.models.mixins.row import ModelRowMixin
 from edgy.core.db.querysets.prefetch import Prefetch
 
 _init_bake = Prefetch.init_bake
@@ -77,6 +81,18 @@ async def _shared_init_bake(self: Prefetch, model_class: Any) -> None:
 
 
 Prefetch.init_bake = _shared_init_bake  # type: ignore[method-assign]
+
+
+_handle_prefetch_related = ModelRowMixin._ModelRowMixin__handle_prefetch_related.__func__  # type: ignore[attr-defined]
+
+
+async def _handle_own_prefetch_related(cls: Any, *, prefix: str, **kwargs: Any) -> None:
+    # The model queried is built without a prefix, a joined one under its path.
+    if not prefix:
+        await _handle_prefetch_related(cls, prefix=prefix, **kwargs)
+
+
+ModelRowMixin._ModelRowMixin__handle_prefetch_related = classmethod(_handle_own_prefetch_related)  # type: ignore[attr-defined]
 
 
 __all__ = [

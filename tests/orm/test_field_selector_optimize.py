@@ -415,3 +415,93 @@ async def test_a_join_keeps_the_to_many_in_a_single_read(setup_db: FastEdgy) -> 
     assert [tag["name"] for tag in dumps["Hammer"]["tags"]] == ["promo"]
     assert dumps["More 0"]["tags"] == []
     assert dumps["More 0"]["category"]["brand"]["name"] == "Acme"
+
+
+async def test_a_joined_model_leaves_the_prefetch_to_the_model_queried(setup_db: FastEdgy) -> None:
+    """Edgy hands the prefetch of a row to the model joined two levels deep
+    too, which then reads the relation as its own and fails on a field it does
+    not carry. Which join is built first follows the hash of its path, so a
+    selection of `category` and `category__brand` broke in one process out of
+    two: the deep join alone breaks every time.
+    """
+    from fastedgy.orm.prefetch import Prefetch
+
+    product = await _create_product_graph()
+    await product.tags.add(await FsoTag.query.create(name="promo"))
+
+    item = await (
+        FsoProduct.query.select_related("category__brand")
+        .prefetch_related(Prefetch(related_name="tags", to_attr="fs_tags"))
+        .filter(id=product.id)
+        .get()
+    )
+
+    assert item.category.brand.name == "Acme"
+    assert [tag.name for tag in item.fs_tags] == ["promo"]
+
+
+async def test_a_to_many_read_reads_only_the_key_of_the_record_it_serves(setup_db: FastEdgy) -> None:
+    """Edgy joins each row of a to-many relation back to the record it serves,
+    to know whose it is: the key is all it reads there, the other columns of
+    that record were read once per related row, a text or a search vector
+    included."""
+    from sqlalchemy import event
+    from sqlalchemy.engine import Engine
+
+    product = await _create_product_graph()
+    await product.tags.add(await FsoTag.query.create(name="promo"))
+
+    cases = [
+        (FsoProduct.query.all(), "name,tags.name", "tags", ["sku", "internal_note", "price"]),
+        (FsoProduct.query.filter(id=product.id), "name,tags.name", "tags", ["sku", "internal_note", "price"]),
+        (FsoCategory.query.all(), "name,products.name", "products", ["summary"]),
+    ]
+
+    for query, fields, relation, unread in cases:
+        statements: list[str] = []
+
+        def record(conn, cursor, statement, parameters, context, executemany) -> None:
+            statements.append(statement)
+
+        event.listen(Engine, "before_cursor_execute", record)
+
+        try:
+            items = await optimize_query_filter_fields(query, fields).all()
+            dumps = [await filter_selected_fields(item, fields) for item in items]
+        finally:
+            event.remove(Engine, "before_cursor_execute", record)
+
+        selects = " ".join(_select_part(statement) for statement in statements)
+
+        assert not [column for column in unread if column in selects], fields
+        assert any(dump[relation] for dump in dumps), fields
+
+
+async def test_a_page_reads_its_to_many_from_the_link_table_alone(auth_http: httpx.AsyncClient) -> None:
+    """The link table holds the key of the record each of its rows serves:
+    filtered on the record's key instead, the read joined the records back and
+    took every column of theirs, a text and a search vector included."""
+    from sqlalchemy import event
+    from sqlalchemy.engine import Engine
+
+    tag = await make_tag(auth_http, "promo")
+    await make_product(auth_http, name="Hammer", description="Steel head", tags=[tag["id"]])
+
+    statements: list[str] = []
+
+    def record(conn, cursor, statement, parameters, context, executemany) -> None:
+        statements.append(statement)
+
+    event.listen(Engine, "before_cursor_execute", record)
+
+    try:
+        response = await auth_http.get("/api/test_products", headers={"X-Fields": "name,tags.name"})
+    finally:
+        event.remove(Engine, "before_cursor_execute", record)
+
+    assert response.status_code == 200
+    assert [tag["name"] for tag in response.json()["items"][0]["tags"]] == ["promo"]
+
+    selects = " ".join(_select_part(statement) for statement in statements)
+
+    assert not [column for column in ("description", "price", "quantity") if column in selects]

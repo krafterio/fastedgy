@@ -124,12 +124,16 @@ def create_email_verification_token(user: "User", expires_delta: timedelta = tim
     return jwt.encode(claims, settings.auth_secret_key, algorithm=settings.auth_algorithm)
 
 
-async def mark_email_verified(user: "User") -> None:
-    if is_email_verifiable(type(user)) and getattr(user, "email_verified_at", None) is None:
-        await user.apply_readonly_values({"email_verified_at": datetime.now(UTC)}).save()
+async def mark_email_verified(user: "User") -> bool:
+    if not is_email_verifiable(type(user)) or getattr(user, "email_verified_at", None) is not None:
+        return False
+
+    await user.apply_readonly_values({"email_verified_at": datetime.now(UTC)}).save()
+
+    return True
 
 
-async def verify_email_token(token: str) -> "User | None":
+async def verify_email_token(token: str) -> "tuple[User, bool] | None":
     settings = get_service(BaseSettings)
 
     try:
@@ -146,9 +150,7 @@ async def verify_email_token(token: str) -> "User | None":
     if user is None or not user.email or user.email != claims.get("email"):
         return None
 
-    await mark_email_verified(user)
-
-    return user
+    return user, await mark_email_verified(user)
 
 
 def password_fingerprint(user: "User") -> str:

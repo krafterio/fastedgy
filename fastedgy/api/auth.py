@@ -69,6 +69,11 @@ class OnAuthRefreshTokenEvent(AuthEvent):
     """Event dispatched when a refresh token is used to generate new tokens"""
 
 
+class OnEmailVerifiedEvent(BaseEvent):
+    def __init__(self, user: "User"):
+        self.user = user
+
+
 router = APIRouter(prefix="/auth", tags=["auth"])
 public_router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -179,7 +184,9 @@ def _renewed_session(
 
 
 @public_router.post("/password/reset")
-async def password_reset(data: ResetPasswordRequest, registry: Registry = Inject(Registry)) -> SimpleMessage:
+async def password_reset(
+    data: ResetPasswordRequest, registry: Registry = Inject(Registry), bus: Bus = Inject(Bus)
+) -> SimpleMessage:
     from fastedgy.models.user import BaseUser
 
     User = cast(type[BaseUser], registry.get_model("User"))
@@ -195,10 +202,15 @@ async def password_reset(data: ResetPasswordRequest, registry: Registry = Inject
     password = await hash_password_async(data.password)
     values: dict[str, Any] = {"password": password, "reset_pwd_token": None, "reset_pwd_expires_at": None}
 
-    if is_email_verifiable(User) and getattr(user, "email_verified_at", None) is None:
+    proves_email = is_email_verifiable(User) and getattr(user, "email_verified_at", None) is None
+
+    if proves_email:
         user.apply_readonly_values({"email_verified_at": datetime.now(UTC)})
 
     await user.save(values=values)
+
+    if proves_email:
+        await bus.dispatch(OnEmailVerifiedEvent(user))
 
     return SimpleMessage(message=_t("Password updated"))
 
@@ -223,9 +235,16 @@ async def send_email_verification(user: "User", mail: Mail, base_url_app: str, l
 
 
 @public_router.post("/email/verify")
-async def email_verify(data: EmailVerifyRequest) -> SimpleMessage:
-    if await verify_email_token(data.token) is None:
+async def email_verify(data: EmailVerifyRequest, bus: Bus = Inject(Bus)) -> SimpleMessage:
+    verified = await verify_email_token(data.token)
+
+    if verified is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_t("Token invalid or expired"))
+
+    user, newly_verified = verified
+
+    if newly_verified:
+        await bus.dispatch(OnEmailVerifiedEvent(user))
 
     return SimpleMessage(message=_t("Email verified"))
 
@@ -321,6 +340,7 @@ async def change_password(
 
 
 __all__ = [
+    "OnEmailVerifiedEvent",
     "public_router",
     "router",
     "send_email_verification",

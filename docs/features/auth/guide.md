@@ -164,7 +164,7 @@ class User(BaseUser, EmailVerifiableMixin):
 {"token": "token-from-the-link"}
 ```
 
-The token names the account and the email it was sent to, and lasts 7 days: once the email changes, a link sent to the former one verifies nothing. A completed password reset proves the email too, and fills `email_verified_at` when it is still empty. `mark_email_verified(user)` records any other proof the application holds, a social provider vouching for the email for instance.
+The token names the account and the email it was sent to, and lasts 7 days: once the email changes, a link sent to the former one verifies nothing. A completed password reset proves the email too, and fills `email_verified_at` when it is still empty. `mark_email_verified(user)` records any other proof the application holds, a social provider vouching for the email for instance. The verification route and the password reset dispatch `OnEmailVerifiedEvent(user)` on the bus when they fill `email_verified_at`, for an application to act on an email now proven.
 
 ## Changing the password
 

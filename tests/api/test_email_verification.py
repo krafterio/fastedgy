@@ -4,9 +4,11 @@
 from datetime import UTC, datetime, timedelta
 
 import httpx
+import pytest
 from jose import jwt
 
-from fastedgy.api.auth import send_email_verification
+from fastedgy.api.auth import OnEmailVerifiedEvent, send_email_verification
+from fastedgy.bus import Bus
 from fastedgy.config import BaseSettings
 from fastedgy.dependencies import get_service
 from fastedgy.depends.security import create_email_verification_token
@@ -95,3 +97,32 @@ async def test_the_verification_email_carries_a_working_link(setup_http: httpx.A
     content = body.get_content()
     token = content.split("/email/verify?token=")[1].split('"')[0]
     assert (await _verify(setup_http, token)).status_code == 200
+
+
+def _verified_events(monkeypatch: pytest.MonkeyPatch) -> list[OnEmailVerifiedEvent]:
+    bus = get_service(Bus)
+    dispatch = bus.dispatch
+    events: list[OnEmailVerifiedEvent] = []
+
+    async def record(event, *args, **kwargs):
+        if isinstance(event, OnEmailVerifiedEvent):
+            events.append(event)
+
+        return await dispatch(event, *args, **kwargs)
+
+    monkeypatch.setattr(bus, "dispatch", record)
+
+    return events
+
+
+async def test_a_first_verification_dispatches_the_verified_event_once(
+    setup_http: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    events = _verified_events(monkeypatch)
+    user = await create_user(email="alice@example.io")
+    token = create_email_verification_token(user)
+
+    await _verify(setup_http, token)
+    await _verify(setup_http, token)
+
+    assert [event.user.id for event in events] == [user.id]

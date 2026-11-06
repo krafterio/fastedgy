@@ -81,7 +81,8 @@ class User(BaseUser):
 
 - **Access token**: Short-lived (15 min default), for API access
 - **Refresh token**: Long-lived (30 days default), for token renewal
-- **JWT payload**: Contains user email and token type, and with `AUTH_PASSWORD_FINGERPRINT_TOKENS=true` or `AUTH_REVOKE_TOKENS_ON_PASSWORD_CHANGE=true` a fingerprint of the password hash, which a password change or reset invalidates once the revocation is on
+- **JWT payload**: Contains the account id (`uid`), the user email (`sub`) and the token type, and with `AUTH_PASSWORD_FINGERPRINT_TOKENS=true` or `AUTH_REVOKE_TOKENS_ON_PASSWORD_CHANGE=true` a fingerprint of the password hash, which a password change or reset invalidates once the revocation is on
+- **Account resolution**: a token is resolved by its `uid`, so an email or username change keeps the session; a token issued before the claim existed is resolved by its `sub`, and refused when it names more than one account
 
 ## Use cases
 

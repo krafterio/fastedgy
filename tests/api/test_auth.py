@@ -675,3 +675,35 @@ async def test_the_test_kit_token_is_revoked_by_a_password_change(
     await user.save(values={"password": hashed_password("updated-horse")})
 
     assert await _protected(setup_http, token) == 401
+
+
+def _legacy_access_token(email: str) -> str:
+    settings = get_service(BaseSettings)
+    claims = {"sub": email, "type": "access", "exp": datetime.now(UTC) + timedelta(minutes=5)}
+
+    return jwt.encode(claims, settings.auth_secret_key, algorithm=settings.auth_algorithm)
+
+
+async def test_a_session_follows_its_account_through_an_email_change(setup_http: httpx.AsyncClient) -> None:
+    await _register(setup_http, "carol@example.io")
+    tokens = (await _login(setup_http, "carol@example.io")).json()
+    await User.global_query.filter(R("email", "=", "carol@example.io")).update(email="carol.renamed@example.io")
+
+    assert await _protected(setup_http, tokens["access_token"]) == 200
+    assert (await _refresh(setup_http, tokens["refresh_token"])).status_code == 200
+
+
+async def test_a_session_token_names_its_account_by_id(setup_http: httpx.AsyncClient) -> None:
+    await _register(setup_http, "dan@example.io")
+    tokens = (await _login(setup_http, "dan@example.io")).json()
+    user = await User.global_query.filter(R("email", "=", "dan@example.io")).get()
+
+    assert _claims(tokens["access_token"])["uid"] == user.id
+    assert _claims(tokens["refresh_token"])["uid"] == user.id
+
+
+async def test_a_token_issued_before_the_id_claim_still_opens_its_account(setup_http: httpx.AsyncClient) -> None:
+    await _register(setup_http, "erin@example.io")
+
+    assert await _protected(setup_http, _legacy_access_token("erin@example.io")) == 200
+    assert (await _refresh(setup_http, _legacy_refresh_token("erin@example.io"))).status_code == 200

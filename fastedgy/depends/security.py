@@ -160,9 +160,12 @@ def password_fingerprint(user: "User") -> str:
     return hmac.new(secret, (user.password or "").encode(), hashlib.sha256).hexdigest()[:16]
 
 
+ACCOUNT_ID_CLAIM = "uid"
+
+
 def token_claims(user: "User") -> dict[str, Any]:
     """The claims a session token of this account carries: its subject, and its password fingerprint."""
-    claims: dict[str, Any] = {"sub": user.email or getattr(user, "username", None)}
+    claims: dict[str, Any] = {"sub": user.email or getattr(user, "username", None), ACCOUNT_ID_CLAIM: user.id}
     settings = get_service(BaseSettings)
 
     if settings.auth_password_fingerprint_tokens or settings.auth_revoke_tokens_on_password_change:
@@ -189,25 +192,58 @@ def email_matches(user_model: Any, email: str) -> Any:
     return sqlalchemy.func.lower(user_model.columns.email) == sqlalchemy.func.lower(email)
 
 
-async def find_user(identifier: str) -> "User | None":
-    """The account a login names: its exact email or username, else the one email equal to it whatever the case.
+def _has_username(user_model: Any) -> bool:
+    return hasattr(user_model, "username") or "username" in user_model.model_fields
+
+
+async def find_users(identifier: str) -> "list[User]":
+    """The accounts a login names: the one of that exact email, then the one of that exact username, else the one
+    email equal to it whatever the case.
 
     Two accounts whose emails differ by case alone are told apart by the exact spelling: any other
     spelling names neither."""
     User = cast(type["User"], get_service(Registry).get_model("User"))
-    exact = User.columns.email == identifier
+    accounts = await User.query.filter(User.columns.email == identifier).limit(1).all()
 
-    if hasattr(User, "username") or "username" in User.model_fields:
-        exact = exact | (User.columns.username == identifier)
+    if _has_username(User):
+        accounts += [
+            user
+            for user in await User.query.filter(User.columns.username == identifier).limit(1).all()
+            if all(user.id != account.id for account in accounts)
+        ]
 
-    user = await User.query.filter(exact).first()
-
-    if user is not None:
-        return user
+    if accounts:
+        return accounts
 
     matches = await User.query.filter(email_matches(User, identifier)).limit(2).all()
 
-    return matches[0] if len(matches) == 1 else None
+    return matches if len(matches) == 1 else []
+
+
+async def find_user(identifier: str) -> "User | None":
+    accounts = await find_users(identifier)
+
+    return accounts[0] if accounts else None
+
+
+async def resolve_token_account(payload: dict[str, Any], query: Any) -> "User | None":
+    account_id = payload.get(ACCOUNT_ID_CLAIM)
+
+    if isinstance(account_id, int) and not isinstance(account_id, bool):
+        return await query.filter(R("id", "=", account_id)).first()
+
+    subject = payload.get("sub")
+
+    if not isinstance(subject, str) or not subject:
+        return None
+
+    User = cast(type["User"], get_service(Registry).get_model("User"))
+    rule = (
+        Or(R("email", "=", subject), R("username", "=", subject)) if _has_username(User) else R("email", "=", subject)
+    )
+    accounts = await query.filter(rule).limit(2).all()
+
+    return accounts[0] if len(accounts) == 1 else None
 
 
 @cache
@@ -222,19 +258,20 @@ def _verify_unknown_account(password: str | None) -> None:
 
 
 async def authenticate_user(email: str, password: str):
-    user = await find_user(email)
+    accounts = [user for user in await find_users(email) if user.password]
 
-    if user is None or not user.password:
+    if not accounts:
         await to_thread.run_sync(_verify_unknown_account, password, limiter=_hash_limiter)
 
         return False
 
-    if not await verify_password_async(user.password, password):
-        return False
+    for user in accounts:
+        if await verify_password_async(user.password, password):
+            await rehash_password_if_needed(user, password)
 
-    await rehash_password_if_needed(user, password)
+            return user
 
-    return user
+    return False
 
 
 async def rehash_password_if_needed(user: "User", raw_password: str) -> None:
@@ -308,21 +345,14 @@ async def resolve_bearer_token(token: str) -> "User | None":
 
     try:
         payload = jwt.decode(token, settings.auth_secret_key, algorithms=[settings.auth_algorithm])
-        email = payload.get("sub")
-        token_type = payload.get("type")
     except JWTError:
         return None
 
-    if not email or token_type != "access":
+    if payload.get("type") != "access":
         return None
 
-    db_reg = get_service(Registry)
-    User = cast(type["User"], db_reg.get_model("User"))
-
-    if hasattr(User, "username") or "username" in User.model_fields:
-        user = await User.global_query.filter(Or(R("email", "=", email), R("username", "=", email))).first()
-    else:
-        user = await User.global_query.filter(R("email", "=", email)).first()
+    User = cast(type["User"], get_service(Registry).get_model("User"))
+    user = await resolve_token_account(payload, User.global_query)
 
     return user if user is not None and token_matches_password(payload, user) else None
 
@@ -498,6 +528,7 @@ async def get_workspace_shared_record(current_user=Depends(get_current_user)):
 
 
 __all__ = [
+    "ACCOUNT_ID_CLAIM",
     "EMAIL_VERIFICATION_TOKEN_TYPE",
     "PASSWORD_FINGERPRINT_CLAIM",
     "authenticate_user",
@@ -506,6 +537,7 @@ __all__ = [
     "create_refresh_token",
     "email_matches",
     "find_user",
+    "find_users",
     "get_current_user",
     "get_current_workspace",
     "get_optional_current_user",
@@ -520,6 +552,7 @@ __all__ = [
     "password_fingerprint",
     "rehash_password_if_needed",
     "resolve_bearer_token",
+    "resolve_token_account",
     "token_claims",
     "token_matches_password",
     "verify_email_token",

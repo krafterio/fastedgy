@@ -23,6 +23,7 @@ from fastedgy.depends.security import (
     get_current_user,
     hash_password_async,
     is_email_verifiable,
+    resolve_token_account,
     token_claims,
     token_matches_password,
     verify_email_token,
@@ -128,17 +129,12 @@ async def refresh_access_token(
             settings.auth_secret_key,
             algorithms=[settings.auth_algorithm],
         )
-        sub: str = str(payload.get("sub"))
-        token_type: str = str(payload.get("type"))
-        if sub is None or token_type != "refresh":
+        if payload.get("type") != "refresh":
             raise credentials_exception
     except JWTError:
         raise credentials_exception
 
-    if hasattr(User, "username") or "username" in User.model_fields:
-        user = await User.query.filter((User.columns.email == sub) | (User.columns.username == sub)).first()
-    else:
-        user = await User.query.filter(email=sub).first()
+    user = await resolve_token_account(payload, User.query)
 
     if user is None or not token_matches_password(payload, user):
         raise credentials_exception

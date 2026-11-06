@@ -144,6 +144,25 @@ def _refuse_reference(model_cls: type, instance: Any, name: str, target: type, p
     )
 
 
+async def ensure_workspace_member(model_cls: type, instance: Any, name: str, user_pk: Any) -> None:
+    """A field declared ``workspace_member=True`` takes a member of the current
+    workspace only. Without a workspace in context there is nothing to compare to."""
+    from fastedgy import context
+    from fastedgy.depends.security import find_workspace_user_model
+    from fastedgy.orm.filter import And, R
+
+    workspace_id = context.get_workspace_id()
+    membership = find_workspace_user_model()
+
+    if workspace_id is None or membership is None or user_pk is None:
+        return
+
+    rule = And(R("workspace", "=", workspace_id), R("user", "=", user_pk))
+
+    if not await membership.in_effect().filter(rule).exists():
+        _refuse_reference(model_cls, instance, name, membership, user_pk)
+
+
 async def validate_write_references(instance: Any) -> None:
     from fastedgy import context
 
@@ -163,8 +182,13 @@ async def validate_write_references(instance: Any) -> None:
         and registry.has_filters(field.target)
     }
     generics = [field for field in model_cls.meta.fields.values() if getattr(field, "is_generic_foreign_key", False)]
+    members = [
+        name
+        for name, field in model_cls.meta.fields.items()
+        if isinstance(field, ForeignKey) and getattr(field, "workspace_member", False)
+    ]
 
-    if not targets and not generics:
+    if not targets and not generics and not members:
         return
 
     previous = None
@@ -183,6 +207,12 @@ async def validate_write_references(instance: Any) -> None:
 
         if not await target.query.filter(pk=pk).exists():
             _refuse_reference(model_cls, instance, name, target, pk)
+
+    for name in members:
+        pk = _reference_pk(getattr(instance, name, None))
+
+        if previous is None or _reference_pk(getattr(previous, name, None)) != pk:
+            await ensure_workspace_member(model_cls, instance, name, pk)
 
     for field in generics:
         pair = (instance.__dict__.get(field.model_column), instance.__dict__.get(field.id_column))
@@ -208,6 +238,7 @@ __all__ = [
     "GlobalFilterGetter",
     "GlobalFilterRegistry",
     "apply_global_filters",
+    "ensure_workspace_member",
     "global_filter",
     "global_filter_rules",
     "validate_write_references",

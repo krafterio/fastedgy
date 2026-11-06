@@ -296,6 +296,17 @@ async def file_in_inbox(_, instance, values, column_values, is_update=False, **k
 The column stays `NOT NULL`: a write that nothing fills fails at the insert instead of storing
 `null`. An update still refuses `null` on the key, as for any required foreign key.
 
+`workspace_member=True`, on a key to the user model, takes a member of the current workspace only: a
+write by a request that links another account answers 403. A key that may name someone from outside
+(an invited person, a participant from another workspace) leaves it off. Without a workspace in
+context, nothing is compared.
+
+```python
+class Task(BaseModel, WorkspaceableMixin):
+    user = fields.ForeignKey("User", null=True, on_delete="SET NULL", workspace_member=True)
+    users = fields.ManyToMany("User", related_name="assigned_tasks", workspace_member=True)
+```
+
 ## Generic Foreign Key
 
 Polymorphic many-to-one relationship stored as a pair of sibling columns (target model name + target id). See the dedicated [Generic Foreign Key](generic-foreign-key.md) page for the full API surface (reverse relations, payloads, filtering, fields selector).
@@ -386,6 +397,9 @@ class Tag(BaseModel):
 
 `lookup` links the records by a field of the target, or by the rule a function builds from the
 string, as on a [Foreign Key](#foreign-key): `"products": ["Laptop", 3]`.
+
+`workspace_member=True` holds for each user a `link`, a `set` or an `update` adds, as on a
+[Foreign Key](#foreign-key).
 
 ## One to One
 

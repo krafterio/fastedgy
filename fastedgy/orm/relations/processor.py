@@ -222,6 +222,13 @@ async def process_relation_operations(
     """
     relation_manager = getattr(instance, field_name)
     generic_field = _generic_parent_field(instance, field_name)
+    members_only = getattr(instance.meta.fields.get(field_name), "workspace_member", False)
+
+    async def ensure_member(record: Any) -> None:
+        if members_only:
+            from fastedgy.orm.filter.global_filters import ensure_workspace_member
+
+            await ensure_workspace_member(type(instance), instance, field_name, record.pk)
 
     for op in operations:
         # Convert list to tuple if needed and validate structure
@@ -295,6 +302,7 @@ async def process_relation_operations(
                 # Ensure it's linked
                 current_ids = {r.id for r in await relation_manager.all()}
                 if record.id not in current_ids:
+                    await ensure_member(record)
                     await relation_manager.add(record)
 
             elif action == "link":
@@ -305,6 +313,7 @@ async def process_relation_operations(
                 if not record:
                     raise RelationOperationError(f"Record with id={record_id} not found in {related_model.__name__}")
 
+                await ensure_member(record)
                 await relation_manager.add(record)
 
             elif action == "unlink":
@@ -389,6 +398,10 @@ async def process_relation_operations(
                 current = await relation_manager.all()
                 current_ids = {r.id for r in current}
                 target_ids = set(ids)
+
+                for record in records_to_link:
+                    if record.id not in current_ids:
+                        await ensure_member(record)
 
                 # Check if FK is NOT NULL for O2M handling
                 parent_model = instance.__class__

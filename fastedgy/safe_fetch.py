@@ -65,6 +65,39 @@ async def ensure_public_url(url: str) -> list[str]:
     return addresses
 
 
+class PublicTransport(httpx.AsyncBaseTransport):
+    def __init__(self, transport: httpx.AsyncBaseTransport | None = None) -> None:
+        self._transport = transport or httpx.AsyncHTTPTransport()
+
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        address = (await ensure_public_url(str(request.url)))[0]
+        request.url = request.url.copy_with(host=address)
+
+        if request.url.scheme == "https":
+            request.extensions = {**request.extensions, "sni_hostname": request.headers["host"].split(":")[0]}
+
+        return await self._transport.handle_async_request(request)
+
+    async def aclose(self) -> None:
+        await self._transport.aclose()
+
+
+def public_client(
+    *,
+    timeout: float = DEFAULT_TIMEOUT,
+    max_redirects: int = DEFAULT_MAX_REDIRECTS,
+    transport: httpx.AsyncBaseTransport | None = None,
+    **kwargs,
+) -> httpx.AsyncClient:
+    return httpx.AsyncClient(
+        transport=PublicTransport(transport),
+        follow_redirects=True,
+        max_redirects=max_redirects,
+        timeout=timeout,
+        **kwargs,
+    )
+
+
 async def safe_get(
     url: str,
     *,
@@ -106,9 +139,11 @@ async def safe_get(
 
 __all__ = [
     "FetchedResponse",
+    "PublicTransport",
     "ResponseTooLargeError",
     "UnsafeUrlError",
     "ensure_public_url",
     "public_addresses",
+    "public_client",
     "safe_get",
 ]

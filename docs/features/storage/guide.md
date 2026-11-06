@@ -367,7 +367,7 @@ async def upload_from_url(url: str, directory: str = "external", storage: Storag
     return {"path": file_path}
 ```
 
-The file is fetched through `fastedgy.safe_fetch.safe_get`: an URL, or a redirect, that leads to an address outside the public network (loopback, private, link-local, the cloud metadata address) is refused, the connection goes to the address the name was checked against, and a body past `max_bytes` (50 MB by default) is dropped. `safe_get` serves any server fetch of an URL a client gives: a refusal raises `UnsafeUrlError` or `ResponseTooLargeError`, neither of them an `httpx.RequestError`, so that no retry nor proxy replays it.
+The file is fetched through `fastedgy.safe_fetch.safe_get`: an URL, or a redirect, that leads to an address outside the public network (loopback, private, link-local, the cloud metadata address) is refused, the connection goes to the address the name was checked against, and a body past `max_bytes` (50 MB by default) is dropped. `safe_get` serves any server fetch of an URL a client gives: a refusal raises `UnsafeUrlError` or `ResponseTooLargeError`, neither of them an `httpx.RequestError`, so that no retry nor proxy replays it. For a fetch that streams, or reads several hops itself, `public_client()` gives an `httpx.AsyncClient` whose `PublicTransport` checks and pins the address of every request it sends, redirects included.
 
 ## Upload from base64
 

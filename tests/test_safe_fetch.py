@@ -79,3 +79,30 @@ async def test_the_storage_downloads_no_url_of_the_internal_network(setup_db: ob
 
     with pytest.raises(ValueError):
         await get_service(Storage).download_and_upload("http://169.254.169.254/latest/meta-data", "imports")
+
+
+async def test_a_public_client_connects_each_hop_to_its_checked_address() -> None:
+    from fastedgy.safe_fetch import public_client
+
+    seen: list[httpx.Request] = []
+    routes = {
+        "example.io/go": httpx.Response(302, headers={"location": "https://example.io/page"}),
+        "example.io/page": httpx.Response(200, content=b"hello"),
+    }
+
+    async with public_client(transport=_transport(routes, seen)) as client:
+        response = await client.get("https://example.io/go")
+
+    assert response.content == b"hello"
+    assert [request.url.host for request in seen] == ["93.184.216.34", "93.184.216.34"]
+    assert seen[1].extensions["sni_hostname"] == "example.io"
+
+
+async def test_a_public_client_refuses_a_redirect_into_the_internal_network() -> None:
+    from fastedgy.safe_fetch import public_client
+
+    transport = _transport({"example.io/go": httpx.Response(302, headers={"location": "http://internal.example.io/"})})
+
+    async with public_client(transport=transport) as client:
+        with pytest.raises(UnsafeUrlError):
+            await client.get("https://example.io/go")

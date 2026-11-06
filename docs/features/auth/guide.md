@@ -20,7 +20,7 @@ AUTH_PASSWORD_MIN_LENGTH=8
 AUTH_REVOKE_TOKENS_ON_PASSWORD_CHANGE=true
 ```
 
-- `AUTH_PASSWORD_MIN_LENGTH` (default `0`, no minimum): the fewest characters a new password may have, on registration, reset and change.
+- `AUTH_PASSWORD_MIN_LENGTH` (default `8`): the fewest characters a new password may have, on registration, reset and change.
 - `AUTH_REVOKE_TOKENS_ON_PASSWORD_CHANGE` (default `false`): whether a password change or reset ends the sessions opened before, see [Sessions end with a password change](#sessions-end-with-a-password-change).
 - `AUTH_PASSWORD_FINGERPRINT_TOKENS` (default `false`): whether tokens carry the password fingerprint the revocation checks, without checking it. An application whose users are already signed in turns it on first, so that turning the revocation on signs nobody out for lack of the claim, see [Turning it on](#turning-it-on).
 
@@ -32,7 +32,7 @@ AUTH_REVOKE_TOKENS_ON_PASSWORD_CHANGE=true
 {"name": "John Doe", "email": "john@example.com", "password": "secure_password"}
 ```
 
-A password shorter than `AUTH_PASSWORD_MIN_LENGTH` is refused with a `422`, as it is on reset and change; with the default `0`, any length goes. An email is refused when an account already holds it in any case: `Jean@example.com` and `jean@example.com` are one address.
+A password shorter than `AUTH_PASSWORD_MIN_LENGTH` is refused with a `422`, as it is on reset and change; `0` lets any length go. An email is refused when an account already holds it in any case: `Jean@example.com` and `jean@example.com` are one address.
 
 That refusal, a `400` with `Email already registered`, tells whoever asks that the address has an account: registration is the one built-in endpoint that does. The uniqueness whatever the case is checked by the code, not by the database: two registrations of two spellings of one address at the same instant can both go through.
 
@@ -141,6 +141,8 @@ The built-in endpoints handle password reset flow:
 
 The request answers `200` with the same message whether an account holds the email or not, so it tells nobody which addresses have an account. The account is looked up, given its reset token and mailed once the response is out, so neither its existence nor a slow or failing database or mail server shows in the answer: a failure is logged. The email goes to an existing account only, matched whatever its case.
 
+The account stores the SHA-256 digest of its reset token, never the token itself: a copy of the database replays no reset link.
+
 Each of these requests writes only its own columns, the reset token for this one, the password for a reset or a change: whatever another request changed meanwhile, a new password among it, stays as the row has it.
 
 ## Email verification
@@ -228,8 +230,12 @@ curl https://app.example.com/api/products -H "Authorization: Bearer acme_A1b2...
 curl https://app.example.com/api/products -H "X-Api-Token: acme_A1b2..."
 ```
 
-A key authenticates every route with the rights of its owner, exactly where a JWT would. See the
+A key authenticates every route with the rights of its owner, exactly where a JWT would, except the
+creation of another key, which takes a session of the person: a key answers `403` there. See the
 [MCP Server guide](../mcp-server/guide.md) for creating, listing and revoking them.
+
+A model whose global filters hide an account from itself (a deactivation, for instance) ends the
+sessions and keys of that account: a bearer resolves only to an account its own filters show.
 
 ## Custom user model
 
@@ -257,7 +263,7 @@ Authentication endpoints return standard HTTP errors:
 
 - **400 Bad Request**: Email already registered, current password incorrect, reset token invalid or expired
 - **401 Unauthorized**: Invalid credentials, or, with `AUTH_REVOKE_TOKENS_ON_PASSWORD_CHANGE=true`, a token issued before the password changed
-- **422 Unprocessable Entity**: Invalid request data, a password shorter than a non-zero `AUTH_PASSWORD_MIN_LENGTH` among them, with the type `password_too_short` and the minimum in `ctx.min_length`
+- **422 Unprocessable Entity**: Invalid request data, a password shorter than `AUTH_PASSWORD_MIN_LENGTH` among them, with the type `password_too_short` and the minimum in `ctx.min_length`
 
 ```python
 try:

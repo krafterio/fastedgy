@@ -5,6 +5,7 @@ import os
 import re
 import sys
 import tomllib
+import warnings
 from functools import cached_property
 from pathlib import Path
 from typing import Annotated, Any
@@ -194,7 +195,7 @@ class BaseSettings(PydanticBaseSettings):
     auth_refresh_token_expire_days: int = 30
     auth_password_fingerprint_tokens: bool = False
     auth_revoke_tokens_on_password_change: bool = False
-    auth_password_min_length: int = 0
+    auth_password_min_length: int = 8
     api_token_prefix: str = "fet_"
 
     # Vault: the Fernet key that seals the secrets the application keeps (`fastedgy.vault`)
@@ -453,6 +454,16 @@ class BaseSettings(PydanticBaseSettings):
     def validate_log_format(cls, v):
         if isinstance(v, str) and v in [item.value for item in LogFormat]:
             return LogFormat(v)
+        return v
+
+    @field_validator("auth_secret_key")
+    def validate_auth_secret_key(cls, v):
+        if not v:
+            raise ValueError("AUTH_SECRET_KEY is required")
+
+        if len(v.encode()) < 32:
+            warnings.warn("AUTH_SECRET_KEY holds fewer than the 32 bytes HMAC SHA-256 asks for", stacklevel=2)
+
         return v
 
     @field_validator("database_url")

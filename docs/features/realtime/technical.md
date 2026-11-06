@@ -8,6 +8,13 @@ A socket is held by one worker process. The write it must announce is made in wh
 worker served the request, which is rarely the same one. Without a bridge, an agent writing
 through worker 3 is invisible to a browser connected to worker 1.
 
+## Who may open a socket
+
+A handshake carrying an `Origin` header opens only from the host of the API itself or from an origin
+of `CORS_ALLOW_ORIGINS` (its patterns included); any other is closed with `1008` before it is
+accepted. A native client sends no `Origin` and opens as before: the token of its first frame is
+what authenticates it.
+
 ## The path of an announcement
 
 ```

@@ -333,6 +333,9 @@ msgstr "Token de réinitialisation de mot de passe"
 msgid "Password reset token expiration"
 msgstr "Date d'expiration du token de réinitialisation de mot de passe"
 
+msgid "An API key cannot create another API key"
+msgstr "Une clé d'API ne peut pas créer une autre clé d'API"
+
 msgid "Email verified"
 msgstr "Email vérifié"
 

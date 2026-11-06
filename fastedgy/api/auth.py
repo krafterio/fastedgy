@@ -1,6 +1,7 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+import hashlib
 import logging
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any, cast
@@ -180,6 +181,10 @@ def _renewed_session(
     return claims, datetime.fromtimestamp(payload.get("exp", 0), UTC) - datetime.now(UTC)
 
 
+def _reset_token_digest(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
 @public_router.post("/password/reset")
 async def password_reset(
     data: ResetPasswordRequest, registry: Registry = Inject(Registry), bus: Bus = Inject(Bus)
@@ -189,7 +194,7 @@ async def password_reset(
     User = cast(type[BaseUser], registry.get_model("User"))
 
     user = await User.query.filter(
-        User.columns.reset_pwd_token == data.token,
+        User.columns.reset_pwd_token == _reset_token_digest(data.token),
         User.columns.reset_pwd_expires_at >= datetime.now(context.get_timezone()),
     ).first()
 
@@ -281,7 +286,7 @@ async def _send_recovery_email(mail: Mail, email: str, locale: str, base_url_app
             return
 
         token = str(uuid4())
-        await user.save(values={"reset_pwd_token": token, "reset_pwd_expires_at": expires_at})
+        await user.save(values={"reset_pwd_token": _reset_token_digest(token), "reset_pwd_expires_at": expires_at})
         await mail.send_template(
             f"emails/{locale}/password_recovery.html",
             {
@@ -306,7 +311,7 @@ async def password_validate(
     User = cast(type[BaseUser], registry.get_model("User"))
 
     user = await User.query.filter(
-        User.columns.reset_pwd_token == data.token,
+        User.columns.reset_pwd_token == _reset_token_digest(data.token),
         User.columns.reset_pwd_expires_at >= datetime.now(context.get_timezone()),
     ).first()
 

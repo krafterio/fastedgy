@@ -343,7 +343,9 @@ async def resolve_bearer_token(token: str) -> "User | None":
     settings = get_service(BaseSettings)
 
     if settings.api_token_prefix and token.startswith(settings.api_token_prefix):
-        return await resolve_api_token(token)
+        user = await resolve_api_token(token)
+
+        return user if user is not None and await _shows_itself(user) else None
 
     try:
         payload = jwt.decode(token, settings.auth_secret_key, algorithms=[settings.auth_algorithm])
@@ -356,7 +358,27 @@ async def resolve_bearer_token(token: str) -> "User | None":
     User = cast(type["User"], get_service(Registry).get_model("User"))
     user = await resolve_token_account(payload, User.global_query)
 
-    return user if user is not None and token_matches_password(payload, user) else None
+    if user is None or not token_matches_password(payload, user):
+        return None
+
+    return user if await _shows_itself(user) else None
+
+
+async def _shows_itself(user: "User") -> bool:
+    from fastedgy.orm.filter.global_filters import GlobalFilterRegistry
+
+    model = type(user)
+
+    if not get_service(GlobalFilterRegistry).has_filters(model):
+        return True
+
+    previous = context.get_user()
+    context.set_user(user)
+
+    try:
+        return await model.query.filter(R("id", "=", user.id)).exists()
+    finally:
+        context.set_user(previous)
 
 
 async def get_optional_current_user(

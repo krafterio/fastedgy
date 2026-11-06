@@ -128,3 +128,32 @@ def test_asking_for_the_model_without_it_names_the_option(monkeypatch: pytest.Mo
 
     with pytest.raises(RuntimeError, match="user_api_tokens=True"):
         module.get_user_api_token_model()
+
+
+async def test_a_key_cannot_create_another_key(setup_http: httpx.AsyncClient, setup_db):
+    headers = await _auth("alice@example.io")
+    secret = (await setup_http.post("/api/user-api-tokens", json={"name": "ci"}, headers=headers)).json()["token"]
+
+    for key_headers in ({"Authorization": f"Bearer {secret}"}, {"X-Api-Token": secret}):
+        response = await setup_http.post("/api/user-api-tokens", json={"name": "child"}, headers=key_headers)
+        assert response.status_code == 403
+
+
+async def test_an_account_its_own_filters_hide_no_longer_authenticates(setup_http: httpx.AsyncClient, setup_db):
+    from fastedgy.dependencies import get_service
+    from fastedgy.orm.filter import R
+    from fastedgy.orm.filter.global_filters import GlobalFilterRegistry
+    from fastedgy.test.models.user import User
+
+    headers = await _auth("alice@example.io")
+    secret = (await setup_http.post("/api/user-api-tokens", json={"name": "ci"}, headers=headers)).json()["token"]
+    registry = get_service(GlobalFilterRegistry)
+    registry.register(User, lambda: R("email", "!=", "alice@example.io"))
+
+    try:
+        assert (await setup_http.get("/api/user-api-tokens", headers=headers)).status_code == 401
+        assert (await setup_http.get("/api/user-api-tokens", headers={"X-Api-Token": secret})).status_code == 401
+    finally:
+        registry._filters[User].pop()
+        if not registry._filters[User]:
+            del registry._filters[User]

@@ -56,12 +56,24 @@ async def _change(client: httpx.AsyncClient, access_token: str, current: str, ne
     )
 
 
-async def _reset(client: httpx.AsyncClient, email: str, password: str) -> httpx.Response:
+async def _forgot(client: httpx.AsyncClient, email: str) -> str:
+    """The token of the recovery link mailed to `email`."""
+    adapter = get_service(Mail).adapter
+    assert isinstance(adapter, MockAdapter)
+    adapter.clear()
     await client.post("/api/auth/password/forgot", json={"email": email})
-    user = await User.query.filter(email=email).first()
-    assert user is not None
+    await drain_signal_side_effects()
+    message = next(message for message in adapter.sent if message["To"] == email)
+    body = message.get_body(("html",))
+    assert body is not None
 
-    return await client.post("/api/auth/password/reset", json={"token": user.reset_pwd_token, "password": password})
+    return body.get_content().split("token=")[1].split('"')[0]
+
+
+async def _reset(client: httpx.AsyncClient, email: str, password: str) -> httpx.Response:
+    token = await _forgot(client, email)
+
+    return await client.post("/api/auth/password/reset", json={"token": token, "password": password})
 
 
 async def _protected(client: httpx.AsyncClient, access_token: str) -> int:
@@ -250,12 +262,13 @@ async def test_a_recovery_link_lasts_an_hour_across_the_autumn_clock_change(
 
 async def test_password_reset_flow(setup_http: httpx.AsyncClient) -> None:
     await _register(setup_http, "ivan@example.io")
-    await setup_http.post("/api/auth/password/forgot", json={"email": "ivan@example.io"})
-
+    token = await _forgot(setup_http, "ivan@example.io")
     user = await User.query.filter(email="ivan@example.io").first()
     assert user is not None
-    token = user.reset_pwd_token
-    assert token
+    assert user.reset_pwd_token not in (None, token)
+    assert (
+        await setup_http.post("/api/auth/password/validate", json={"token": user.reset_pwd_token})
+    ).status_code == 400
 
     validate = await setup_http.post("/api/auth/password/validate", json={"token": token})
     assert validate.status_code == 200
@@ -286,13 +299,15 @@ async def test_a_password_shorter_than_the_minimum_is_refused_everywhere(
     assert (await _register(setup_http, "kim@example.io", "1234")).status_code == 200
 
 
-async def test_by_default_a_password_of_any_length_is_accepted(setup_http: httpx.AsyncClient) -> None:
-    assert (await _register(setup_http, "vera@example.io", "123456")).status_code == 200
+async def test_by_default_a_password_takes_eight_characters(setup_http: httpx.AsyncClient) -> None:
+    assert (await _register(setup_http, "vera@example.io", "1234567")).status_code == 422
+    assert (await _register(setup_http, "vera@example.io", "12345678")).status_code == 200
 
-    access_token = (await _login(setup_http, "vera@example.io", "123456")).json()["access_token"]
+    access_token = (await _login(setup_http, "vera@example.io", "12345678")).json()["access_token"]
 
-    assert (await _change(setup_http, access_token, "123456", "654321")).status_code == 200
-    assert (await _reset(setup_http, "vera@example.io", "abcdef")).status_code == 200
+    assert (await _change(setup_http, access_token, "12345678", "7654321")).status_code == 422
+    assert (await _change(setup_http, access_token, "12345678", "87654321")).status_code == 200
+    assert (await _reset(setup_http, "vera@example.io", "abcdefgh")).status_code == 200
 
 
 def test_a_password_checked_outside_an_application_reads_no_settings(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -632,8 +647,7 @@ async def test_resetting_a_password_leaves_the_other_columns_as_the_row_holds_th
     setup_http: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     await _register(setup_http, "ruth@example.io")
-    await setup_http.post("/api/auth/password/forgot", json={"email": "ruth@example.io"})
-    token = (await User.global_query.filter(R("email", "=", "ruth@example.io")).get()).reset_pwd_token
+    token = await _forgot(setup_http, "ruth@example.io")
     _renaming_while_hashing(monkeypatch, "ruth@example.io")
 
     reset = {"token": token, "password": "rotated-horse"}

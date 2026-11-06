@@ -65,6 +65,7 @@ class FakeWebSocket:
         self.sent: list[dict] = []
         self.dead = dead
         self.closed: int | None = None
+        self.headers: dict[str, str] = {}
 
     async def send_json(self, message: dict) -> None:
         if self.dead:
@@ -2309,3 +2310,34 @@ async def test_a_cascade_names_a_foreign_key_the_database_deletes_with() -> None
 
     with pytest.raises(ValueError, match="cascade"):
         RealtimeRegistry().register(RtStep, {}, cascade=["label"])
+
+
+async def _open_from(ws_manager, scope_env, monkeypatch, origin: str, host: str = "api.example.io") -> Any:
+    settings = get_service(BaseSettings)
+    monkeypatch.setattr(settings, "cors_allow_origins", "https://app.example.io")
+    socket: Any = ScriptedWebSocket(
+        json.dumps({"type": "authenticate", "data": {"token": auth_token(scope_env.admin), "scope": "acme"}}), []
+    )
+    socket.headers = {"origin": origin, "host": host}
+
+    await websocket_endpoint(socket, settings, ws_manager, get_service(WebSocketBroadcaster), get_service(RealtimeAuth))
+
+    return socket
+
+
+async def test_a_socket_opened_from_an_origin_the_application_does_not_list_is_closed(
+    ws_manager, scope_env, monkeypatch
+) -> None:
+    socket = await _open_from(ws_manager, scope_env, monkeypatch, "https://elsewhere.example")
+
+    assert socket.closed == 1008
+    assert socket.sent == []
+
+
+@pytest.mark.parametrize("origin", ["https://app.example.io", "https://api.example.io"])
+async def test_a_socket_opened_from_a_listed_origin_or_its_own_host_authenticates(
+    ws_manager, scope_env, monkeypatch, origin
+) -> None:
+    socket = await _open_from(ws_manager, scope_env, monkeypatch, origin)
+
+    assert socket.sent[0]["type"] == "auth_success"

@@ -5,7 +5,9 @@ import asyncio
 import contextlib
 import json
 import logging
+import re
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
 
@@ -29,6 +31,20 @@ logger = logging.getLogger("fastedgy.realtime.api")
 FRAME_WINDOW = 10.0
 
 
+def _origin_allowed(websocket: WebSocket, settings: BaseSettings) -> bool:
+    origin = websocket.headers.get("origin")
+
+    if not origin or urlsplit(origin).netloc == websocket.headers.get("host"):
+        return True
+
+    if "*" in settings.cors_origins or origin in settings.cors_origins:
+        return True
+
+    pattern = settings.cors_origin_regex
+
+    return pattern is not None and re.fullmatch(pattern, origin) is not None
+
+
 @router.websocket("/ws")
 async def websocket_endpoint(
     websocket: WebSocket,
@@ -42,6 +58,11 @@ async def websocket_endpoint(
     Reads are what the rest of the API is for: this carries announcements, and
     hands a frame of the application's own to the bus.
     """
+    if not _origin_allowed(websocket, settings):
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+
+        return
+
     await websocket.accept()
 
     authenticated = await _authenticate(websocket, settings, auth)

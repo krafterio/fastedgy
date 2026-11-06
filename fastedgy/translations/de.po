@@ -329,6 +329,9 @@ msgstr "Token zum Zurücksetzen des Passworts"
 msgid "Password reset token expiration"
 msgstr "Ablauf des Tokens zum Zurücksetzen des Passworts"
 
+msgid "An API key cannot create another API key"
+msgstr "Ein API-Schlüssel kann keinen weiteren API-Schlüssel erstellen"
+
 msgid "Email verified"
 msgstr "E-Mail bestätigt"
 

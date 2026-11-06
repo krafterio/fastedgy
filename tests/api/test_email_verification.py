@@ -1,6 +1,7 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+import hashlib
 from datetime import UTC, datetime, timedelta
 
 import httpx
@@ -70,7 +71,10 @@ async def test_a_token_of_another_type_does_not_verify(setup_http: httpx.AsyncCl
 async def test_a_password_reset_marks_the_email_verified(setup_http: httpx.AsyncClient) -> None:
     user = await create_user(email="alice@example.io")
     await user.save(
-        values={"reset_pwd_token": "reset-token", "reset_pwd_expires_at": datetime.now(UTC) + timedelta(hours=1)}
+        values={
+            "reset_pwd_token": hashlib.sha256(b"reset-token").hexdigest(),
+            "reset_pwd_expires_at": datetime.now(UTC) + timedelta(hours=1),
+        }
     )
 
     response = await setup_http.post(

@@ -329,6 +329,9 @@ msgstr "Token de restablecimiento de contraseña"
 msgid "Password reset token expiration"
 msgstr "Caducidad del token de restablecimiento de contraseña"
 
+msgid "An API key cannot create another API key"
+msgstr "Una clave de API no puede crear otra clave de API"
+
 msgid "Email verified"
 msgstr "Correo electrónico verificado"
 

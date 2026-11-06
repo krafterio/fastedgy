@@ -12,7 +12,7 @@ transformers behave exactly as on every other model.
 from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from fastedgy.api_route_model.actions.delete_action import delete_item_action
 from fastedgy.api_route_model.actions.list_action import list_items_action
@@ -22,7 +22,9 @@ from fastedgy.api_route_model.params import (
     OrderByQuery,
 )
 from fastedgy.api_route_model.types import ModelList
-from fastedgy.depends.security import get_current_user
+from fastedgy.config import BaseSettings
+from fastedgy.dependencies import get_service
+from fastedgy.depends.security import api_token_scheme, get_current_user, oauth2_scheme_optional
 from fastedgy.http import Request
 from fastedgy.i18n import _t
 from fastedgy.models.user_api_token import (
@@ -73,7 +75,16 @@ def create_user_api_tokens_router(prefix: str = "/user-api-tokens") -> APIRouter
     async def create_user_api_token(
         data: UserApiTokenCreate,
         current_user=Depends(get_current_user),
+        bearer: str | None = Depends(oauth2_scheme_optional),
+        api_token: str | None = Depends(api_token_scheme),
     ) -> UserApiTokenCreated:
+        prefix = get_service(BaseSettings).api_token_prefix
+
+        if api_token or (prefix and bearer and bearer.startswith(prefix)):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail=_t("An API key cannot create another API key")
+            )
+
         secret = generate_api_token()
         token = UserApiToken(
             name=data.name.strip(),

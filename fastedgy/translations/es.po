@@ -332,6 +332,9 @@ msgstr "Caducidad del token de restablecimiento de contraseña"
 msgid "An API key cannot create another API key"
 msgstr "Una clave de API no puede crear otra clave de API"
 
+msgid "File type not allowed"
+msgstr "Tipo de archivo no permitido"
+
 msgid "Email verified"
 msgstr "Correo electrónico verificado"
 

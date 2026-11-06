@@ -551,6 +551,23 @@ async def test_download_refuses_a_path_leaving_the_storage(auth_http: httpx.Asyn
     assert response.status_code == 404
 
 
+@pytest.mark.parametrize("marker", ["__stored__:", "__cache__:"])
+async def test_download_reads_a_path_from_the_request_as_a_storage_path_only(
+    auth_http: httpx.AsyncClient, marker: str
+) -> None:
+    from fastedgy.test.fixtures import STORAGE_ROOT
+
+    os.makedirs(os.path.join(STORAGE_ROOT, "global"), exist_ok=True)
+
+    with open(os.path.join(STORAGE_ROOT, "global", "kept.txt"), "wb") as f:
+        f.write(b"not served")
+
+    for route in ("download", "download-url"):
+        response = await auth_http.get(f"/api/storage/{route}/{marker}global/kept.txt")
+
+        assert response.status_code == 404
+
+
 async def test_delete_file_never_removes_a_file_outside_the_storage(auth_http: httpx.AsyncClient) -> None:
     from fastedgy.test.fixtures import STORAGE_ROOT
 
@@ -906,3 +923,31 @@ async def test_a_signed_url_downloads_rather_than_displays_when_asked(auth_http:
     assert shown.headers["content-disposition"].startswith("inline")
     assert saved.headers["content-disposition"].startswith("attachment")
     assert saved.content == b"0123456789"
+
+
+@pytest.mark.parametrize(
+    ("name", "content_type"),
+    [("logo.svg", "image/svg+xml"), ("page.html", "text/html"), ("photo.html", "image/png"), ("page", "text/html")],
+)
+async def test_an_upload_of_active_content_is_refused(
+    auth_http: httpx.AsyncClient, name: str, content_type: str
+) -> None:
+    response = await auth_http.post(
+        "/api/storage/upload/attachments", files={name: (name, b"<svg onload=alert(1)>", content_type)}
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "File type not allowed"
+
+
+async def test_a_download_is_never_sniffed_and_shows_only_media_inline(auth_http: httpx.AsyncClient) -> None:
+    upload = await auth_http.post(
+        "/api/storage/upload/attachments", files={"doc.txt": ("doc.txt", b"hello world", "text/plain")}
+    )
+    attachment = upload.json()["attachments"][0]
+
+    download = await auth_http.get(f"/api/storage/download/attachments/{attachment['id']}")
+
+    assert download.headers["x-content-type-options"] == "nosniff"
+    assert "sandbox" in download.headers["content-security-policy"]
+    assert download.headers["content-disposition"].startswith("attachment")

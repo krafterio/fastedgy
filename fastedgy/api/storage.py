@@ -392,15 +392,22 @@ async def delete_file(
         raise HTTPException(status_code=404, detail=_t("Model not found"))
 
 
-def _build_download_headers(filename: str, force_download: bool = False) -> dict[str, str]:
+_INLINE_TYPES = ("image/jpeg", "image/png", "image/gif", "image/webp", "image/avif", "image/heic", "image/heif")
+
+
+def _build_download_headers(filename: str, force_download: bool = False, content_type: str = "") -> dict[str, str]:
     ascii_filename = filename.encode("ascii", "ignore").decode("ascii") or "download"
     encoded_filename = quote(filename, safe="")
-    content_disposition = "attachment" if force_download else "inline"
+    media = content_type.split(";", 1)[0].strip().lower()
+    shown = media in _INLINE_TYPES or media.startswith(("video/", "audio/"))
+    content_disposition = "attachment" if force_download or not shown else "inline"
 
     return {
         "Content-Disposition": (
             f"{content_disposition}; filename=\"{ascii_filename}\"; filename*=UTF-8''{encoded_filename}"
         ),
+        "X-Content-Type-Options": "nosniff",
+        "Content-Security-Policy": "default-src 'none'; img-src 'self'; media-src 'self'; sandbox",
     }
 
 
@@ -456,7 +463,7 @@ async def _serve_download(
 
         return Response(status_code=304, headers=headers)
 
-    headers = _build_download_headers(filename, force_download)
+    headers = _build_download_headers(filename, force_download, content_type)
     headers["Accept-Ranges"] = "bytes"
 
     if cache_control:

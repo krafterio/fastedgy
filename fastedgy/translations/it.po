@@ -332,6 +332,9 @@ msgstr "Scadenza del token di reimpostazione della password"
 msgid "An API key cannot create another API key"
 msgstr "Una chiave API non può creare un'altra chiave API"
 
+msgid "File type not allowed"
+msgstr "Tipo di file non consentito"
+
 msgid "Email verified"
 msgstr "Email verificata"
 

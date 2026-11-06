@@ -277,6 +277,14 @@ public_router.include_router(storage.signed_router)
 
 Without it, the signing routes answer 404, and `v-fetcher-src` reads a video whole instead.
 
+### What a download carries
+
+Every download, by path, by attachment or through a signed URL, says `X-Content-Type-Options: nosniff` and a sandboxing `Content-Security-Policy`, and is served `inline` only for a raster image, a video or a sound: anything else comes `attachment`, a file stored before this rule included. A path from the request is a storage path: one written as a resolved path (`__stored__:`, `__cache__:`) answers `404`.
+
+### What an upload refuses
+
+`Storage.upload`, which stores what a client sends, refuses an active document (`svg`, `html`, `xhtml`, `xml`, `xsl`, `js`) and a file declared as an image whose extension names another known type. A file the server writes itself, through `upload_from_bytes` or `upload_from_file`, takes any extension.
+
 ## Image optimization
 
 FastEdgy automatically optimizes images when you add URL parameters. Optimized images are cached for better performance.

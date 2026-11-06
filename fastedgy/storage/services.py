@@ -47,6 +47,20 @@ if TYPE_CHECKING:
     from PIL.Image import Image as PILImage
 
 
+_RESOLVED_MARKERS = ("__cache__:", "__stored__:")
+
+_ACTIVE_EXTENSIONS = frozenset({"svg", "svgz", "html", "htm", "xhtml", "xht", "xml", "xsl", "js", "mjs"})
+
+
+def _declares_another_type(content_type: str | None, ext: str) -> bool:
+    if not content_type or not content_type.startswith("image/"):
+        return False
+
+    guessed = mimetypes.guess_type(f"file.{ext}")[0]
+
+    return guessed is not None and not guessed.startswith("image/")
+
+
 @dataclass(frozen=True)
 class StorageUsage:
     """The stored files and the optimized images cache, each counted with its bytes."""
@@ -422,6 +436,9 @@ class Storage:
         caller opens it, and on FileNotFoundError resolves again with
         `regenerate=True`.
         """
+        if source_relative_path.startswith(_RESOLVED_MARKERS):
+            raise ValueError(f"{source_relative_path} is a resolved path, not a storage path")
+
         source_name = source_relative_path.rsplit("/", 1)[-1] if "/" in source_relative_path else source_relative_path
         full_source = self._resolve_path(source_relative_path, global_storage)
         source_mime = mimetypes.guess_type(source_name)[0] or "application/octet-stream"
@@ -610,6 +627,9 @@ class Storage:
         if not ext:
             guessed = mimetypes.guess_extension(file.content_type or "") or ".bin"
             ext = guessed.lstrip(".")
+
+        if ext in _ACTIVE_EXTENSIONS or _declares_another_type(file.content_type, ext):
+            raise ValueError(_t("File type not allowed"))
 
         return await self._finalize_store(
             file=file.file,

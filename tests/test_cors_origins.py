@@ -10,11 +10,15 @@ def _settings(origins: str | None) -> BaseSettings:
     return settings
 
 
-def test_allows_every_origin_without_configuration():
+def test_allows_no_origin_without_configuration():
     settings = _settings(None)
 
-    assert settings.cors_origins == ["*"]
+    assert settings.cors_origins == []
     assert settings.cors_origin_regex is None
+
+
+def test_allows_every_origin_when_asked():
+    assert _settings("*").cors_origins == ["*"]
 
 
 def test_keeps_the_exact_origins_apart_from_the_patterns():

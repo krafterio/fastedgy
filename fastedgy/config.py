@@ -327,7 +327,7 @@ class BaseSettings(PydanticBaseSettings):
     @property
     def _cors_entries(self) -> list[str]:
         if not self.cors_allow_origins:
-            return ["*"]
+            return []
         return [origin.strip() for origin in self.cors_allow_origins.split(",") if origin.strip()]
 
     @property

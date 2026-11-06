@@ -9,7 +9,13 @@ Set the storage path in your environment file (`.env`):
 ```env
 DATA_PATH=./storage
 IMAGE_QUALITY=80
+STORAGE_MAX_UPLOAD_SIZE=1073741824
 ```
+
+`STORAGE_MAX_UPLOAD_SIZE` is the largest file an upload stores, in bytes (1 GiB by default, empty for no
+limit): a bigger one is refused with a 422. When a field upload replaces a file, the previous one is
+removed only when it lies in the record's own directory (`{model}/` or `{table}/{id}/`) and no other row
+holds it.
 
 ### S3 object storage
 

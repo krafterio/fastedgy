@@ -341,3 +341,40 @@ async def test_a_download_token_opens_the_key_it_was_signed_for(setup_db: FastEd
     assert storage.resolve_download_token(stored) == "__stored__:global/videos/clip.mp4"
     assert storage.resolve_download_token(cached) == "__cache__:cache_optimized_images/global/a.png/contain_w32_h0.webp"
     assert storage.resolve_download_token(stored[:-2] + "xx") is None
+
+
+async def test_an_upload_over_the_size_limit_is_refused(setup_db: FastEdgy, monkeypatch) -> None:
+    from starlette.datastructures import UploadFile
+
+    storage = get_service(Storage)
+    monkeypatch.setattr(storage.settings, "storage_max_upload_size", 8)
+
+    with pytest.raises(ValueError):
+        await storage.upload(UploadFile(io.BytesIO(b"0123456789"), filename="big.txt"), "docs", global_storage=True)
+
+    monkeypatch.setattr(storage.settings, "storage_max_upload_size", 10)
+    path = await storage.upload(UploadFile(io.BytesIO(b"0123456789"), filename="fit.txt"), "docs", global_storage=True)
+
+    assert os.path.isfile(stored_file_path(path))
+
+
+async def test_a_jpeg_variant_is_decoded_at_the_scale_it_is_rendered(setup_db: FastEdgy, monkeypatch) -> None:
+    from PIL import Image, JpegImagePlugin
+
+    storage = get_service(Storage)
+    buf = io.BytesIO()
+    Image.new("RGB", (1600, 1200), "white").save(buf, "JPEG")
+    decoded: list[tuple[int, int]] = []
+    load = JpegImagePlugin.JpegImageFile.load
+
+    def recording_load(self):
+        decoded.append(self.size)
+        return load(self)
+
+    monkeypatch.setattr(JpegImagePlugin.JpegImageFile, "load", recording_load)
+
+    data, _ = storage._render_cache_image(buf.getvalue(), "photo.jpg", w=100, h=None, mode="contain", out_ext=None)
+
+    assert data is not None
+    assert Image.open(io.BytesIO(data)).size == (100, 75)
+    assert decoded and max(width for width, _ in decoded) <= 200

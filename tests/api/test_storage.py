@@ -951,3 +951,57 @@ async def test_a_download_is_never_sniffed_and_shows_only_media_inline(auth_http
     assert download.headers["x-content-type-options"] == "nosniff"
     assert "sandbox" in download.headers["content-security-policy"]
     assert download.headers["content-disposition"].startswith("attachment")
+
+
+async def test_a_replaced_field_file_is_removed_only_when_it_is_the_records_own(auth_http: httpx.AsyncClient) -> None:
+    first, second = await _product("First"), await _product("Second")
+
+    async def upload(product_id: int, content: bytes) -> str:
+        response = await auth_http.post(
+            f"/api/storage/upload/product/{product_id}/description",
+            files={"file": ("doc.txt", content, "text/plain")},
+        )
+        assert response.status_code == 200, response.text
+
+        return response.json()["path"]
+
+    attachment = await auth_http.post(
+        "/api/storage/upload/attachments", files={"file": ("other.txt", b"other", "text/plain")}
+    )
+    from fastedgy.test.models.attachment import Attachment
+
+    attachment_path = (await Attachment.query.get(id=attachment.json()["attachments"][0]["id"])).storage_path
+
+    own = await upload(first, b"own")
+    await upload(first, b"replacing")
+    shared = await upload(second, b"shared")
+    await auth_http.patch(f"/api/test_products/{first}", json={"description": shared})
+    await upload(first, b"after shared")
+    await auth_http.patch(f"/api/test_products/{first}", json={"description": attachment_path})
+    await upload(first, b"after attachment")
+
+    assert not os.path.isfile(stored_file_path(own))
+    assert os.path.isfile(stored_file_path(shared))
+    assert os.path.isfile(stored_file_path(attachment_path))
+
+
+async def test_an_attachment_downloads_only_where_its_get_route_exists(auth_http: httpx.AsyncClient) -> None:
+    from fastedgy.api_route_model.registry import RouteModelRegistry
+    from fastedgy.dependencies import get_service
+    from fastedgy.test.models.attachment import Attachment
+
+    uploaded = await auth_http.post("/api/storage/upload/attachments", files={"file": ("a.txt", b"a", "text/plain")})
+    attachment_id = uploaded.json()["attachments"][0]["id"]
+    options = get_service(RouteModelRegistry).get_model_options(Attachment)
+    actions = options.get("actions", {})
+    options["actions"] = {**actions, "get": False}
+
+    try:
+        refused = await auth_http.get(f"/api/storage/download/attachments/{attachment_id}")
+    finally:
+        options["actions"] = actions
+
+    allowed = await auth_http.get(f"/api/storage/download/attachments/{attachment_id}")
+
+    assert refused.status_code == 405
+    assert allowed.status_code == 200

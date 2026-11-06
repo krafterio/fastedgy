@@ -56,7 +56,11 @@ Set image quality in your environment file:
 
 ```env
 IMAGE_QUALITY=80  # 1-100, higher = better quality but larger files
+IMAGE_RENDER_CONCURRENCY=2  # variants a process renders at once
 ```
+
+Each variant decodes its source in memory: `IMAGE_RENDER_CONCURRENCY` bounds how many a process renders at
+the same time, and a JPEG is decoded at the smallest scale that still covers the requested size.
 
 ## How It Works
 

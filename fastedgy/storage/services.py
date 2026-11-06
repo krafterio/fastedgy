@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any, BinaryIO
 
 import httpx
 import jwt
-from anyio import to_thread
+from anyio import CapacityLimiter, to_thread
 from jwt import PyJWTError
 from starlette.datastructures import UploadFile
 
@@ -97,6 +97,7 @@ def _create_adapter(settings: BaseSettings, adapter_name: str) -> StorageAdapter
 class Storage:
     def __init__(self, settings: BaseSettings = Inject(BaseSettings)):
         self.settings = settings
+        self.render_limiter = CapacityLimiter(max(1, settings.image_render_concurrency))
         self.adapter: StorageAdapter = _create_adapter(settings, settings.storage_adapter)
         self.cache_adapter: StorageAdapter = FilesystemAdapter(root=settings.storage_data_path)
         if settings.storage_cache_adapter != "filesystem":
@@ -358,7 +359,8 @@ class Storage:
         # PIL decode/resize/encode is CPU-bound: run it in a thread so a burst
         # of first-time generations does not block the event loop.
         data, mime_type = await to_thread.run_sync(
-            partial(self._render_cache_image, source_data, source_name, w=w, h=h, mode=mode, out_ext=out_ext)
+            partial(self._render_cache_image, source_data, source_name, w=w, h=h, mode=mode, out_ext=out_ext),
+            limiter=self.render_limiter,
         )
 
         if data is None:
@@ -393,6 +395,9 @@ class Storage:
             if (tw, th) == (ow, oh) and out_format.lower() == src_ext.lower():
                 mime = mimetypes.guess_type(source_name)[0] or mime_type
                 return None, mime
+
+            if img.format == "JPEG":
+                img.draft(img.mode, (tw, th))
 
             if mode == "contain":
                 final_img = img.resize((tw, th), Image.Resampling.LANCZOS)
@@ -631,6 +636,13 @@ class Storage:
 
         if ext in _ACTIVE_EXTENSIONS or _declares_another_type(file.content_type, ext):
             raise ValueError(_t("File type not allowed"))
+
+        limit = self.settings.storage_max_upload_size
+        size = file.size if file.size is not None else file.file.seek(0, os.SEEK_END)
+        file.file.seek(0)
+
+        if limit and size > limit:
+            raise ValueError(_t("The file is larger than {size} MB", size=limit // (1024 * 1024)))
 
         return await self._finalize_store(
             file=file.file,

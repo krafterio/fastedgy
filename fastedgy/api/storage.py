@@ -343,7 +343,7 @@ async def upload_model_field_file(
             await storage.delete(path, global_storage=global_storage)
             raise
 
-        if previous_path:
+        if await _owns_file(model_cls, model, field, model_id, previous_path):
             await storage.delete(previous_path, global_storage=global_storage)
 
         for transformer in vtr.get_transformers(PostUploadTransformer, model_cls, None):
@@ -381,7 +381,7 @@ async def delete_file(
         previous_path = getattr(record, field)
         await _write_file_field(request, model_cls, record, model_id, field, None, access)
 
-        if previous_path:
+        if await _owns_file(model_cls, model, field, model_id, previous_path):
             await storage.delete(previous_path, global_storage=global_storage)
 
         for transformer in vtr.get_transformers(PostDeleteFileTransformer, model_cls, None):
@@ -390,6 +390,18 @@ async def delete_file(
         raise HTTPException(status_code=422, detail=str(e))
     except ObjectNotFound:
         raise HTTPException(status_code=404, detail=_t("Model not found"))
+
+
+async def _owns_file(model_cls: Any, model: str, field: str, model_id: int, path: str | None) -> bool:
+    """The previous file of a field is removed with it only when it lies where
+    the record's files go (the directory of this route, or the one named after
+    its table and id) and no other row holds it."""
+    from fastedgy.orm.filter import And, R
+
+    if not path or not path.startswith((f"{model}/", f"{model_cls.meta.tablename}/{model_id}/")):
+        return False
+
+    return not await model_cls.global_query.filter(And(R(field, "=", path), R("id", "!=", model_id))).exists()
 
 
 _INLINE_TYPES = ("image/jpeg", "image/png", "image/gif", "image/webp", "image/avif", "image/heic", "image/heif")
@@ -567,6 +579,7 @@ async def _attachment(registry: Registry, id: int) -> tuple[Any, bool]:
         raise HTTPException(status_code=500, detail=_t("Attachment model not configured"))
 
     AttachmentModel: Any = registry.get_model("Attachment")
+    await ensure_action_allowed(AttachmentModel, "get")
 
     try:
         record = await AttachmentModel.query.get(id=id)

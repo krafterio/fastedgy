@@ -272,6 +272,8 @@ class BaseSettings(PydanticBaseSettings):
     storage_cache_adapter: str = "filesystem"
     storage_workspace_folder: str = "workspace"
     storage_cache_max_age_days: int | None = 30
+    # The largest file an upload stores (bytes); None takes any size.
+    storage_max_upload_size: int | None = 1024 * 1024 * 1024
 
     # S3
     s3_endpoint: str | None = None
@@ -302,6 +304,8 @@ class BaseSettings(PydanticBaseSettings):
     # Images
     image_quality: int = 80
     image_max_pixels: int | None = None
+    # Resized variants rendered at once by a process: each decodes its source in memory.
+    image_render_concurrency: int = 2
 
     # Mail
     mail_adapter: str = "smtp"

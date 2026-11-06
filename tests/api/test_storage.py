@@ -856,7 +856,7 @@ async def test_a_signed_url_opens_an_attachment(auth_http: httpx.AsyncClient) ->
 async def test_a_signed_url_opens_nothing_with_a_forged_expired_or_access_token(setup_http: httpx.AsyncClient) -> None:
     from datetime import UTC, datetime, timedelta
 
-    from jose import jwt
+    import jwt
 
     from fastedgy.config import BaseSettings
     from fastedgy.dependencies import get_service

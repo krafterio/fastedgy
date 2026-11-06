@@ -7,9 +7,9 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 import httpx
+import jwt
 import pytest
 from fastapi import BackgroundTasks
-from jose import jwt
 
 import fastedgy.api.auth as auth_api
 from fastedgy import dependencies

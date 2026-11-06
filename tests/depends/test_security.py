@@ -3,9 +3,9 @@
 
 from collections.abc import Callable
 
+import jwt
 import pytest
 from fastapi import HTTPException
-from jose import jwt
 
 from fastedgy import context
 from fastedgy.app import FastEdgy

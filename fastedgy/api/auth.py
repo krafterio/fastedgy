@@ -6,8 +6,9 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any, cast
 from uuid import uuid4
 
+import jwt
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, status
-from jose import JWTError, jwt
+from jwt import PyJWTError
 
 from fastedgy import context
 from fastedgy.bus import BaseEvent, Bus
@@ -131,7 +132,7 @@ async def refresh_access_token(
         )
         if payload.get("type") != "refresh":
             raise credentials_exception
-    except JWTError:
+    except PyJWTError:
         raise credentials_exception
 
     user = await resolve_token_account(payload, User.query)

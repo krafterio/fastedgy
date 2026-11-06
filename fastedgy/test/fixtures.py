@@ -27,7 +27,7 @@ RUN_ID = (os.environ.get("PYTEST_XDIST_TESTRUNUID") or uuid.uuid4().hex)[:12]
 database.configure_database_env(WORKER_ID)
 
 # A signing key is required for the JWT auth flow exercised by the test app.
-os.environ.setdefault("AUTH_SECRET_KEY", "fastedgy-test-secret-key")
+os.environ.setdefault("AUTH_SECRET_KEY", "fastedgy-test-secret-key-of-32-bytes")
 
 # Emails are captured in-memory (no SMTP) and rendered from the bundled test
 # templates, so the mail-sending endpoints stay exercisable in tests.

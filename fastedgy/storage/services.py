@@ -14,8 +14,9 @@ from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, BinaryIO
 
+import jwt
 from anyio import to_thread
-from jose import JWTError, jwt
+from jwt import PyJWTError
 from starlette.datastructures import UploadFile
 
 from fastedgy import context
@@ -516,7 +517,7 @@ class Storage:
         another type."""
         try:
             payload = jwt.decode(token, self.settings.auth_secret_key, algorithms=[self.settings.auth_algorithm])
-        except JWTError:
+        except PyJWTError:
             return None
 
         if payload.get("type") != DOWNLOAD_TOKEN_TYPE or not payload.get("key"):

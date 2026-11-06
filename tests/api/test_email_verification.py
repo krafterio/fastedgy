@@ -4,8 +4,8 @@
 from datetime import UTC, datetime, timedelta
 
 import httpx
+import jwt
 import pytest
-from jose import jwt
 
 from fastedgy.api.auth import OnEmailVerifiedEvent, send_email_verification
 from fastedgy.bus import Bus

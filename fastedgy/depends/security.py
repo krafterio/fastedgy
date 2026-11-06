@@ -9,11 +9,12 @@ from datetime import UTC, datetime, timedelta
 from functools import cache
 from typing import TYPE_CHECKING, Any, cast
 
+import jwt
 import sqlalchemy
 from anyio import CapacityLimiter, to_thread
 from fastapi import Depends, HTTPException, status
 from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
-from jose import JWTError, jwt
+from jwt import PyJWTError
 
 from fastedgy import context
 from fastedgy.config import BaseSettings
@@ -138,7 +139,7 @@ async def verify_email_token(token: str) -> "tuple[User, bool] | None":
 
     try:
         claims = jwt.decode(token, settings.auth_secret_key, algorithms=[settings.auth_algorithm])
-    except JWTError:
+    except PyJWTError:
         return None
 
     if claims.get("type") != EMAIL_VERIFICATION_TOKEN_TYPE or not isinstance(claims.get("uid"), int):
@@ -165,7 +166,8 @@ ACCOUNT_ID_CLAIM = "uid"
 
 def token_claims(user: "User") -> dict[str, Any]:
     """The claims a session token of this account carries: its subject, and its password fingerprint."""
-    claims: dict[str, Any] = {"sub": user.email or getattr(user, "username", None), ACCOUNT_ID_CLAIM: user.id}
+    subject = user.email or getattr(user, "username", None)
+    claims: dict[str, Any] = {ACCOUNT_ID_CLAIM: user.id, **({"sub": subject} if subject else {})}
     settings = get_service(BaseSettings)
 
     if settings.auth_password_fingerprint_tokens or settings.auth_revoke_tokens_on_password_change:
@@ -345,7 +347,7 @@ async def resolve_bearer_token(token: str) -> "User | None":
 
     try:
         payload = jwt.decode(token, settings.auth_secret_key, algorithms=[settings.auth_algorithm])
-    except JWTError:
+    except PyJWTError:
         return None
 
     if payload.get("type") != "access":

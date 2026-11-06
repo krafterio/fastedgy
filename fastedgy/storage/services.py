@@ -14,6 +14,7 @@ from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, BinaryIO
 
+import httpx
 import jwt
 from anyio import to_thread
 from jwt import PyJWTError
@@ -22,9 +23,9 @@ from starlette.datastructures import UploadFile
 from fastedgy import context
 from fastedgy.config import BaseSettings
 from fastedgy.dependencies import Inject, get_service
-from fastedgy.http_client import create_http_client, request_with_retry
 from fastedgy.i18n import _t
 from fastedgy.orm import Registry
+from fastedgy.safe_fetch import ResponseTooLargeError, UnsafeUrlError, safe_get
 from fastedgy.storage.adapters.base import StorageAdapter, clean_storage_path
 from fastedgy.storage.adapters.filesystem import FilesystemAdapter
 
@@ -727,29 +728,33 @@ class Storage:
         global_storage: bool = False,
         create_attachment: bool = False,
         attachment_values: dict[str, Any] | None = None,
+        max_bytes: int = 50 * 1024 * 1024,
     ) -> str:
         try:
-            async with create_http_client() as client:
-                response = await request_with_retry(client, "GET", file_url)
-                response.raise_for_status()
+            response = await safe_get(file_url, max_bytes=max_bytes)
+        except (UnsafeUrlError, ResponseTooLargeError, httpx.HTTPError) as e:
+            raise ValueError(_t("Error while downloading the file: {error}", error=type(e).__name__)) from None
 
-                content_type = response.headers.get("content-type", "")
-                guessed = mimetypes.guess_extension(content_type) or ".bin"
-                ext = guessed.lstrip(".")
+        if response.status_code >= 400:
+            raise ValueError(_t("Error while downloading the file: {error}", error=response.status_code))
 
-                return await self._finalize_store(
-                    file=io.BytesIO(response.content),
-                    directory_path=directory_path,
-                    filename=filename,
-                    ext=ext,
-                    mime_type=content_type or None,
-                    global_storage=global_storage,
-                    original_name=filename.replace("{ext}", ext) if filename else None,
-                    create_attachment=create_attachment,
-                    attachment_values=attachment_values,
-                )
-        except Exception as e:
-            raise ValueError(_t("Error while downloading the file: {error}", error=str(e)))
+        content_type = (response.content_type or "").split(";", 1)[0].strip()
+        ext = (mimetypes.guess_extension(content_type) or ".bin").lstrip(".")
+
+        if ext in _ACTIVE_EXTENSIONS:
+            raise ValueError(_t("File type not allowed"))
+
+        return await self._finalize_store(
+            file=io.BytesIO(response.content),
+            directory_path=directory_path,
+            filename=filename,
+            ext=ext,
+            mime_type=content_type or None,
+            global_storage=global_storage,
+            original_name=filename.replace("{ext}", ext) if filename else None,
+            create_attachment=create_attachment,
+            attachment_values=attachment_values,
+        )
 
     # --------------------
     # Delete operations

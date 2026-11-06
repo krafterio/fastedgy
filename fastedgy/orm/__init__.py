@@ -24,6 +24,7 @@ from fastedgy.orm.transaction import (
     retry_on_serialization,
     run_signal_side_effect,
     set_default_isolation_level,
+    track_side_effect,
     transaction,
     with_transaction,
 )
@@ -61,6 +62,7 @@ __all__ = [
     "order_by",
     "retry_on_serialization",
     "run_signal_side_effect",
+    "track_side_effect",
     "set_default_isolation_level",
     "transaction",
     "with_transaction",

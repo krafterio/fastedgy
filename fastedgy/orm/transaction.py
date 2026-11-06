@@ -488,6 +488,7 @@ __all__ = [
     "is_serialization_error",
     "register_connection_invalidation",
     "retry_on_serialization",
+    "track_side_effect",
     "transaction",
     "with_transaction",
 ]
@@ -521,11 +522,14 @@ def run_signal_side_effect(op: Callable[[], Awaitable[Any]], label: str, key: Ha
             except Exception as e:
                 logger.error(f"{label}: {e}")
 
-        task = asyncio.get_running_loop().create_task(_run())
-        _side_effect_tasks.add(task)
-        task.add_done_callback(_side_effect_tasks.discard)
+        track_side_effect(asyncio.get_running_loop().create_task(_run()))
 
     defer_after_commit(_spawn, key)
+
+
+def track_side_effect(task: asyncio.Task) -> None:
+    _side_effect_tasks.add(task)
+    task.add_done_callback(_side_effect_tasks.discard)
 
 
 async def drain_signal_side_effects(timeout: float = 5.0) -> None:

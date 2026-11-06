@@ -5,7 +5,7 @@ import asyncio
 import logging
 
 from fastedgy.app import FastEdgy
-from fastedgy.orm import drain_signal_side_effects, run_signal_side_effect
+from fastedgy.orm import drain_signal_side_effects, run_signal_side_effect, track_side_effect
 from fastedgy.orm.exceptions import ObjectNotFound
 
 
@@ -73,3 +73,16 @@ async def test_drain_cancels_hung_side_effects(setup_db: FastEdgy, caplog) -> No
         await drain_signal_side_effects(timeout=0.05)
 
     assert any("Cancelled 1 signal side effect" in r.getMessage() for r in caplog.records)
+
+
+async def test_drain_waits_for_a_tracked_task(setup_db: FastEdgy) -> None:
+    done: list[bool] = []
+
+    async def slow() -> None:
+        await asyncio.sleep(0.1)
+        done.append(True)
+
+    track_side_effect(asyncio.create_task(slow()))
+    await drain_signal_side_effects(timeout=5)
+
+    assert done == [True]

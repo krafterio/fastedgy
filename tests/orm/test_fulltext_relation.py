@@ -61,3 +61,31 @@ async def test_a_search_inside_an_any_block(setup_db: FastEdgy) -> None:
     rows = await filter_query(Category.query, R("products", "any", R("search_value", "search", "widget"))).all()
 
     assert [row.name for row in rows] == ["Tools"]
+
+
+async def test_a_fuzzy_search_corrects_a_word_from_the_rows_the_request_reads(setup_db: FastEdgy) -> None:
+    from fastedgy import context
+    from fastedgy.test.factories import create_workspace, use_request
+    from fastedgy.test.models.global_filter import GfDraft
+
+    acme = await create_workspace(slug="acme")
+    other = await create_workspace(slug="other")
+    ada = await create_user(email="ada@example.io")
+    bob = await create_user(email="bob@example.io")
+    await GfDraft(body="widget", author=ada, workspace=acme).save()
+    await GfDraft(body="widgte", author=bob, workspace=acme).save()
+    await GfDraft(body="widgte", author=ada, workspace=other).save()
+
+    with use_request(user=ada):
+        context.set_workspace(acme)
+        rows = await filter_query(GfDraft.query, R("search_value", "search_fuzzy", "widgte")).all()
+
+    assert [row.body for row in rows] == ["widget"]
+
+
+async def test_a_fuzzy_search_corrects_a_bounded_number_of_words(setup_db: FastEdgy) -> None:
+    await _commented()
+
+    rows = await filter_query(Product.query, R("search_value", "search_fuzzy", "widgte " + "zz " * 40)).all()
+
+    assert [row.name for row in rows] == ["Widget"]

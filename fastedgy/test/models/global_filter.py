@@ -4,7 +4,7 @@
 
 from fastedgy import context
 from fastedgy.models.base import BaseModel
-from fastedgy.models.mixins import WorkspaceableMixin
+from fastedgy.models.mixins import SearchableMixin, WorkspaceableMixin
 from fastedgy.orm import fields
 from fastedgy.orm.filter import R, global_filter
 from fastedgy.test.models.user import User
@@ -47,14 +47,14 @@ class GfSharedDoc(BaseModel, GfOwnedMixin):
 
 
 @global_filter(lambda: R("author", "=", context.get_user_id()) if context.get_user_id() else None)
-class GfDraft(BaseModel, WorkspaceableMixin):
+class GfDraft(BaseModel, WorkspaceableMixin, SearchableMixin):
     """Read by its author alone, under an article everyone reads."""
 
     body = fields.CharField(max_length=200)
     article = fields.ForeignKey(GfArticle, null=True, related_name="drafts")
     author: User | None = fields.ForeignKey(User, null=True, related_name=False)
 
-    class Meta(BaseModel.Meta):
+    class Meta(BaseModel.Meta, SearchableMixin.Meta):
         tablename = "test_gf_drafts"
 
 

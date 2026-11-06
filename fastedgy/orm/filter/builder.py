@@ -34,7 +34,9 @@ from sqlalchemy import (
 from sqlalchemy import (
     select as sa_select,
 )
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.exc import CompileError
 
 from fastedgy.orm import Model
 from fastedgy.orm.fields import (
@@ -993,15 +995,42 @@ def _build_fulltext_search_expression(model_cls: type[Model], field_path: str, v
         )
 
 
-def _fuzzy_correct_sql(column_name: str, tablename: str, term: str, param_name: str) -> str:
+FUZZY_MAX_CORRECTIONS = 8
+
+
+def _fuzzy_vocabulary_sql(model_cls: type[Model], tablename: str, column_name: str) -> str | None:
+    from fastedgy import context
+    from fastedgy.models.mixins import WorkspaceableMixin, _workspace_filter_applies
+
+    if (
+        issubclass(model_cls, WorkspaceableMixin)
+        and _workspace_filter_applies(model_cls)
+        and context.get_workspace_id() is None
+    ):
+        return None
+
+    table = model_cls.table
+    query = sa_select(literal_column(f"{tablename}.{column_name}")).select_from(table)
+    readable = _readable_rows(model_cls, table, set())
+
+    if readable is not None:
+        query = query.where(readable)
+
+    try:
+        return str(query.compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}))
+    except CompileError, NotImplementedError:
+        return None
+
+
+def _fuzzy_correct_sql(param_name: str) -> str:
     """
-    Build a SQL subquery that corrects a single term via ts_stat + pg_trgm similarity.
+    Build a SQL subquery that corrects a single term via ts_stat + pg_trgm similarity,
+    over the vocabulary of the rows the request may read.
     Returns the corrected word or the original term if no match.
-    All done in a single SQL expression — no round-trip.
     """
     return (
         f"coalesce("
-        f"(SELECT word FROM ts_stat('SELECT {column_name} FROM {tablename}') "
+        f"(SELECT word FROM ts_stat(:_fuzzy_vocabulary) "
         f"WHERE similarity(word, :{param_name}) > 0.3 "
         f"ORDER BY similarity(word, :{param_name}) DESC LIMIT 1), "
         f":{param_name})"
@@ -1016,7 +1045,7 @@ def _build_fulltext_fuzzy_expression(model_cls: type[Model], field_path: str, va
     """
     from fastedgy.orm.filter.search_parser import _normalize_input, _tokenize
 
-    _target_cls, tablename, field_name = _resolve_fulltext_field(model_cls, field_path)
+    target_cls, tablename, field_name = _resolve_fulltext_field(model_cls, field_path)
     locale = _get_fulltext_locale()
     pg_language = get_pg_language(locale)
     column_name = f"{field_name}_{locale}"
@@ -1032,8 +1061,17 @@ def _build_fulltext_fuzzy_expression(model_cls: type[Model], field_path: str, va
         return None
 
     tsquery_parts = []
-    bind_params = {}
+    bind_params: dict[str, Any] = {}
     param_idx = 0
+    vocabulary = _fuzzy_vocabulary_sql(target_cls, tablename, column_name)
+
+    def correct(param_name: str) -> str:
+        if vocabulary is None or param_idx >= FUZZY_MAX_CORRECTIONS:
+            return f":{param_name}"
+
+        bind_params["_fuzzy_vocabulary"] = vocabulary
+
+        return _fuzzy_correct_sql(param_name)
 
     for token in tokens:
         if token.type == "phrase":
@@ -1043,7 +1081,7 @@ def _build_fulltext_fuzzy_expression(model_cls: type[Model], field_path: str, va
             for word in phrase_words:
                 param_name = f"ft_{param_idx}"
                 bind_params[param_name] = word
-                corrected_words.append(_fuzzy_correct_sql(column_name, tablename, word, param_name))
+                corrected_words.append(correct(param_name))
                 param_idx += 1
             # phrase: word1 <-> word2 (no :*)
             phrase_expr = " || ' <-> ' || ".join(corrected_words)
@@ -1053,7 +1091,7 @@ def _build_fulltext_fuzzy_expression(model_cls: type[Model], field_path: str, va
             bare = token.value.rstrip(":*")
             param_name = f"ft_{param_idx}"
             bind_params[param_name] = bare
-            corrected = _fuzzy_correct_sql(column_name, tablename, bare, param_name)
+            corrected = correct(param_name)
             tsquery_parts.append(("mandatory", f"({corrected} || ':*')"))
             param_idx += 1
 
@@ -1061,7 +1099,7 @@ def _build_fulltext_fuzzy_expression(model_cls: type[Model], field_path: str, va
             bare = token.value.rstrip(":*")
             param_name = f"ft_{param_idx}"
             bind_params[param_name] = bare
-            corrected = _fuzzy_correct_sql(column_name, tablename, bare, param_name)
+            corrected = correct(param_name)
             tsquery_parts.append(("excluded", f"({corrected} || ':*')"))
             param_idx += 1
 
@@ -1069,7 +1107,7 @@ def _build_fulltext_fuzzy_expression(model_cls: type[Model], field_path: str, va
             bare = token.value.rstrip(":*")
             param_name = f"ft_{param_idx}"
             bind_params[param_name] = bare
-            corrected = _fuzzy_correct_sql(column_name, tablename, bare, param_name)
+            corrected = correct(param_name)
             tsquery_parts.append(("optional", f"({corrected} || ':*')"))
             param_idx += 1
 

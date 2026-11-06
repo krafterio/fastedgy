@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 from alembic.operations.ops import UpgradeOps
-from sqlalchemy import Column, Integer, MetaData, Table, Text, cast, exists, or_, select
+from sqlalchemy import Column, Integer, MetaData, Table, Text, cast, exists, func, or_, select
 from sqlalchemy.dialects import postgresql
 
 from fastedgy.app import FastEdgy
@@ -215,3 +215,28 @@ async def test_the_created_view_definition_runs_as_written(setup_db: FastEdgy, m
     finally:
         await database.execute("DROP VIEW IF EXISTS test_view_emitted CASCADE")
         await database.execute("DROP TABLE IF EXISTS test_view_member CASCADE")
+
+
+def test_a_view_keeps_the_primary_key_its_model_declares_over_a_computed_column() -> None:
+    expenses = Table(
+        "expenses",
+        MetaData(),
+        Column("id", Integer, primary_key=True),
+        Column("workspace", Integer),
+        Column("name", Text),
+    )
+    groups = select(func.min(expenses.c.id).label("id"), expenses.c.workspace, expenses.c.name).group_by(
+        expenses.c.workspace, expenses.c.name
+    )
+
+    assert [c.name for c in create_view("groups", groups, None).primary_key] == ["id", "workspace", "name"]
+    assert [c.name for c in create_view("groups", groups, None, primary_keys=["id"]).primary_key] == ["id"]
+
+
+def test_a_view_that_does_not_select_its_declared_key_keeps_the_key_of_its_source() -> None:
+    users = Table("users", MetaData(), Column("id", Integer, primary_key=True), Column("name", Text))
+    candidates = select(users.c.id.label("source_id"), users.c.name)
+
+    assert [c.name for c in create_view("candidates", candidates, None, primary_keys=["id"]).primary_key] == [
+        "source_id"
+    ]

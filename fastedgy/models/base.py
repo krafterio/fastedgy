@@ -921,6 +921,7 @@ class BaseView(Model, metaclass=ModelMeta):
             selectable=cls.view_query(),
             metadata=metadata,
             replace=True,
+            primary_keys=[name for name, field in cls.meta.fields.items() if getattr(field, "primary_key", False)],
         )
 
     @classmethod

@@ -56,7 +56,9 @@ class TableView(Table):
         return self._selectable
 
 
-def create_table_from_selectable(name, selectable, indexes=None, metadata=None, aliases=None, **kwargs):
+def create_table_from_selectable(
+    name, selectable, indexes=None, metadata=None, aliases=None, primary_keys=None, **kwargs
+):
     if indexes is None:
         indexes = []
 
@@ -66,14 +68,21 @@ def create_table_from_selectable(name, selectable, indexes=None, metadata=None, 
     if aliases is None:
         aliases = {}
 
+    columns = get_columns(selectable)
+    declared = {c.name for c in columns} & set(primary_keys or ())
     args = [
-        Column(c.name, c.type, key=aliases.get(c.name, c.name), primary_key=c.primary_key)
-        for c in get_columns(selectable)
+        Column(
+            c.name,
+            c.type,
+            key=aliases.get(c.name, c.name),
+            primary_key=c.name in declared if declared else c.primary_key,
+        )
+        for c in columns
     ] + indexes
     table = TableView(name, metadata, selectable, *args, **kwargs)
 
-    if not any(c.primary_key for c in get_columns(selectable)):
-        table.append_constraint(PrimaryKeyConstraint(*[c.name for c in get_columns(selectable)]))
+    if not declared and not any(c.primary_key for c in columns):
+        table.append_constraint(PrimaryKeyConstraint(*[c.name for c in columns]))
 
     return table
 
@@ -120,6 +129,7 @@ def create_view(
     metadata,
     cascade_on_drop=True,
     replace=False,
+    primary_keys=None,
 ):
     """Create a view on a given metadata
 
@@ -155,7 +165,7 @@ def create_view(
         metadata.create_all(engine) # View is created at this point
 
     """
-    table = create_table_from_selectable(name=name, selectable=selectable, metadata=None)
+    table = create_table_from_selectable(name=name, selectable=selectable, metadata=None, primary_keys=primary_keys)
 
     if not metadata:
         return table

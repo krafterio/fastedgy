@@ -721,3 +721,30 @@ async def test_a_token_issued_before_the_id_claim_still_opens_its_account(setup_
 
     assert await _protected(setup_http, _legacy_access_token("erin@example.io")) == 200
     assert (await _refresh(setup_http, _legacy_refresh_token("erin@example.io"))).status_code == 200
+
+
+async def test_a_sign_in_after_too_many_failures_waits_and_a_success_clears_them(
+    setup_http: httpx.AsyncClient, override_settings: Callable[..., None]
+) -> None:
+    from fastedgy.test.models.login_throttle import LoginThrottle
+
+    override_settings(auth_login_free_attempts=2, auth_login_max_delay=60)
+    await create_user(email="throttled@example.io", password=PASSWORD)
+
+    first = await _login(setup_http, "throttled@example.io", "wrong")
+    second = await _login(setup_http, "Throttled@example.io", "wrong")
+    waited = await _login(setup_http, "throttled@example.io")
+
+    assert (first.status_code, second.status_code) == (401, 401)
+    assert waited.status_code == 429
+    assert 1 <= int(waited.headers["Retry-After"]) <= 2
+
+    row = await LoginThrottle.global_query.filter(R("identity", "=", "throttled@example.io")).first()
+    assert row is not None and row.failures == 2
+    row.last_failure_at = datetime.now(UTC) - timedelta(minutes=5)
+    await row.save()
+
+    signed_in = await _login(setup_http, "throttled@example.io")
+
+    assert signed_in.status_code == 200
+    assert await LoginThrottle.global_query.filter(R("identity", "=", "throttled@example.io")).count() == 0

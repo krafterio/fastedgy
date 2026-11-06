@@ -225,6 +225,27 @@ msgstr "Image"
 msgid "Incorrect email or password"
 msgstr "Email ou mot de passe incorrect"
 
+msgid "Too many attempts, try again in {seconds} seconds"
+msgstr "Trop de tentatives, réessayez dans {seconds} secondes"
+
+msgid "Sign-in throttle"
+msgstr "Limitation de connexion"
+
+msgid "Sign-in throttles"
+msgstr "Limitations de connexion"
+
+msgid "Identifier"
+msgstr "Identifiant"
+
+msgid "Address"
+msgstr "Adresse"
+
+msgid "Failures"
+msgstr "Échecs"
+
+msgid "Last failure"
+msgstr "Dernier échec"
+
 msgid "Info"
 msgstr "Info"
 

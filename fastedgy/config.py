@@ -196,6 +196,10 @@ class BaseSettings(PydanticBaseSettings):
     auth_password_fingerprint_tokens: bool = False
     auth_revoke_tokens_on_password_change: bool = False
     auth_password_min_length: int = 8
+    # Failed sign-ins of one identifier from one address before each new attempt
+    # waits, and the longest wait (seconds). Needs a model on LoginThrottleMixin.
+    auth_login_free_attempts: int = 5
+    auth_login_max_delay: int = 900
     api_token_prefix: str = "fet_"
 
     # Vault: the Fernet key that seals the secrets the application keeps (`fastedgy.vault`)

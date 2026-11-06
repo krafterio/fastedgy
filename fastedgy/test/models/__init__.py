@@ -24,6 +24,7 @@ from fastedgy.test.models.global_filter import (
     GfPrivateDoc,
     GfSharedDoc,
 )
+from fastedgy.test.models.login_throttle import LoginThrottle
 from fastedgy.test.models.note import Note
 from fastedgy.test.models.product import Product
 from fastedgy.test.models.queued_task import QueuedTask
@@ -100,6 +101,7 @@ __all__ = [
     "GfOwnedMixin",
     "GfPrivateDoc",
     "GfSharedDoc",
+    "LoginThrottle",
     "Note",
     "Product",
     "QueuedTask",

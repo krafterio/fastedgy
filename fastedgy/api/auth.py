@@ -31,8 +31,10 @@ from fastedgy.depends.security import (
     verify_email_token,
     verify_password_async,
 )
+from fastedgy.http import Request
 from fastedgy.i18n import _t
 from fastedgy.mail import Mail
+from fastedgy.models.login_throttle import clear_login_failures, login_retry_after, record_login_failure
 from fastedgy.orm import Registry
 from fastedgy.schemas.auth import (
     ChangePasswordRequest,
@@ -83,18 +85,33 @@ public_router = APIRouter(prefix="/auth", tags=["auth"])
 
 @public_router.post("/token")
 async def login_for_access_token(
+    request: Request,
     form_data: LoginRequest = Body(),
     settings: BaseSettings = Inject(BaseSettings),
     bus: Bus = Inject(Bus),
 ) -> Token:
+    address = request.client.host if request.client else None
+    wait = await login_retry_after(form_data.username, address)
+
+    if wait:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=_t("Too many attempts, try again in {seconds} seconds", seconds=wait),
+            headers={"Retry-After": str(wait)},
+        )
+
     user = await authenticate_user(form_data.username, form_data.password)
 
     if not user:
+        await record_login_failure(form_data.username, address)
+
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=_t("Incorrect email or password"),
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    await clear_login_failures(form_data.username, address)
 
     claims = token_claims(user)
     access_token_expires = timedelta(minutes=settings.auth_access_token_expire_minutes)

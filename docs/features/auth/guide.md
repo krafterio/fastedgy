@@ -75,6 +75,21 @@ The email is matched whatever its case, so `JOHN@example.com` signs in the accou
 
 A login naming no account checks the password against a hash all the same, so it takes as long as one naming an account: the response time does not tell which addresses have one.
 
+### Failed sign-ins
+
+An app that declares a model on `LoginThrottleMixin` counts the failed sign-ins of each identifier from each address. Past `AUTH_LOGIN_FREE_ATTEMPTS` (5) of them, the next attempt waits one second, then two, four, and so on up to `AUTH_LOGIN_MAX_DELAY` (900 seconds); an attempt made before is answered `429` with a `Retry-After`, and checks no password. A successful sign-in clears the count.
+
+```python
+from fastedgy.models.login_throttle import LoginThrottleMixin
+
+
+class LoginThrottle(LoginThrottleMixin):
+    class Meta(LoginThrottleMixin.Meta):
+        tablename = "login_throttles"
+```
+
+The address is the client the server sees: behind a proxy, it has to pass the real one (`X-Forwarded-For` with `FORWARDED_ALLOW_IPS`).
+
 ## Protecting endpoints
 
 ```python
@@ -263,6 +278,7 @@ Authentication endpoints return standard HTTP errors:
 
 - **400 Bad Request**: Email already registered, current password incorrect, reset token invalid or expired
 - **401 Unauthorized**: Invalid credentials, or, with `AUTH_REVOKE_TOKENS_ON_PASSWORD_CHANGE=true`, a token issued before the password changed
+- **429 Too Many Requests**: A sign-in attempted before the wait its failures set, with `Retry-After`
 - **422 Unprocessable Entity**: Invalid request data, a password shorter than `AUTH_PASSWORD_MIN_LENGTH` among them, with the type `password_too_short` and the minimum in `ctx.min_length`
 
 ```python

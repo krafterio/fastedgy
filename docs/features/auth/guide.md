@@ -84,7 +84,7 @@ from fastedgy.models.login_throttle import LoginThrottleMixin
 
 
 class LoginThrottle(LoginThrottleMixin):
-    class Meta(LoginThrottleMixin.Meta):
+    class Meta:
         tablename = "login_throttles"
 ```
 

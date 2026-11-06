@@ -113,6 +113,37 @@ def _reference_pk(value: Any) -> Any:
     return getattr(value, "pk", value)
 
 
+def _refuse_reference(model_cls: type, instance: Any, name: str, target: type, pk: Any) -> None:
+    import logging
+
+    from fastapi import HTTPException
+
+    from fastedgy import context
+    from fastedgy.i18n import _t
+
+    # Debug: a refusal is the guard doing its job, so it is not the
+    # library's place to put it in anyone's error stream — the app logs
+    # it with its own context and level. It is recorded at all because
+    # the generic 403 detail never says WHICH reference was refused,
+    # which makes a wrongful refusal impossible to diagnose otherwise:
+    # enable this logger to get the identity back.
+    logging.getLogger("fastedgy.global_filters").debug(
+        "Write reference refused: %s.%s -> %s(pk=%s) [instance_pk=%s, user=%s, workspace=%s]",
+        model_cls.__name__,
+        name,
+        target.__name__,
+        pk,
+        instance.pk,
+        getattr(context.get_user(), "id", None),
+        context.get_workspace_id(),
+    )
+
+    raise HTTPException(
+        status_code=403,
+        detail=_t("You do not have access to the referenced resource."),
+    )
+
+
 async def validate_write_references(instance: Any) -> None:
     from fastedgy import context
 
@@ -131,8 +162,9 @@ async def validate_write_references(instance: Any) -> None:
         and isinstance(getattr(field, "target", None), type)
         and registry.has_filters(field.target)
     }
+    generics = [field for field in model_cls.meta.fields.values() if getattr(field, "is_generic_foreign_key", False)]
 
-    if not targets:
+    if not targets and not generics:
         return
 
     previous = None
@@ -150,33 +182,24 @@ async def validate_write_references(instance: Any) -> None:
             continue
 
         if not await target.query.filter(pk=pk).exists():
-            import logging
+            _refuse_reference(model_cls, instance, name, target, pk)
 
-            from fastapi import HTTPException
+    for field in generics:
+        pair = (instance.__dict__.get(field.model_column), instance.__dict__.get(field.id_column))
 
-            from fastedgy.i18n import _t
+        if None in pair:
+            continue
 
-            # Debug: a refusal is the guard doing its job, so it is not the
-            # library's place to put it in anyone's error stream — the app logs
-            # it with its own context and level. It is recorded at all because
-            # the generic 403 detail never says WHICH reference was refused,
-            # which makes a wrongful refusal impossible to diagnose otherwise:
-            # enable this logger to get the identity back.
-            logging.getLogger("fastedgy.global_filters").debug(
-                "Write reference refused: %s.%s -> %s(pk=%s) [instance_pk=%s, user=%s, workspace=%s]",
-                model_cls.__name__,
-                name,
-                target.__name__,
-                pk,
-                instance.pk,
-                getattr(context.get_user(), "id", None),
-                context.get_workspace_id(),
-            )
+        if previous is not None and pair == (
+            previous.__dict__.get(field.model_column),
+            previous.__dict__.get(field.id_column),
+        ):
+            continue
 
-            raise HTTPException(
-                status_code=403,
-                detail=_t("You do not have access to the referenced resource."),
-            )
+        target = field.targets().get(pair[0])
+
+        if target is not None and registry.has_filters(target) and not await target.query.filter(pk=pair[1]).exists():
+            _refuse_reference(model_cls, instance, field.name, target, pair[1])
 
 
 __all__ = [

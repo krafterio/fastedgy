@@ -171,3 +171,19 @@ async def test_registry_is_a_di_singleton_collecting_via_mro(setup_app: FastEdgy
     assert len(registry.get_filters(GfArticle)) == 5
     assert len(registry.get_filters(GfPrivateDoc)) == 4
     assert registry.has_filters(GfSharedDoc)
+
+
+async def test_save_rejects_a_generic_reference_to_an_inaccessible_record(setup_db: FastEdgy) -> None:
+    from fastedgy.test.models.realtime import RtNote, RtRecord
+
+    ws1, ws2, u1, _u2 = await _seed_workspaces_and_users()
+    own = await RtRecord(name="own", workspace=ws1).save()
+    elsewhere = await RtRecord(name="elsewhere", workspace=ws2).save()
+
+    with acting_as(ws1, u1):
+        await RtNote(content="own", target_model="rt_record", target_ref=own.id).save()
+
+        with pytest.raises(HTTPException) as exc:
+            await RtNote(content="elsewhere", target_model="rt_record", target_ref=elsewhere.id).save()
+
+    assert exc.value.status_code == 403

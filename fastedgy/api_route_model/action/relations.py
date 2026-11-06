@@ -223,6 +223,37 @@ def _relation_input_model(related_model: TypeModel, op: str, values: dict[str, A
         return model.model_construct()
 
 
+def _writable_payload(related_model: TypeModel, payload: Any, create: bool) -> Any:
+    """The keys of a nested payload the related model's own input schema takes:
+    a field the API does not write directly (``exclude``, ``read_only``, the
+    workspace key) is not written through a relation either."""
+    if not isinstance(payload, dict):
+        return payload
+
+    from fastedgy.api_route_model.action.generators import (
+        generate_input_create_model,
+        generate_input_patch_model,
+    )
+
+    fields = (generate_input_create_model if create else generate_input_patch_model)(related_model).model_fields
+
+    return {key: value for key, value in payload.items() if key in fields or (not create and key == "id")}
+
+
+def _writable_operation(related_model: TypeModel, operation: Any) -> Any:
+    if isinstance(operation, dict):
+        return _writable_payload(related_model, operation, create=False)
+
+    if isinstance(operation, (list, tuple)) and len(operation) > 1 and operation[0] in ("create", "update"):
+        return [
+            operation[0],
+            _writable_payload(related_model, operation[1], create=operation[0] == "create"),
+            *operation[2:],
+        ]
+
+    return operation
+
+
 def _foreign_key_record_ops(value: Any) -> set[str]:
     """The record-mutating operations a plain foreign key input implies."""
     if isinstance(value, dict):
@@ -332,7 +363,7 @@ async def process_foreign_key_fields(
             continue
 
         related_model = get_related_model(field)
-        plain_value = _plain_foreign_key_value(value)
+        plain_value = _writable_operation(related_model, _plain_foreign_key_value(value))
         lookup = getattr(field, "lookup", None)
 
         if lookup is not None and isinstance(plain_value, str):
@@ -421,6 +452,7 @@ async def process_relational_fields(
             # Convert a plain list of objects to inline create operations
             operations = [["create", dict(op)] for op in operations]
 
+        operations = [_writable_operation(related_model, operation) for operation in operations]
         lookup = relation_lookup(field)
 
         if lookup is not None:

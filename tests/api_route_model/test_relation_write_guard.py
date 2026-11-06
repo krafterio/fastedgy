@@ -106,3 +106,31 @@ async def test_o2m_link_operations_count_as_target_updates(auth_http: httpx.Asyn
     assert response.status_code == 403
     linked = await Comment.query.filter(id=comment.id).get()
     assert getattr(getattr(linked, "product", None), "id", None) is None
+
+
+async def test_a_nested_write_takes_the_fields_of_the_related_input_schema(auth_http: httpx.AsyncClient) -> None:
+    from fastedgy.test.models.product import Product
+
+    from .helpers import make_category
+
+    category = await make_category(auth_http)
+    existing = await make_product(auth_http)
+    response = await auth_http.patch(
+        f"/api/test_categories/{category['id']}",
+        json={
+            "products": [
+                ["create", {"name": "Created", "price": "1.00", "secret_code": "A"}],
+                ["update", {"id": existing["id"], "name": "Updated", "secret_code": "B"}],
+            ]
+        },
+    )
+    linked = await auth_http.patch(
+        f"/api/test_products/{existing['id']}", json={"category": {"id": category["id"], "name": "Renamed"}}
+    )
+
+    assert response.status_code == 200, response.text
+    assert linked.status_code == 200, linked.text
+
+    rows = {row.name: row.secret_code for row in await Product.query.all()}
+
+    assert rows == {"Created": None, "Updated": None}

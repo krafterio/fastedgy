@@ -139,6 +139,10 @@ PATCH /api/products/42
 `["delete", id]` takes the record the foreign key holds: any other id is rejected (400), and a creation has
 none to delete.
 
+The values of a nested `create` or `update`, on a foreign key as on a collection, take the fields the related
+model's own create or patch body takes: a field the API does not write directly (`exclude`, `read_only`, the
+workspace key) is ignored there too.
+
 Foreign keys can be filtered by related fields too:
 
 ```bash

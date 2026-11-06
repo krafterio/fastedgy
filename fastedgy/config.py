@@ -8,7 +8,7 @@ import tomllib
 import warnings
 from functools import cached_property
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from urllib.parse import urlparse
 
 from pydantic import BeforeValidator
@@ -293,6 +293,11 @@ class BaseSettings(PydanticBaseSettings):
     # The relations a filter path crosses at most, those of its sub-filters
     # included: a path that walks a relation and back has no end otherwise.
     filter_max_depth: int = 8
+
+    # What the generated routes do with a model no workspace, global filter or
+    # access guard scopes and whose Meta does not declare global_records: off,
+    # warn (a log line at startup) or error (the app does not start).
+    api_scoping_check: Literal["off", "warn", "error"] = "warn"
 
     # Images
     image_quality: int = 80

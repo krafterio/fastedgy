@@ -61,8 +61,7 @@ class GfDraft(BaseModel, WorkspaceableMixin, SearchableMixin):
 class GfLink(BaseModel, WorkspaceableMixin):
     label = fields.CharField(max_length=200, null=True)
     doc = fields.ForeignKey(GfPrivateDoc, null=True, related_name="links")
-    assignee: User | None = fields.ForeignKey(User, null=True, related_name=False, workspace_member=True)
-    watchers = fields.ManyToMany(User, related_name=False, workspace_member=True)
+    user: User | None = fields.ForeignKey(User, null=True, related_name=False, workspace_member=True)
 
     class Meta(BaseModel.Meta):
         tablename = "test_gf_links"

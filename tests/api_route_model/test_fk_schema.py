@@ -39,8 +39,8 @@ def test_input_patch_fk_accepts_null_to_unlink(setup_openapi_app: FastEdgy) -> N
 
 
 def test_input_required_fk_excludes_null(setup_openapi_app: FastEdgy) -> None:
-    # label is a required foreign key: it cannot be unlinked, so null is not allowed.
-    annotation = generate_input_create_model(Folder).model_fields["label"].annotation
+    # category is a required foreign key: it cannot be unlinked, so null is not allowed.
+    annotation = generate_input_create_model(Folder).model_fields["category"].annotation
     args = get_args(annotation)
 
     assert annotation is ForeignKeyInput or (int in args and type(None) not in args)

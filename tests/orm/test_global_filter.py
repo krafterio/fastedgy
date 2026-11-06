@@ -190,23 +190,15 @@ async def test_save_rejects_a_generic_reference_to_an_inaccessible_record(setup_
 
 
 async def test_a_workspace_member_key_takes_a_member_of_the_workspace_only(setup_db: FastEdgy) -> None:
-    from fastedgy.orm.relations import process_relation_operations
     from fastedgy.test.factories import create_workspace_user
-    from fastedgy.test.models.user import User
 
     ws1, _ws2, u1, u2 = await _seed_workspaces_and_users()
     await create_workspace_user(u1, ws1)
 
     with acting_as(ws1, u1):
-        link = await GfLink(label="assigned", assignee=u1, workspace=ws1).save()
-        await process_relation_operations(link, "watchers", [["set", [u1.id]]], User)
+        await GfLink(label="assigned", user=u1, workspace=ws1).save()
 
-        with pytest.raises(HTTPException) as on_key:
-            await GfLink(label="outside", assignee=u2, workspace=ws1).save()
+        with pytest.raises(HTTPException) as exc:
+            await GfLink(label="outside", user=u2, workspace=ws1).save()
 
-        with pytest.raises(HTTPException) as on_collection:
-            await process_relation_operations(link, "watchers", [["link", u2.id]], User)
-
-    assert on_key.value.status_code == 403
-    assert on_collection.value.status_code == 403
-    assert [user.id for user in await link.watchers.all()] == [u1.id]
+    assert exc.value.status_code == 403

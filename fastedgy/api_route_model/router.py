@@ -37,6 +37,9 @@ def register_api_route_models(
     _resolve_generic_references(registry)
     _refuse_queued_task_routes(registry)
 
+    if registry is RouteModelRegistry:
+        _check_scoping(registry)
+
     routers = get_all_generated_routers(registry, tags=tags)
 
     for prefix, sub_router in routers.items():
@@ -79,6 +82,45 @@ def _refuse_queued_task_routes(registry: type[RouteModelRegistry] | Token[RouteM
                 raise TypeError(f"{model_cls.__name__}.{name} leads to a queued task and must be declared exclude=True")
 
 
+def unscoped_models(registry: type[RouteModelRegistry] | Token[RouteModelRegistry] = RouteModelRegistry) -> list[type]:
+    """The registered models nothing scopes: no applicable global filter (the
+    workspace one included), no access guard, and no ``Meta.global_records``."""
+    from fastedgy.orm.access_guard import ModelAccessGuardRegistry
+    from fastedgy.orm.filter import GlobalFilterRegistry
+
+    filters = get_service(GlobalFilterRegistry)
+    guards = get_service(ModelAccessGuardRegistry)
+
+    return [
+        model_cls
+        for model_cls in get_service(registry).get_registered_models()
+        if not getattr(getattr(model_cls, "Meta", None), "global_records", False)
+        and not filters.has_applicable_filters(model_cls)
+        and not guards.has_guards(model_cls)
+    ]
+
+
+def _check_scoping(registry: type[RouteModelRegistry] | Token[RouteModelRegistry]) -> None:
+    from fastedgy.config import BaseSettings
+
+    mode = get_service(BaseSettings).api_scoping_check
+
+    if mode == "off":
+        return
+
+    names = sorted(model_cls.__name__ for model_cls in unscoped_models(registry))
+
+    if not names:
+        return
+
+    message = f"Generated routes on models nothing scopes (declare Meta.global_records if intended): {', '.join(names)}"
+
+    if mode == "error":
+        raise TypeError(message)
+
+    logger.warning(message)
+
+
 def register_console_api_route_models(router: APIRouter) -> None:
     """
     Register all generated routes in the given FastAPI router for the console.
@@ -98,4 +140,5 @@ __all__ = [
     "register_admin_api_route_models",
     "register_api_route_models",
     "register_console_api_route_models",
+    "unscoped_models",
 ]

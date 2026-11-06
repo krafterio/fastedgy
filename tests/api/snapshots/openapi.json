@@ -3770,16 +3770,7 @@
       },
       "Folder": {
         "properties": {
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "id": {
-            "title": "Id",
-            "type": "integer"
-          },
-          "label": {
+          "category": {
             "anyOf": [
               {
                 "$ref": "#/components/schemas/Category"
@@ -3790,6 +3781,15 @@
               }
             ],
             "title": "Category"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
           },
           "name": {
             "maxLength": 100,
@@ -3819,7 +3819,7 @@
         },
         "required": [
           "name",
-          "label",
+          "category",
           "created_at",
           "updated_at"
         ],
@@ -3828,7 +3828,7 @@
       },
       "Folder-Create": {
         "properties": {
-          "label": {
+          "category": {
             "anyOf": [
               {
                 "type": "integer"
@@ -3840,7 +3840,7 @@
                 "$ref": "#/components/schemas/ForeignKeyOperation"
               }
             ],
-            "description": "Foreign key for label.\n\n**Link by id:** `5`\n\n**Link by object:** `{\"id\": 5}`\n\n**Link and update:** `{\"id\": 5, \"name\": \"New\"}`\n\n**Unlink:** `null`\n\n**Advanced mode:** a single operation `[\"action\", value]`\n\nAvailable actions:\n- `create` - Create a new record and link (value=object)\n- `update` - Update the record and link (value={id:X,...})\n- `link` - Link an existing record (value=id)\n- `unlink` - Remove the link (no value)\n- `delete` - Delete the record and remove the link (value=id)",
+            "description": "Foreign key for category.\n\n**Link by id:** `5`\n\n**Link by object:** `{\"id\": 5}`\n\n**Link and update:** `{\"id\": 5, \"name\": \"New\"}`\n\n**Unlink:** `null`\n\n**Advanced mode:** a single operation `[\"action\", value]`\n\nAvailable actions:\n- `create` - Create a new record and link (value=object)\n- `update` - Update the record and link (value={id:X,...})\n- `link` - Link an existing record (value=id)\n- `unlink` - Remove the link (no value)\n- `delete` - Delete the record and remove the link (value=id)",
             "examples": [
               5,
               {
@@ -3864,7 +3864,7 @@
                 "unlink"
               ]
             ],
-            "title": "Label"
+            "title": "Category"
           },
           "name": {
             "maxLength": 100,
@@ -3915,7 +3915,7 @@
         },
         "required": [
           "name",
-          "label"
+          "category"
         ],
         "title": "Folder-Create",
         "type": "object"
@@ -3967,7 +3967,7 @@
       },
       "Folder-Update": {
         "properties": {
-          "label": {
+          "category": {
             "anyOf": [
               {
                 "type": "integer"
@@ -3982,7 +3982,7 @@
                 "type": "null"
               }
             ],
-            "description": "Foreign key for label.\n\n**Link by id:** `5`\n\n**Link by object:** `{\"id\": 5}`\n\n**Link and update:** `{\"id\": 5, \"name\": \"New\"}`\n\n**Unlink:** `null`\n\n**Advanced mode:** a single operation `[\"action\", value]`\n\nAvailable actions:\n- `create` - Create a new record and link (value=object)\n- `update` - Update the record and link (value={id:X,...})\n- `link` - Link an existing record (value=id)\n- `unlink` - Remove the link (no value)\n- `delete` - Delete the record and remove the link (value=id)",
+            "description": "Foreign key for category.\n\n**Link by id:** `5`\n\n**Link by object:** `{\"id\": 5}`\n\n**Link and update:** `{\"id\": 5, \"name\": \"New\"}`\n\n**Unlink:** `null`\n\n**Advanced mode:** a single operation `[\"action\", value]`\n\nAvailable actions:\n- `create` - Create a new record and link (value=object)\n- `update` - Update the record and link (value={id:X,...})\n- `link` - Link an existing record (value=id)\n- `unlink` - Remove the link (no value)\n- `delete` - Delete the record and remove the link (value=id)",
             "examples": [
               5,
               {
@@ -4006,7 +4006,7 @@
                 "unlink"
               ]
             ],
-            "title": "Label"
+            "title": "Category"
           },
           "name": {
             "anyOf": [

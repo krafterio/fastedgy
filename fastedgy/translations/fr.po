@@ -333,6 +333,12 @@ msgstr "Token de réinitialisation de mot de passe"
 msgid "Password reset token expiration"
 msgstr "Date d'expiration du token de réinitialisation de mot de passe"
 
+msgid "Email verified"
+msgstr "Email vérifié"
+
+msgid "Email verified at"
+msgstr "Email vérifié le"
+
 msgid "Password updated"
 msgstr "Mot de passe mis à jour"
 

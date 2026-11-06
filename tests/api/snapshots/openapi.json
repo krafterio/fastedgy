@@ -3398,6 +3398,19 @@
         "title": "DownloadUrl",
         "type": "object"
       },
+      "EmailVerifyRequest": {
+        "properties": {
+          "token": {
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "title": "EmailVerifyRequest",
+        "type": "object"
+      },
       "Entry": {
         "description": "A row whose category stays required in the database while the API lets a\ncreation leave it out: the signal below files it in the inbox.",
         "properties": {
@@ -8595,6 +8608,7 @@
         "type": "object"
       },
       "User": {
+        "additionalProperties": true,
         "properties": {
           "created_at": {
             "format": "date-time",
@@ -8615,6 +8629,18 @@
             "maxLength": 255,
             "title": "Email",
             "type": "string"
+          },
+          "email_verified_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email Verified At"
           },
           "id": {
             "title": "Id",
@@ -10802,6 +10828,47 @@
         "summary": "Update Attachment",
         "tags": [
           "attachments"
+        ]
+      }
+    },
+    "/api/auth/email/verify": {
+      "post": {
+        "operationId": "email_verify_api_auth_email_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailVerifyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimpleMessage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Email Verify",
+        "tags": [
+          "auth"
         ]
       }
     },

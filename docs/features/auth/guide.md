@@ -143,6 +143,29 @@ The request answers `200` with the same message whether an account holds the ema
 
 Each of these requests writes only its own columns, the reset token for this one, the password for a reset or a change: whatever another request changed meanwhile, a new password among it, stays as the row has it.
 
+## Email verification
+
+A user model that takes `EmailVerifiableMixin` gets a read-only `email_verified_at` column, empty until the account proves its email:
+
+```python
+from fastedgy.models.mixins import EmailVerifiableMixin
+from fastedgy.models.user import BaseUser
+
+
+class User(BaseUser, EmailVerifiableMixin):
+    class Meta(BaseUser.Meta):
+        tablename = "users"
+```
+
+`send_email_verification(user, mail, base_url_app)` mails the template `emails/{locale}/email_verification.html`, whose `verification_url` points to `{base_url_app}/email/verify?token=...`. The page of the application behind that URL posts the token:
+
+```python
+# POST /auth/email/verify
+{"token": "token-from-the-link"}
+```
+
+The token names the account and the email it was sent to, and lasts 7 days: once the email changes, a link sent to the former one verifies nothing. A completed password reset proves the email too, and fills `email_verified_at` when it is still empty. `mark_email_verified(user)` records any other proof the application holds, a social provider vouching for the email for instance.
+
 ## Changing the password
 
 ```python

@@ -2,11 +2,12 @@
 # MIT License (see LICENSE file).
 
 from fastedgy.api_route_model import api_route_model
+from fastedgy.models.mixins import EmailVerifiableMixin
 from fastedgy.models.user import BaseUser
 
 
 @api_route_model()
-class User(BaseUser):
+class User(BaseUser, EmailVerifiableMixin):
     class Meta(BaseUser.Meta):
         tablename = "users"
 

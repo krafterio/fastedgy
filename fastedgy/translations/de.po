@@ -329,6 +329,12 @@ msgstr "Token zum Zurücksetzen des Passworts"
 msgid "Password reset token expiration"
 msgstr "Ablauf des Tokens zum Zurücksetzen des Passworts"
 
+msgid "Email verified"
+msgstr "E-Mail bestätigt"
+
+msgid "Email verified at"
+msgstr "E-Mail bestätigt am"
+
 msgid "Password updated"
 msgstr "Passwort aktualisiert"
 

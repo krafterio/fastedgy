@@ -105,6 +105,52 @@ def create_refresh_token(data: dict, expires_delta: timedelta | None = None):
     return encoded_jwt
 
 
+EMAIL_VERIFICATION_TOKEN_TYPE = "email_verification"
+
+
+def is_email_verifiable(user_model: Any) -> bool:
+    return "email_verified_at" in getattr(user_model, "model_fields", {})
+
+
+def create_email_verification_token(user: "User", expires_delta: timedelta = timedelta(days=7)) -> str:
+    settings = get_service(BaseSettings)
+    claims = {
+        "uid": user.id,
+        "email": user.email,
+        "type": EMAIL_VERIFICATION_TOKEN_TYPE,
+        "exp": datetime.now(UTC) + expires_delta,
+    }
+
+    return jwt.encode(claims, settings.auth_secret_key, algorithm=settings.auth_algorithm)
+
+
+async def mark_email_verified(user: "User") -> None:
+    if is_email_verifiable(type(user)) and getattr(user, "email_verified_at", None) is None:
+        await user.apply_readonly_values({"email_verified_at": datetime.now(UTC)}).save()
+
+
+async def verify_email_token(token: str) -> "User | None":
+    settings = get_service(BaseSettings)
+
+    try:
+        claims = jwt.decode(token, settings.auth_secret_key, algorithms=[settings.auth_algorithm])
+    except JWTError:
+        return None
+
+    if claims.get("type") != EMAIL_VERIFICATION_TOKEN_TYPE or not isinstance(claims.get("uid"), int):
+        return None
+
+    User = cast(type["User"], get_service(Registry).get_model("User"))
+    user = await User.global_query.filter(R("id", "=", claims["uid"])).first()
+
+    if user is None or not user.email or user.email != claims.get("email"):
+        return None
+
+    await mark_email_verified(user)
+
+    return user
+
+
 def password_fingerprint(user: "User") -> str:
     """A short keyed digest of the stored password hash: any change of the hash changes it."""
     secret = get_service(BaseSettings).auth_secret_key.encode()
@@ -450,9 +496,11 @@ async def get_workspace_shared_record(current_user=Depends(get_current_user)):
 
 
 __all__ = [
+    "EMAIL_VERIFICATION_TOKEN_TYPE",
     "PASSWORD_FINGERPRINT_CLAIM",
     "authenticate_user",
     "create_access_token",
+    "create_email_verification_token",
     "create_refresh_token",
     "email_matches",
     "find_user",
@@ -463,6 +511,8 @@ __all__ = [
     "get_hasher_registry",
     "hash_password",
     "hash_password_async",
+    "is_email_verifiable",
+    "mark_email_verified",
     "oauth2_scheme",
     "oauth2_scheme_optional",
     "password_fingerprint",
@@ -470,6 +520,7 @@ __all__ = [
     "resolve_bearer_token",
     "token_claims",
     "token_matches_password",
+    "verify_email_token",
     "verify_password",
     "verify_password_async",
 ]

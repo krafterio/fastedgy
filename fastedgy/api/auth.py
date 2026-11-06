@@ -17,12 +17,15 @@ from fastedgy.depends.security import (
     PASSWORD_FINGERPRINT_CLAIM,
     authenticate_user,
     create_access_token,
+    create_email_verification_token,
     create_refresh_token,
     find_user,
     get_current_user,
     hash_password_async,
+    is_email_verifiable,
     token_claims,
     token_matches_password,
+    verify_email_token,
     verify_password_async,
 )
 from fastedgy.i18n import _t
@@ -30,6 +33,7 @@ from fastedgy.mail import Mail
 from fastedgy.orm import Registry
 from fastedgy.schemas.auth import (
     ChangePasswordRequest,
+    EmailVerifyRequest,
     ForgotPasswordRequest,
     ForgotPasswordValidate,
     ForgotPasswordValidateRequest,
@@ -189,9 +193,41 @@ async def password_reset(data: ResetPasswordRequest, registry: Registry = Inject
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_t("Token invalid or expired"))
 
     password = await hash_password_async(data.password)
-    await user.save(values={"password": password, "reset_pwd_token": None, "reset_pwd_expires_at": None})
+    values: dict[str, Any] = {"password": password, "reset_pwd_token": None, "reset_pwd_expires_at": None}
+
+    if is_email_verifiable(User) and getattr(user, "email_verified_at", None) is None:
+        user.apply_readonly_values({"email_verified_at": datetime.now(UTC)})
+
+    await user.save(values=values)
 
     return SimpleMessage(message=_t("Password updated"))
+
+
+async def send_email_verification(user: "User", mail: Mail, base_url_app: str) -> None:
+    if not user.email:
+        return
+
+    locale = context.get_locale()
+    token = create_email_verification_token(user)
+
+    await mail.send_template(
+        f"emails/{locale}/email_verification.html",
+        {
+            "locale": locale,
+            "email": user.email,
+            "verification_url": f"{base_url_app}/email/verify?token={token}",
+            "base_url_app": base_url_app,
+        },
+        {"To": user.email},
+    )
+
+
+@public_router.post("/email/verify")
+async def email_verify(data: EmailVerifyRequest) -> SimpleMessage:
+    if await verify_email_token(data.token) is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_t("Token invalid or expired"))
+
+    return SimpleMessage(message=_t("Email verified"))
 
 
 @public_router.post("/password/forgot")
@@ -287,4 +323,5 @@ async def change_password(
 __all__ = [
     "public_router",
     "router",
+    "send_email_verification",
 ]

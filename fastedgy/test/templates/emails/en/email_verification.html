@@ -1,0 +1,6 @@
+{% block subject %}Email verification{% endblock %}
+{% block body_html %}
+<p>Hello {{ email }},</p>
+<p>Confirm your email address using the link below:</p>
+<p><a href="{{ verification_url }}">{{ verification_url }}</a></p>
+{% endblock %}

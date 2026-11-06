@@ -65,6 +65,10 @@ class ForgotPasswordValidate(BaseModel):
     valid: bool
 
 
+class EmailVerifyRequest(BaseModel):
+    token: str
+
+
 class ResetPasswordRequest(BaseModel):
     token: str
     password: NewPassword

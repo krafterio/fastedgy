@@ -11,6 +11,7 @@ FastEdgy provides a built-in JWT-based authentication system with user registrat
 - **Route protection**: Dependency injection for protected endpoints
 - **User registration**: Simple registration with email validation
 - **Password reset**: Email-based password recovery
+- **Email verification**: optionally, the date an account proved its email
 - **Token refresh**: Automatic token renewal
 
 ## Basic usage
@@ -56,6 +57,7 @@ FastEdgy provides ready-to-use authentication endpoints:
 - `POST /auth/password/validate` - Check a reset token
 - `POST /auth/password/reset` - Reset password with token
 - `POST /auth/password/change` - Change the password of the signed-in account
+- `POST /auth/email/verify` - Mark the email of an account verified with the token of its verification link
 
 ## User model
 

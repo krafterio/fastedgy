@@ -255,6 +255,17 @@ class WorkspaceShareableMemberMixin(Model):
         get_service(WorkspaceShareableRegistry).register_member(cls)
 
 
+class EmailVerifiableMixin(Model):
+    class Meta(Meta):
+        abstract = True
+
+    email_verified_at = fields.DateTimeField(
+        null=True,
+        read_only=True,
+        label=_ts("Email verified at"),
+    )
+
+
 class SearchableMixin(Model):
     """
     Mixin to automatically add a FulltextField for full-text search.
@@ -297,6 +308,7 @@ class ExtendableMixin(Model):
 
 __all__ = [
     "BlameableMixin",
+    "EmailVerifiableMixin",
     "ExtendableMixin",
     "SearchableMixin",
     "WorkspaceShareableMemberMixin",

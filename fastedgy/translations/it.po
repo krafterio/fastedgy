@@ -329,6 +329,12 @@ msgstr "Token di reimpostazione della password"
 msgid "Password reset token expiration"
 msgstr "Scadenza del token di reimpostazione della password"
 
+msgid "Email verified"
+msgstr "Email verificata"
+
+msgid "Email verified at"
+msgstr "Email verificata il"
+
 msgid "Password updated"
 msgstr "Password aggiornata"
 

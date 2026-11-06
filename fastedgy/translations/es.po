@@ -329,6 +329,12 @@ msgstr "Token de restablecimiento de contraseña"
 msgid "Password reset token expiration"
 msgstr "Caducidad del token de restablecimiento de contraseña"
 
+msgid "Email verified"
+msgstr "Correo electrónico verificado"
+
+msgid "Email verified at"
+msgstr "Correo electrónico verificado el"
+
 msgid "Password updated"
 msgstr "Contraseña actualizada"
 

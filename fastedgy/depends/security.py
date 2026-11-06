@@ -125,7 +125,7 @@ def create_email_verification_token(user: "User", expires_delta: timedelta = tim
 
 
 async def mark_email_verified(user: "User") -> bool:
-    if not is_email_verifiable(type(user)) or getattr(user, "email_verified_at", None) is not None:
+    if not is_email_verifiable(type(user)) or user.__dict__.get("email_verified_at") is not None:
         return False
 
     await user.apply_readonly_values({"email_verified_at": datetime.now(UTC)}).save()

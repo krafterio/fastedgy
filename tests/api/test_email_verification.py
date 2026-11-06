@@ -126,3 +126,19 @@ async def test_a_first_verification_dispatches_the_verified_event_once(
     await _verify(setup_http, token)
 
     assert [event.user.id for event in events] == [user.id]
+
+
+async def test_an_account_inserted_in_the_running_transaction_is_marked_verified(setup_db: None) -> None:
+    from fastedgy.depends.security import mark_email_verified
+    from fastedgy.orm import with_transaction
+
+    async def insert_then_verify() -> User:
+        user = User(email="alice@example.io")
+        await user.save()
+        assert await mark_email_verified(user)
+
+        return user
+
+    user = await with_transaction(insert_then_verify)
+
+    assert await _verified_at(user) is not None

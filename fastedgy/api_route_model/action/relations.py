@@ -363,7 +363,7 @@ async def process_foreign_key_fields(
             continue
 
         related_model = get_related_model(field)
-        plain_value = _writable_operation(related_model, _plain_foreign_key_value(value))
+        plain_value = _plain_foreign_key_value(value)
         lookup = getattr(field, "lookup", None)
 
         if lookup is not None and isinstance(plain_value, str):
@@ -377,7 +377,7 @@ async def process_foreign_key_fields(
         try:
             record_id, to_delete = await process_foreign_key_operation(
                 related_model,
-                plain_value,
+                _writable_operation(related_model, plain_value),
                 nullable=getattr(field, "null", False),
                 field_name=field_name,
                 authorize=relation_record_authorizer(related_model),
@@ -452,7 +452,6 @@ async def process_relational_fields(
             # Convert a plain list of objects to inline create operations
             operations = [["create", dict(op)] for op in operations]
 
-        operations = [_writable_operation(related_model, operation) for operation in operations]
         lookup = relation_lookup(field)
 
         if lookup is not None:
@@ -474,7 +473,7 @@ async def process_relational_fields(
                 await process_relation_operations(
                     instance,
                     field_name,
-                    operations,
+                    [_writable_operation(related_model, operation) for operation in operations],
                     related_model,
                     authorize=relation_record_authorizer(related_model),
                 )

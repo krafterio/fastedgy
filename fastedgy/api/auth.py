@@ -222,16 +222,19 @@ async def send_email_verification(user: "User", mail: Mail, base_url_app: str, l
     locale = locale or context.get_locale()
     token = create_email_verification_token(user)
 
-    await mail.send_template(
-        f"emails/{locale}/email_verification.html",
-        {
-            "locale": locale,
-            "email": user.email,
-            "verification_url": f"{base_url_app}/email/verify?token={token}",
-            "base_url_app": base_url_app,
-        },
-        {"To": user.email},
-    )
+    try:
+        await mail.send_template(
+            f"emails/{locale}/email_verification.html",
+            {
+                "locale": locale,
+                "email": user.email,
+                "verification_url": f"{base_url_app}/email/verify?token={token}",
+                "base_url_app": base_url_app,
+            },
+            {"To": user.email},
+        )
+    except Exception:
+        logger.exception("Could not send the email verification")
 
 
 @public_router.post("/email/verify")

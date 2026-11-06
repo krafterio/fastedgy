@@ -142,3 +142,13 @@ async def test_an_account_inserted_in_the_running_transaction_is_marked_verified
     user = await with_transaction(insert_then_verify)
 
     assert await _verified_at(user) is not None
+
+
+async def test_a_verification_email_that_cannot_be_sent_is_logged(
+    setup_db: None, caplog: pytest.LogCaptureFixture
+) -> None:
+    user = await create_user(email="alice@example.io")
+
+    await send_email_verification(user, get_service(Mail), "https://app.example.io", locale="xx")
+
+    assert "Could not send the email verification" in caplog.text

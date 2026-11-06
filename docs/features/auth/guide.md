@@ -157,7 +157,7 @@ class User(BaseUser, EmailVerifiableMixin):
         tablename = "users"
 ```
 
-`send_email_verification(user, mail, base_url_app)` mails the template `emails/{locale}/email_verification.html`, whose `verification_url` points to `{base_url_app}/email/verify?token=...`. The page of the application behind that URL posts the token:
+`send_email_verification(user, mail, base_url_app, locale=None)` mails the template `emails/{locale}/email_verification.html` (the locale of the request unless given), whose `verification_url` points to `{base_url_app}/email/verify?token=...`. The page of the application behind that URL posts the token:
 
 ```python
 # POST /auth/email/verify

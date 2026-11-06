@@ -203,11 +203,11 @@ async def password_reset(data: ResetPasswordRequest, registry: Registry = Inject
     return SimpleMessage(message=_t("Password updated"))
 
 
-async def send_email_verification(user: "User", mail: Mail, base_url_app: str) -> None:
+async def send_email_verification(user: "User", mail: Mail, base_url_app: str, locale: str | None = None) -> None:
     if not user.email:
         return
 
-    locale = context.get_locale()
+    locale = locale or context.get_locale()
     token = create_email_verification_token(user)
 
     await mail.send_template(

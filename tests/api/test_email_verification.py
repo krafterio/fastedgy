@@ -86,8 +86,8 @@ async def test_the_verification_email_carries_a_working_link(setup_http: httpx.A
     adapter.clear()
     user = await create_user(email="alice@example.io")
 
-    with use_request(locale="en"):
-        await send_email_verification(user, mail, "https://app.example.io")
+    with use_request(locale="fr"):
+        await send_email_verification(user, mail, "https://app.example.io", locale="en")
 
     assert len(adapter.sent) == 1
     body = adapter.sent[0].get_body(("html",))

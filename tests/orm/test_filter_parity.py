@@ -295,7 +295,9 @@ async def _run_case(model_cls: Any, case: dict[str, Any]) -> list[int]:
     if case.get("limit"):
         query = query.limit(case["limit"])
 
-    return [item.id for item in await query.all()]
+    ids = [item.id for item in await query.all()]
+
+    return ids if case.get("order_by") else sorted(ids)
 
 
 PARITY_EPOCH = "2000-01-01 00:00:00+00"

@@ -15,6 +15,7 @@
       "sortable_field": null,
       "synchronizable": true,
       "synchronizable_mode": "full",
+      "has_extra_fields": true,
       "fields": {
         "name": {
           "name": "name",
@@ -23,6 +24,8 @@
           "readonly": false,
           "required": true,
           "searchable": true,
+          "translatable": false,
+          "locales": null,
           "extra": false,
           "filter_operators": [
             "=",
@@ -47,7 +50,9 @@
           ],
           "target": null,
           "targets": null,
+          "inverse": null,
           "choices": null,
+          "default": null,
           "local_placeholder": null
         },
         "description": {
@@ -57,6 +62,8 @@
           "readonly": false,
           "required": false,
           "searchable": true,
+          "translatable": false,
+          "locales": null,
           "extra": false,
           "filter_operators": [
             "=",
@@ -81,7 +88,9 @@
           ],
           "target": null,
           "targets": null,
+          "inverse": null,
           "choices": null,
+          "default": null,
           "local_placeholder": null
         },
         "price": {
@@ -91,6 +100,8 @@
           "readonly": false,
           "required": true,
           "searchable": true,
+          "translatable": false,
+          "locales": null,
           "extra": false,
           "filter_operators": [
             "=",
@@ -107,7 +118,9 @@
           ],
           "target": null,
           "targets": null,
+          "inverse": null,
           "choices": null,
+          "default": null,
           "local_placeholder": null
         },
         "is_active": {
@@ -117,6 +130,8 @@
           "readonly": false,
           "required": false,
           "searchable": true,
+          "translatable": false,
+          "locales": null,
           "extra": false,
           "filter_operators": [
             "is true",
@@ -124,7 +139,9 @@
           ],
           "target": null,
           "targets": null,
+          "inverse": null,
           "choices": null,
+          "default": true,
           "local_placeholder": null
         },
         "quantity": {
@@ -134,6 +151,8 @@
           "readonly": false,
           "required": false,
           "searchable": true,
+          "translatable": false,
+          "locales": null,
           "extra": false,
           "filter_operators": [
             "=",
@@ -150,7 +169,9 @@
           ],
           "target": null,
           "targets": null,
+          "inverse": null,
           "choices": null,
+          "default": 0,
           "local_placeholder": null
         },
         "rating": {
@@ -160,6 +181,8 @@
           "readonly": false,
           "required": false,
           "searchable": true,
+          "translatable": false,
+          "locales": null,
           "extra": false,
           "filter_operators": [
             "=",
@@ -176,7 +199,9 @@
           ],
           "target": null,
           "targets": null,
+          "inverse": null,
           "choices": null,
+          "default": null,
           "local_placeholder": null
         },
         "released_on": {
@@ -186,6 +211,8 @@
           "readonly": false,
           "required": false,
           "searchable": true,
+          "translatable": false,
+          "locales": null,
           "extra": false,
           "filter_operators": [
             "=",
@@ -202,7 +229,9 @@
           ],
           "target": null,
           "targets": null,
+          "inverse": null,
           "choices": null,
+          "default": null,
           "local_placeholder": null
         },
         "published_at": {
@@ -212,6 +241,8 @@
           "readonly": false,
           "required": false,
           "searchable": true,
+          "translatable": false,
+          "locales": null,
           "extra": false,
           "filter_operators": [
             "=",
@@ -228,7 +259,9 @@
           ],
           "target": null,
           "targets": null,
+          "inverse": null,
           "choices": null,
+          "default": null,
           "local_placeholder": null
         },
         "reference": {
@@ -238,6 +271,8 @@
           "readonly": false,
           "required": false,
           "searchable": true,
+          "translatable": false,
+          "locales": null,
           "extra": false,
           "filter_operators": [
             "=",
@@ -262,7 +297,9 @@
           ],
           "target": null,
           "targets": null,
+          "inverse": null,
           "choices": null,
+          "default": null,
           "local_placeholder": null
         },
         "details": {
@@ -272,14 +309,20 @@
           "readonly": false,
           "required": false,
           "searchable": true,
+          "translatable": false,
+          "locales": null,
           "extra": false,
           "filter_operators": [
+            "contains",
+            "not contains",
             "is empty",
             "is not empty"
           ],
           "target": null,
           "targets": null,
+          "inverse": null,
           "choices": null,
+          "default": null,
           "local_placeholder": null
         },
         "category": {
@@ -289,6 +332,8 @@
           "readonly": false,
           "required": false,
           "searchable": true,
+          "translatable": false,
+          "locales": null,
           "extra": false,
           "filter_operators": [
             "=",
@@ -307,7 +352,9 @@
           ],
           "target": "category",
           "targets": null,
+          "inverse": "products",
           "choices": null,
+          "default": null,
           "local_placeholder": null
         },
         "tags": {
@@ -317,6 +364,8 @@
           "readonly": false,
           "required": false,
           "searchable": true,
+          "translatable": false,
+          "locales": null,
           "extra": false,
           "filter_operators": [
             "in",
@@ -328,7 +377,9 @@
           ],
           "target": "tag",
           "targets": null,
+          "inverse": null,
           "choices": null,
+          "default": null,
           "local_placeholder": null
         },
         "id": {
@@ -338,6 +389,8 @@
           "readonly": true,
           "required": false,
           "searchable": true,
+          "translatable": false,
+          "locales": null,
           "extra": false,
           "filter_operators": [
             "=",
@@ -354,7 +407,9 @@
           ],
           "target": null,
           "targets": null,
+          "inverse": null,
           "choices": null,
+          "default": null,
           "local_placeholder": null
         },
         "created_at": {
@@ -364,6 +419,8 @@
           "readonly": true,
           "required": false,
           "searchable": true,
+          "translatable": false,
+          "locales": null,
           "extra": false,
           "filter_operators": [
             "=",
@@ -380,7 +437,9 @@
           ],
           "target": null,
           "targets": null,
+          "inverse": null,
           "choices": null,
+          "default": null,
           "local_placeholder": null
         },
         "updated_at": {
@@ -390,6 +449,8 @@
           "readonly": true,
           "required": false,
           "searchable": true,
+          "translatable": false,
+          "locales": null,
           "extra": false,
           "filter_operators": [
             "=",
@@ -406,7 +467,9 @@
           ],
           "target": null,
           "targets": null,
+          "inverse": null,
           "choices": null,
+          "default": null,
           "local_placeholder": null
         },
         "search_value": {
@@ -416,6 +479,8 @@
           "readonly": false,
           "required": false,
           "searchable": true,
+          "translatable": false,
+          "locales": null,
           "extra": false,
           "filter_operators": [
             "search",
@@ -423,7 +488,9 @@
           ],
           "target": null,
           "targets": null,
+          "inverse": null,
           "choices": null,
+          "default": null,
           "local_placeholder": null
         },
         "annotations": {
@@ -433,6 +500,8 @@
           "readonly": false,
           "required": false,
           "searchable": false,
+          "translatable": false,
+          "locales": null,
           "extra": false,
           "filter_operators": [
             "in",
@@ -444,7 +513,9 @@
           ],
           "target": "annotation",
           "targets": null,
+          "inverse": null,
           "choices": null,
+          "default": null,
           "local_placeholder": null
         },
         "attachments": {
@@ -454,6 +525,8 @@
           "readonly": false,
           "required": false,
           "searchable": false,
+          "translatable": false,
+          "locales": null,
           "extra": false,
           "filter_operators": [
             "in",
@@ -465,7 +538,9 @@
           ],
           "target": "attachment",
           "targets": null,
+          "inverse": null,
           "choices": null,
+          "default": null,
           "local_placeholder": null
         },
         "notes": {
@@ -475,6 +550,8 @@
           "readonly": false,
           "required": false,
           "searchable": false,
+          "translatable": false,
+          "locales": null,
           "extra": false,
           "filter_operators": [
             "in",
@@ -486,67 +563,9 @@
           ],
           "target": "note",
           "targets": null,
+          "inverse": null,
           "choices": null,
-          "local_placeholder": null
-        },
-        "extra_priority": {
-          "name": "extra_priority",
-          "label": "Priority",
-          "type": "integer",
-          "readonly": false,
-          "required": false,
-          "searchable": true,
-          "extra": true,
-          "filter_operators": [
-            "=",
-            "!=",
-            "<",
-            "<=",
-            ">",
-            ">=",
-            "between",
-            "in",
-            "not in",
-            "is empty",
-            "is not empty"
-          ],
-          "target": null,
-          "targets": null,
-          "choices": null,
-          "local_placeholder": null
-        },
-        "extra_owner": {
-          "name": "extra_owner",
-          "label": "Owner",
-          "type": "char",
-          "readonly": false,
-          "required": false,
-          "searchable": true,
-          "extra": true,
-          "filter_operators": [
-            "=",
-            "!=",
-            "like",
-            "ilike",
-            "not like",
-            "not ilike",
-            "starts with",
-            "ends with",
-            "not starts with",
-            "not ends with",
-            "contains",
-            "icontains",
-            "not contains",
-            "not icontains",
-            "match",
-            "in",
-            "not in",
-            "is empty",
-            "is not empty"
-          ],
-          "target": null,
-          "targets": null,
-          "choices": null,
+          "default": null,
           "local_placeholder": null
         }
       }
@@ -566,6 +585,7 @@
       "sortable_field": null,
       "synchronizable": false,
       "synchronizable_mode": "none",
+      "has_extra_fields": false,
       "fields": {
         "name": {
           "name": "name",
@@ -574,6 +594,8 @@
           "readonly": false,
           "required": true,
           "searchable": true,
+          "translatable": false,
+          "locales": null,
           "extra": false,
           "filter_operators": [
             "=",
@@ -598,7 +620,9 @@
           ],
           "target": null,
           "targets": null,
+          "inverse": null,
           "choices": null,
+          "default": null,
           "local_placeholder": null
         },
         "description": {
@@ -608,6 +632,8 @@
           "readonly": false,
           "required": false,
           "searchable": true,
+          "translatable": false,
+          "locales": null,
           "extra": false,
           "filter_operators": [
             "=",
@@ -632,7 +658,9 @@
           ],
           "target": null,
           "targets": null,
+          "inverse": null,
           "choices": null,
+          "default": null,
           "local_placeholder": null
         },
         "id": {
@@ -642,6 +670,8 @@
           "readonly": true,
           "required": false,
           "searchable": true,
+          "translatable": false,
+          "locales": null,
           "extra": false,
           "filter_operators": [
             "=",
@@ -658,7 +688,9 @@
           ],
           "target": null,
           "targets": null,
+          "inverse": null,
           "choices": null,
+          "default": null,
           "local_placeholder": null
         },
         "created_at": {
@@ -668,6 +700,8 @@
           "readonly": true,
           "required": false,
           "searchable": true,
+          "translatable": false,
+          "locales": null,
           "extra": false,
           "filter_operators": [
             "=",
@@ -684,7 +718,9 @@
           ],
           "target": null,
           "targets": null,
+          "inverse": null,
           "choices": null,
+          "default": null,
           "local_placeholder": null
         },
         "updated_at": {
@@ -694,6 +730,8 @@
           "readonly": true,
           "required": false,
           "searchable": true,
+          "translatable": false,
+          "locales": null,
           "extra": false,
           "filter_operators": [
             "=",
@@ -710,7 +748,9 @@
           ],
           "target": null,
           "targets": null,
+          "inverse": null,
           "choices": null,
+          "default": null,
           "local_placeholder": null
         },
         "annotations": {
@@ -720,6 +760,8 @@
           "readonly": false,
           "required": false,
           "searchable": false,
+          "translatable": false,
+          "locales": null,
           "extra": false,
           "filter_operators": [
             "in",
@@ -731,7 +773,9 @@
           ],
           "target": "annotation",
           "targets": null,
+          "inverse": null,
           "choices": null,
+          "default": null,
           "local_placeholder": null
         },
         "notes": {
@@ -741,6 +785,8 @@
           "readonly": false,
           "required": false,
           "searchable": false,
+          "translatable": false,
+          "locales": null,
           "extra": false,
           "filter_operators": [
             "in",
@@ -752,7 +798,9 @@
           ],
           "target": "note",
           "targets": null,
+          "inverse": null,
           "choices": null,
+          "default": null,
           "local_placeholder": null
         },
         "products": {
@@ -762,6 +810,8 @@
           "readonly": true,
           "required": false,
           "searchable": true,
+          "translatable": false,
+          "locales": null,
           "extra": false,
           "filter_operators": [
             "in",
@@ -773,7 +823,9 @@
           ],
           "target": "product",
           "targets": null,
+          "inverse": "category",
           "choices": null,
+          "default": null,
           "local_placeholder": null
         }
       }
@@ -792,6 +844,7 @@
       "sortable_field": null,
       "synchronizable": true,
       "synchronizable_mode": "full",
+      "has_extra_fields": false,
       "fields": {
         "name": {
           "name": "name",
@@ -800,6 +853,8 @@
           "readonly": false,
           "required": true,
           "searchable": true,
+          "translatable": false,
+          "locales": null,
           "extra": false,
           "filter_operators": [
             "=",
@@ -824,7 +879,9 @@
           ],
           "target": null,
           "targets": null,
+          "inverse": null,
           "choices": null,
+          "default": null,
           "local_placeholder": null
         },
         "id": {
@@ -834,6 +891,8 @@
           "readonly": true,
           "required": false,
           "searchable": true,
+          "translatable": false,
+          "locales": null,
           "extra": false,
           "filter_operators": [
             "=",
@@ -850,7 +909,9 @@
           ],
           "target": null,
           "targets": null,
+          "inverse": null,
           "choices": null,
+          "default": null,
           "local_placeholder": null
         },
         "created_at": {
@@ -860,6 +921,8 @@
           "readonly": true,
           "required": false,
           "searchable": true,
+          "translatable": false,
+          "locales": null,
           "extra": false,
           "filter_operators": [
             "=",
@@ -876,7 +939,9 @@
           ],
           "target": null,
           "targets": null,
+          "inverse": null,
           "choices": null,
+          "default": null,
           "local_placeholder": null
         },
         "updated_at": {
@@ -886,6 +951,8 @@
           "readonly": true,
           "required": false,
           "searchable": true,
+          "translatable": false,
+          "locales": null,
           "extra": false,
           "filter_operators": [
             "=",
@@ -902,7 +969,9 @@
           ],
           "target": null,
           "targets": null,
+          "inverse": null,
           "choices": null,
+          "default": null,
           "local_placeholder": null
         }
       }
@@ -921,6 +990,7 @@
       "sortable_field": null,
       "synchronizable": false,
       "synchronizable_mode": "none",
+      "has_extra_fields": false,
       "fields": {
         "body": {
           "name": "body",
@@ -929,6 +999,8 @@
           "readonly": false,
           "required": true,
           "searchable": true,
+          "translatable": false,
+          "locales": null,
           "extra": false,
           "filter_operators": [
             "=",
@@ -953,7 +1025,9 @@
           ],
           "target": null,
           "targets": null,
+          "inverse": null,
           "choices": null,
+          "default": null,
           "local_placeholder": null
         },
         "anchor": {
@@ -963,6 +1037,8 @@
           "readonly": false,
           "required": false,
           "searchable": false,
+          "translatable": false,
+          "locales": null,
           "extra": false,
           "filter_operators": [
             "=",
@@ -977,7 +1053,9 @@
             "category",
             "product"
           ],
+          "inverse": null,
           "choices": null,
+          "default": null,
           "local_placeholder": null
         },
         "id": {
@@ -987,6 +1065,8 @@
           "readonly": true,
           "required": false,
           "searchable": true,
+          "translatable": false,
+          "locales": null,
           "extra": false,
           "filter_operators": [
             "=",
@@ -1003,7 +1083,9 @@
           ],
           "target": null,
           "targets": null,
+          "inverse": null,
           "choices": null,
+          "default": null,
           "local_placeholder": null
         },
         "created_at": {
@@ -1013,6 +1095,8 @@
           "readonly": true,
           "required": false,
           "searchable": true,
+          "translatable": false,
+          "locales": null,
           "extra": false,
           "filter_operators": [
             "=",
@@ -1029,7 +1113,9 @@
           ],
           "target": null,
           "targets": null,
+          "inverse": null,
           "choices": null,
+          "default": null,
           "local_placeholder": null
         },
         "updated_at": {
@@ -1039,6 +1125,8 @@
           "readonly": true,
           "required": false,
           "searchable": true,
+          "translatable": false,
+          "locales": null,
           "extra": false,
           "filter_operators": [
             "=",
@@ -1055,7 +1143,9 @@
           ],
           "target": null,
           "targets": null,
+          "inverse": null,
           "choices": null,
+          "default": null,
           "local_placeholder": null
         }
       }
@@ -2219,8 +2309,8 @@
       ],
       "expected_ids": [
         2,
-        4,
-        3
+        3,
+        4
       ],
       "ordered": false
     },

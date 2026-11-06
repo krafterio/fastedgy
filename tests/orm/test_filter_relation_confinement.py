@@ -117,3 +117,47 @@ async def test_the_system_crosses_every_row(setup_db: FastEdgy) -> None:
     assert ada_in_acme.id in {row.id for row in global_rows}
     assert ada_in_acme.id in {row.id for row in trusted_rows}
     assert ada_in_acme.id in {row.id for row in outside_any_workspace}
+
+
+async def test_a_to_one_path_crosses_only_the_rows_the_request_reads(setup_db: FastEdgy) -> None:
+    from fastedgy.test.models.global_filter import GfLink, GfPrivateDoc
+
+    acme = await create_workspace(slug="acme")
+    ada = await create_user(email="ada@example.io")
+    bob = await create_user(email="bob@example.io")
+    own = await GfPrivateDoc(name="own", owner=ada, workspace=acme).save()
+    theirs = await GfPrivateDoc(name="theirs", owner=bob, workspace=acme).save()
+    await GfLink(label="to own", doc=own, workspace=acme).save()
+    await GfLink(label="to theirs", doc=theirs, workspace=acme).save()
+
+    with acting_as(acme, ada):
+        crossed = await filter_query(GfLink.query, R("doc.name", "=", "theirs")).all()
+        kept = await filter_query(GfLink.query, R("doc.name", "=", "own")).all()
+
+    assert crossed == []
+    assert [link.label for link in kept] == ["to own"]
+
+
+async def test_a_path_crosses_no_row_of_a_model_whose_reads_are_denied(setup_db: FastEdgy) -> None:
+    from fastedgy.dependencies import get_service
+    from fastedgy.orm.access_guard import AccessDeniedError, ModelAccessGuardRegistry, ModelAction
+    from fastedgy.test.models.comment import Comment
+    from fastedgy.test.models.product import Product
+
+    product = await Product(name="Widget", price="1.00").save()
+    await Comment(content="nice", product=product).save()
+
+    def deny_reads(model_cls: type, action: ModelAction, instance: object = None) -> None:
+        if action == ModelAction.read:
+            raise AccessDeniedError("denied")
+
+    registry = get_service(ModelAccessGuardRegistry)
+    registry.register(Product, deny_reads)
+
+    try:
+        crossed = await filter_query(Comment.query, R("product.name", "=", "Widget")).all()
+    finally:
+        registry._guards.pop(Product, None)
+        registry._resolved.clear()
+
+    assert crossed == []

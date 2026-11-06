@@ -26,6 +26,9 @@ from sqlalchemy import (
     type_coerce,
 )
 from sqlalchemy import (
+    false as sa_false,
+)
+from sqlalchemy import (
     not_ as sa_not,
 )
 from sqlalchemy import (
@@ -258,12 +261,16 @@ def build_filter_expression(
                 raise InvalidFilterError(f"Operator '{filters.operator}' requires {unpack_count} values in list")
 
             if use_col:
-                return column.between(*value)
-            return operator_dict_method(_get_cond_query(model_cls), field, value)
+                return _confined_path(model_cls, filters, column.between(*value), confine)
+            return _confined_path(
+                model_cls, filters, operator_dict_method(_get_cond_query(model_cls), field, value), confine
+            )
 
         if use_col:
-            return operator_method(column, value)
-        return operator_dict_method(_get_cond_query(model_cls), field, value)
+            return _confined_path(model_cls, filters, operator_method(column, value), confine)
+        return _confined_path(
+            model_cls, filters, operator_dict_method(_get_cond_query(model_cls), field, value), confine
+        )
 
     if not filters.rules:
         return None
@@ -297,6 +304,17 @@ def build_filter_expression(
         return cond_query.or_(*expressions)
 
     return cond_query.and_(*expressions)
+
+
+def _confined_path(model_cls: type[Model], filters: FilterRule, expression: Any, confine: bool) -> Any:
+    """A to-one path keeps the join its lookup reads through, and only matches
+    when the rows it crosses are ones the request may read."""
+    if not confine or "." not in filters.field:
+        return expression
+
+    confined = _build_exists_expression(model_cls, filters, _root_scope(model_cls, True))
+
+    return expression if confined is None else _get_cond_query(model_cls).and_(expression, confined)
 
 
 @dataclass(frozen=True)
@@ -567,6 +585,12 @@ def _readable_rows(model: Any, table: Any, seen: set[int]) -> Any | None:
     The global filters are the model's own rules: they compile unconfined.
     """
     from fastedgy import context
+    from fastedgy.orm.access_guard import AccessDeniedError, ModelAction, check_access
+
+    try:
+        check_access(model, ModelAction.read)
+    except AccessDeniedError:
+        return sa_false()
 
     conditions = []
     workspace_id = context.get_workspace_id()

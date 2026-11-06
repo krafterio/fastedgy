@@ -976,6 +976,28 @@
             ],
             "title": "Entries"
           },
+          "folders": {
+            "anyOf": [
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Folder"
+                    },
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folders"
+          },
           "id": {
             "title": "Id",
             "type": "integer"
@@ -1295,6 +1317,66 @@
               ]
             ],
             "title": "Entries"
+          },
+          "folders": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "$ref": "#/components/schemas/RelationOperation"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Relations for folders.\n\n**Simple mode:** Array of IDs: `[1, 2, 3]`\n\n**Advanced mode:** Array of operations `[[\"action\", value], ...]`\n\nAvailable actions:\n- `create` - Create new record and link (value=object)\n- `update` - Update record and ensure link (value={id:X,...})\n- `link` - Link existing record (value=id)\n- `unlink` - Remove link without deleting (value=id)\n- `delete` - Delete record and remove link (value=id)\n- `set` - Replace all links (value=[ids])\n- `clear` - Remove all links (no value)",
+            "examples": [
+              [
+                1,
+                2,
+                3
+              ],
+              [
+                [
+                  "link",
+                  1
+                ],
+                [
+                  "create",
+                  {
+                    "name": "New"
+                  }
+                ]
+              ],
+              [
+                [
+                  "clear"
+                ],
+                [
+                  "set",
+                  [
+                    1,
+                    2,
+                    3
+                  ]
+                ]
+              ]
+            ],
+            "title": "Folders"
           },
           "name": {
             "maxLength": 120,
@@ -1732,6 +1814,66 @@
               ]
             ],
             "title": "Entries"
+          },
+          "folders": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "$ref": "#/components/schemas/RelationOperation"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Relations for folders.\n\n**Simple mode:** Array of IDs: `[1, 2, 3]`\n\n**Advanced mode:** Array of operations `[[\"action\", value], ...]`\n\nAvailable actions:\n- `create` - Create new record and link (value=object)\n- `update` - Update record and ensure link (value={id:X,...})\n- `link` - Link existing record (value=id)\n- `unlink` - Remove link without deleting (value=id)\n- `delete` - Delete record and remove link (value=id)\n- `set` - Replace all links (value=[ids])\n- `clear` - Remove all links (no value)",
+            "examples": [
+              [
+                1,
+                2,
+                3
+              ],
+              [
+                [
+                  "link",
+                  1
+                ],
+                [
+                  "create",
+                  {
+                    "name": "New"
+                  }
+                ]
+              ],
+              [
+                [
+                  "clear"
+                ],
+                [
+                  "set",
+                  [
+                    1,
+                    2,
+                    3
+                  ]
+                ]
+              ]
+            ],
+            "title": "Folders"
           },
           "name": {
             "anyOf": [
@@ -3624,6 +3766,303 @@
           "detail"
         ],
         "title": "ErrorMessage",
+        "type": "object"
+      },
+      "Folder": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Category"
+              },
+              {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            ],
+            "title": "Category"
+          },
+          "name": {
+            "maxLength": 100,
+            "title": "Name",
+            "type": "string"
+          },
+          "parent": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Folder"
+              },
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "label",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "Folder",
+        "type": "object"
+      },
+      "Folder-Create": {
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyObject"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyOperation"
+              }
+            ],
+            "description": "Foreign key for label.\n\n**Link by id:** `5`\n\n**Link by object:** `{\"id\": 5}`\n\n**Link and update:** `{\"id\": 5, \"name\": \"New\"}`\n\n**Unlink:** `null`\n\n**Advanced mode:** a single operation `[\"action\", value]`\n\nAvailable actions:\n- `create` - Create a new record and link (value=object)\n- `update` - Update the record and link (value={id:X,...})\n- `link` - Link an existing record (value=id)\n- `unlink` - Remove the link (no value)\n- `delete` - Delete the record and remove the link (value=id)",
+            "examples": [
+              5,
+              {
+                "id": 5
+              },
+              {
+                "id": 5,
+                "name": "New"
+              },
+              [
+                "link",
+                5
+              ],
+              [
+                "create",
+                {
+                  "name": "New"
+                }
+              ],
+              [
+                "unlink"
+              ]
+            ],
+            "title": "Label"
+          },
+          "name": {
+            "maxLength": 100,
+            "title": "Name",
+            "type": "string"
+          },
+          "parent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyObject"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyOperation"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Foreign key for parent.\n\n**Link by id:** `5`\n\n**Link by object:** `{\"id\": 5}`\n\n**Link and update:** `{\"id\": 5, \"name\": \"New\"}`\n\n**Unlink:** `null`\n\n**Advanced mode:** a single operation `[\"action\", value]`\n\nAvailable actions:\n- `create` - Create a new record and link (value=object)\n- `update` - Update the record and link (value={id:X,...})\n- `link` - Link an existing record (value=id)\n- `unlink` - Remove the link (no value)\n- `delete` - Delete the record and remove the link (value=id)",
+            "examples": [
+              5,
+              {
+                "id": 5
+              },
+              {
+                "id": 5,
+                "name": "New"
+              },
+              [
+                "link",
+                5
+              ],
+              [
+                "create",
+                {
+                  "name": "New"
+                }
+              ],
+              [
+                "unlink"
+              ]
+            ],
+            "title": "Parent"
+          }
+        },
+        "required": [
+          "name",
+          "label"
+        ],
+        "title": "Folder-Create",
+        "type": "object"
+      },
+      "Folder-List": {
+        "properties": {
+          "items": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Folder"
+                },
+                {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              ]
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "total_pages": {
+            "readOnly": true,
+            "title": "Total Pages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset",
+          "total_pages"
+        ],
+        "title": "Folder-List",
+        "type": "object"
+      },
+      "Folder-Update": {
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyObject"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyOperation"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Foreign key for label.\n\n**Link by id:** `5`\n\n**Link by object:** `{\"id\": 5}`\n\n**Link and update:** `{\"id\": 5, \"name\": \"New\"}`\n\n**Unlink:** `null`\n\n**Advanced mode:** a single operation `[\"action\", value]`\n\nAvailable actions:\n- `create` - Create a new record and link (value=object)\n- `update` - Update the record and link (value={id:X,...})\n- `link` - Link an existing record (value=id)\n- `unlink` - Remove the link (no value)\n- `delete` - Delete the record and remove the link (value=id)",
+            "examples": [
+              5,
+              {
+                "id": 5
+              },
+              {
+                "id": 5,
+                "name": "New"
+              },
+              [
+                "link",
+                5
+              ],
+              [
+                "create",
+                {
+                  "name": "New"
+                }
+              ],
+              [
+                "unlink"
+              ]
+            ],
+            "title": "Label"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "parent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyObject"
+              },
+              {
+                "$ref": "#/components/schemas/ForeignKeyOperation"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Foreign key for parent.\n\n**Link by id:** `5`\n\n**Link by object:** `{\"id\": 5}`\n\n**Link and update:** `{\"id\": 5, \"name\": \"New\"}`\n\n**Unlink:** `null`\n\n**Advanced mode:** a single operation `[\"action\", value]`\n\nAvailable actions:\n- `create` - Create a new record and link (value=object)\n- `update` - Update the record and link (value={id:X,...})\n- `link` - Link an existing record (value=id)\n- `unlink` - Remove the link (no value)\n- `delete` - Delete the record and remove the link (value=id)",
+            "examples": [
+              5,
+              {
+                "id": 5
+              },
+              {
+                "id": 5,
+                "name": "New"
+              },
+              [
+                "link",
+                5
+              ],
+              [
+                "create",
+                {
+                  "name": "New"
+                }
+              ],
+              [
+                "unlink"
+              ]
+            ],
+            "title": "Parent"
+          }
+        },
+        "title": "Folder-Update",
         "type": "object"
       },
       "ForeignKeyObject": {
@@ -5690,1424 +6129,6 @@
         },
         "title": "Product-Update",
         "type": "object"
-      },
-      "QueuedTask": {
-        "properties": {
-          "args": {
-            "default": [],
-            "title": "Args"
-          },
-          "auto_remove": {
-            "default": false,
-            "title": "Auto Remove",
-            "type": "boolean"
-          },
-          "channel": {
-            "default": "default",
-            "maxLength": 64,
-            "title": "Channel",
-            "type": "string"
-          },
-          "claimed_by": {
-            "anyOf": [
-              {
-                "maxLength": 255,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Claimed By"
-          },
-          "context": {
-            "default": {},
-            "title": "Context"
-          },
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "date_cancelled": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Date Cancelled"
-          },
-          "date_done": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Date Done"
-          },
-          "date_ended": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Date Ended"
-          },
-          "date_enqueued": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Date Enqueued"
-          },
-          "date_failed": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Date Failed"
-          },
-          "date_started": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Date Started"
-          },
-          "date_stopped": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Date Stopped"
-          },
-          "exception_info": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Exception Info"
-          },
-          "exception_message": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Exception Message"
-          },
-          "exception_name": {
-            "anyOf": [
-              {
-                "maxLength": 255,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Exception Name"
-          },
-          "execution_time": {
-            "default": 0.0,
-            "title": "Execution Time",
-            "type": "number"
-          },
-          "function_name": {
-            "anyOf": [
-              {
-                "maxLength": 255,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Function Name"
-          },
-          "id": {
-            "title": "Id",
-            "type": "integer"
-          },
-          "kwargs": {
-            "default": {},
-            "title": "Kwargs"
-          },
-          "logs": {
-            "anyOf": [
-              {
-                "items": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/QueuedTaskLog"
-                    },
-                    {
-                      "additionalProperties": true,
-                      "type": "object"
-                    }
-                  ]
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Logs"
-          },
-          "max_retries": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Max Retries"
-          },
-          "module_name": {
-            "anyOf": [
-              {
-                "maxLength": 255,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Module Name"
-          },
-          "name": {
-            "anyOf": [
-              {
-                "maxLength": 255,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          },
-          "parent_task": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/QueuedTask"
-              },
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Parent Task"
-          },
-          "priority": {
-            "default": 0,
-            "title": "Priority",
-            "type": "integer"
-          },
-          "resume_requested": {
-            "default": false,
-            "title": "Resume Requested",
-            "type": "boolean"
-          },
-          "retry_count": {
-            "default": 0,
-            "title": "Retry Count",
-            "type": "integer"
-          },
-          "serialized_function": {
-            "anyOf": [
-              {
-                "contentEncoding": "base64",
-                "contentMediaType": "application/octet-stream",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Serialized Function"
-          },
-          "state": {
-            "$ref": "#/components/schemas/QueuedTaskState",
-            "default": "enqueued",
-            "title": "State"
-          },
-          "updated_at": {
-            "format": "date-time",
-            "title": "Updated At",
-            "type": "string"
-          }
-        },
-        "required": [
-          "created_at",
-          "updated_at"
-        ],
-        "title": "QueuedTask",
-        "type": "object"
-      },
-      "QueuedTask-Create": {
-        "properties": {
-          "args": {
-            "default": [],
-            "title": "Args"
-          },
-          "auto_remove": {
-            "default": false,
-            "title": "Auto Remove",
-            "type": "boolean"
-          },
-          "channel": {
-            "default": "default",
-            "maxLength": 64,
-            "title": "Channel",
-            "type": "string"
-          },
-          "claimed_by": {
-            "anyOf": [
-              {
-                "maxLength": 255,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Claimed By"
-          },
-          "context": {
-            "default": {},
-            "title": "Context"
-          },
-          "date_cancelled": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Date Cancelled"
-          },
-          "date_done": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Date Done"
-          },
-          "date_ended": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Date Ended"
-          },
-          "date_enqueued": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Date Enqueued"
-          },
-          "date_failed": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Date Failed"
-          },
-          "date_started": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Date Started"
-          },
-          "date_stopped": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Date Stopped"
-          },
-          "exception_info": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Exception Info"
-          },
-          "exception_message": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Exception Message"
-          },
-          "exception_name": {
-            "anyOf": [
-              {
-                "maxLength": 255,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Exception Name"
-          },
-          "execution_time": {
-            "default": 0.0,
-            "title": "Execution Time",
-            "type": "number"
-          },
-          "function_name": {
-            "anyOf": [
-              {
-                "maxLength": 255,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Function Name"
-          },
-          "kwargs": {
-            "default": {},
-            "title": "Kwargs"
-          },
-          "logs": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "integer"
-                },
-                "type": "array"
-              },
-              {
-                "items": {
-                  "$ref": "#/components/schemas/RelationOperation"
-                },
-                "type": "array"
-              },
-              {
-                "items": {
-                  "additionalProperties": true,
-                  "type": "object"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Relations for logs.\n\n**Simple mode:** Array of IDs: `[1, 2, 3]`\n\n**Advanced mode:** Array of operations `[[\"action\", value], ...]`\n\nAvailable actions:\n- `create` - Create new record and link (value=object)\n- `update` - Update record and ensure link (value={id:X,...})\n- `link` - Link existing record (value=id)\n- `unlink` - Remove link without deleting (value=id)\n- `delete` - Delete record and remove link (value=id)\n- `set` - Replace all links (value=[ids])\n- `clear` - Remove all links (no value)",
-            "examples": [
-              [
-                1,
-                2,
-                3
-              ],
-              [
-                [
-                  "link",
-                  1
-                ],
-                [
-                  "create",
-                  {
-                    "name": "New"
-                  }
-                ]
-              ],
-              [
-                [
-                  "clear"
-                ],
-                [
-                  "set",
-                  [
-                    1,
-                    2,
-                    3
-                  ]
-                ]
-              ]
-            ],
-            "title": "Logs"
-          },
-          "max_retries": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Max Retries"
-          },
-          "module_name": {
-            "anyOf": [
-              {
-                "maxLength": 255,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Module Name"
-          },
-          "name": {
-            "anyOf": [
-              {
-                "maxLength": 255,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          },
-          "parent_task": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "$ref": "#/components/schemas/ForeignKeyObject"
-              },
-              {
-                "$ref": "#/components/schemas/ForeignKeyOperation"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Foreign key for parent_task.\n\n**Link by id:** `5`\n\n**Link by object:** `{\"id\": 5}`\n\n**Link and update:** `{\"id\": 5, \"name\": \"New\"}`\n\n**Unlink:** `null`\n\n**Advanced mode:** a single operation `[\"action\", value]`\n\nAvailable actions:\n- `create` - Create a new record and link (value=object)\n- `update` - Update the record and link (value={id:X,...})\n- `link` - Link an existing record (value=id)\n- `unlink` - Remove the link (no value)\n- `delete` - Delete the record and remove the link (value=id)",
-            "examples": [
-              5,
-              {
-                "id": 5
-              },
-              {
-                "id": 5,
-                "name": "New"
-              },
-              [
-                "link",
-                5
-              ],
-              [
-                "create",
-                {
-                  "name": "New"
-                }
-              ],
-              [
-                "unlink"
-              ]
-            ],
-            "title": "Parent Task"
-          },
-          "priority": {
-            "default": 0,
-            "title": "Priority",
-            "type": "integer"
-          },
-          "resume_requested": {
-            "default": false,
-            "title": "Resume Requested",
-            "type": "boolean"
-          },
-          "retry_count": {
-            "default": 0,
-            "title": "Retry Count",
-            "type": "integer"
-          },
-          "serialized_function": {
-            "anyOf": [
-              {
-                "contentMediaType": "application/octet-stream",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Serialized Function"
-          },
-          "state": {
-            "$ref": "#/components/schemas/QueuedTaskState",
-            "default": "enqueued",
-            "title": "State"
-          }
-        },
-        "title": "QueuedTask-Create",
-        "type": "object"
-      },
-      "QueuedTask-List": {
-        "properties": {
-          "items": {
-            "items": {
-              "anyOf": [
-                {
-                  "$ref": "#/components/schemas/QueuedTask"
-                },
-                {
-                  "additionalProperties": true,
-                  "type": "object"
-                }
-              ]
-            },
-            "title": "Items",
-            "type": "array"
-          },
-          "limit": {
-            "title": "Limit",
-            "type": "integer"
-          },
-          "offset": {
-            "title": "Offset",
-            "type": "integer"
-          },
-          "total": {
-            "title": "Total",
-            "type": "integer"
-          },
-          "total_pages": {
-            "readOnly": true,
-            "title": "Total Pages",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "items",
-          "total",
-          "limit",
-          "offset",
-          "total_pages"
-        ],
-        "title": "QueuedTask-List",
-        "type": "object"
-      },
-      "QueuedTask-Update": {
-        "properties": {
-          "args": {
-            "anyOf": [
-              {},
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Args"
-          },
-          "auto_remove": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Auto Remove"
-          },
-          "channel": {
-            "anyOf": [
-              {
-                "maxLength": 64,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Channel"
-          },
-          "claimed_by": {
-            "anyOf": [
-              {
-                "maxLength": 255,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Claimed By"
-          },
-          "context": {
-            "anyOf": [
-              {},
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Context"
-          },
-          "date_cancelled": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Date Cancelled"
-          },
-          "date_done": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Date Done"
-          },
-          "date_ended": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Date Ended"
-          },
-          "date_enqueued": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Date Enqueued"
-          },
-          "date_failed": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Date Failed"
-          },
-          "date_started": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Date Started"
-          },
-          "date_stopped": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Date Stopped"
-          },
-          "exception_info": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Exception Info"
-          },
-          "exception_message": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Exception Message"
-          },
-          "exception_name": {
-            "anyOf": [
-              {
-                "maxLength": 255,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Exception Name"
-          },
-          "execution_time": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Execution Time"
-          },
-          "function_name": {
-            "anyOf": [
-              {
-                "maxLength": 255,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Function Name"
-          },
-          "kwargs": {
-            "anyOf": [
-              {},
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Kwargs"
-          },
-          "logs": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "integer"
-                },
-                "type": "array"
-              },
-              {
-                "items": {
-                  "$ref": "#/components/schemas/RelationOperation"
-                },
-                "type": "array"
-              },
-              {
-                "items": {
-                  "additionalProperties": true,
-                  "type": "object"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Relations for logs.\n\n**Simple mode:** Array of IDs: `[1, 2, 3]`\n\n**Advanced mode:** Array of operations `[[\"action\", value], ...]`\n\nAvailable actions:\n- `create` - Create new record and link (value=object)\n- `update` - Update record and ensure link (value={id:X,...})\n- `link` - Link existing record (value=id)\n- `unlink` - Remove link without deleting (value=id)\n- `delete` - Delete record and remove link (value=id)\n- `set` - Replace all links (value=[ids])\n- `clear` - Remove all links (no value)",
-            "examples": [
-              [
-                1,
-                2,
-                3
-              ],
-              [
-                [
-                  "link",
-                  1
-                ],
-                [
-                  "create",
-                  {
-                    "name": "New"
-                  }
-                ]
-              ],
-              [
-                [
-                  "clear"
-                ],
-                [
-                  "set",
-                  [
-                    1,
-                    2,
-                    3
-                  ]
-                ]
-              ]
-            ],
-            "title": "Logs"
-          },
-          "max_retries": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Max Retries"
-          },
-          "module_name": {
-            "anyOf": [
-              {
-                "maxLength": 255,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Module Name"
-          },
-          "name": {
-            "anyOf": [
-              {
-                "maxLength": 255,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          },
-          "parent_task": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "$ref": "#/components/schemas/ForeignKeyObject"
-              },
-              {
-                "$ref": "#/components/schemas/ForeignKeyOperation"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Foreign key for parent_task.\n\n**Link by id:** `5`\n\n**Link by object:** `{\"id\": 5}`\n\n**Link and update:** `{\"id\": 5, \"name\": \"New\"}`\n\n**Unlink:** `null`\n\n**Advanced mode:** a single operation `[\"action\", value]`\n\nAvailable actions:\n- `create` - Create a new record and link (value=object)\n- `update` - Update the record and link (value={id:X,...})\n- `link` - Link an existing record (value=id)\n- `unlink` - Remove the link (no value)\n- `delete` - Delete the record and remove the link (value=id)",
-            "examples": [
-              5,
-              {
-                "id": 5
-              },
-              {
-                "id": 5,
-                "name": "New"
-              },
-              [
-                "link",
-                5
-              ],
-              [
-                "create",
-                {
-                  "name": "New"
-                }
-              ],
-              [
-                "unlink"
-              ]
-            ],
-            "title": "Parent Task"
-          },
-          "priority": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Priority"
-          },
-          "resume_requested": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Resume Requested"
-          },
-          "retry_count": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Retry Count"
-          },
-          "serialized_function": {
-            "anyOf": [
-              {
-                "contentMediaType": "application/octet-stream",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Serialized Function"
-          },
-          "state": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/QueuedTaskState"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "State"
-          }
-        },
-        "title": "QueuedTask-Update",
-        "type": "object"
-      },
-      "QueuedTaskLog": {
-        "properties": {
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "id": {
-            "title": "Id",
-            "type": "integer"
-          },
-          "info": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Info"
-          },
-          "log_type": {
-            "$ref": "#/components/schemas/QueuedTaskLogType",
-            "title": "Log type"
-          },
-          "logged_at": {
-            "format": "date-time",
-            "title": "Logged At",
-            "type": "string"
-          },
-          "message": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Message"
-          },
-          "name": {
-            "anyOf": [
-              {
-                "maxLength": 255,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          },
-          "task": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/QueuedTask"
-              },
-              {
-                "additionalProperties": true,
-                "type": "object"
-              }
-            ],
-            "title": "Task"
-          },
-          "updated_at": {
-            "format": "date-time",
-            "title": "Updated At",
-            "type": "string"
-          }
-        },
-        "required": [
-          "task",
-          "log_type",
-          "logged_at",
-          "created_at",
-          "updated_at"
-        ],
-        "title": "QueuedTaskLog",
-        "type": "object"
-      },
-      "QueuedTaskLog-Create": {
-        "properties": {
-          "info": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Info"
-          },
-          "log_type": {
-            "$ref": "#/components/schemas/QueuedTaskLogType",
-            "title": "Log type"
-          },
-          "message": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Message"
-          },
-          "name": {
-            "anyOf": [
-              {
-                "maxLength": 255,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          },
-          "task": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "$ref": "#/components/schemas/ForeignKeyObject"
-              },
-              {
-                "$ref": "#/components/schemas/ForeignKeyOperation"
-              }
-            ],
-            "description": "Foreign key for task.\n\n**Link by id:** `5`\n\n**Link by object:** `{\"id\": 5}`\n\n**Link and update:** `{\"id\": 5, \"name\": \"New\"}`\n\n**Unlink:** `null`\n\n**Advanced mode:** a single operation `[\"action\", value]`\n\nAvailable actions:\n- `create` - Create a new record and link (value=object)\n- `update` - Update the record and link (value={id:X,...})\n- `link` - Link an existing record (value=id)\n- `unlink` - Remove the link (no value)\n- `delete` - Delete the record and remove the link (value=id)",
-            "examples": [
-              5,
-              {
-                "id": 5
-              },
-              {
-                "id": 5,
-                "name": "New"
-              },
-              [
-                "link",
-                5
-              ],
-              [
-                "create",
-                {
-                  "name": "New"
-                }
-              ],
-              [
-                "unlink"
-              ]
-            ],
-            "title": "Task"
-          }
-        },
-        "required": [
-          "task",
-          "log_type"
-        ],
-        "title": "QueuedTaskLog-Create",
-        "type": "object"
-      },
-      "QueuedTaskLog-List": {
-        "properties": {
-          "items": {
-            "items": {
-              "anyOf": [
-                {
-                  "$ref": "#/components/schemas/QueuedTaskLog"
-                },
-                {
-                  "additionalProperties": true,
-                  "type": "object"
-                }
-              ]
-            },
-            "title": "Items",
-            "type": "array"
-          },
-          "limit": {
-            "title": "Limit",
-            "type": "integer"
-          },
-          "offset": {
-            "title": "Offset",
-            "type": "integer"
-          },
-          "total": {
-            "title": "Total",
-            "type": "integer"
-          },
-          "total_pages": {
-            "readOnly": true,
-            "title": "Total Pages",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "items",
-          "total",
-          "limit",
-          "offset",
-          "total_pages"
-        ],
-        "title": "QueuedTaskLog-List",
-        "type": "object"
-      },
-      "QueuedTaskLog-Update": {
-        "properties": {
-          "info": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Info"
-          },
-          "log_type": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/QueuedTaskLogType"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Log type"
-          },
-          "message": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Message"
-          },
-          "name": {
-            "anyOf": [
-              {
-                "maxLength": 255,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          },
-          "task": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "$ref": "#/components/schemas/ForeignKeyObject"
-              },
-              {
-                "$ref": "#/components/schemas/ForeignKeyOperation"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Foreign key for task.\n\n**Link by id:** `5`\n\n**Link by object:** `{\"id\": 5}`\n\n**Link and update:** `{\"id\": 5, \"name\": \"New\"}`\n\n**Unlink:** `null`\n\n**Advanced mode:** a single operation `[\"action\", value]`\n\nAvailable actions:\n- `create` - Create a new record and link (value=object)\n- `update` - Update the record and link (value={id:X,...})\n- `link` - Link an existing record (value=id)\n- `unlink` - Remove the link (no value)\n- `delete` - Delete the record and remove the link (value=id)",
-            "examples": [
-              5,
-              {
-                "id": 5
-              },
-              {
-                "id": 5,
-                "name": "New"
-              },
-              [
-                "link",
-                5
-              ],
-              [
-                "create",
-                {
-                  "name": "New"
-                }
-              ],
-              [
-                "unlink"
-              ]
-            ],
-            "title": "Task"
-          }
-        },
-        "title": "QueuedTaskLog-Update",
-        "type": "object"
-      },
-      "QueuedTaskLogType": {
-        "enum": [
-          "critical",
-          "error",
-          "warning",
-          "info",
-          "debug"
-        ],
-        "title": "QueuedTaskLogType",
-        "type": "string"
-      },
-      "QueuedTaskState": {
-        "enum": [
-          "enqueued",
-          "waiting",
-          "doing",
-          "stopped",
-          "done",
-          "failed",
-          "cancelled"
-        ],
-        "title": "QueuedTaskState",
-        "type": "string"
       },
       "QueuedTaskWorker": {
         "properties": {
@@ -10322,6 +9343,8 @@
             "schema": {
               "anyOf": [
                 {
+                  "maximum": 100000,
+                  "minimum": 0,
                   "type": "integer"
                 },
                 {
@@ -11855,6 +10878,8 @@
             "schema": {
               "anyOf": [
                 {
+                  "maximum": 100000,
+                  "minimum": 0,
                   "type": "integer"
                 },
                 {
@@ -12394,745 +11419,6 @@
         ]
       }
     },
-    "/api/queued_task_logs": {
-      "get": {
-        "description": "Retrieve a paginated list of QueuedTaskLog items",
-        "operationId": "list_items_api_queued_task_logs_get",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 50,
-              "maximum": 1000,
-              "minimum": 0,
-              "title": "Limit",
-              "type": "integer"
-            }
-          },
-          {
-            "in": "query",
-            "name": "offset",
-            "required": false,
-            "schema": {
-              "default": 0,
-              "minimum": 0,
-              "title": "Offset",
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Order the list of items by field(s) separated by commas (ex. 'created_at:desc,name:asc')",
-            "in": "query",
-            "name": "order_by",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Order the list of items by field(s) separated by commas (ex. 'created_at:desc,name:asc')",
-              "title": "Order by"
-            }
-          },
-          {
-            "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
-            "in": "header",
-            "name": "X-Fields",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
-              "title": "Fields Selector"
-            }
-          },
-          {
-            "description": "Filter the list of items with the filter expression build with rules and conditions",
-            "in": "header",
-            "name": "X-Filter",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Filter the list of items with the filter expression build with rules and conditions",
-              "title": "Filter"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/QueuedTaskLog-List"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          },
-          {
-            "APIKeyHeader": []
-          }
-        ],
-        "summary": "List QueuedTaskLog items",
-        "tags": [
-          "queued_task_logs"
-        ]
-      },
-      "post": {
-        "description": "Create a new QueuedTaskLog item",
-        "operationId": "create_item_api_queued_task_logs_post",
-        "parameters": [
-          {
-            "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
-            "in": "header",
-            "name": "X-Fields",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
-              "title": "Fields Selector"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/QueuedTaskLog-Create"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/QueuedTaskLog"
-                    },
-                    {
-                      "additionalProperties": true,
-                      "type": "object"
-                    }
-                  ],
-                  "title": "Response Create Item Api Queued Task Logs Post"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            },
-            "description": "Invalid relation operation"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          },
-          {
-            "APIKeyHeader": []
-          }
-        ],
-        "summary": "Create QueuedTaskLog",
-        "tags": [
-          "queued_task_logs"
-        ]
-      }
-    },
-    "/api/queued_task_logs/export": {
-      "get": {
-        "description": "Retrieve a export of QueuedTaskLog items",
-        "operationId": "export_items_api_queued_task_logs_export_get",
-        "parameters": [
-          {
-            "description": "Export format (csv, xlsx, ods)",
-            "in": "query",
-            "name": "format",
-            "required": false,
-            "schema": {
-              "default": "csv",
-              "description": "Export format (csv, xlsx, ods)",
-              "title": "Format",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Limit"
-            }
-          },
-          {
-            "in": "query",
-            "name": "offset",
-            "required": false,
-            "schema": {
-              "default": 0,
-              "minimum": 0,
-              "title": "Offset",
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Order the list of items by field(s) separated by commas (ex. 'created_at:desc,name:asc')",
-            "in": "query",
-            "name": "order_by",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Order the list of items by field(s) separated by commas (ex. 'created_at:desc,name:asc')",
-              "title": "Order by"
-            }
-          },
-          {
-            "description": "Delimiter for relation values (one2many, many2many) in export cells",
-            "in": "query",
-            "name": "relation_delimiter",
-            "required": false,
-            "schema": {
-              "$ref": "#/components/schemas/RelationDelimiter",
-              "default": "newline",
-              "description": "Delimiter for relation values (one2many, many2many) in export cells",
-              "title": "Relation delimiter"
-            }
-          },
-          {
-            "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
-            "in": "header",
-            "name": "X-Fields",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
-              "title": "Fields Selector"
-            }
-          },
-          {
-            "description": "Filter the list of items with the filter expression build with rules and conditions",
-            "in": "header",
-            "name": "X-Filter",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Filter the list of items with the filter expression build with rules and conditions",
-              "title": "Filter"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/octet-stream": {
-                "schema": {
-                  "format": "binary",
-                  "type": "string"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          },
-          {
-            "APIKeyHeader": []
-          }
-        ],
-        "summary": "Export QueuedTaskLog items",
-        "tags": [
-          "queued_task_logs"
-        ]
-      }
-    },
-    "/api/queued_task_logs/import": {
-      "post": {
-        "description": "Import QueuedTaskLog items from a file (CSV, XLSX, ODS)",
-        "operationId": "import_items_api_queued_task_logs_import_post",
-        "requestBody": {
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "$ref": "#/components/schemas/ImportItemsBody"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ImportResult"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ImportErrorResponse"
-                }
-              }
-            },
-            "description": "Bad Request"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          },
-          {
-            "APIKeyHeader": []
-          }
-        ],
-        "summary": "Import QueuedTaskLog items",
-        "tags": [
-          "queued_task_logs"
-        ]
-      }
-    },
-    "/api/queued_task_logs/import/template": {
-      "get": {
-        "description": "Retrieve a import template of QueuedTaskLog",
-        "operationId": "import_template_api_queued_task_logs_import_template_get",
-        "parameters": [
-          {
-            "description": "Export format (csv, xlsx, ods)",
-            "in": "query",
-            "name": "format",
-            "required": false,
-            "schema": {
-              "default": "csv",
-              "description": "Export format (csv, xlsx, ods)",
-              "title": "Format",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
-            "in": "header",
-            "name": "X-Fields",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
-              "title": "Fields Selector"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/octet-stream": {
-                "schema": {
-                  "format": "binary",
-                  "type": "string"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          },
-          {
-            "APIKeyHeader": []
-          }
-        ],
-        "summary": "Import template of QueuedTaskLog",
-        "tags": [
-          "queued_task_logs"
-        ]
-      }
-    },
-    "/api/queued_task_logs/{item_id}": {
-      "delete": {
-        "description": "Delete a QueuedTaskLog by its ID",
-        "operationId": "delete_item_api_queued_task_logs__item_id__delete",
-        "parameters": [
-          {
-            "description": "Item ID",
-            "in": "path",
-            "name": "item_id",
-            "required": true,
-            "schema": {
-              "description": "Item ID",
-              "title": "Item Id",
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            },
-            "description": "Item not found"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          },
-          {
-            "APIKeyHeader": []
-          }
-        ],
-        "summary": "Delete QueuedTaskLog",
-        "tags": [
-          "queued_task_logs"
-        ]
-      },
-      "get": {
-        "description": "Retrieve a single QueuedTaskLog by its ID",
-        "operationId": "get_item_api_queued_task_logs__item_id__get",
-        "parameters": [
-          {
-            "description": "Item ID",
-            "in": "path",
-            "name": "item_id",
-            "required": true,
-            "schema": {
-              "description": "Item ID",
-              "title": "Item Id",
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
-            "in": "header",
-            "name": "X-Fields",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
-              "title": "Fields Selector"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/QueuedTaskLog"
-                    },
-                    {
-                      "additionalProperties": true,
-                      "type": "object"
-                    }
-                  ],
-                  "title": "Response Get Item Api Queued Task Logs  Item Id  Get"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            },
-            "description": "Item not found"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          },
-          {
-            "APIKeyHeader": []
-          }
-        ],
-        "summary": "Get QueuedTaskLog",
-        "tags": [
-          "queued_task_logs"
-        ]
-      },
-      "patch": {
-        "description": "Update an existing QueuedTaskLog by its ID",
-        "operationId": "patch_item_api_queued_task_logs__item_id__patch",
-        "parameters": [
-          {
-            "description": "Item ID",
-            "in": "path",
-            "name": "item_id",
-            "required": true,
-            "schema": {
-              "description": "Item ID",
-              "title": "Item Id",
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
-            "in": "header",
-            "name": "X-Fields",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
-              "title": "Fields Selector"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/QueuedTaskLog-Update"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/QueuedTaskLog"
-                    },
-                    {
-                      "additionalProperties": true,
-                      "type": "object"
-                    }
-                  ],
-                  "title": "Response Patch Item Api Queued Task Logs  Item Id  Patch"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            },
-            "description": "Invalid relation operation"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            },
-            "description": "Item not found"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          },
-          {
-            "APIKeyHeader": []
-          }
-        ],
-        "summary": "Update QueuedTaskLog",
-        "tags": [
-          "queued_task_logs"
-        ]
-      }
-    },
     "/api/queued_task_workers": {
       "get": {
         "description": "Retrieve a paginated list of QueuedTaskWorker items",
@@ -13363,6 +11649,8 @@
             "schema": {
               "anyOf": [
                 {
+                  "maximum": 100000,
+                  "minimum": 0,
                   "type": "integer"
                 },
                 {
@@ -13872,745 +12160,6 @@
         ]
       }
     },
-    "/api/queued_tasks": {
-      "get": {
-        "description": "Retrieve a paginated list of QueuedTask items",
-        "operationId": "list_items_api_queued_tasks_get",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 50,
-              "maximum": 1000,
-              "minimum": 0,
-              "title": "Limit",
-              "type": "integer"
-            }
-          },
-          {
-            "in": "query",
-            "name": "offset",
-            "required": false,
-            "schema": {
-              "default": 0,
-              "minimum": 0,
-              "title": "Offset",
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Order the list of items by field(s) separated by commas (ex. 'created_at:desc,name:asc')",
-            "in": "query",
-            "name": "order_by",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Order the list of items by field(s) separated by commas (ex. 'created_at:desc,name:asc')",
-              "title": "Order by"
-            }
-          },
-          {
-            "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
-            "in": "header",
-            "name": "X-Fields",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
-              "title": "Fields Selector"
-            }
-          },
-          {
-            "description": "Filter the list of items with the filter expression build with rules and conditions",
-            "in": "header",
-            "name": "X-Filter",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Filter the list of items with the filter expression build with rules and conditions",
-              "title": "Filter"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/QueuedTask-List"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          },
-          {
-            "APIKeyHeader": []
-          }
-        ],
-        "summary": "List QueuedTask items",
-        "tags": [
-          "queued_tasks"
-        ]
-      },
-      "post": {
-        "description": "Create a new QueuedTask item",
-        "operationId": "create_item_api_queued_tasks_post",
-        "parameters": [
-          {
-            "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
-            "in": "header",
-            "name": "X-Fields",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
-              "title": "Fields Selector"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/QueuedTask-Create"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/QueuedTask"
-                    },
-                    {
-                      "additionalProperties": true,
-                      "type": "object"
-                    }
-                  ],
-                  "title": "Response Create Item Api Queued Tasks Post"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            },
-            "description": "Invalid relation operation"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          },
-          {
-            "APIKeyHeader": []
-          }
-        ],
-        "summary": "Create QueuedTask",
-        "tags": [
-          "queued_tasks"
-        ]
-      }
-    },
-    "/api/queued_tasks/export": {
-      "get": {
-        "description": "Retrieve a export of QueuedTask items",
-        "operationId": "export_items_api_queued_tasks_export_get",
-        "parameters": [
-          {
-            "description": "Export format (csv, xlsx, ods)",
-            "in": "query",
-            "name": "format",
-            "required": false,
-            "schema": {
-              "default": "csv",
-              "description": "Export format (csv, xlsx, ods)",
-              "title": "Format",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Limit"
-            }
-          },
-          {
-            "in": "query",
-            "name": "offset",
-            "required": false,
-            "schema": {
-              "default": 0,
-              "minimum": 0,
-              "title": "Offset",
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Order the list of items by field(s) separated by commas (ex. 'created_at:desc,name:asc')",
-            "in": "query",
-            "name": "order_by",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Order the list of items by field(s) separated by commas (ex. 'created_at:desc,name:asc')",
-              "title": "Order by"
-            }
-          },
-          {
-            "description": "Delimiter for relation values (one2many, many2many) in export cells",
-            "in": "query",
-            "name": "relation_delimiter",
-            "required": false,
-            "schema": {
-              "$ref": "#/components/schemas/RelationDelimiter",
-              "default": "newline",
-              "description": "Delimiter for relation values (one2many, many2many) in export cells",
-              "title": "Relation delimiter"
-            }
-          },
-          {
-            "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
-            "in": "header",
-            "name": "X-Fields",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
-              "title": "Fields Selector"
-            }
-          },
-          {
-            "description": "Filter the list of items with the filter expression build with rules and conditions",
-            "in": "header",
-            "name": "X-Filter",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Filter the list of items with the filter expression build with rules and conditions",
-              "title": "Filter"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/octet-stream": {
-                "schema": {
-                  "format": "binary",
-                  "type": "string"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          },
-          {
-            "APIKeyHeader": []
-          }
-        ],
-        "summary": "Export QueuedTask items",
-        "tags": [
-          "queued_tasks"
-        ]
-      }
-    },
-    "/api/queued_tasks/import": {
-      "post": {
-        "description": "Import QueuedTask items from a file (CSV, XLSX, ODS)",
-        "operationId": "import_items_api_queued_tasks_import_post",
-        "requestBody": {
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "$ref": "#/components/schemas/ImportItemsBody"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ImportResult"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ImportErrorResponse"
-                }
-              }
-            },
-            "description": "Bad Request"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          },
-          {
-            "APIKeyHeader": []
-          }
-        ],
-        "summary": "Import QueuedTask items",
-        "tags": [
-          "queued_tasks"
-        ]
-      }
-    },
-    "/api/queued_tasks/import/template": {
-      "get": {
-        "description": "Retrieve a import template of QueuedTask",
-        "operationId": "import_template_api_queued_tasks_import_template_get",
-        "parameters": [
-          {
-            "description": "Export format (csv, xlsx, ods)",
-            "in": "query",
-            "name": "format",
-            "required": false,
-            "schema": {
-              "default": "csv",
-              "description": "Export format (csv, xlsx, ods)",
-              "title": "Format",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
-            "in": "header",
-            "name": "X-Fields",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
-              "title": "Fields Selector"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/octet-stream": {
-                "schema": {
-                  "format": "binary",
-                  "type": "string"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          },
-          {
-            "APIKeyHeader": []
-          }
-        ],
-        "summary": "Import template of QueuedTask",
-        "tags": [
-          "queued_tasks"
-        ]
-      }
-    },
-    "/api/queued_tasks/{item_id}": {
-      "delete": {
-        "description": "Delete a QueuedTask by its ID",
-        "operationId": "delete_item_api_queued_tasks__item_id__delete",
-        "parameters": [
-          {
-            "description": "Item ID",
-            "in": "path",
-            "name": "item_id",
-            "required": true,
-            "schema": {
-              "description": "Item ID",
-              "title": "Item Id",
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            },
-            "description": "Item not found"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          },
-          {
-            "APIKeyHeader": []
-          }
-        ],
-        "summary": "Delete QueuedTask",
-        "tags": [
-          "queued_tasks"
-        ]
-      },
-      "get": {
-        "description": "Retrieve a single QueuedTask by its ID",
-        "operationId": "get_item_api_queued_tasks__item_id__get",
-        "parameters": [
-          {
-            "description": "Item ID",
-            "in": "path",
-            "name": "item_id",
-            "required": true,
-            "schema": {
-              "description": "Item ID",
-              "title": "Item Id",
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
-            "in": "header",
-            "name": "X-Fields",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
-              "title": "Fields Selector"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/QueuedTask"
-                    },
-                    {
-                      "additionalProperties": true,
-                      "type": "object"
-                    }
-                  ],
-                  "title": "Response Get Item Api Queued Tasks  Item Id  Get"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            },
-            "description": "Item not found"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          },
-          {
-            "APIKeyHeader": []
-          }
-        ],
-        "summary": "Get QueuedTask",
-        "tags": [
-          "queued_tasks"
-        ]
-      },
-      "patch": {
-        "description": "Update an existing QueuedTask by its ID",
-        "operationId": "patch_item_api_queued_tasks__item_id__patch",
-        "parameters": [
-          {
-            "description": "Item ID",
-            "in": "path",
-            "name": "item_id",
-            "required": true,
-            "schema": {
-              "description": "Item ID",
-              "title": "Item Id",
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
-            "in": "header",
-            "name": "X-Fields",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
-              "title": "Fields Selector"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/QueuedTask-Update"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/QueuedTask"
-                    },
-                    {
-                      "additionalProperties": true,
-                      "type": "object"
-                    }
-                  ],
-                  "title": "Response Patch Item Api Queued Tasks  Item Id  Patch"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            },
-            "description": "Invalid relation operation"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            },
-            "description": "Item not found"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          },
-          {
-            "APIKeyHeader": []
-          }
-        ],
-        "summary": "Update QueuedTask",
-        "tags": [
-          "queued_tasks"
-        ]
-      }
-    },
     "/api/storage/download-url/attachments/{id}": {
       "get": {
         "description": "A signed url opening the attachment without credentials, for an element that cannot send them: a video\nread by ranges. It lasts a few hours.",
@@ -14632,6 +12181,8 @@
             "schema": {
               "anyOf": [
                 {
+                  "maximum": 8192,
+                  "minimum": 1,
                   "type": "integer"
                 },
                 {
@@ -14648,6 +12199,8 @@
             "schema": {
               "anyOf": [
                 {
+                  "maximum": 8192,
+                  "minimum": 1,
                   "type": "integer"
                 },
                 {
@@ -14741,6 +12294,8 @@
             "schema": {
               "anyOf": [
                 {
+                  "maximum": 8192,
+                  "minimum": 1,
                   "type": "integer"
                 },
                 {
@@ -14757,6 +12312,8 @@
             "schema": {
               "anyOf": [
                 {
+                  "maximum": 8192,
+                  "minimum": 1,
                   "type": "integer"
                 },
                 {
@@ -14860,6 +12417,8 @@
             "schema": {
               "anyOf": [
                 {
+                  "maximum": 8192,
+                  "minimum": 1,
                   "type": "integer"
                 },
                 {
@@ -14876,6 +12435,8 @@
             "schema": {
               "anyOf": [
                 {
+                  "maximum": 8192,
+                  "minimum": 1,
                   "type": "integer"
                 },
                 {
@@ -14976,6 +12537,8 @@
             "schema": {
               "anyOf": [
                 {
+                  "maximum": 8192,
+                  "minimum": 1,
                   "type": "integer"
                 },
                 {
@@ -14992,6 +12555,8 @@
             "schema": {
               "anyOf": [
                 {
+                  "maximum": 8192,
+                  "minimum": 1,
                   "type": "integer"
                 },
                 {
@@ -15554,6 +13119,8 @@
             "schema": {
               "anyOf": [
                 {
+                  "maximum": 100000,
+                  "minimum": 0,
                   "type": "integer"
                 },
                 {
@@ -16293,6 +13860,8 @@
             "schema": {
               "anyOf": [
                 {
+                  "maximum": 100000,
+                  "minimum": 0,
                   "type": "integer"
                 },
                 {
@@ -16945,6 +14514,8 @@
             "schema": {
               "anyOf": [
                 {
+                  "maximum": 100000,
+                  "minimum": 0,
                   "type": "integer"
                 },
                 {
@@ -17522,6 +15093,8 @@
             "schema": {
               "anyOf": [
                 {
+                  "maximum": 100000,
+                  "minimum": 0,
                   "type": "integer"
                 },
                 {
@@ -18324,6 +15897,8 @@
             "schema": {
               "anyOf": [
                 {
+                  "maximum": 100000,
+                  "minimum": 0,
                   "type": "integer"
                 },
                 {
@@ -18833,6 +16408,747 @@
         ]
       }
     },
+    "/api/test_folders": {
+      "get": {
+        "description": "Retrieve a paginated list of Folder items",
+        "operationId": "list_items_api_test_folders_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 1000,
+              "minimum": 0,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Order the list of items by field(s) separated by commas (ex. 'created_at:desc,name:asc')",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Order the list of items by field(s) separated by commas (ex. 'created_at:desc,name:asc')",
+              "title": "Order by"
+            }
+          },
+          {
+            "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+            "in": "header",
+            "name": "X-Fields",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+              "title": "Fields Selector"
+            }
+          },
+          {
+            "description": "Filter the list of items with the filter expression build with rules and conditions",
+            "in": "header",
+            "name": "X-Filter",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter the list of items with the filter expression build with rules and conditions",
+              "title": "Filter"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Folder-List"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "List Folder items",
+        "tags": [
+          "test_folders"
+        ]
+      },
+      "post": {
+        "description": "Create a new Folder item",
+        "operationId": "create_item_api_test_folders_post",
+        "parameters": [
+          {
+            "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+            "in": "header",
+            "name": "X-Fields",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+              "title": "Fields Selector"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Folder-Create"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Folder"
+                    },
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    }
+                  ],
+                  "title": "Response Create Item Api Test Folders Post"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            },
+            "description": "Invalid relation operation"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Create Folder",
+        "tags": [
+          "test_folders"
+        ]
+      }
+    },
+    "/api/test_folders/export": {
+      "get": {
+        "description": "Retrieve a export of Folder items",
+        "operationId": "export_items_api_test_folders_export_get",
+        "parameters": [
+          {
+            "description": "Export format (csv, xlsx, ods)",
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "schema": {
+              "default": "csv",
+              "description": "Export format (csv, xlsx, ods)",
+              "title": "Format",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 100000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Limit"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Order the list of items by field(s) separated by commas (ex. 'created_at:desc,name:asc')",
+            "in": "query",
+            "name": "order_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Order the list of items by field(s) separated by commas (ex. 'created_at:desc,name:asc')",
+              "title": "Order by"
+            }
+          },
+          {
+            "description": "Delimiter for relation values (one2many, many2many) in export cells",
+            "in": "query",
+            "name": "relation_delimiter",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/RelationDelimiter",
+              "default": "newline",
+              "description": "Delimiter for relation values (one2many, many2many) in export cells",
+              "title": "Relation delimiter"
+            }
+          },
+          {
+            "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+            "in": "header",
+            "name": "X-Fields",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+              "title": "Fields Selector"
+            }
+          },
+          {
+            "description": "Filter the list of items with the filter expression build with rules and conditions",
+            "in": "header",
+            "name": "X-Filter",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter the list of items with the filter expression build with rules and conditions",
+              "title": "Filter"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Export Folder items",
+        "tags": [
+          "test_folders"
+        ]
+      }
+    },
+    "/api/test_folders/import": {
+      "post": {
+        "description": "Import Folder items from a file (CSV, XLSX, ODS)",
+        "operationId": "import_items_api_test_folders_import_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportItemsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Import Folder items",
+        "tags": [
+          "test_folders"
+        ]
+      }
+    },
+    "/api/test_folders/import/template": {
+      "get": {
+        "description": "Retrieve a import template of Folder",
+        "operationId": "import_template_api_test_folders_import_template_get",
+        "parameters": [
+          {
+            "description": "Export format (csv, xlsx, ods)",
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "schema": {
+              "default": "csv",
+              "description": "Export format (csv, xlsx, ods)",
+              "title": "Format",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+            "in": "header",
+            "name": "X-Fields",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+              "title": "Fields Selector"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Import template of Folder",
+        "tags": [
+          "test_folders"
+        ]
+      }
+    },
+    "/api/test_folders/{item_id}": {
+      "delete": {
+        "description": "Delete a Folder by its ID",
+        "operationId": "delete_item_api_test_folders__item_id__delete",
+        "parameters": [
+          {
+            "description": "Item ID",
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "description": "Item ID",
+              "title": "Item Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            },
+            "description": "Item not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Delete Folder",
+        "tags": [
+          "test_folders"
+        ]
+      },
+      "get": {
+        "description": "Retrieve a single Folder by its ID",
+        "operationId": "get_item_api_test_folders__item_id__get",
+        "parameters": [
+          {
+            "description": "Item ID",
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "description": "Item ID",
+              "title": "Item Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+            "in": "header",
+            "name": "X-Fields",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+              "title": "Fields Selector"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Folder"
+                    },
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    }
+                  ],
+                  "title": "Response Get Item Api Test Folders  Item Id  Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            },
+            "description": "Item not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Get Folder",
+        "tags": [
+          "test_folders"
+        ]
+      },
+      "patch": {
+        "description": "Update an existing Folder by its ID",
+        "operationId": "patch_item_api_test_folders__item_id__patch",
+        "parameters": [
+          {
+            "description": "Item ID",
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "description": "Item ID",
+              "title": "Item Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+            "in": "header",
+            "name": "X-Fields",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Select which fields to include in the response and use dot notation to select nested fields (ex. 'name,company.name')",
+              "title": "Fields Selector"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Folder-Update"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Folder"
+                    },
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    }
+                  ],
+                  "title": "Response Patch Item Api Test Folders  Item Id  Patch"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            },
+            "description": "Invalid relation operation"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            },
+            "description": "Item not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Update Folder",
+        "tags": [
+          "test_folders"
+        ]
+      }
+    },
     "/api/test_notes": {
       "get": {
         "description": "Retrieve a paginated list of Note items",
@@ -19063,6 +17379,8 @@
             "schema": {
               "anyOf": [
                 {
+                  "maximum": 100000,
+                  "minimum": 0,
                   "type": "integer"
                 },
                 {
@@ -19802,6 +18120,8 @@
             "schema": {
               "anyOf": [
                 {
+                  "maximum": 100000,
+                  "minimum": 0,
                   "type": "integer"
                 },
                 {
@@ -20680,6 +19000,8 @@
             "schema": {
               "anyOf": [
                 {
+                  "maximum": 100000,
+                  "minimum": 0,
                   "type": "integer"
                 },
                 {
@@ -21415,6 +19737,8 @@
             "schema": {
               "anyOf": [
                 {
+                  "maximum": 100000,
+                  "minimum": 0,
                   "type": "integer"
                 },
                 {
@@ -22412,6 +20736,8 @@
             "schema": {
               "anyOf": [
                 {
+                  "maximum": 100000,
+                  "minimum": 0,
                   "type": "integer"
                 },
                 {
@@ -23151,6 +21477,8 @@
             "schema": {
               "anyOf": [
                 {
+                  "maximum": 100000,
+                  "minimum": 0,
                   "type": "integer"
                 },
                 {
@@ -23890,6 +22218,8 @@
             "schema": {
               "anyOf": [
                 {
+                  "maximum": 100000,
+                  "minimum": 0,
                   "type": "integer"
                 },
                 {
@@ -24629,6 +22959,8 @@
             "schema": {
               "anyOf": [
                 {
+                  "maximum": 100000,
+                  "minimum": 0,
                   "type": "integer"
                 },
                 {

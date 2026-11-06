@@ -80,8 +80,8 @@ def test_nullable_fk_update_schema_documents_every_input_form(setup_openapi_app:
 
 
 def test_required_fk_create_schema_excludes_null(setup_openapi_app: FastEdgy) -> None:
-    props = _properties(setup_openapi_app.openapi(), "QueuedTaskLog-Create")
-    kinds = _variant_kinds(props["task"])
+    props = _properties(setup_openapi_app.openapi(), "Folder-Create")
+    kinds = _variant_kinds(props["label"])
 
     assert {"int", "ref:ForeignKeyObject", "ref:ForeignKeyOperation"} <= kinds
     assert "null" not in kinds

@@ -47,15 +47,12 @@ async def test_add_task_async_honours_auto_remove(setup_db: FastEdgy) -> None:
     assert "auto_remove" not in removable.kwargs
 
 
-async def test_add_task_async_serializes_local_function(setup_db: FastEdgy) -> None:
+async def test_add_task_async_refuses_a_local_function(setup_db: FastEdgy) -> None:
     def local_add(a: int, b: int) -> int:
         return a + b
 
-    task = await queue().add_task_async(local_add, 1, 2)
-
-    assert task.serialized_function is not None
-    assert task.module_name is None
-    assert task.function_name is None
+    with pytest.raises(ValueError):
+        await queue().add_task_async(local_add, 1, 2)
 
 
 async def test_add_task_async_rejects_instance_methods(setup_db: FastEdgy) -> None:

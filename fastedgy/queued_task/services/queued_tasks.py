@@ -15,13 +15,12 @@ from typing import (
     cast,
 )
 
-import dill
-
 from fastedgy import context
 from fastedgy import context as fastedgy_context
 from fastedgy.dependencies import Inject, get_service
 from fastedgy.lifecycle import AppLifecycle
 from fastedgy.orm import Registry
+from fastedgy.queued_task.callables import TaskFunctionError, resolve_task_function
 from fastedgy.queued_task.models.queued_task import QueuedTaskState
 from fastedgy.queued_task.services.queue_hooks import QueueHookRegistry
 from fastedgy.queued_task.services.queued_task_ref import QueuedTaskRef
@@ -41,6 +40,16 @@ class SerializableCallable(Protocol):
     __name__: str
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any: ...
+
+
+def _task_reference(func: Callable[..., Any]) -> tuple[str, str]:
+    module_name = getattr(func, "__module__", None)
+    function_name = getattr(func, "__name__", None)
+
+    if not module_name or not function_name or resolve_task_function(module_name, function_name) is not func:
+        raise TaskFunctionError(f"{func} is not a function of a task module")
+
+    return module_name, function_name
 
 
 @dataclass
@@ -110,6 +119,8 @@ class QueuedTasks:
         # Validation: No instance methods
         if hasattr(func, "__self__"):
             raise ValueError(f"Instance methods are not supported: {func}")
+
+        _task_reference(func)
 
         # Validation: Serializable arguments
         try:
@@ -195,32 +206,7 @@ class QueuedTasks:
         args = request.args
         kwargs = request.kwargs
 
-        # Determine if function can be imported normally
-        is_local_function = False
-        module_name = None
-        function_name = None
-        serialized_function = None
-
-        if hasattr(func, "__module__") and hasattr(func, "__name__"):
-            try:
-                # Test if function can be imported
-                import importlib
-
-                module = importlib.import_module(func.__module__)
-                getattr(module, func.__name__)
-                # If we reach here, function is importable
-                module_name = func.__module__
-                function_name = func.__name__
-            except ImportError, AttributeError:
-                # Function is local or not importable, use dill
-                is_local_function = True
-        else:
-            # Function doesn't have module/name, must serialize
-            is_local_function = True
-
-        if is_local_function:
-            # Serialize the function with dill
-            serialized_function = dill.dumps(func)
+        module_name, function_name = _task_reference(func)
 
         # Get parent task if specified
         parent_task = None
@@ -233,7 +219,6 @@ class QueuedTasks:
         task = await self.create_task(
             module_name=module_name,
             function_name=function_name,
-            serialized_function=serialized_function,
             args=args,
             kwargs=kwargs,
             parent_task=parent_task,
@@ -268,6 +253,8 @@ class QueuedTasks:
         if hasattr(func, "__self__"):
             raise ValueError(f"Instance methods are not supported: {func}")
 
+        _task_reference(func)
+
         # Validation: Serializable arguments
         try:
             json.dumps({"args": args, "kwargs": kwargs})
@@ -297,38 +284,11 @@ class QueuedTasks:
     ):
         """Create queued task - supports both regular and local functions"""
         try:
-            # Try to determine if function can be imported normally
-            is_local_function = False
-            module_name = None
-            function_name = None
-            serialized_function = None
-
-            if hasattr(func, "__module__") and hasattr(func, "__name__"):
-                try:
-                    # Test if function can be imported
-                    import importlib
-
-                    module = importlib.import_module(func.__module__)
-                    getattr(module, func.__name__)
-                    # If we reach here, function is importable
-                    module_name = func.__module__
-                    function_name = func.__name__
-                except ImportError, AttributeError:
-                    # Function is local or not importable, use dill
-                    is_local_function = True
-            else:
-                # Function doesn't have module/name, must serialize
-                is_local_function = True
-
-            if is_local_function:
-                # Serialize the function with dill
-                serialized_function = dill.dumps(func)
-                logger.debug(f"Serialized local function: {getattr(func, '__name__', 'unnamed')}")
+            module_name, function_name = _task_reference(func)
 
             task = await self.create_task(
                 module_name=module_name,
                 function_name=function_name,
-                serialized_function=serialized_function,
                 args=list(args),
                 kwargs=dict(kwargs),
                 max_retries=max_retries,
@@ -345,9 +305,8 @@ class QueuedTasks:
 
     async def create_task(
         self,
-        module_name: str | None = None,
-        function_name: str | None = None,
-        serialized_function: bytes | None = None,
+        module_name: str,
+        function_name: str,
         args: list[Any] | None = None,
         kwargs: dict[str, Any] | None = None,
         context: dict[str, Any] | None = None,
@@ -360,16 +319,13 @@ class QueuedTasks:
         priority: int | None = None,
     ) -> "QueuedTask":
         """Create a new task in the queue"""
-        # Validation: must have either module/function or serialized function
-        if not serialized_function and (not module_name or not function_name):
-            raise ValueError("Must provide either (module_name, function_name) or serialized_function")
+        resolve_task_function(module_name, function_name)
 
         QueuedTask = cast(type["QueuedTask"], self.registry.get_model("QueuedTask"))
         task = QueuedTask(
             name=name,
             module_name=module_name,
             function_name=function_name,
-            serialized_function=serialized_function,
             args=args or [],
             kwargs=kwargs or {},
             context=context or {},
@@ -450,9 +406,8 @@ class QueuedTasks:
     async def create_child_task(
         self,
         parent_task_id: int,
-        module_name: str | None = None,
-        function_name: str | None = None,
-        serialized_function: bytes | None = None,
+        module_name: str,
+        function_name: str,
         args: list[Any] | None = None,
         kwargs: dict[str, Any] | None = None,
         context: dict[str, Any] | None = None,
@@ -467,7 +422,6 @@ class QueuedTasks:
         return await self.create_task(
             module_name=module_name,
             function_name=function_name,
-            serialized_function=serialized_function,
             args=args,
             kwargs=kwargs,
             context=context,
@@ -492,43 +446,17 @@ class QueuedTasks:
         if hasattr(func, "__self__"):
             raise ValueError(f"Instance methods are not supported: {func}")
 
+        module_name, function_name = _task_reference(func)
+
         # Validation: Serializable arguments
         try:
             json.dumps({"args": args, "kwargs": kwargs})
         except (TypeError, ValueError) as e:
             raise ValueError(f"Non-serializable arguments for {func.__name__}: {e}")
 
-        # Try to determine if function can be imported normally
-        is_local_function = False
-        module_name = None
-        function_name = None
-        serialized_function = None
-
-        if hasattr(func, "__module__") and hasattr(func, "__name__"):
-            try:
-                # Test if function can be imported
-                import importlib
-
-                module = importlib.import_module(func.__module__)
-                getattr(module, func.__name__)
-                # If we reach here, function is importable
-                module_name = func.__module__
-                function_name = func.__name__
-            except ImportError, AttributeError:
-                # Function is local or not importable, use dill
-                is_local_function = True
-        else:
-            # Function doesn't have module/name, must serialize
-            is_local_function = True
-
-        if is_local_function:
-            # Serialize the function with dill
-            serialized_function = dill.dumps(func)
-
         return await self.create_task(
             module_name=module_name,
             function_name=function_name,
-            serialized_function=serialized_function,
             args=list(args),
             kwargs=dict(kwargs),
             parent_task=parent_task,
@@ -581,9 +509,6 @@ class QueuedTasks:
                 name=f"{task.name}_retry",
                 module_name=task.module_name,
                 function_name=task.function_name,
-                # Without it, the clone of a dill-serialized task has neither
-                # module/function nor blob and systematically fails at run.
-                serialized_function=task.serialized_function,
                 args=task.args,
                 kwargs=task.kwargs,
                 context=task.context.copy() if task.context else {},

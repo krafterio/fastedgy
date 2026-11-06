@@ -13,8 +13,8 @@ from fastedgy.api_route_model.action.generators import (
     ForeignKeyOperation,
 )
 from fastedgy.app import FastEdgy
+from fastedgy.test.models.folder import Folder
 from fastedgy.test.models.product import Product
-from fastedgy.test.models.queued_task_log import QueuedTaskLog
 
 
 def test_input_nullable_fk_accepts_id_object_operation_or_null(setup_openapi_app: FastEdgy) -> None:
@@ -39,8 +39,8 @@ def test_input_patch_fk_accepts_null_to_unlink(setup_openapi_app: FastEdgy) -> N
 
 
 def test_input_required_fk_excludes_null(setup_openapi_app: FastEdgy) -> None:
-    # task is a required foreign key: it cannot be unlinked, so null is not allowed.
-    annotation = generate_input_create_model(QueuedTaskLog).model_fields["task"].annotation
+    # label is a required foreign key: it cannot be unlinked, so null is not allowed.
+    annotation = generate_input_create_model(Folder).model_fields["label"].annotation
     args = get_args(annotation)
 
     assert annotation is ForeignKeyInput or (int in args and type(None) not in args)

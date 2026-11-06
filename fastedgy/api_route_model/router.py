@@ -35,6 +35,7 @@ def register_api_route_models(
     """
 
     _resolve_generic_references(registry)
+    _refuse_queued_task_routes(registry)
 
     routers = get_all_generated_routers(registry, tags=tags)
 
@@ -62,6 +63,20 @@ def _resolve_generic_references(registry: type[RouteModelRegistry] | Token[Route
                     cast(Any, field).targets()
                 except ValueError as e:
                     logger.warning(f"Could not resolve generic reference targets on {model_cls.__name__}: {e}")
+
+
+def _refuse_queued_task_routes(registry: type[RouteModelRegistry] | Token[RouteModelRegistry]) -> None:
+    from fastedgy.models.queued_task import BaseQueuedTask
+
+    for model_cls in list(get_service(registry).get_registered_models()):
+        if issubclass(model_cls, BaseQueuedTask):
+            raise TypeError(f"{model_cls.__name__} is a queued task, which gets no generated route")
+
+        for name, field in model_cls.meta.fields.items():
+            target = getattr(field, "target", None)
+
+            if isinstance(target, type) and issubclass(target, BaseQueuedTask) and not getattr(field, "exclude", False):
+                raise TypeError(f"{model_cls.__name__}.{name} leads to a queued task and must be declared exclude=True")
 
 
 def register_console_api_route_models(router: APIRouter) -> None:

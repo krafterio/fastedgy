@@ -3,7 +3,6 @@
 
 import asyncio
 import contextvars
-import importlib
 import inspect
 import logging
 import random
@@ -11,11 +10,10 @@ import traceback
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, cast
 
-import dill
-
 from fastedgy import context
 from fastedgy.dependencies import get_service
 from fastedgy.orm import Registry
+from fastedgy.queued_task.callables import TaskFunctionError, resolve_task_function
 from fastedgy.queued_task.config import QueuedTaskConfig
 from fastedgy.queued_task.context import TaskContext
 from fastedgy.queued_task.models.queued_task import QueuedTaskState
@@ -356,27 +354,10 @@ class QueueWorker:
     async def _execute_task_function(self, task: "QueuedTask") -> Any:
         """Load and execute the task function with proper context"""
 
-        # Load function: either from module or from serialized data
         if task.serialized_function:
-            # Deserialize local function with dill
-            logger.debug(f"Deserializing local function for task {task.id}")
-            try:
-                func = dill.loads(task.serialized_function)
-                logger.debug(f"Function deserialized: {func}, is_coroutine: {inspect.iscoroutinefunction(func)}")
-            except Exception as e:
-                raise RuntimeError(f"Failed to deserialize function: {e}")
-        else:
-            # Load from module
-            logger.debug(f"Loading module '{task.module_name}' and function '{task.function_name}'")
-            try:
-                module = importlib.import_module(str(task.module_name))
-                logger.debug(f"Module loaded: {module}")
-                func = getattr(module, str(task.function_name))
-                logger.debug(f"Function loaded: {func}, is_coroutine: {inspect.iscoroutinefunction(func)}")
-            except ImportError as e:
-                raise ImportError(f"Cannot import module '{task.module_name}': {e}")
-            except AttributeError as e:
-                raise AttributeError(f"Function '{task.function_name}' not found in module '{task.module_name}': {e}")
+            raise TaskFunctionError(f"Task {task.id} holds a serialized function, which is not run")
+
+        func = resolve_task_function(str(task.module_name), str(task.function_name))
 
         if not callable(func):
             func_name = getattr(func, "__name__", "unnamed")

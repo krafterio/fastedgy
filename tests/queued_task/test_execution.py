@@ -62,3 +62,26 @@ async def test_a_task_runs_in_the_locale_it_was_enqueued_in(setup_db: FastEdgy) 
 
     assert result["result"] == "fr"
     assert context.get_locale() == context.get_fallback_locale()
+
+
+async def test_a_row_naming_a_function_outside_the_task_modules_runs_nothing(setup_db: FastEdgy) -> None:
+    from fastedgy.test.models.queued_task import QueuedTask
+
+    for module_name, function_name, serialized in (
+        ("os", "system", None),
+        ("fastedgy.test.tasks", "add_numbers", b"x"),
+    ):
+        row = QueuedTask(
+            module_name=module_name,
+            function_name=function_name,
+            serialized_function=serialized,
+            args=["true"],
+            state=QueuedTaskState.enqueued,
+            max_retries=0,
+        )
+        await row.save()
+
+        result, reloaded = await run_task_now(row)
+
+        assert result["status"] == "error"
+        assert reloaded.exception_name == "TaskFunctionError"

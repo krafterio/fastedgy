@@ -8,6 +8,7 @@ from fastedgy.test.models.category import Category
 from fastedgy.test.models.comment import Comment
 from fastedgy.test.models.course import Course
 from fastedgy.test.models.entry import Entry
+from fastedgy.test.models.folder import Folder
 from fastedgy.test.models.fs_optimize import (
     FsoBrand,
     FsoCategory,
@@ -87,6 +88,7 @@ __all__ = [
     "Comment",
     "Course",
     "Entry",
+    "Folder",
     "FsoBrand",
     "FsoCategory",
     "FsoProduct",

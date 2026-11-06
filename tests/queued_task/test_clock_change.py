@@ -78,6 +78,6 @@ async def test_a_task_delayed_an_hour_runs_an_hour_later_across_the_autumn_chang
     monkeypatch.setattr(fastedgy_context, "get_timezone", lambda: PARIS)
     monkeypatch.setattr(scheduler_module, "datetime", _frozen_at(datetime(2026, 10, 25, 0, 30, tzinfo=UTC)))
 
-    task = await get_service(Scheduler).schedule("os.getcwd", run_at=timedelta(hours=1))
+    task = await get_service(Scheduler).schedule("fastedgy.test.tasks.add_numbers", run_at=timedelta(hours=1))
 
     assert task.date_enqueued == datetime(2026, 10, 25, 1, 30, tzinfo=UTC)

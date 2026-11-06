@@ -64,25 +64,24 @@ async def manage_tasks(tasks: QueuedTasks = Inject(QueuedTasks)):
         return {"cancelled": True}
 ```
 
-## Local Functions
+## Task Functions
 
-Queue locally defined functions:
+A task is stored as the module and the name of its function, and the worker imports that function again to run it. It must therefore be a module-level function, of the application code (under the server directory) or of a `fastedgy` / `fastedgy_*` package. A local function, a closure, a lambda, a bound method or a `functools.partial` is refused by `add_task`, and so is a function a module only imports from elsewhere:
 
 ```python
-@router.post("/dynamic-task")
-async def create_dynamic_task(config: dict, tasks: QueuedTasks = Inject(QueuedTasks)):
-    # Define function based on request
-    async def dynamic_processing(items: list):
-        for item in items:
-            if config.get("encrypt"):
-                item = encrypt_item(item)
-            await process_item(item)
-        return {"processed": len(items)}
+# services/reports.py
+async def build_report(report_id: int, encrypt: bool) -> dict:
+    ...
 
-    # Queue the local function - it will be serialized automatically
-    task_ref = tasks.add_task(dynamic_processing, config["items"])
+
+@router.post("/reports/{report_id}/build")
+async def create_report_task(report_id: int, config: dict, tasks: QueuedTasks = Inject(QueuedTasks)):
+    # Pass what varies per request as arguments, not through a closure
+    task_ref = tasks.add_task(build_report, report_id, config.get("encrypt", False))
     return {"task_id": await task_ref.get_task_id()}
 ```
+
+A queued task model gets no generated route (`api_route_model`, console included), and a foreign key leading to one is declared `exclude=True` on any model that has routes: the application fails to start otherwise.
 
 ## Complex Context Management
 

@@ -10,8 +10,8 @@ from fastedgy.api_route_model.action import (
 )
 from fastedgy.app import FastEdgy
 from fastedgy.test.models.category import Category
+from fastedgy.test.models.folder import Folder
 from fastedgy.test.models.product import Product
-from fastedgy.test.models.queued_task import QueuedTask
 from fastedgy.test.models.workspace import Workspace
 
 
@@ -30,14 +30,16 @@ def _input_models(model_cls):
 
 
 def test_auto_generated_reverse_relation_is_hidden(setup_openapi_app: FastEdgy) -> None:
-    # `queuedtasks_set` is Edgy's auto-generated reverse accessor for the self
+    # `folders_set` is Edgy's auto-generated reverse accessor for the self
     # foreign key; it is an ORM internal and must stay out of the API schemas.
-    assert "queuedtasks_set" not in _output_schema_props(setup_openapi_app, "QueuedTask")
-    assert "logs" in _output_schema_props(setup_openapi_app, "QueuedTask")
+    assert "folders_set" not in _output_schema_props(setup_openapi_app, "Folder")
+    assert "folders" in _output_schema_props(setup_openapi_app, "Category")
 
-    for generated in _input_models(QueuedTask):
-        assert "queuedtasks_set" not in generated.model_fields
-        assert "logs" in generated.model_fields
+    for generated in _input_models(Folder):
+        assert "folders_set" not in generated.model_fields
+
+    for generated in _input_models(Category):
+        assert "folders" in generated.model_fields
 
 
 def test_disabled_reverse_relation_is_hidden(setup_openapi_app: FastEdgy) -> None:
@@ -82,8 +84,26 @@ def test_a_body_built_before_the_registration_is_not_kept(
 
 
 def test_is_exposed_relation_field_classification(setup_openapi_app: FastEdgy) -> None:
-    assert is_exposed_relation_field(QueuedTask.model_fields["logs"]) is True
-    assert is_exposed_relation_field(QueuedTask.model_fields["queuedtasks_set"]) is False
+    assert is_exposed_relation_field(Category.model_fields["folders"]) is True
+    assert is_exposed_relation_field(Folder.model_fields["folders_set"]) is False
     assert "+" not in Workspace.model_fields
     assert is_exposed_relation_field(Product.model_fields["tags"]) is True
     assert is_exposed_relation_field(Product.model_fields["name"]) is False
+
+
+def test_a_queued_task_gets_no_generated_route(setup_openapi_app: FastEdgy) -> None:
+    from fastapi import APIRouter
+
+    from fastedgy.api_route_model.registry import RouteModelRegistry
+    from fastedgy.api_route_model.router import register_api_route_models
+    from fastedgy.dependencies import get_service
+    from fastedgy.test.models.queued_task import QueuedTask
+
+    registry = get_service(RouteModelRegistry)
+    registry.register_model(QueuedTask)
+
+    try:
+        with pytest.raises(TypeError):
+            register_api_route_models(APIRouter())
+    finally:
+        registry.get_registered_models().pop(QueuedTask)

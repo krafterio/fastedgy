@@ -18,9 +18,15 @@ async def test_create_task_with_module_and_function(setup_db: FastEdgy) -> None:
     assert task.date_enqueued is not None
 
 
-async def test_create_task_requires_a_callable_reference(setup_db: FastEdgy) -> None:
+@pytest.mark.parametrize(
+    ("module_name", "function_name"),
+    [("os", "system"), ("subprocess", "run"), ("fastedgy.config", "cached_property"), ("fastedgy.test.tasks", "nope")],
+)
+async def test_create_task_takes_a_function_of_a_task_module_only(
+    setup_db: FastEdgy, module_name: str, function_name: str
+) -> None:
     with pytest.raises(ValueError):
-        await queue().create_task(args=[1])
+        await queue().create_task(module_name=module_name, function_name=function_name, args=["true"])
 
 
 async def test_create_task_preserves_context_and_adds_workspace_keys(setup_db: FastEdgy) -> None:
@@ -42,7 +48,7 @@ async def test_create_task_sets_auto_remove(setup_db: FastEdgy) -> None:
 
 
 async def test_create_task_keeps_an_explicit_name(setup_db: FastEdgy) -> None:
-    task = await queue().create_task(module_name="module", function_name="func", name="custom-name")
+    task = await queue().create_task(module_name="fastedgy.test.tasks", function_name="add_numbers", name="custom-name")
 
     assert task.name == "custom-name"
 

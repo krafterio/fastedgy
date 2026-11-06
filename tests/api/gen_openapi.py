@@ -1,6 +1,7 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+import os
 from pathlib import Path
 
 from fastedgy.test.app import build_app, dump_openapi
@@ -11,6 +12,7 @@ SNAPSHOT_PATH = Path(__file__).resolve().parent / "snapshots" / "openapi.json"
 
 def main() -> None:
     configure_database_env("snapshot")
+    os.environ.setdefault("AUTH_SECRET_KEY", "fastedgy-test-secret-key-of-32-bytes")
 
     content = dump_openapi(build_app())
 

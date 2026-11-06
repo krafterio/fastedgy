@@ -325,6 +325,8 @@ file=@products.csv
 delimiter=;
 ```
 
+Each row is written through the model's `save()`, as a route write is: its access guards, the visibility of the records it references and its workspace apply. A column of a field the API hides (`exclude`, `secret`) is ignored, never used to find a record either, and a related record is looked up through its model's own query, so a row links only what the caller may read.
+
 A CSV is read as UTF-8, or as cp1252 when it is not valid UTF-8, the encoding of spreadsheets saved on Windows. Its delimiter is detected among `;`, `,`, tab and `|` when `delimiter` is absent; pass it for any other character.
 
 The same helpers serve a route that reads a CSV of its own:

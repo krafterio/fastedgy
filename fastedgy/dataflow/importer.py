@@ -421,6 +421,10 @@ async def parse_ods_file(file: "UploadFile") -> list[list[str]]:
     return [[str(cell) if cell is not None else "" for cell in row] for row in rows]
 
 
+def _is_hidden(field: Any) -> bool:
+    return bool(getattr(field, "exclude", False) or getattr(field, "secret", False))
+
+
 def map_columns(headers: list[str], model_cls: "type[Model]") -> dict[str, str]:
     """
     Map column headers to field names (technical or label).
@@ -573,7 +577,7 @@ def detect_identifier_field(model_cls: "type[Model]", field_mapping: dict[str, s
 
     # Check for unique fields
     for field_name, field in model_cls.meta.fields.items():
-        if field_name in mapped_fields and getattr(field, "unique", False):
+        if field_name in mapped_fields and getattr(field, "unique", False) and not _is_hidden(field):
             return field_name
 
     return None
@@ -680,10 +684,13 @@ async def process_row(
 
         # Handle nested fields (relations)
         if "." in field_name:
+            if _is_hidden(model_cls.meta.fields.get(field_name.split(".", 1)[0])):
+                continue
+
             await process_relational_field(model_cls, field_name, value, model_data, relational_data)
         else:
             field = model_cls.meta.fields.get(field_name)
-            if not field:
+            if not field or _is_hidden(field):
                 continue
 
             # Check if it's a direct relational field (Many2one, Many2many, One2many)
@@ -699,15 +706,10 @@ async def process_row(
     if existing_record and identifier_field is not None:
         # UPDATE using query.update() for proper transaction handling
         try:
-            q = query or model_cls.query
-            await q.filter(R(identifier_field, "=", identifier_value), allow_excluded=True).update(**model_data)
+            if model_data:
+                await existing_record.save(values=model_data)
 
-            # Refresh the record to get updated values
-            existing_record = await q.filter(R(identifier_field, "=", identifier_value), allow_excluded=True).first()
-
-            # Handle relational fields
-            if existing_record:
-                await process_relational_data(existing_record, relational_data)
+            await process_relational_data(existing_record, relational_data)
         except (IntegrityError, DataError, ProgrammingError) as e:
             raise ValueError(_format_db_error_message(e, model_cls))
 
@@ -724,8 +726,8 @@ async def process_row(
 
         # CREATE using query.create() for proper transaction handling
         try:
-            q = query or model_cls.query
-            record = await q.create(**model_data)
+            record = model_cls(**model_data)
+            await record.save()
 
             # Handle relational fields
             await process_relational_data(record, relational_data)
@@ -821,17 +823,22 @@ async def resolve_relation_value(field, value: str, unique_field: str = "id") ->
     else:
         return None
 
-    # Try to convert value to appropriate type
     if unique_field == "id":
-        # Direct ID lookup
         try:
-            return int(value)
+            key = int(value)
         except ValueError, TypeError:
             return None
-    else:
-        # Lookup by unique field
-        record = await related_model.query.filter(**{unique_field: value}).first()
-        return record.id if record else None
+
+        return key if await related_model.query.filter(R("id", "=", key)).exists() else None
+
+    lookup = related_model.meta.fields.get(unique_field)
+
+    if lookup is None or _is_hidden(lookup):
+        return None
+
+    record = await related_model.query.filter(R(unique_field, "=", value)).first()
+
+    return record.id if record else None
 
 
 async def process_relational_data(record: "Model", relational_data: dict[str, Any]) -> None:

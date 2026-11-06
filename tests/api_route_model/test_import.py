@@ -1,6 +1,8 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+from types import SimpleNamespace
+
 import httpx
 
 from fastedgy.app import FastEdgy
@@ -88,3 +90,30 @@ async def test_import_refuses_a_delimiter_longer_than_a_character(auth_http: htt
     )
 
     assert response.status_code == 422
+
+
+async def test_an_import_writes_no_hidden_column(auth_http: httpx.AsyncClient) -> None:
+    from fastedgy.orm.filter import R
+    from fastedgy.test.models.product import Product
+
+    response = await auth_http.post(
+        "/api/test_products/import",
+        files={"file": ("data.csv", "name,price,secret_code\nWidget,9.99,TOP-SECRET\n", "text/csv")},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["created"] == 1
+    product = await Product.global_query.filter(R("name", "=", "Widget")).get()
+    assert product.secret_code is None
+
+
+async def test_an_import_finds_no_record_by_a_hidden_column(auth_http: httpx.AsyncClient) -> None:
+    from fastedgy.dataflow.importer import resolve_relation_value
+    from fastedgy.test.models.product import Product
+
+    await Product.query.create(name="Widget", price="9.99", secret_code="TOP-SECRET")
+
+    relation = SimpleNamespace(target=Product)
+
+    assert await resolve_relation_value(relation, "Widget", "name") is not None
+    assert await resolve_relation_value(relation, "TOP-SECRET", "secret_code") is None

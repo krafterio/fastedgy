@@ -123,3 +123,11 @@ async def test_every_catalog_of_fastedgy_translates_every_message(setup_db: Fast
             for message in messages
             if set(placeholder.findall(message)) != set(placeholder.findall(str(catalog[message])))
         ], po_file.name
+
+
+def test_an_accept_language_entry_with_an_unreadable_quality_is_skipped() -> None:
+    from fastedgy.i18n.middleware import LocaleMiddleware
+
+    parsed = LocaleMiddleware._parse_accept_language(LocaleMiddleware.__new__(LocaleMiddleware), "fr;q=x, en;q=0.5")
+
+    assert parsed == [("en", 0.5)]

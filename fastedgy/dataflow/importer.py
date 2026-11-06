@@ -371,9 +371,26 @@ def detect_csv_delimiter(text: str) -> str:
     return best
 
 
+IMPORT_MAX_BYTES = 20 * 1024 * 1024
+
+
+async def _read_bounded(file: "UploadFile") -> bytes:
+    content = await file.read(IMPORT_MAX_BYTES + 1)
+
+    if len(content) > IMPORT_MAX_BYTES:
+        from fastapi import HTTPException
+
+        raise HTTPException(
+            status_code=413,
+            detail=_t("The file is larger than {size} MB", size=IMPORT_MAX_BYTES // (1024 * 1024)),
+        )
+
+    return content
+
+
 async def parse_csv_file(file: "UploadFile", delimiter: str | None = None) -> list[list[str]]:
     """Parse CSV file and return rows, split on the given delimiter or on the one the file uses."""
-    text = decode_csv_content(await file.read())
+    text = decode_csv_content(await _read_bounded(file))
     return list(csv.reader(io.StringIO(text), delimiter=delimiter or detect_csv_delimiter(text)))
 
 
@@ -386,7 +403,7 @@ async def parse_xlsx_file(file: "UploadFile") -> list[list[str]]:
     except ImportError:
         raise HTTPException(status_code=500, detail=_t("openpyxl library is not installed"))
 
-    content = await file.read()
+    content = await _read_bounded(file)
     wb = openpyxl.load_workbook(io.BytesIO(content), read_only=True)
     ws = wb.active
 
@@ -410,7 +427,7 @@ async def parse_ods_file(file: "UploadFile") -> list[list[str]]:
     except ImportError:
         raise HTTPException(status_code=500, detail=_t("pyexcel-ods library is not installed"))
 
-    content = await file.read()
+    content = await _read_bounded(file)
     data = get_data(io.BytesIO(content))
 
     # Get first sheet

@@ -170,6 +170,11 @@ def _is_valid_field_path(model_cls: type[Model], field_path: str) -> bool:
             if hasattr(field, "getter"):
                 return False
 
+            is_relation = hasattr(field, "target") or hasattr(field, "related_from")
+
+            if not is_relation and (getattr(field, "exclude", False) or getattr(field, "secret", False)):
+                return False
+
             # Accept FulltextField (dynamic columns, ordered via extra_select rank)
             if getattr(field, "is_fulltext_field", False):
                 return True

@@ -257,8 +257,15 @@ def format_value(value: Any, relation_delimiter: RelationDelimiter = RelationDel
             h = html2text.HTML2Text()
             h.ignore_links = True
             h.ignore_images = True
-            return h.handle(text_value).strip()
-        return text_value
+            text_value = h.handle(text_value).strip()
+        return _as_text(text_value)
+
+
+_FORMULA_STARTS = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _as_text(text: str) -> str:
+    return f"'{text}" if text.startswith(_FORMULA_STARTS) else text
 
 
 def generate_csv_export(field_names: list[str], data_rows: list[list[str]], filename: str) -> StreamingResponse:

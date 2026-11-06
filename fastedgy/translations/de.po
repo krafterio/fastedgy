@@ -182,6 +182,9 @@ msgstr "Die Datei hat kein aktives Arbeitsblatt"
 msgid "File is empty or has no data rows"
 msgstr "Die Datei ist leer oder enthält keine Datenzeilen"
 
+msgid "The file is larger than {size} MB"
+msgstr "Die Datei ist größer als {size} MB"
+
 msgid "File is not a valid upload file"
 msgstr "Die Datei ist keine gültige hochgeladene Datei"
 

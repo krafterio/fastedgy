@@ -74,7 +74,7 @@ def generate_export_items[M: BaseModel | BaseView](
     async def export_items(
         request: Request,
         format: str = Query("csv", description="Export format (csv, xlsx, ods)"),
-        limit: int | None = Query(None),
+        limit: int | None = Query(None, ge=0, le=100_000),
         offset: int = Query(0, ge=0),
         order_by: str | None = OrderByQuery(),
         fields: str | None = FieldSelectorHeader(),

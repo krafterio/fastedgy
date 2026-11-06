@@ -182,6 +182,9 @@ msgstr "Il file non ha un foglio attivo"
 msgid "File is empty or has no data rows"
 msgstr "Il file è vuoto o non contiene righe di dati"
 
+msgid "The file is larger than {size} MB"
+msgstr "Il file supera {size} MB"
+
 msgid "File is not a valid upload file"
 msgstr "Il file non è un file caricato valido"
 

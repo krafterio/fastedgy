@@ -12,3 +12,12 @@ async def test_parse_directions_default_to_asc(setup_db: FastEdgy) -> None:
 
 async def test_parse_none_returns_empty_list(setup_db: FastEdgy) -> None:
     assert parse_order_by(Product, None) == []
+
+
+def test_an_ordering_by_a_hidden_field_is_dropped(setup_db) -> None:
+    from fastedgy.orm.order_by import parse_order_by
+    from fastedgy.test.models.product import Product
+    from fastedgy.test.models.user import User
+
+    assert parse_order_by(Product, "secret_code:desc,name") == [("name", "asc")]
+    assert parse_order_by(User, "password,reset_pwd_token,email:desc") == [("email", "desc")]

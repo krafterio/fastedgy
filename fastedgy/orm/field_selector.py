@@ -12,6 +12,8 @@ from fastedgy.orm.query import QuerySet
 from fastedgy.orm.readable import confine_reads
 from fastedgy.orm.utils import extract_field_names, find_primary_key_field
 
+FIELD_SELECTOR_MAX_DEPTH = 8
+
 
 def parse_field_selector_input(
     model_cls: type[BaseModelType], fields_expr: str | list[str] | None
@@ -57,6 +59,10 @@ def parse_field_selector_input(
 
         # Handle nested fields (e.g., "owner.name")
         field_path = part.split(".")
+
+        if len(field_path) > FIELD_SELECTOR_MAX_DEPTH:
+            continue
+
         current = result
         current_model = model_cls
 

@@ -84,3 +84,13 @@ async def test_serialize_reads_a_relation_written_in_the_same_transaction(setup_
     dump = await with_transaction(op)
 
     assert dump["category"]["name"] == "Tools"
+
+
+async def test_parse_ignores_a_path_deeper_than_the_selector_depth(setup_db: FastEdgy) -> None:
+    from fastedgy.test.models.course import Course
+
+    kept = parse_field_selector_input(Course, "category.courses.category.name")
+    deep = parse_field_selector_input(Course, ".".join(["category", "courses"] * 4) + ".name")
+
+    assert kept is not None and "category" in kept
+    assert deep == {"id": True}

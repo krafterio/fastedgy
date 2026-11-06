@@ -55,7 +55,10 @@ class LocaleMiddleware(BaseHTTPMiddleware):
         for item in header.split(","):
             parts = item.strip().split(";q=")
             locale = parts[0].strip()
-            quality = 1.0 if len(parts) == 1 else float(parts[1])
+            try:
+                quality = 1.0 if len(parts) == 1 else float(parts[1])
+            except ValueError:
+                continue
             locales.append((locale, quality))
 
         return sorted(locales, key=lambda x: x[1], reverse=True)

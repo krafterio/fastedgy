@@ -182,6 +182,9 @@ msgstr "Le fichier n'a pas de feuille active"
 msgid "File is empty or has no data rows"
 msgstr "Le fichier est vide ou ne contient aucune ligne de données"
 
+msgid "The file is larger than {size} MB"
+msgstr "Le fichier dépasse {size} Mo"
+
 msgid "File is not a valid upload file"
 msgstr "Le fichier n'est pas un fichier téléversé valide"
 

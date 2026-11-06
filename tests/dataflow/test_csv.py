@@ -52,3 +52,17 @@ async def test_a_given_delimiter_wins_over_the_detected_one() -> None:
     rows = await parse_csv_file(_upload(b"a;b,c\n1;2,3\n"), delimiter=",")
 
     assert rows == [["a;b", "c"], ["1;2", "3"]]
+
+
+async def test_a_file_over_the_import_size_is_refused(monkeypatch) -> None:
+    import pytest
+    from fastapi import HTTPException
+
+    from fastedgy.dataflow import importer
+
+    monkeypatch.setattr(importer, "IMPORT_MAX_BYTES", 16)
+
+    with pytest.raises(HTTPException) as raised:
+        await parse_csv_file(_upload(b"a;b\n" * 10))
+
+    assert raised.value.status_code == 413

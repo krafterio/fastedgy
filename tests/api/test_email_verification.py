@@ -14,6 +14,7 @@ from fastedgy.config import BaseSettings
 from fastedgy.dependencies import get_service
 from fastedgy.depends.security import create_email_verification_token
 from fastedgy.mail import Mail, MockAdapter
+from fastedgy.orm.filter import R
 from fastedgy.test.factories import create_user, use_request
 from fastedgy.test.models.user import User
 
@@ -156,3 +157,19 @@ async def test_a_verification_email_that_cannot_be_sent_is_logged(
     await send_email_verification(user, get_service(Mail), "https://app.example.io", locale="xx")
 
     assert "Could not send the email verification" in caplog.text
+
+
+async def test_a_registration_sends_the_link_that_verifies_its_address(setup_http: httpx.AsyncClient) -> None:
+    adapter = get_service(Mail).adapter
+    assert isinstance(adapter, MockAdapter)
+    adapter.clear()
+
+    registered = await setup_http.post(
+        "/api/auth/register", json={"name": "Jane", "email": "jane@example.io", "password": "correct-horse"}
+    )
+    user = await User.global_query.filter(R("email", "=", "jane@example.io")).get()
+
+    assert registered.status_code == 200
+    assert await _verified_at(user) is None
+    assert len(adapter.sent) == 1
+    assert adapter.sent[0]["To"] == "jane@example.io"

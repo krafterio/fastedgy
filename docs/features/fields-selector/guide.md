@@ -73,6 +73,10 @@ A join reaches a record whatever that record's own global filters and access gua
 
 A model whose only filter is the workspace scope is never asked: every member of the workspace reads its records. A model only an access guard narrows is answered by the guard, without a query. Exports follow the same rule.
 
+A read with no workspace in context (a route of the account, which lists its workspaces) is not narrowed by the workspace scope: there, the records of a workspaceable model a relation reaches, to-one or to-many, are kept to the workspaces the caller is a member of. A `sudo` request and a `skip_access_control` block are left as they are.
+
+A path never walks into a queued task: its arguments and its context are the server's own.
+
 ## Error handling
 
 - **Invalid fields**: Silently ignored

@@ -85,6 +85,10 @@ def parse_field_selector_input(
                 if current and (current_model or generic_tail):
                     field = current_model.meta.fields.get(field_name) if current_model else None
 
+                    if _is_hidden_hop(field):
+                        current = None
+                        break
+
                     if field_name not in current:
                         _add_field_selector(current, field, True)
 
@@ -745,6 +749,14 @@ def _resolve_relation_path(model_cls: type[BaseModelType], path: str) -> type[Ba
         current_model = target
 
     return current_model
+
+
+def _is_hidden_hop(field: Any) -> bool:
+    from fastedgy.models.queued_task import BaseQueuedTask
+
+    target = getattr(field, "target", None) or getattr(field, "related_from", None)
+
+    return isinstance(target, type) and issubclass(target, BaseQueuedTask)
 
 
 def _is_selectable_leaf(field: Any) -> bool:

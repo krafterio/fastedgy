@@ -67,33 +67,11 @@ class WorkspaceableMixin(Model):
     workspace = fields.ForeignKey(
         "Workspace",
         on_delete="CASCADE",
-        related_name="+",  # "+" means no reverse relation is created
+        related_name=False,
         exclude=True,
         null=True,
         label=_ts("Workspace"),
     )
-
-    # This is a class method that will be called when the model is being created
-    @classmethod
-    def __init_subclass__(cls, **kwargs: Any) -> None:
-        """
-        This method is called when a class inherits from WorkspaceMixin.
-        It ensures the workspace field is properly set up.
-        """
-        super().__init_subclass__(**kwargs)
-
-        # If the model has a Meta class, we can customize the related_name
-        if hasattr(cls, "Meta") and hasattr(cls.Meta, "tablename"):
-            # Get the table name from the Meta class
-            tablename = cls.Meta.tablename
-
-            # Override the workspace field with a custom related_name based on the table name
-            cls.workspace = fields.ForeignKey(
-                "Workspace",
-                on_delete="CASCADE",
-                related_name=tablename,  # This creates a reverse relation named after the table
-                exclude=True,
-            )
 
     async def save(
         self,

@@ -140,3 +140,27 @@ async def test_only_a_model_read_narrower_than_its_scope_is_asked(setup_db: Fast
     assert not is_guarded(GfLink)
     assert docs == {w.plan.id}
     assert links == set()
+
+
+async def test_a_reverse_relation_read_outside_any_workspace_stays_in_the_workspaces_of_the_caller(
+    setup_db: FastEdgy,
+) -> None:
+    from fastedgy.test.factories import create_workspace_user
+    from fastedgy.test.models.realtime import RtOwned
+    from fastedgy.test.models.user import User
+
+    acme = await create_workspace(slug="acme")
+    globex = await create_workspace(slug="globex")
+    ada = await create_user(email="ada@example.io")
+    bob = await create_user(email="bob@example.io")
+    await create_workspace_user(ada, acme)
+    await create_workspace_user(bob, acme)
+    await create_workspace_user(bob, globex)
+    await RtOwned(label="in acme", user=bob, workspace=acme).save()
+    await RtOwned(label="in globex", user=bob, workspace=globex).save()
+
+    with use_request(user=ada):
+        read = await _selected(User, "email,rt_owned.label").filter(id=bob.id).get()
+        dump = await filter_selected_fields(read, "email,rt_owned.label")
+
+    assert [owned["label"] for owned in dump["rt_owned"]] == ["in acme"]

@@ -37,6 +37,21 @@ async def test_parse_drops_excluded_field_through_relation(setup_db: FastEdgy) -
     }
 
 
+async def test_parse_walks_an_excluded_foreign_key_to_an_exposed_model(setup_db: FastEdgy) -> None:
+    from fastedgy.test.models.assignment import Assignment
+
+    assert parse_field_selector_input(Assignment, "category.name") == {
+        "id": True,
+        "category": {"id": True, "name": True},
+    }
+
+
+async def test_parse_does_not_walk_into_the_queued_tasks(setup_db: FastEdgy) -> None:
+    from fastedgy.test.models.queued_task_log import QueuedTaskLog
+
+    assert parse_field_selector_input(QueuedTaskLog, "message,task.args,task.context") == {"id": True, "message": True}
+
+
 async def test_serialize_never_leaks_excluded_scalar(setup_db: FastEdgy) -> None:
     product = await Product.query.create(name="Widget", price="9.99", secret_code="TOP-SECRET")
 

@@ -15,9 +15,10 @@ drops the record.
 from collections.abc import Iterable, Sequence
 from typing import Any
 
+from fastedgy import context
 from fastedgy.dependencies import get_service
 from fastedgy.orm.access_guard import AccessDeniedError, ModelAccessGuardRegistry, ModelAction, check_access
-from fastedgy.orm.filter import R
+from fastedgy.orm.filter import And, R
 from fastedgy.orm.filter.global_filters import GlobalFilterRegistry
 from fastedgy.orm.utils import find_primary_key_field
 
@@ -69,6 +70,31 @@ def is_guarded(model_cls: type) -> bool:
     return narrows_within_scope(model_cls) or get_service(ModelAccessGuardRegistry).has_guards(model_cls)
 
 
+async def _caller_workspaces(model_cls: type) -> list[Any] | None:
+    from fastedgy.depends.security import find_workspace_user_model
+    from fastedgy.models.mixins import WorkspaceableMixin, _workspace_filter_applies
+    from fastedgy.sudo import SudoChecker
+
+    if (
+        not issubclass(model_cls, WorkspaceableMixin)
+        or not _workspace_filter_applies(model_cls)
+        or context.get_workspace() is not None
+        or context.get_user_id() is None
+        or context.get_param("skip_access_control")
+        or await get_service(SudoChecker).is_sudo()
+    ):
+        return None
+
+    WorkspaceUser = find_workspace_user_model()
+
+    if WorkspaceUser is None:
+        return []
+
+    memberships = await WorkspaceUser.in_effect().filter(R("user", "=", context.get_user_id())).all()
+
+    return [membership.workspace.pk for membership in memberships if membership.workspace is not None]
+
+
 async def unreadable_keys(model_cls: type, keys: Iterable[Any]) -> set[Any]:
     """The keys, among [keys], of the records of [model_cls] the request may not read.
 
@@ -79,6 +105,28 @@ async def unreadable_keys(model_cls: type, keys: Iterable[Any]) -> set[Any]:
     wanted = {key for key in keys if key is not None}
     model_cls = _real_model_cls(model_cls)
 
+    if not wanted:
+        return set()
+
+    workspaces = await _caller_workspaces(model_cls)
+
+    if workspaces is not None:
+        key_name = find_primary_key_field(model_cls) or "id"
+        rows = await (
+            model_cls.global_query.filter(
+                And(R(key_name, "in", list(wanted)), R("workspace", "in", workspaces)), allow_excluded=True
+            )
+            .only(key_name)
+            .all()
+        )
+        outside = wanted - {getattr(row, key_name, None) for row in rows}
+
+        return outside | await unreadable_keys_within_scope(model_cls, wanted - outside)
+
+    return await unreadable_keys_within_scope(model_cls, wanted)
+
+
+async def unreadable_keys_within_scope(model_cls: type, wanted: set[Any]) -> set[Any]:
     if not wanted or not is_guarded(model_cls):
         return set()
 
@@ -187,7 +235,11 @@ async def confine_reads(model_cls: Any, reads: list[dict[str, Any]], map_fields:
             for share in ((read.get(name) or []) if to_many else [read.get(name)])
             if isinstance(share, dict)
         ]
-        asked = not to_many or getattr(field, "is_m2m", False)
+        asked = (
+            not to_many
+            or getattr(field, "is_m2m", False)
+            or await _caller_workspaces(_real_model_cls(target)) is not None
+        )
         hidden = await unreadable_keys(target, (share.get(key_name) for share in held)) if asked else set()
 
         if hidden:

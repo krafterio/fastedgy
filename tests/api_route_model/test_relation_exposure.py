@@ -84,6 +84,6 @@ def test_a_body_built_before_the_registration_is_not_kept(
 def test_is_exposed_relation_field_classification(setup_openapi_app: FastEdgy) -> None:
     assert is_exposed_relation_field(QueuedTask.model_fields["logs"]) is True
     assert is_exposed_relation_field(QueuedTask.model_fields["queuedtasks_set"]) is False
-    assert is_exposed_relation_field(Workspace.model_fields["+"]) is False
+    assert "+" not in Workspace.model_fields
     assert is_exposed_relation_field(Product.model_fields["tags"]) is True
     assert is_exposed_relation_field(Product.model_fields["name"]) is False

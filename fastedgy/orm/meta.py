@@ -21,7 +21,6 @@ class Meta(Model.Meta):
     workspace_shareable_record_field: str
     workspace_shareable_user_field: str
     global_storage: bool
-    global_records: bool
     is_view: bool
 
 

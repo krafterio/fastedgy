@@ -62,9 +62,6 @@ class GlobalFilterRegistry:
     def has_filters(self, model_cls: type) -> bool:
         return any(klass in self._filters for klass in model_cls.__mro__)
 
-    def has_applicable_filters(self, model_cls: type) -> bool:
-        return any(gf.apply is None or gf.apply(model_cls) for gf in self.get_filters(model_cls))
-
 
 register_service(GlobalFilterRegistry)
 

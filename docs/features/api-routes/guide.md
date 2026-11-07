@@ -39,22 +39,6 @@ class Product(Model):
         tablename = "products"
 ```
 
-## Scoping Check
-
-At startup, the generated routes name each model nothing scopes: no workspace, no global filter, no
-access guard. A catalog every caller reads the same way declares it in its `Meta`:
-
-```python
-@api_route_model(actions={"create": False, "patch": False, "delete": False})
-class Country(BaseModel):
-    class Meta:
-        tablename = "countries"
-        global_records = True
-```
-
-`API_SCOPING_CHECK` sets what happens to the others: `warn` (the default) logs them, `error` stops the
-application, `off` skips the check. The console routes are not checked.
-
 ## Built-in Features
 
 Generated endpoints automatically integrate with FastEdgy's advanced features:

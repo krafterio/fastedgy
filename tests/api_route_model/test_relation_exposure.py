@@ -107,37 +107,3 @@ def test_a_queued_task_gets_no_generated_route(setup_openapi_app: FastEdgy) -> N
             register_api_route_models(APIRouter())
     finally:
         registry.get_registered_models().pop(QueuedTask)
-
-
-def test_the_routes_name_the_models_nothing_scopes(
-    setup_openapi_app: FastEdgy, override_settings, caplog: pytest.LogCaptureFixture
-) -> None:
-    from fastapi import APIRouter
-
-    from fastedgy.api_route_model.registry import RouteModelRegistry
-    from fastedgy.api_route_model.router import register_api_route_models, unscoped_models
-    from fastedgy.dependencies import get_service
-    from fastedgy.test.models.global_filter import GfArticle
-
-    registry = get_service(RouteModelRegistry)
-    registry.register_model(GfArticle)
-
-    try:
-        unscoped = unscoped_models()
-    finally:
-        registry.get_registered_models().pop(GfArticle)
-
-    assert Product in unscoped
-    assert GfArticle not in unscoped
-
-    override_settings(api_scoping_check="error")
-
-    with pytest.raises(TypeError):
-        register_api_route_models(APIRouter())
-
-    override_settings(api_scoping_check="warn")
-
-    with caplog.at_level("WARNING", logger="api_route_model.router"):
-        register_api_route_models(APIRouter())
-
-    assert "Product" in caplog.text

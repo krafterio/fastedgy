@@ -12182,7 +12182,7 @@
               "anyOf": [
                 {
                   "maximum": 8192,
-                  "minimum": 1,
+                  "minimum": 0,
                   "type": "integer"
                 },
                 {
@@ -12200,7 +12200,7 @@
               "anyOf": [
                 {
                   "maximum": 8192,
-                  "minimum": 1,
+                  "minimum": 0,
                   "type": "integer"
                 },
                 {
@@ -12295,7 +12295,7 @@
               "anyOf": [
                 {
                   "maximum": 8192,
-                  "minimum": 1,
+                  "minimum": 0,
                   "type": "integer"
                 },
                 {
@@ -12313,7 +12313,7 @@
               "anyOf": [
                 {
                   "maximum": 8192,
-                  "minimum": 1,
+                  "minimum": 0,
                   "type": "integer"
                 },
                 {
@@ -12418,7 +12418,7 @@
               "anyOf": [
                 {
                   "maximum": 8192,
-                  "minimum": 1,
+                  "minimum": 0,
                   "type": "integer"
                 },
                 {
@@ -12436,7 +12436,7 @@
               "anyOf": [
                 {
                   "maximum": 8192,
-                  "minimum": 1,
+                  "minimum": 0,
                   "type": "integer"
                 },
                 {
@@ -12538,7 +12538,7 @@
               "anyOf": [
                 {
                   "maximum": 8192,
-                  "minimum": 1,
+                  "minimum": 0,
                   "type": "integer"
                 },
                 {
@@ -12556,7 +12556,7 @@
               "anyOf": [
                 {
                   "maximum": 8192,
-                  "minimum": 1,
+                  "minimum": 0,
                   "type": "integer"
                 },
                 {

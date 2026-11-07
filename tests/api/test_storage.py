@@ -418,6 +418,24 @@ async def test_download_optimized_passthrough_image_is_served(auth_http: httpx.A
     assert second.status_code == 200
 
 
+async def test_download_with_a_zero_dimension_serves_the_original(auth_http: httpx.AsyncClient) -> None:
+    import io
+
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGB", (64, 64), "blue").save(buf, format="PNG")
+    upload = await auth_http.post(
+        "/api/storage/upload/attachments", files={"img.png": ("img.png", buf.getvalue(), "image/png")}
+    )
+    attachment = upload.json()["attachments"][0]
+
+    response = await auth_http.get(f"/api/storage/download/attachments/{attachment['id']}?w=0&h=0")
+
+    assert response.status_code == 200, response.text
+    assert response.content == buf.getvalue()
+
+
 async def test_attachment_download_revalidates_with_etag(auth_http: httpx.AsyncClient) -> None:
     upload = await auth_http.post(
         "/api/storage/upload/attachments",

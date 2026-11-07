@@ -164,6 +164,17 @@ async def test_order_by_search_relevance(setup_db: FastEdgy) -> None:
     assert [item.name for item in items] == ["Laptop Pro"]
 
 
+async def test_the_rank_reads_an_elided_search_of_several_rules_as_parameters(setup_db: FastEdgy) -> None:
+    await create_product(name="Huile d'olive", description="", price="9.99")
+    await create_product(name="Olive tapenade", description="", price="4.99")
+    condition = ["|", ["search_value", "search", "huile d'olive"], ["search_value", "search", "olive"]]
+
+    query = filter_query(Product.query.get_queryset(), json.dumps(condition))
+    items = await inject_order_by(query, "search_value:desc").all()
+
+    assert [item.name for item in items] == ["Huile d'olive", "Olive tapenade"]
+
+
 def test_view_backed_models_are_left_alone() -> None:
     # A view computes its tsvector in its own SELECT, and PostgreSQL refuses to
     # update one that returns a window function. Both the reindex command and

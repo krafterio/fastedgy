@@ -2,6 +2,7 @@
 # MIT License (see LICENSE file).
 
 from dataclasses import dataclass, field
+from functools import reduce
 from typing import Any, cast
 
 from sqlalchemy import (
@@ -21,6 +22,8 @@ from sqlalchemy import (
 )
 from sqlalchemy import (
     exists,
+    func,
+    literal,
     literal_column,
     text,
     type_coerce,
@@ -57,7 +60,7 @@ from fastedgy.orm.fields import (
     generic_target_name,
     resolve_generic_pair,
 )
-from fastedgy.orm.fields.field_fulltext import escape_sql, get_pg_language
+from fastedgy.orm.fields.field_fulltext import get_pg_language
 from fastedgy.orm.filter.global_filters import global_filter_rules
 from fastedgy.orm.filter.operators import (
     ANY_OPERATORS,
@@ -1224,35 +1227,13 @@ def _add_fulltext_rank_extra_select(query: QuerySet, filters: Filter | None) -> 
         qualified_column = f"{tablename}.{column_name}"
         label_name = f"_{field_path}_rank"
 
-        # The rank goes through literal_column, which takes no bind parameter, so
-        # every tsquery is escaped on the way in. It is built from user input:
-        # an apostrophe reaching this literal unescaped closes it, and the rest
-        # of the search box lands in the statement as SQL. That is where
-        # `syntax error at or near "olive"` came from, on every French elision.
-        escaped = [escape_sql(tq) for tq in tsqueries]
-
-        # Combine multiple tsqueries with || (OR) for ranking
-        if len(escaped) == 1:
-            combined_tsquery = escaped[0]
-        else:
-            combined_tsquery = " || ".join(f"to_tsquery('{pg_language}', unaccent('{tq}'))" for tq in escaped)
-
-        try:
-            if len(escaped) == 1:
-                rank_expr = literal_column(
-                    f"ts_rank({qualified_column}, to_tsquery('{pg_language}', unaccent('{combined_tsquery}')))"
-                ).label(label_name)
-            else:
-                rank_expr = literal_column(f"ts_rank({qualified_column}, {combined_tsquery})").label(label_name)
-        except Exception:
-            # Fallback without unaccent
-            if len(escaped) == 1:
-                rank_expr = literal_column(
-                    f"ts_rank({qualified_column}, to_tsquery('{pg_language}', '{combined_tsquery}'))"
-                ).label(label_name)
-            else:
-                combined_no_unaccent = " || ".join(f"to_tsquery('{pg_language}', '{tq}')" for tq in escaped)
-                rank_expr = literal_column(f"ts_rank({qualified_column}, {combined_no_unaccent})").label(label_name)
+        # Each tsquery comes from the search box, so the rank reads it as a bound parameter.
+        language = sa_cast(literal(pg_language), postgresql.REGCONFIG)
+        tsquery = reduce(
+            lambda left, right: left.op("||")(right),
+            (func.to_tsquery(language, func.unaccent(literal(tq))) for tq in tsqueries),
+        )
+        rank_expr = func.ts_rank(literal_column(qualified_column), tsquery).label(label_name)
 
         query = cast(QuerySet, query.extra_select(cast(Any, rank_expr)))
 

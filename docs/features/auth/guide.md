@@ -158,6 +158,8 @@ The request answers `200` with the same message whether an account holds the ema
 
 The account stores the SHA-256 digest of its reset token, never the token itself: a copy of the database replays no reset link.
 
+`issue_password_reset_token(user, expires_at)` gives such a token for a link the application mails itself, an account it creates for someone for instance: the person chooses the password through the same reset page, and no password travels by email.
+
 Each of these requests writes only its own columns, the reset token for this one, the password for a reset or a change: whatever another request changed meanwhile, a new password among it, stays as the row has it.
 
 ## Email verification

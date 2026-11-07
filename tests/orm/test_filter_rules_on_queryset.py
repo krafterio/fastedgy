@@ -202,3 +202,14 @@ async def test_a_choice_rule_names_a_member_of_its_enum(setup_db: FastEdgy) -> N
 
     with pytest.raises(InvalidFilterError):
         await model.global_query.filter(R("field_type", "not in", [member.name, "custom"])).all()
+
+
+async def test_a_condition_holding_something_else_than_a_rule_is_refused(setup_db: FastEdgy) -> None:
+    import sqlalchemy
+
+    from fastedgy.test.models.product import Product
+
+    expression = sqlalchemy.func.lower(Product.columns.name) == sqlalchemy.func.lower("Laptop")
+
+    with pytest.raises(InvalidFilterError):
+        await Product.query.filter(And(expression, R("id", "!=", 0))).all()

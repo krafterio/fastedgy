@@ -202,6 +202,16 @@ def _reset_token_digest(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
+async def issue_password_reset_token(user: "User", expires_at: datetime) -> str:
+    """A token that sets the password of `user` through `/auth/password/reset` until
+    `expires_at`, for a link the application mails itself (an account it created
+    for someone). Only its digest is stored, and only the token columns are written."""
+    token = str(uuid4())
+    await user.save(values={"reset_pwd_token": _reset_token_digest(token), "reset_pwd_expires_at": expires_at})
+
+    return token
+
+
 @public_router.post("/password/reset")
 async def password_reset(
     data: ResetPasswordRequest, registry: Registry = Inject(Registry), bus: Bus = Inject(Bus)
@@ -302,8 +312,7 @@ async def _send_recovery_email(mail: Mail, email: str, locale: str, base_url_app
         if user is None or not user.email:
             return
 
-        token = str(uuid4())
-        await user.save(values={"reset_pwd_token": _reset_token_digest(token), "reset_pwd_expires_at": expires_at})
+        token = await issue_password_reset_token(user, expires_at)
         await mail.send_template(
             f"emails/{locale}/password_recovery.html",
             {
@@ -363,6 +372,7 @@ async def change_password(
 
 __all__ = [
     "OnEmailVerifiedEvent",
+    "issue_password_reset_token",
     "public_router",
     "router",
     "send_email_verification",

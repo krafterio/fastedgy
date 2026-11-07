@@ -748,3 +748,20 @@ async def test_a_sign_in_after_too_many_failures_waits_and_a_success_clears_them
 
     assert signed_in.status_code == 200
     assert await LoginThrottle.global_query.filter(R("identity", "=", "throttled@example.io")).count() == 0
+
+
+async def test_an_issued_reset_token_sets_the_password_and_stores_its_digest_only(
+    setup_http: httpx.AsyncClient,
+) -> None:
+    from fastedgy.api.auth import issue_password_reset_token
+
+    user = await create_user(email="invited@example.io", password=PASSWORD)
+    token = await issue_password_reset_token(user, datetime.now(UTC) + timedelta(days=7))
+    stored = await User.global_query.filter(R("id", "=", user.id)).get()
+
+    assert stored.reset_pwd_token not in (None, token)
+
+    reset = await setup_http.post("/api/auth/password/reset", json={"token": token, "password": "a-new-password"})
+
+    assert reset.status_code == 200, reset.text
+    assert (await _login(setup_http, "invited@example.io", "a-new-password")).status_code == 200

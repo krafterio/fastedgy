@@ -27,6 +27,9 @@ def validate_filters(
     allow_excluded: bool = False,
     crossed: int = 0,
 ) -> FilterRule | FilterCondition | None:
+    if filters is not None and not isinstance(filters, (FilterRule, FilterCondition, list)):
+        raise InvalidFilterError(f"A filter takes rules (R, And, Or), not {type(filters).__name__}")
+
     if not filters:
         return None
 

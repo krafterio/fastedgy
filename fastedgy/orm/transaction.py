@@ -41,6 +41,9 @@ _ISOLATION_LEVELS = frozenset({"READ UNCOMMITTED", "READ COMMITTED", "REPEATABLE
 _in_retrying_transaction: ContextVar[bool] = ContextVar("fastedgy_in_retrying_transaction", default=False)
 _after_commit_callbacks: ContextVar[list[Callable[[], Any]] | None] = ContextVar("after_commit_callbacks", default=None)
 _after_commit_keys: ContextVar[set[Hashable] | None] = ContextVar("after_commit_keys", default=None)
+_after_rollback_ops: ContextVar[list[tuple[Callable[[], Awaitable[Any]], str]] | None] = ContextVar(
+    "after_rollback_ops", default=None
+)
 
 
 async def _start_without_isolation_shortcut(self: SQLAlchemyTransaction, is_root: bool, **extra_options: Any) -> None:
@@ -141,6 +144,20 @@ def defer_after_commit(callback: Callable[[], Any], key: Hashable | None = None)
             return
         keys.add(key)
     queue.append(callback)
+
+
+def run_after_rollback(op: Callable[[], Awaitable[Any]], label: str) -> None:
+    """Run ``op`` once the enclosing retried transaction is rolled back for good, for what a refusal must keep that
+    the rollback would take back (the empty record of a refused file). A replay or a commit drops it, and its failure
+    is logged without masking the error that rolled the transaction back. Outside any retried transaction nothing is
+    rolled back: it runs as a signal side effect."""
+    queue = _after_rollback_ops.get()
+
+    if queue is None:
+        run_signal_side_effect(op, label)
+        return
+
+    queue.append((op, label))
 
 
 def _run_after_commit_callback(callback: Callable[[], Any]) -> None:
@@ -328,12 +345,14 @@ async def with_transaction(
 
     token = _in_retrying_transaction.set(True)
     request_state = _snapshot_request_state()
+    rolled_back: list[tuple[Callable[[], Awaitable[Any]], str]] = []
     try:
         for attempt in range(retries + 1):
             try:
                 tx = db.transaction()
                 callbacks_token = _after_commit_callbacks.set([])
                 keys_token = _after_commit_keys.set(set())
+                rollback_token = _after_rollback_ops.set([])
                 try:
                     async with tx:
                         if isolation_level is not None:
@@ -342,12 +361,17 @@ async def with_transaction(
                     for callback in _after_commit_callbacks.get() or []:
                         _run_after_commit_callback(callback)
                     return result
+                except Exception:
+                    rolled_back = _after_rollback_ops.get() or []
+                    raise
                 finally:
+                    _after_rollback_ops.reset(rollback_token)
                     _after_commit_keys.reset(keys_token)
                     _after_commit_callbacks.reset(callbacks_token)
             except DBAPIError as e:
                 if attempt == retries or not is_serialization_error(e):
                     raise
+                rolled_back = []
                 _restore_request_state(request_state)
                 delay = base_delay * (2**attempt) + random.uniform(0, base_delay)
                 logger.debug(
@@ -360,6 +384,12 @@ async def with_transaction(
                 await asyncio.sleep(delay)
     finally:
         _in_retrying_transaction.reset(token)
+
+        for op, label in rolled_back:
+            try:
+                await retry_on_serialization(op)
+            except Exception as e:
+                logger.error(f"{label}: {e}")
     # The loop above always returns or raises.
     raise AssertionError("unreachable")  # pragma: no cover
 

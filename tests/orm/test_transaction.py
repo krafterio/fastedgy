@@ -146,3 +146,48 @@ async def test_defer_after_commit_nested_waits_for_outermost_commit(setup_db: Fa
     await with_transaction(outer)
 
     assert fired == ["inner"]
+
+
+async def test_run_after_rollback_keeps_its_write_once_the_transaction_rolled_back(setup_db: FastEdgy) -> None:
+    from fastedgy.orm.transaction import run_after_rollback
+
+    async def keep() -> None:
+        await Category.query.create(name="Kept")
+
+    async def op() -> None:
+        await Category.query.create(name="Rolled back")
+        run_after_rollback(keep, "keep")
+        raise RuntimeError("boom")
+
+    with pytest.raises(RuntimeError):
+        await with_transaction(op)
+
+    assert [category.name for category in await Category.query.all()] == ["Kept"]
+
+
+async def test_run_after_rollback_is_dropped_by_a_commit_and_by_a_replay(setup_db: FastEdgy) -> None:
+    from sqlalchemy.exc import DBAPIError
+
+    from fastedgy.orm.transaction import run_after_rollback
+
+    ran: list[int] = []
+    attempts = {"n": 0}
+
+    class _SerializationOrig(Exception):
+        sqlstate = "40001"
+
+    async def op() -> None:
+        attempts["n"] += 1
+
+        async def record(n: int = attempts["n"]) -> None:
+            ran.append(n)
+
+        run_after_rollback(record, "record")
+
+        if attempts["n"] == 1:
+            raise DBAPIError("UPDATE", None, _SerializationOrig())
+
+    await with_transaction(op)
+
+    assert attempts["n"] == 2
+    assert ran == []

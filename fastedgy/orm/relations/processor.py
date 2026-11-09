@@ -3,7 +3,8 @@
 
 """Processor for executing relation operations."""
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Iterable
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -16,6 +17,17 @@ from fastedgy.orm.relations.utils import (
 )
 
 RecordAuthorize = Callable[[str, Any, "dict[str, Any] | None"], Awaitable[None]]
+
+
+def _anchor_datetimes(record: Any, keys: Iterable[str]) -> None:
+    """Anchor the naive datetimes a nested operation wrote to the request
+    timezone, as the create and patch actions do for the record they write."""
+    from fastedgy.timezone import ensure_aware
+
+    for key in keys:
+        value = getattr(record, key, None)
+        if isinstance(value, datetime) and value.tzinfo is None:
+            setattr(record, key, ensure_aware(value))
 
 
 def _require_nullable(nullable: bool, field_name: str) -> None:
@@ -112,6 +124,7 @@ async def process_foreign_key_operation(
         if update_values:
             for key, val in update_values.items():
                 setattr(record, key, val)
+            _anchor_datetimes(record, update_values)
             if authorize is not None:
                 await authorize("update", record, update_values)
             await record.save()
@@ -139,6 +152,7 @@ async def process_foreign_key_operation(
                 if not isinstance(values, dict):
                     raise RelationOperationError(f"create requires dict of values, got: {type(values).__name__}")
                 new_record = related_model(**values)
+                _anchor_datetimes(new_record, values)
                 if authorize is not None:
                     await authorize("create", new_record, values)
                 await new_record.save()
@@ -149,6 +163,7 @@ async def process_foreign_key_operation(
                 record = await _get_related_or_raise(related_model, record_id)
                 for key, val in update_values.items():
                     setattr(record, key, val)
+                _anchor_datetimes(record, update_values)
                 if authorize is not None:
                     await authorize("update", record, update_values)
                 await record.save()
@@ -280,6 +295,7 @@ async def process_relation_operations(
                 # only persists the passed columns, dropping any field a
                 # pre_save signal sets on the record.
                 new_record = related_model(**values)
+                _anchor_datetimes(new_record, values)
                 if authorize is not None:
                     await authorize("create", new_record, values)
                 await new_record.save()
@@ -295,6 +311,7 @@ async def process_relation_operations(
 
                 for key, val in update_values.items():
                     setattr(record, key, val)
+                _anchor_datetimes(record, update_values)
                 if authorize is not None:
                     await authorize("update", record, update_values)
                 await record.save()

@@ -77,12 +77,21 @@ class PublicTransport(httpx.AsyncBaseTransport):
 
     async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
         address = (await ensure_public_url(str(request.url)))[0]
-        request.url = request.url.copy_with(host=address)
+        extensions = dict(request.extensions)
 
         if request.url.scheme == "https":
-            request.extensions = {**request.extensions, "sni_hostname": request.headers["host"].split(":")[0]}
+            extensions["sni_hostname"] = request.url.host
 
-        return await self._transport.handle_async_request(request)
+        # The client keeps the request it sent: its url, cookies and redirects stay on the host, not on the address
+        pinned = httpx.Request(
+            request.method,
+            request.url.copy_with(host=address),
+            headers=request.headers,
+            stream=request.stream,
+            extensions=extensions,
+        )
+
+        return await self._transport.handle_async_request(pinned)
 
     async def aclose(self) -> None:
         await self._transport.aclose()

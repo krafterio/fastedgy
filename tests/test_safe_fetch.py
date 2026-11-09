@@ -123,3 +123,22 @@ async def test_a_public_client_refuses_a_redirect_into_the_internal_network() ->
     async with public_client(transport=transport) as client:
         with pytest.raises(UnsafeUrlError):
             await client.get("https://example.io/go")
+
+
+async def test_a_public_client_answers_for_the_host_and_keeps_its_cookies() -> None:
+    from fastedgy.safe_fetch import public_client
+
+    seen: list[httpx.Request] = []
+    routes = {
+        "example.io/go": httpx.Response(
+            302, headers={"location": "https://example.io/page", "set-cookie": "consent=yes; Domain=example.io; Path=/"}
+        ),
+        "example.io/page": httpx.Response(200, content=b"hello"),
+    }
+
+    async with public_client(transport=_transport(routes, seen)) as client:
+        response = await client.get("https://example.io/go")
+
+    assert response.url == httpx.URL("https://example.io/page")
+    assert seen[1].headers.get("cookie") == "consent=yes"
+    assert seen[1].url.host == "93.184.216.34"

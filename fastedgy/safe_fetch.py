@@ -27,6 +27,12 @@ class FetchedResponse:
     headers: httpx.Headers
     content: bytes
 
+    def __post_init__(self) -> None:
+        # The content is held decoded: an encoding header left with it would be applied to it a second time
+        headers = httpx.Headers(self.headers)
+        headers.pop("content-encoding", None)
+        object.__setattr__(self, "headers", headers)
+
     @property
     def content_type(self) -> str | None:
         return self.headers.get("content-type")

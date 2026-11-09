@@ -1,6 +1,8 @@
 # Copyright Krafter SAS <developer@krafter.io>
 # MIT License (see LICENSE file).
 
+import gzip
+
 import httpx
 import pytest
 
@@ -59,6 +61,21 @@ async def test_a_body_past_the_limit_is_dropped() -> None:
 
     with pytest.raises(ResponseTooLargeError):
         await safe_get("https://example.io/big", max_bytes=100, transport=transport)
+
+
+async def test_a_compressed_page_reads_as_text() -> None:
+    page = httpx.Response(
+        200,
+        headers={"content-encoding": "gzip", "content-type": "text/html; charset=utf-8"},
+        content=gzip.compress("<p>Crème brûlée</p>".encode()),
+    )
+
+    response = await safe_get(
+        "https://example.io/page", max_bytes=1000, transport=_transport({"example.io/page": page})
+    )
+
+    assert response.text == "<p>Crème brûlée</p>"
+    assert "content-encoding" not in response.headers
 
 
 async def test_a_redirect_loop_ends() -> None:

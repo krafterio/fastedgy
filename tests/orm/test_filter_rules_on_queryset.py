@@ -12,6 +12,8 @@ The ORM's own forms must keep working next to it, since `filter()` stays the one
 entry point: keyword lookups, SQLAlchemy clauses, and any mix of the three.
 """
 
+from typing import Any, cast
+
 import pytest
 
 from fastedgy.app import FastEdgy
@@ -212,4 +214,4 @@ async def test_a_condition_holding_something_else_than_a_rule_is_refused(setup_d
     expression = sqlalchemy.func.lower(Product.columns.name) == sqlalchemy.func.lower("Laptop")
 
     with pytest.raises(InvalidFilterError):
-        await Product.query.filter(And(expression, R("id", "!=", 0))).all()
+        await Product.query.filter(And(cast(Any, expression), R("id", "!=", 0))).all()

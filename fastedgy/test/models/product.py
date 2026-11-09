@@ -21,6 +21,7 @@ class Product(BaseModel, SearchableMixin, ExtendableMixin):
     published_at = fields.DateTimeField(null=True)
     reference = fields.UUIDField(null=True)
     details = fields.JSONField(null=True)
+    image = fields.ImageField(max_length=500, null=True)
     secret_code = fields.CharField(max_length=64, null=True, exclude=True)
     category = fields.ForeignKey(Category, null=True, related_name="products", lookup="name", related_lookup="name")
     tags = fields.ManyToMany(Tag, related_name="products", lookup="name")

@@ -45,7 +45,7 @@ from .field_generic_foreign_key import (
     validate_generic_reference_payload,
 )
 from .field_html import HTMLField
-from .field_image import ImageField
+from .field_image import ImageField, StoredImage, stored_image_of
 from .field_integer import IntegerField
 from .field_ip_address import IPAddressField
 from .field_json import JSONField
@@ -129,6 +129,7 @@ __all__ = [
     "RichTextField",
     "SearchWeight",
     "SmallIntegerField",
+    "StoredImage",
     "TextField",
     "TimeField",
     "Translatable",
@@ -153,6 +154,7 @@ __all__ = [
     "resolve_generic_pair",
     "resolve_registry_generic_references",
     "resolve_search_weight",
+    "stored_image_of",
     "translatable_fields",
     "translated",
     "translations_of",

@@ -11,5 +11,5 @@ async def test_import_template_has_only_importable_headers(auth_http: httpx.Asyn
 
     lines = [line for line in response.text.splitlines() if line.strip()]
 
-    assert lines[0] == "Name,Description"
+    assert lines[0] == "Name,Description,Image"
     assert len(lines) == 1

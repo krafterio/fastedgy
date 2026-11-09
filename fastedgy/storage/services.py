@@ -2,6 +2,7 @@
 # MIT License (see LICENSE file).
 
 import base64
+import binascii
 import io
 import logging
 import mimetypes
@@ -12,29 +13,24 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from functools import partial
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, BinaryIO
+from typing import Any, BinaryIO, cast
 
 import httpx
 import jwt
+import pyvips
 from anyio import CapacityLimiter, to_thread
 from jwt import PyJWTError
-from starlette.datastructures import UploadFile
+from starlette.datastructures import Headers, UploadFile
 
 from fastedgy import context
 from fastedgy.config import BaseSettings
 from fastedgy.dependencies import Inject, get_service
 from fastedgy.i18n import _t
 from fastedgy.orm import Registry
+from fastedgy.orm.fields import StoredImage, stored_image_of
 from fastedgy.safe_fetch import ResponseTooLargeError, UnsafeUrlError, safe_get
 from fastedgy.storage.adapters.base import StorageAdapter, clean_storage_path
 from fastedgy.storage.adapters.filesystem import FilesystemAdapter
-
-try:
-    from PIL import Image
-    from PIL.Image import DecompressionBombError
-except Exception:
-    Image = None
-    DecompressionBombError = OSError
 
 logger = logging.getLogger("fastedgy.storage")
 
@@ -44,13 +40,67 @@ DOWNLOAD_TOKEN_TYPE = "storage-download"
 
 DOWNLOAD_TOKEN_SECONDS = 6 * 3600
 
-if TYPE_CHECKING:
-    from PIL.Image import Image as PILImage
+# The largest image decoded, read from its header: libvips decodes in strips, so it bounds the time more than the
+# memory, which stays low whatever the size.
+MAX_IMAGE_PIXELS = 250_000_000
 
 
 _RESOLVED_MARKERS = ("__cache__:", "__stored__:")
 
 _ACTIVE_EXTENSIONS = frozenset({"svg", "svgz", "html", "htm", "xhtml", "xht", "xml", "xsl", "js", "mjs"})
+
+
+def _source(file: BinaryIO) -> pyvips.Source:
+    """A libvips source reading ``file`` as it goes, so that a large upload is never held whole in memory. libvips
+    reads it while it decodes: keep the source alive until the image built on it is written."""
+    file.seek(0)
+    source = pyvips.SourceCustom()
+    source.on_read(file.read)
+    source.on_seek(file.seek)
+
+    return source
+
+
+def _header(source: pyvips.Source) -> pyvips.Image | None:
+    """The image of ``source`` with its header read and nothing decoded, None when it holds no image."""
+    try:
+        return pyvips.Image.new_from_source(source, "", access="sequential")
+    except pyvips.Error:
+        return None
+
+
+def _is_animated(image: pyvips.Image) -> bool:
+    loader = str(image.get("vips-loader"))
+    pages = int(cast(Any, image.get("n-pages"))) if image.get_typeof("n-pages") else 1
+
+    return pages > 1 and loader.startswith(("gifload", "webpload"))
+
+
+def data_url_upload(value: str) -> UploadFile:
+    """The upload a data URL (``data:<mime>;base64,<content>``) holds, named after its mime type."""
+    header, _, content = value.partition(",")
+
+    if not header.startswith("data:") or not header.endswith(";base64"):
+        raise ValueError(_t("Content is not a data URL"))
+
+    content_type = header[5:].split(";", 1)[0] or "application/octet-stream"
+
+    try:
+        data = base64.b64decode(content, validate=True)
+    except binascii.Error:
+        raise ValueError(_t("Content is not a data URL")) from None
+
+    return _upload_file(data, content_type)
+
+
+def _upload_file(data: bytes, content_type: str) -> UploadFile:
+    """An upload holding ``data``, named after its mime type."""
+    return UploadFile(
+        io.BytesIO(data),
+        size=len(data),
+        filename=f"file{mimetypes.guess_extension(content_type) or '.bin'}",
+        headers=Headers({"content-type": content_type}),
+    )
 
 
 def _declares_another_type(content_type: str | None, ext: str) -> bool:
@@ -60,6 +110,18 @@ def _declares_another_type(content_type: str | None, ext: str) -> bool:
     guessed = mimetypes.guess_type(f"file.{ext}")[0]
 
     return guessed is not None and not guessed.startswith("image/")
+
+
+@dataclass(frozen=True)
+class RewrittenImage:
+    """A stored image rewritten under a new path: its type, its size in pixels and its bytes before and after."""
+
+    path: str
+    mime_type: str
+    width: int
+    height: int
+    size_before: int
+    size_after: int
 
 
 @dataclass(frozen=True)
@@ -209,8 +271,8 @@ class Storage:
         return max(1, min(100, q))
 
     def _get_max_image_pixels(self) -> int | None:
-        """Optional budget, stricter than Pillow's own ceiling. A value above it
-        changes nothing: Image.open refuses the file first."""
+        """Optional budget, stricter than MAX_IMAGE_PIXELS. A value above it
+        changes nothing: the header check refuses the file first."""
         try:
             value = getattr(self.settings, "image_max_pixels", None)
             return int(value) if value else None
@@ -218,20 +280,19 @@ class Storage:
             return None
 
     def _probe_image(self, file: BinaryIO) -> tuple[int | None, int | None]:
-        """Read the header without decoding: Image.open parses the dimensions
-        only, and is where Pillow's own decompression-bomb ceiling fires. Bytes
-        that are not an image open with an error and are stored untouched, so
-        the budget holds whatever extension or mime type the caller announced."""
-        if Image is None:
+        """Read the header without decoding, where MAX_IMAGE_PIXELS is checked.
+        Bytes that are not an image open with an error and are stored untouched,
+        so the budget holds whatever extension or mime type the caller announced."""
+        source = _source(file)
+        header = _header(source)
+
+        if header is None:
             return None, None
 
-        try:
-            with Image.open(file) as img:
-                width, height = img.size
-        except DecompressionBombError:
+        width, height = header.width, header.height
+
+        if width * height > MAX_IMAGE_PIXELS:
             raise ValueError(_t("This image holds too many pixels to be processed"))
-        except Exception:
-            return None, None
 
         limit = self._get_max_image_pixels()
         if limit and width * height > limit:
@@ -314,26 +375,23 @@ class Storage:
             return "WEBP", "image/webp"
         return "JPEG", "image/jpeg"
 
-    def _save_image_to_bytes(
-        self,
-        img: "PILImage",
-        pil_format: str,
-        quality: int,
-    ) -> bytes:
-        save_kwargs: dict[str, Any] = {}
-        if pil_format == "JPEG":
-            if img.mode in ("RGBA", "P"):
-                img = img.convert("RGB")
-            save_kwargs.update({"optimize": True, "quality": quality, "progressive": True})
-        elif pil_format == "PNG":
-            compress_level = max(0, min(9, round((100 - quality) * 9 / 100)))
-            save_kwargs.update({"optimize": True, "compress_level": compress_level})
-        elif pil_format == "WEBP":
-            save_kwargs.update({"quality": quality, "method": 4})
+    def _encode(self, image: pyvips.Image, image_format: str, quality: int) -> bytes:
+        """``image`` encoded in ``image_format`` (JPEG, PNG or WEBP), keeping its colour profile only."""
+        keep = pyvips.enums.ForeignKeep.ICC
 
-        buf = io.BytesIO()
-        img.save(buf, pil_format, **save_kwargs)
-        return buf.getvalue()
+        if image.interpretation not in ("srgb", "b-w"):
+            image = image.colourspace("srgb")
+
+        if image_format == "JPEG":
+            if image.hasalpha():
+                image = image.flatten(background=[255, 255, 255])
+
+            return image.jpegsave_buffer(Q=quality, optimize_coding=True, interlace=True, keep=keep)
+
+        if image_format == "PNG":
+            return image.pngsave_buffer(compression=max(0, min(9, round((100 - quality) * 9 / 100))), keep=keep)
+
+        return image.webpsave_buffer(Q=quality, effort=4, keep=keep)
 
     async def _generate_cache_image(
         self,
@@ -352,11 +410,7 @@ class Storage:
         no transformation was needed: nothing is written and the caller must
         serve the original file directly.
         """
-        if Image is None:
-            mime = mimetypes.guess_type(source_name)[0] or "application/octet-stream"
-            return None, source_data, mime
-
-        # PIL decode/resize/encode is CPU-bound: run it in a thread so a burst
+        # Decode/resize/encode is CPU-bound: run it in a thread so a burst
         # of first-time generations does not block the event loop.
         data, mime_type = await to_thread.run_sync(
             partial(self._render_cache_image, source_data, source_name, w=w, h=h, mode=mode, out_ext=out_ext),
@@ -382,38 +436,110 @@ class Storage:
     ) -> tuple[bytes | None, str]:
         """Render the optimized variant. A None payload means no transformation
         is needed and the original must be served directly."""
-        assert Image is not None
+        header = pyvips.Image.new_from_buffer(source_data, "")
+        ow, oh = header.width, header.height
 
-        with Image.open(io.BytesIO(source_data)) as img:
-            ow, oh = img.size
-            w, h = self._clamp_dimensions(ow, oh, w, h)
-            tw, th, mode = self._compute_target_size(ow, oh, w, h, mode)
+        if ow * oh > MAX_IMAGE_PIXELS:
+            raise ValueError(_t("This image holds too many pixels to be processed"))
 
-            src_ext = source_name.rsplit(".", 1)[-1].lower() if "." in source_name else ""
-            out_format, mime_type = self._format_from_ext(out_ext, src_ext)
+        w, h = self._clamp_dimensions(ow, oh, w, h)
+        tw, th, mode = self._compute_target_size(ow, oh, w, h, mode)
 
-            if (tw, th) == (ow, oh) and out_format.lower() == src_ext.lower():
-                mime = mimetypes.guess_type(source_name)[0] or mime_type
-                return None, mime
+        src_ext = source_name.rsplit(".", 1)[-1].lower() if "." in source_name else ""
+        out_format, mime_type = self._format_from_ext(out_ext, src_ext)
 
-            if img.format == "JPEG":
-                img.draft(img.mode, (tw, th))
+        if (tw, th) == (ow, oh) and out_format.lower() == src_ext.lower():
+            mime = mimetypes.guess_type(source_name)[0] or mime_type
+            return None, mime
 
-            if mode == "contain":
-                final_img = img.resize((tw, th), Image.Resampling.LANCZOS)
-            else:
-                resized = img.resize((tw, th), Image.Resampling.LANCZOS)
-                cw = w or tw
-                ch = h or th
-                left = max(0, (tw - cw) // 2)
-                top = max(0, (th - ch) // 2)
-                right = left + cw
-                bottom = top + ch
-                final_img = resized.crop((left, top, right, bottom))
+        if mode == "contain":
+            final_img = pyvips.Image.thumbnail_buffer(source_data, tw, height=th, size="force", no_rotate=True)
+        else:
+            final_img = pyvips.Image.thumbnail_buffer(
+                source_data, w or tw, height=h or th, crop="centre", no_rotate=True
+            )
 
-            quality = self._get_image_quality()
+        return self._encode(final_img, out_format, self._get_image_quality()), mime_type
 
-            return self._save_image_to_bytes(final_img, out_format, quality), mime_type
+    def _optimize_image(self, file: BinaryIO, image: StoredImage) -> tuple[bytes, str, tuple[int, int]] | None:
+        """The image rewritten as ``image`` asks, with its mime type and size. None when there is nothing to rewrite:
+        no image, an animated one, or one already in its format and size without metadata.
+
+        ``image.max_pixels`` is checked on the header. libvips then shrinks it while loading (by the decoder's own
+        scale for JPEG and WebP, by strips for the others), so the memory held stays low whatever the size."""
+        source = _source(file)
+        header = _header(source)
+
+        if header is None:
+            return None
+
+        width, height = header.width, header.height
+
+        if width * height > image.max_pixels:
+            raise ValueError(_t("This image holds too many pixels to be processed"))
+
+        if _is_animated(header):
+            return None
+
+        image_format, mime_type = self._format_from_ext(image.format, image.format)
+        loaded_format = str(header.get("vips-loader")).split("load", 1)[0].upper()
+        tagged = any(name in header.get_fields() for name in ("exif-data", "xmp-data", "orientation"))
+
+        if max(width, height) <= image.max_side and loaded_format == image_format and not tagged:
+            return None
+
+        try:
+            thumbnail_source = _source(file)
+            thumbnail = pyvips.Image.thumbnail_source(
+                thumbnail_source, image.max_side, height=image.max_side, size="down"
+            )
+            data = self._encode(thumbnail, image_format, image.quality)
+        except pyvips.Error as e:
+            logger.warning(f"Cannot optimize an image, storing it as is: {e!r}")
+            return None
+
+        return data, mime_type, (thumbnail.width, thumbnail.height)
+
+    async def _optimized(self, file: BinaryIO, image: StoredImage) -> tuple[bytes, str, tuple[int, int]] | None:
+        return await to_thread.run_sync(partial(self._optimize_image, file, image), limiter=self.render_limiter)
+
+    async def optimize_upload(self, file: UploadFile, image: StoredImage | None) -> None:
+        """Rewrite an upload in place as ``image`` asks, renamed and typed after its new format. Raises ValueError for
+        an image holding more than ``image.max_pixels``."""
+        optimized = await self._optimized(file.file, image) if image is not None else None
+
+        if optimized is None:
+            file.file.seek(0)
+            return
+
+        data, mime_type, _ = optimized
+        file.file.seek(0)
+        file.file.truncate(0)
+        file.file.write(data)
+        file.file.seek(0)
+        file.size = len(data)
+        file.filename = os.path.splitext(file.filename or "image")[0] + (mimetypes.guess_extension(mime_type) or "")
+        file.headers = Headers({**file.headers, "content-type": mime_type})
+
+    async def optimize_stored_image(
+        self, path: str, image: StoredImage, global_storage: bool = False
+    ) -> RewrittenImage | None:
+        """Rewrite a stored image the way an upload is optimized, under a new name next to it, or None when there is
+        nothing to rewrite. The old file stays for the caller to delete once nothing points to it. Raises
+        FileNotFoundError when there is no file."""
+        data = await self.read_file(path, global_storage)
+        optimized = await self._optimized(io.BytesIO(data), image)
+
+        if optimized is None:
+            return None
+
+        content, mime_type, (width, height) = optimized
+        directory = path.rsplit("/", 1)[0] if "/" in path else ""
+        name = f"{uuid.uuid4()}{mimetypes.guess_extension(mime_type) or ''}"
+        new_path = f"{directory}/{name}" if directory else name
+        await self.adapter.write(self._resolve_path(new_path, global_storage), content, mime_type)
+
+        return RewrittenImage(new_path, mime_type, width, height, len(data), len(content))
 
     async def get_optimized_or_original(
         self,
@@ -485,12 +611,10 @@ class Storage:
                 mode=mode,
                 out_ext=out_ext if out_ext else src_ext,
             )
-        except (OSError, DecompressionBombError) as e:
+        except (OSError, ValueError, pyvips.Error) as e:
             # The stored bytes cannot be decoded as an image (corrupt upload,
-            # exotic format, truncated file — UnidentifiedImageError is an
-            # OSError), or they hold more pixels than Pillow agrees to expand
-            # (DecompressionBombError derives from Exception, not OSError).
-            # Serving the original is this method's contract and the client may
+            # exotic format, truncated file: pyvips.Error), or they hold more
+            # pixels than MAX_IMAGE_PIXELS (ValueError). Serving the original is this method's contract and the client may
             # still render it; a warning on the fallback beats a 500 on every
             # display of that file.
             logger.warning(f"Cannot optimize image {source_relative_path}, serving the original: {e!r}")
@@ -625,7 +749,9 @@ class Storage:
         global_storage: bool = False,
         create_attachment: bool = False,
         attachment_values: dict[str, Any] | None = None,
+        image: StoredImage | None = None,
     ) -> str:
+        """Store an upload, rewritten first as ``image`` asks when it is given (see optimize_upload)."""
         if not file.filename:
             raise ValueError(_t("Missing filename"))
 
@@ -644,6 +770,10 @@ class Storage:
         if limit and size > limit:
             raise ValueError(_t("The file is larger than {size} MB", size=limit // (1024 * 1024)))
 
+        if image is not None:
+            await self.optimize_upload(file, image)
+            ext = os.path.splitext(file.filename)[1].lower()[1:] or ext
+
         return await self._finalize_store(
             file=file.file,
             directory_path=directory_path,
@@ -655,6 +785,50 @@ class Storage:
             create_attachment=create_attachment,
             attachment_values=attachment_values,
         )
+
+    async def upload_to_field(
+        self,
+        model_cls: Any,
+        field: str,
+        file: UploadFile | bytes,
+        mime_type: str | None = None,
+        record: Any = None,
+    ) -> str:
+        """Store a file the server writes for the ``field`` of ``model_cls`` as the upload route stores one: checked,
+        optimized when the field is an ImageField, in the directory of the table and the storage the model routes
+        to. Bytes take ``mime_type``. Given the ``record``, its field takes the path and the file it held goes once
+        the transaction commits (see schedule_file_cleanup); the caller saves the record."""
+        from fastedgy.storage.cleanup import schedule_file_cleanup
+        from fastedgy.storage.routing import is_global_storage_model
+
+        if isinstance(file, bytes):
+            file = _upload_file(file, mime_type or "application/octet-stream")
+
+        global_storage = is_global_storage_model(model_cls)
+        path = await self.upload(
+            file, model_cls.meta.tablename, global_storage=global_storage, image=stored_image_of(model_cls, field)
+        )
+
+        if record is not None:
+            previous = getattr(record, field, None)
+            setattr(record, field, path)
+            schedule_file_cleanup(model_cls, field, previous, global_storage)
+
+        return path
+
+    async def download(self, file_url: str, max_bytes: int = 50 * 1024 * 1024) -> UploadFile:
+        """The file at ``file_url``, fetched through safe_get, as an upload named after its type."""
+        try:
+            response = await safe_get(file_url, max_bytes=max_bytes)
+        except (UnsafeUrlError, ResponseTooLargeError, httpx.HTTPError) as e:
+            raise ValueError(_t("Error while downloading the file: {error}", error=type(e).__name__)) from None
+
+        if response.status_code >= 400:
+            raise ValueError(_t("Error while downloading the file: {error}", error=response.status_code))
+
+        content_type = (response.content_type or "").split(";", 1)[0].strip()
+
+        return _upload_file(response.content, content_type or "application/octet-stream")
 
     async def upload_from_bytes(
         self,
@@ -742,22 +916,15 @@ class Storage:
         attachment_values: dict[str, Any] | None = None,
         max_bytes: int = 50 * 1024 * 1024,
     ) -> str:
-        try:
-            response = await safe_get(file_url, max_bytes=max_bytes)
-        except (UnsafeUrlError, ResponseTooLargeError, httpx.HTTPError) as e:
-            raise ValueError(_t("Error while downloading the file: {error}", error=type(e).__name__)) from None
-
-        if response.status_code >= 400:
-            raise ValueError(_t("Error while downloading the file: {error}", error=response.status_code))
-
-        content_type = (response.content_type or "").split(";", 1)[0].strip()
+        file = await self.download(file_url, max_bytes)
+        content_type = file.content_type or ""
         ext = (mimetypes.guess_extension(content_type) or ".bin").lstrip(".")
 
         if ext in _ACTIVE_EXTENSIONS:
             raise ValueError(_t("File type not allowed"))
 
         return await self._finalize_store(
-            file=io.BytesIO(response.content),
+            file=file.file,
             directory_path=directory_path,
             filename=filename,
             ext=ext,
@@ -947,5 +1114,6 @@ class Storage:
 
 
 __all__ = [
+    "RewrittenImage",
     "Storage",
 ]

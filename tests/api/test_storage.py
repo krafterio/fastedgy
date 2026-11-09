@@ -7,7 +7,9 @@ import os
 import httpx
 import pytest
 
+from fastedgy.test.factories import run_queued_tasks
 from fastedgy.test.fixtures import stored_file_path
+from fastedgy.test.images import described_image, encoded_image
 
 
 async def _product(name: str = "Laptop") -> int:
@@ -352,19 +354,15 @@ async def test_upload_requires_authentication(setup_http: httpx.AsyncClient) -> 
 
 
 async def test_download_optimized_image_regenerates_evicted_cache(auth_http: httpx.AsyncClient, monkeypatch) -> None:
-    import io
-
-    from PIL import Image
 
     from fastedgy.dependencies import get_service
     from fastedgy.storage import Storage
 
-    buf = io.BytesIO()
-    Image.new("RGB", (64, 64), "red").save(buf, format="PNG")
+    buf = encoded_image((64, 64), "png", (255, 0, 0))
 
     upload = await auth_http.post(
         "/api/storage/upload/attachments",
-        files={"img.png": ("img.png", buf.getvalue(), "image/png")},
+        files={"img.png": ("img.png", buf, "image/png")},
     )
     attachment = upload.json()["attachments"][0]
     url = f"/api/storage/download/attachments/{attachment['id']}?w=32&e=webp"
@@ -393,16 +391,12 @@ async def test_download_optimized_image_regenerates_evicted_cache(auth_http: htt
 
 
 async def test_download_optimized_passthrough_image_is_served(auth_http: httpx.AsyncClient) -> None:
-    import io
 
-    from PIL import Image
-
-    buf = io.BytesIO()
-    Image.new("RGB", (64, 64), "blue").save(buf, format="WEBP")
+    buf = encoded_image((64, 64), "webp", (0, 0, 255))
 
     upload = await auth_http.post(
         "/api/storage/upload/attachments",
-        files={"img.webp": ("img.webp", buf.getvalue(), "image/webp")},
+        files={"img.webp": ("img.webp", buf, "image/webp")},
     )
     attachment = upload.json()["attachments"][0]
 
@@ -412,28 +406,22 @@ async def test_download_optimized_passthrough_image_is_served(auth_http: httpx.A
     response = await auth_http.get(f"/api/storage/download/attachments/{attachment['id']}?w=1080&h=1080&m=cover&e=webp")
 
     assert response.status_code == 200
-    assert response.content == buf.getvalue()
+    assert response.content == buf
 
     second = await auth_http.get(f"/api/storage/download/attachments/{attachment['id']}?w=1080&h=1080&m=cover&e=webp")
     assert second.status_code == 200
 
 
 async def test_download_with_a_zero_dimension_serves_the_original(auth_http: httpx.AsyncClient) -> None:
-    import io
 
-    from PIL import Image
-
-    buf = io.BytesIO()
-    Image.new("RGB", (64, 64), "blue").save(buf, format="PNG")
-    upload = await auth_http.post(
-        "/api/storage/upload/attachments", files={"img.png": ("img.png", buf.getvalue(), "image/png")}
-    )
+    buf = encoded_image((64, 64), "png", (0, 0, 255))
+    upload = await auth_http.post("/api/storage/upload/attachments", files={"img.png": ("img.png", buf, "image/png")})
     attachment = upload.json()["attachments"][0]
 
     response = await auth_http.get(f"/api/storage/download/attachments/{attachment['id']}?w=0&h=0")
 
     assert response.status_code == 200, response.text
-    assert response.content == buf.getvalue()
+    assert response.content == buf
 
 
 async def test_attachment_download_revalidates_with_etag(auth_http: httpx.AsyncClient) -> None:
@@ -825,19 +813,15 @@ async def test_a_range_past_the_end_serves_the_whole_file(auth_http: httpx.Async
 async def test_download_reads_a_cached_variant_without_asking_the_cache_first(
     auth_http: httpx.AsyncClient, monkeypatch
 ) -> None:
-    import io
-
-    from PIL import Image
 
     from fastedgy.dependencies import get_service
     from fastedgy.storage import Storage
 
-    buf = io.BytesIO()
-    Image.new("RGB", (64, 64), "yellow").save(buf, format="PNG")
+    buf = encoded_image((64, 64), "png", (255, 255, 0))
 
     upload = await auth_http.post(
         "/api/storage/upload/attachments",
-        files={"img.png": ("img.png", buf.getvalue(), "image/png")},
+        files={"img.png": ("img.png", buf, "image/png")},
     )
     url = f"/api/storage/download/attachments/{upload.json()['attachments'][0]['id']}?w=32"
 
@@ -997,6 +981,7 @@ async def test_a_replaced_field_file_is_removed_only_when_it_is_the_records_own(
     await upload(first, b"after shared")
     await auth_http.patch(f"/api/test_products/{first}", json={"description": attachment_path})
     await upload(first, b"after attachment")
+    await run_queued_tasks()
 
     assert not os.path.isfile(stored_file_path(own))
     assert os.path.isfile(stored_file_path(shared))
@@ -1023,3 +1008,25 @@ async def test_an_attachment_downloads_only_where_its_get_route_exists(auth_http
 
     assert refused.status_code == 405
     assert allowed.status_code == 200
+
+
+async def test_an_upload_to_an_image_field_is_optimized(auth_http: httpx.AsyncClient) -> None:
+
+    from fastedgy.test.models.product import Product
+
+    product_id = await _product()
+    buffer = encoded_image((3000, 1500), "png", (255, 0, 0))
+
+    response = await auth_http.post(
+        f"/api/storage/upload/product/{product_id}/image",
+        files={"file": ("photo.png", buffer, "image/png")},
+    )
+
+    assert response.status_code == 200, response.text
+
+    path = response.json()["path"]
+    stored = described_image(stored_file_path(path))
+
+    assert path.endswith(".webp")
+    assert stored == ("WEBP", (2560, 1280))
+    assert (await Product.query.get(id=product_id)).image == path

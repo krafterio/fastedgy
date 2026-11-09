@@ -10,6 +10,7 @@ from fastedgy.orm import fields
 class Category(BaseModel):
     name = fields.CharField(max_length=120)
     description = fields.TextField(null=True)
+    image = fields.ImageField(max_length=500, null=True)
 
     class Meta(BaseModel.Meta):
         tablename = "test_categories"

@@ -15,6 +15,7 @@ from fastedgy.api_route_model.action import (
     ensure_action_allowed,
     generate_input_patch_model,
 )
+from fastedgy.api_route_model.action.files import FileUploads
 from fastedgy.api_route_model.exception import handle_action_exception
 from fastedgy.api_route_model.params import FieldSelectorHeader
 from fastedgy.api_route_model.registry import (
@@ -102,10 +103,11 @@ async def patch_item_action[M: BaseModel | BaseView](
     fields: str | None = None,
     transformers: list[type[BaseViewTransformer]] | None = None,
     transformers_ctx: dict[str, Any] | None = None,
+    files: FileUploads | None = None,
 ) -> M | dict[str, Any]:
     try:
         return await apply_patch_item(
-            request, model_cls, item_id, item_data, query, fields, transformers, transformers_ctx
+            request, model_cls, item_id, item_data, query, fields, transformers, transformers_ctx, files
         )
     except Exception as e:
         handle_action_exception(e, model_cls)
@@ -154,8 +156,10 @@ async def apply_patch_item[M: BaseModel | BaseView](
     fields: str | None = None,
     transformers: list[type[BaseViewTransformer]] | None = None,
     transformers_ctx: dict[str, Any] | None = None,
+    files: FileUploads | None = None,
 ) -> M | dict[str, Any]:
-    """The body of the PATCH action, outside any transaction and error mapping."""
+    """The body of the PATCH action, outside any transaction and error mapping. ``files`` holds the file writes of
+    a storage route, an upload or None for a removal, written as the data URLs and nulls of the body are."""
     from fastedgy.api_route_model.action import (
         is_foreign_key_field,
         is_relation_field,
@@ -165,7 +169,7 @@ async def apply_patch_item[M: BaseModel | BaseView](
 
     query = cast(QuerySet, query or model_cls.query)
     query = optimize_query_filter_fields(query, fields, prune_columns=False)
-    transformers_ctx = transformers_ctx or {}
+    transformers_ctx = {} if transformers_ctx is None else transformers_ctx
     transformers_ctx["fields"] = fields
     vtr = get_service(ViewTransformerRegistry)
 
@@ -176,6 +180,13 @@ async def apply_patch_item[M: BaseModel | BaseView](
     resolved_id = transformers_ctx.get("item_id", item_id)
     item = await query.filter(id=resolved_id).get()
 
+    from fastedgy.api_route_model.action.files import (
+        begin_file_writes,
+        discard_file_writes,
+        end_file_writes,
+        file_paths,
+        take_file_writes,
+    )
     from fastedgy.orm.extra_fields import merge_extra_field_values, pop_extra_field_values
     from fastedgy.orm.fields import validate_generic_reference_payload
 
@@ -215,42 +226,60 @@ async def apply_patch_item[M: BaseModel | BaseView](
     resolved_fk, deferred_fk_deletes = await process_foreign_key_fields(model_cls, foreign_key_data, item)
     scalar_data.update(resolved_fk)
 
-    # Update scalar fields. A ValueError raised by a field's input
-    # transformation (e.g. a generic reference pointing to a model outside
-    # its allowed targets) is invalid client data, not a server error.
+    for name in files or {}:
+        scalar_data.pop(name, None)
+
+    uploads = take_file_writes(model_cls, scalar_data, item) | (files or {})
+    previous_paths = file_paths(model_cls, item, scalar_data)
+    writes = await begin_file_writes(request, model_cls, item, uploads, transformers_ctx, transformers)
+
+    for name, write in writes.items():
+        setattr(item_data, name, write.path)
+
     try:
-        for key, value in scalar_data.items():
-            setattr(item, key, value)
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e))
+        # Update scalar fields. A ValueError raised by a field's input
+        # transformation (e.g. a generic reference pointing to a model outside
+        # its allowed targets) is invalid client data, not a server error.
+        try:
+            for key, value in scalar_data.items():
+                setattr(item, key, value)
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
 
-    for transformer in vtr.get_transformers(PreSaveTransformer, model_cls, transformers):
-        await transformer.pre_save(request, item, item_data, transformers_ctx, False)
-        override = transformers_ctx.pop("override_item", None)
-        if override is not None:
-            item = override
+        for transformer in vtr.get_transformers(PreSaveTransformer, model_cls, transformers):
+            await transformer.pre_save(request, item, item_data, transformers_ctx, False)
+            override = transformers_ctx.pop("override_item", None)
+            if override is not None:
+                item = override
 
-    if not transformers_ctx.get("skip_save"):
-        await item.save()
-        await item.load()
+        if not transformers_ctx.get("skip_save"):
+            await item.save()
+            await item.load()
 
-        # Delete records targeted by a foreign key delete operation, now that
-        # the instance no longer references them.
-        for record in deferred_fk_deletes:
-            await record.delete()
+            # Delete records targeted by a foreign key delete operation, now that
+            # the instance no longer references them.
+            for record in deferred_fk_deletes:
+                await record.delete()
 
-    # Process relational fields after save
-    await process_relational_fields(item, model_cls, relational_data)
+            await end_file_writes(request, model_cls, item, writes, transformers_ctx, transformers, previous_paths)
+        else:
+            await discard_file_writes(writes)
 
-    for transformer in vtr.get_transformers(PostSaveTransformer, model_cls, transformers):
-        await transformer.post_save(request, item, item_data, transformers_ctx, False)
+        # Process relational fields after save
+        await process_relational_fields(item, model_cls, relational_data)
 
-    item_dump = await filter_selected_fields(item, fields)
+        for transformer in vtr.get_transformers(PostSaveTransformer, model_cls, transformers):
+            await transformer.post_save(request, item, item_data, transformers_ctx, False)
 
-    for transformer in vtr.get_transformers(GetViewTransformer, model_cls, transformers):
-        item_dump = await transformer.get_view(request, item, item_dump, transformers_ctx)
+        item_dump = await filter_selected_fields(item, fields)
 
-    return item_dump
+        for transformer in vtr.get_transformers(GetViewTransformer, model_cls, transformers):
+            item_dump = await transformer.get_view(request, item, item_dump, transformers_ctx)
+
+        return item_dump
+    except BaseException:
+        await discard_file_writes(writes)
+        raise
 
 
 __all__ = [

@@ -10,17 +10,13 @@ import pytest
 
 from fastedgy.app import FastEdgy
 from fastedgy.dependencies import get_service
-from fastedgy.storage import FilesystemAdapter, Storage, StorageUsage
+from fastedgy.storage import FilesystemAdapter, Storage, StorageUsage, services
 from fastedgy.test.fixtures import STORAGE_ROOT, stored_file_path
+from fastedgy.test.images import described_image, encoded_image
 
 
 def _png(color: str) -> bytes:
-    from PIL import Image
-
-    buf = io.BytesIO()
-    Image.new("RGB", (64, 64), color).save(buf, format="PNG")
-
-    return buf.getvalue()
+    return encoded_image((64, 64), "png", {"blue": (0, 0, 255), "red": (255, 0, 0)}[color])
 
 
 async def test_write_read_and_size(setup_db: FastEdgy) -> None:
@@ -70,18 +66,14 @@ async def test_undecodable_image_falls_back_to_the_original(setup_db: FastEdgy, 
 
 
 async def test_oversized_image_falls_back_to_the_original(setup_db: FastEdgy, caplog, monkeypatch) -> None:
-    import io
     import logging
-
-    from PIL import Image
 
     storage = get_service(Storage)
 
-    buf = io.BytesIO()
-    Image.new("RGB", (100, 100), "white").save(buf, "JPEG")
-    await storage.adapter.write("global/photos/huge.jpg", buf.getvalue())
+    buf = encoded_image((100, 100), "jpg", (255, 255, 255))
+    await storage.adapter.write("global/photos/huge.jpg", buf)
 
-    monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", 10)
+    monkeypatch.setattr(services, "MAX_IMAGE_PIXELS", 10)
 
     with caplog.at_level(logging.WARNING, logger="fastedgy.storage"):
         resolved, mime = await storage.get_optimized_or_original("photos/huge.jpg", w=50, h=50, global_storage=True)
@@ -92,61 +84,52 @@ async def test_oversized_image_falls_back_to_the_original(setup_db: FastEdgy, ca
     assert not any(r.levelno >= logging.ERROR for r in caplog.records)
 
 
-async def test_upload_refuses_an_image_over_pillow_ceiling(setup_db: FastEdgy, monkeypatch) -> None:
-    import io
+async def test_upload_refuses_an_image_over_the_pixel_ceiling(setup_db: FastEdgy, monkeypatch) -> None:
 
     import pytest
-    from PIL import Image
 
     storage = get_service(Storage)
 
-    buf = io.BytesIO()
-    Image.new("RGB", (100, 100), "white").save(buf, "JPEG")
+    buf = encoded_image((100, 100), "jpg", (255, 255, 255))
 
-    monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", 10)
+    monkeypatch.setattr(services, "MAX_IMAGE_PIXELS", 10)
 
     with pytest.raises(ValueError):
         await storage.upload_from_bytes(
-            buf.getvalue(), "photos", filename="bomb.{ext}", mime_type="image/jpeg", global_storage=True
+            buf, "photos", filename="bomb.{ext}", mime_type="image/jpeg", global_storage=True
         )
 
     assert not os.path.exists(stored_file_path("photos/bomb.jpg"))
 
 
 async def test_upload_refuses_an_image_over_the_configured_budget(setup_db: FastEdgy, monkeypatch) -> None:
-    import io
 
     import pytest
-    from PIL import Image
 
     storage = get_service(Storage)
 
-    buf = io.BytesIO()
-    Image.new("RGB", (100, 100), "white").save(buf, "JPEG")
+    buf = encoded_image((100, 100), "jpg", (255, 255, 255))
 
     monkeypatch.setattr(storage.settings, "image_max_pixels", 9999)
 
     with pytest.raises(ValueError):
         await storage.upload_from_bytes(
-            buf.getvalue(), "photos", filename="big.{ext}", mime_type="image/jpeg", global_storage=True
+            buf, "photos", filename="big.{ext}", mime_type="image/jpeg", global_storage=True
         )
 
     assert not os.path.exists(stored_file_path("photos/big.jpg"))
 
     monkeypatch.setattr(storage.settings, "image_max_pixels", 10001)
-    await storage.upload_from_bytes(
-        buf.getvalue(), "photos", filename="big.{ext}", mime_type="image/jpeg", global_storage=True
-    )
+    await storage.upload_from_bytes(buf, "photos", filename="big.{ext}", mime_type="image/jpeg", global_storage=True)
 
     assert os.path.isfile(stored_file_path("photos/big.jpg"))
 
 
 async def test_upload_of_a_non_image_is_left_alone(setup_db: FastEdgy, monkeypatch) -> None:
-    from PIL import Image
 
     storage = get_service(Storage)
 
-    monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", 10)
+    monkeypatch.setattr(services, "MAX_IMAGE_PIXELS", 10)
 
     await storage.upload_from_bytes(
         b"%PDF-1.4 not an image at all",
@@ -206,14 +189,10 @@ async def test_upload_streams_the_file_to_the_adapter(setup_db: FastEdgy, monkey
 
 
 async def test_a_cached_variant_is_served_without_touching_the_source(setup_db: FastEdgy, monkeypatch) -> None:
-    import io
-
-    from PIL import Image
 
     storage = get_service(Storage)
-    buf = io.BytesIO()
-    Image.new("RGB", (64, 64), "green").save(buf, format="PNG")
-    await storage.adapter.write("global/photos/green.png", buf.getvalue())
+    buf = encoded_image((64, 64), "png", (0, 128, 0))
+    await storage.adapter.write("global/photos/green.png", buf)
 
     first, _ = await storage.get_optimized_or_original("photos/green.png", w=32, global_storage=True)
     assert first.startswith("__cache__:")
@@ -358,23 +337,12 @@ async def test_an_upload_over_the_size_limit_is_refused(setup_db: FastEdgy, monk
     assert os.path.isfile(stored_file_path(path))
 
 
-async def test_a_jpeg_variant_is_decoded_at_the_scale_it_is_rendered(setup_db: FastEdgy, monkeypatch) -> None:
-    from PIL import Image, JpegImagePlugin
-
+async def test_a_jpeg_variant_is_rendered_at_its_size(setup_db: FastEdgy) -> None:
     storage = get_service(Storage)
-    buf = io.BytesIO()
-    Image.new("RGB", (1600, 1200), "white").save(buf, "JPEG")
-    decoded: list[tuple[int, int]] = []
-    load = JpegImagePlugin.JpegImageFile.load
 
-    def recording_load(self):
-        decoded.append(self.size)
-        return load(self)
-
-    monkeypatch.setattr(JpegImagePlugin.JpegImageFile, "load", recording_load)
-
-    data, _ = storage._render_cache_image(buf.getvalue(), "photo.jpg", w=100, h=None, mode="contain", out_ext=None)
+    data, _ = storage._render_cache_image(
+        encoded_image((1600, 1200), "jpg"), "photo.jpg", w=100, h=None, mode="contain", out_ext=None
+    )
 
     assert data is not None
-    assert Image.open(io.BytesIO(data)).size == (100, 75)
-    assert decoded and max(width for width, _ in decoded) <= 200
+    assert described_image(data) == ("JPEG", (100, 75))

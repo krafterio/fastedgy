@@ -192,14 +192,15 @@ class InternalModel(BaseModel):
 
 ## File
 
-File field for storing file references.
+A stored file: its storage path, in the column of a char field. The upload route writes it, and a create or a patch
+can send a data URL (`data:<mime>;base64,...`) instead, stored the same way.
 
 ```python
 class Document(BaseModel):
     class Meta:
         tablename = "documents"
 
-    file = fields.FileField(label=_t("File Path"))
+    file = fields.FileField(max_length=500, null=True, label=_t("File Path"))
 ```
 
 ## Float
@@ -337,14 +338,16 @@ class Article(BaseModel):
 
 ## Image
 
-Image field for storing image file references.
+A stored image: a file field the storage optimizes before writing it, its longest side brought to 2560 pixels, in
+WebP at quality 85, set upright and without metadata. `max_side` and `quality` change it per field, and
+`kt storage optimize-images` rewrites the images stored before.
 
 ```python
 class Product(BaseModel):
     class Meta:
         tablename = "products"
 
-    image = fields.ImageField(label=_t("Image"))
+    image = fields.ImageField(max_length=500, null=True, max_side=1024, label=_t("Image"))
 ```
 
 ## Integer

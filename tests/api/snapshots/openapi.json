@@ -1002,6 +1002,18 @@
             "title": "Id",
             "type": "integer"
           },
+          "image": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image"
+          },
           "name": {
             "maxLength": 120,
             "title": "Name",
@@ -1377,6 +1389,17 @@
               ]
             ],
             "title": "Folders"
+          },
+          "image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image"
           },
           "name": {
             "maxLength": 120,
@@ -1874,6 +1897,17 @@
               ]
             ],
             "title": "Folders"
+          },
+          "image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image"
           },
           "name": {
             "anyOf": [
@@ -5032,6 +5066,18 @@
             "title": "Id",
             "type": "integer"
           },
+          "image": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image"
+          },
           "is_active": {
             "default": true,
             "title": "Is Active",
@@ -5403,6 +5449,17 @@
               }
             ],
             "title": "Details"
+          },
+          "image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image"
           },
           "is_active": {
             "default": true,
@@ -5903,6 +5960,17 @@
               }
             ],
             "title": "Details"
+          },
+          "image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image"
           },
           "is_active": {
             "anyOf": [

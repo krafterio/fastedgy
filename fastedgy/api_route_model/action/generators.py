@@ -6,6 +6,7 @@ from copy import copy
 from functools import cache
 from typing import Any, Literal, Union, cast, get_args, get_origin
 
+from annotated_types import MaxLen
 from edgy.core.db.fields.types import BaseFieldType
 from pydantic import (
     AliasChoices,
@@ -21,6 +22,7 @@ from pydantic import (
 from pydantic_core import PydanticUndefined
 
 from fastedgy.models.base import BaseModel, BaseView
+from fastedgy.orm.fields import FileField
 from fastedgy.orm.registry import has_pending_models
 from fastedgy.schemas import create_model
 
@@ -318,9 +320,20 @@ def _input_create_model[M: BaseModel | BaseView](model_cls: type[M], _pending: b
                 field_to_use.default = None
                 field_type = optional_field_type(field.field_type)
 
-            fields[field_name] = (field_type, field_to_use)
+            fields[field_name] = (field_type, _accepting_data_urls(field_to_use))
 
     return cast(type[M], create_model(f"{model_cls.__name__}-Create", **_extra_config(model_cls), **fields))
+
+
+def _accepting_data_urls(field: Any) -> Any:
+    """A file field takes a data URL as input, longer than the path its column holds."""
+    if not isinstance(field, FileField):
+        return field
+
+    field = copy(field)
+    field.metadata = [constraint for constraint in field.metadata if not isinstance(constraint, MaxLen)]
+
+    return field
 
 
 def generate_input_patch_model[M: BaseModel | BaseView](model_cls: type[M]) -> type[M]:
@@ -408,7 +421,7 @@ def _input_patch_model[M: BaseModel | BaseView](model_cls: type[M], _pending: bo
             # rejects when building the OpenAPI schema.
             setattr(py_field, "default_factory", None)
             py_field.field_type = optional_field_type(field.field_type)
-            fields[field_name] = (py_field.field_type, py_field)
+            fields[field_name] = (py_field.field_type, _accepting_data_urls(py_field))
 
     return cast(type[M], create_model(f"{model_cls.__name__}-Update", **_extra_config(model_cls), **fields))
 

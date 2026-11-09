@@ -19,7 +19,6 @@ from fastedgy.orm.fields import (
     DurationField,
     EmailField,
     FieldFactory,
-    FileField,
     FloatField,
     ForeignKey,
     ForeignKeyFieldFactory,
@@ -480,10 +479,6 @@ FILTER_OPERATORS_FIELD_MAP = {
         "is empty",
         "is not empty",
     ],
-    FileField: [
-        "is empty",
-        "is not empty",
-    ],
     FloatField: [
         "=",
         "!=",
@@ -675,6 +670,8 @@ FILTER_OPERATORS_FIELD_MAP = {
 
 
 FILTER_FIELD_TYPE_NAME_MAP = {
+    "FileField": "char",
+    "ImageField": "char",
     "DateTimeField": "datetime",
     "ForeignKey": "many2one",
     "JSONField": "json",

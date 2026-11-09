@@ -6,11 +6,12 @@ import mimetypes
 import re as _re
 from collections.abc import Awaitable, Callable
 from datetime import datetime
+from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast
 from urllib.parse import quote
 
-from fastapi import APIRouter, HTTPException, Query, UploadFile
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import ValidationError
 from starlette.datastructures import UploadFile as StarletteUploadFile
@@ -19,15 +20,12 @@ from starlette.routing import NoMatchFound
 
 from fastedgy import context
 from fastedgy.api_route_model.action import ensure_action_allowed
-from fastedgy.api_route_model.actions.patch_action import apply_patch_item, patch_item_data
+from fastedgy.api_route_model.action.files import begin_file_writes, discard_file_writes, end_file_writes
+from fastedgy.api_route_model.actions.patch_action import patch_item_action, patch_item_data
 from fastedgy.api_route_model.registry import ViewTransformerRegistry
 from fastedgy.api_route_model.view_transformer import (
-    PostDeleteFileTransformer,
     PostDownloadTransformer,
-    PostUploadTransformer,
-    PreDeleteFileTransformer,
     PreDownloadTransformer,
-    PreUploadTransformer,
 )
 from fastedgy.dependencies import Inject, get_service
 from fastedgy.http import Request
@@ -304,7 +302,6 @@ async def upload_model_field_file(
     field: str,
     model_id: int,
     request: Request,
-    storage: Storage = Inject(Storage),
 ) -> UploadedModelField:
     """Upload a file to a model field."""
     try:
@@ -318,38 +315,10 @@ async def upload_model_field_file(
             raise HTTPException(status_code=400, detail=_t("File is not a valid upload file"))
 
         record, model_cls, access = await _get_record(model, field, model_id)
-        vtr = get_service(ViewTransformerRegistry)
-        transformers_ctx: dict[str, Any] = {}
-        global_storage = is_global_storage_model(model_cls)
         access = await _ensure_file_field(model, model_cls, field, access)
+        ctx = await _write_file_field(request, model, model_cls, record, model_id, field, file, access)
 
-        for transformer in vtr.get_transformers(PreUploadTransformer, model_cls, None):
-            result = await transformer.pre_upload(request, record, field, cast(UploadFile, file), transformers_ctx)
-
-            if result is not None:
-                global_storage = result
-
-        _ensure_write_allowed(model, model_id, access, transformers_ctx)
-        previous_path = getattr(record, field)
-        path = await storage.upload(
-            file,
-            model,
-            global_storage=global_storage,
-        )
-
-        try:
-            await _write_file_field(request, model_cls, record, model_id, field, path, access)
-        except Exception:
-            await storage.delete(path, global_storage=global_storage)
-            raise
-
-        if await _owns_file(model_cls, model, field, model_id, previous_path):
-            await storage.delete(previous_path, global_storage=global_storage)
-
-        for transformer in vtr.get_transformers(PostUploadTransformer, model_cls, None):
-            path = await transformer.post_upload(request, record, field, path, transformers_ctx)
-
-        return UploadedModelField(path=path)
+        return UploadedModelField(path=ctx["uploaded_paths"][field])
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except ObjectNotFound:
@@ -362,46 +331,15 @@ async def delete_file(
     model: str,
     field: str,
     model_id: int,
-    storage: Storage = Inject(Storage),
 ) -> None:
     try:
         record, model_cls, access = await _get_record(model, field, model_id)
-        vtr = get_service(ViewTransformerRegistry)
-        transformers_ctx: dict[str, Any] = {}
-        global_storage = is_global_storage_model(model_cls)
         access = await _ensure_file_field(model, model_cls, field, access)
-
-        for transformer in vtr.get_transformers(PreDeleteFileTransformer, model_cls, None):
-            result = await transformer.pre_delete_file(request, model, model_id, field, record, transformers_ctx)
-
-            if result is not None:
-                global_storage = result
-
-        _ensure_write_allowed(model, model_id, access, transformers_ctx)
-        previous_path = getattr(record, field)
-        await _write_file_field(request, model_cls, record, model_id, field, None, access)
-
-        if await _owns_file(model_cls, model, field, model_id, previous_path):
-            await storage.delete(previous_path, global_storage=global_storage)
-
-        for transformer in vtr.get_transformers(PostDeleteFileTransformer, model_cls, None):
-            await transformer.post_delete_file(request, model, model_id, field, record, transformers_ctx)
+        await _write_file_field(request, model, model_cls, record, model_id, field, None, access)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except ObjectNotFound:
         raise HTTPException(status_code=404, detail=_t("Model not found"))
-
-
-async def _owns_file(model_cls: Any, model: str, field: str, model_id: int, path: str | None) -> bool:
-    """The previous file of a field is removed with it only when it lies where
-    the record's files go (the directory of this route, or the one named after
-    its table and id) and no other row holds it."""
-    from fastedgy.orm.filter import And, R
-
-    if not path or not path.startswith((f"{model}/", f"{model_cls.meta.tablename}/{model_id}/")):
-        return False
-
-    return not await model_cls.global_query.filter(And(R(field, "=", path), R("id", "!=", model_id))).exists()
 
 
 _INLINE_TYPES = ("image/jpeg", "image/png", "image/gif", "image/webp", "image/avif", "image/heic", "image/heif")
@@ -798,21 +736,50 @@ def _ensure_write_allowed(model: str, model_id: int, access: _Access, ctx: dict[
 
 async def _write_file_field(
     request: Request,
+    model: str,
     model_cls: type["BaseModel | BaseView"],
     record: "BaseModel",
     model_id: int,
     field: str,
-    path: str | None,
+    file: StarletteUploadFile | None,
     access: _Access,
-) -> None:
-    if access != "route":
-        setattr(record, field, path)
-        await record.save()
-        return
+) -> dict[str, Any]:
+    """Store ``file`` in ``field``, or remove its file for None, as a PATCH writes a data URL or a null: through
+    the PATCH action of the model, or for the caller's own user or workspace and another one a transformer allows,
+    with the same file writes around a save, in a transaction too. Returns the context of the transformers."""
+    ctx: dict[str, Any] = {}
 
-    await with_transaction(
-        lambda: apply_patch_item(request, model_cls, model_id, patch_item_data(model_cls, {field: path}), fields="id")
-    )
+    if access == "route":
+        body = patch_item_data(model_cls, {field: None})
+        await patch_item_action(
+            request, model_cls, model_id, body, fields="id", transformers_ctx=ctx, files={field: file}
+        )
+
+        return ctx
+
+    previous = getattr(record, field, None)
+
+    async def write() -> None:
+        setattr(record, field, previous)
+        writes = await begin_file_writes(
+            request,
+            model_cls,
+            record,
+            {field: file},
+            ctx,
+            authorize=partial(_ensure_write_allowed, model, model_id, access),
+        )
+
+        try:
+            await record.save()
+            await end_file_writes(request, model_cls, record, writes, ctx)
+        except BaseException:
+            await discard_file_writes(writes)
+            raise
+
+    await with_transaction(write)
+
+    return ctx
 
 
 __all__ = [

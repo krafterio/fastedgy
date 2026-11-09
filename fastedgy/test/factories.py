@@ -135,6 +135,40 @@ async def create_product(name: str = "Laptop", price: str = "999.00", **extra):
     return product
 
 
+async def run_queued_tasks(rounds: int = 10) -> int:
+    """Run the tasks waiting in the queue as a worker does, those they queue in turn included, once the side effects
+    of the last commits have queued theirs. Returns how many ran."""
+    from fastedgy.dependencies import get_service
+    from fastedgy.orm import Registry
+    from fastedgy.orm.filter import R
+    from fastedgy.orm.transaction import drain_signal_side_effects
+    from fastedgy.queued_task import QueuedTasks, QueuedTaskState
+    from fastedgy.queued_task.services.queue_worker import QueueWorker
+
+    queue = get_service(QueuedTasks)
+    task_cls: Any = get_service(Registry).get_model("QueuedTask")
+    ran = 0
+
+    for _ in range(rounds):
+        await drain_signal_side_effects()
+
+        while (creation := queue._creation_task) is not None and not creation.done():
+            await creation
+
+        tasks = await task_cls.global_query.filter(R("state", "=", QueuedTaskState.enqueued)).order_by("id").all()
+
+        if not tasks:
+            break
+
+        for task in tasks:
+            task.mark_as_doing()
+            await task.save()
+            await QueueWorker("test-worker").run_task(task)
+            ran += 1
+
+    return ran
+
+
 def auth_token(user) -> str:
     """Mint an access token for an existing user, as a login would: with `auth_revoke_tokens_on_password_change`
     on, a change of its password revokes it."""
@@ -151,6 +185,7 @@ def authenticate(client: httpx.AsyncClient, user) -> httpx.AsyncClient:
 
 
 __all__ = [
+    "run_queued_tasks",
     "auth_token",
     "authenticate",
     "create_category",

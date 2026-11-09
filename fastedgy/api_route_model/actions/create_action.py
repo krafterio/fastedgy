@@ -95,12 +95,21 @@ async def create_item_action[M: BaseModel | BaseView](
     transformers_ctx = transformers_ctx or {}
     transformers_ctx["fields"] = fields
 
+    from fastedgy.api_route_model.action.files import (
+        FileWrites,
+        begin_file_writes,
+        discard_file_writes,
+        end_file_writes,
+        take_file_writes,
+    )
     from fastedgy.orm.extra_fields import (
         complete_extra_field_values,
         merge_extra_field_values,
         pop_extra_field_values,
     )
     from fastedgy.orm.fields import validate_generic_reference_payload
+
+    writes: FileWrites = {}
 
     try:
         clean_empty_strings(model_cls, item_data)
@@ -135,6 +144,8 @@ async def create_item_action[M: BaseModel | BaseView](
         resolved_fk, deferred_fk_deletes = await process_foreign_key_fields(model_cls, foreign_key_data)
         scalar_data.update(resolved_fk)
 
+        uploads = take_file_writes(model_cls, scalar_data)
+
         # Create instance with scalar fields only. A ValueError raised by a
         # field's input transformation (e.g. a generic reference pointing to a
         # model outside its allowed targets) is invalid client data, not a
@@ -143,6 +154,12 @@ async def create_item_action[M: BaseModel | BaseView](
             item = model_cls(**scalar_data)
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e))
+
+        writes = await begin_file_writes(request, model_cls, item, uploads, transformers_ctx, transformers)
+
+        for name, write in writes.items():
+            setattr(item_data, name, write.path)
+
         vtr = get_service(ViewTransformerRegistry)
 
         for transformer in vtr.get_transformers(PreSaveTransformer, model_cls, transformers):
@@ -160,6 +177,10 @@ async def create_item_action[M: BaseModel | BaseView](
             for record in deferred_fk_deletes:
                 await record.delete()
 
+            await end_file_writes(request, model_cls, item, writes, transformers_ctx, transformers)
+        else:
+            await discard_file_writes(writes)
+
         # Process relational fields after save
         await process_relational_fields(item, model_cls, relational_data)
 
@@ -173,6 +194,7 @@ async def create_item_action[M: BaseModel | BaseView](
 
         return item_dump
     except Exception as e:
+        await discard_file_writes(writes)
         handle_action_exception(e, model_cls)
 
 

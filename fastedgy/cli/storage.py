@@ -53,3 +53,18 @@ async def usage(as_json: bool):
 
     cli.console.print(f"Files: {result.data_files} object(s), {result.data_bytes / 1024**3:.2f} GiB")
     cli.console.print(f"Image cache: {result.cache_files} object(s), {result.cache_bytes / 1024**3:.2f} GiB")
+
+
+@storage.command(name="optimize-images")
+@cli.option("--dry-run", is_flag=True, default=False, help="Count the stored images without rewriting them")
+@cli.option("--model", default=None, help="Only the images of this model (metadata or table name)")
+@cli.initialize_app
+@cli.lifespan
+async def optimize_images(dry_run: bool, model: str | None):
+    """Rewrite the stored images of every ImageField as an upload stores them now, and remove the old files."""
+    from fastedgy.storage.images import optimize_stored_images
+
+    report = await optimize_stored_images(dry_run=dry_run, model=model)
+
+    for line in report.lines():
+        cli.console.print(line)

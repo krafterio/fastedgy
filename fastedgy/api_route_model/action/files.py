@@ -22,6 +22,7 @@ from fastedgy.api_route_model.view_transformer import (
 )
 from fastedgy.dependencies import get_service
 from fastedgy.http import Request
+from fastedgy.metadata_model.generator import generate_metadata_name
 from fastedgy.orm.fields import FileField, stored_image_of
 from fastedgy.storage import Storage, data_url_upload
 from fastedgy.storage.cleanup import schedule_file_cleanup
@@ -72,7 +73,7 @@ async def begin_file_writes(
 ) -> FileWrites:
     """Write the file fields of ``record`` before it is saved: an upload is optimized when its field is an
     ImageField, handed to the pre-upload transformers, which see what will be stored, then stored in the directory
-    named after the table. A None removes the file, through the pre-delete-file transformers. ``authorize`` runs
+    named after the model (its metadata name). A None removes the file, through the pre-delete-file transformers. ``authorize`` runs
     after the transformers, before anything is stored. Nothing stays stored when one of them is refused."""
     storage = get_service(Storage)
     vtr = get_service(ViewTransformerRegistry)
@@ -110,7 +111,7 @@ async def begin_file_writes(
                 authorize(ctx)
 
             try:
-                path = await storage.upload(file, model_cls.meta.tablename, global_storage=global_storage)
+                path = await storage.upload(file, generate_metadata_name(model_cls), global_storage=global_storage)
             except ValueError as e:
                 raise HTTPException(status_code=422, detail=str(e)) from None
 

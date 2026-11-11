@@ -795,9 +795,10 @@ class Storage:
         record: Any = None,
     ) -> str:
         """Store a file the server writes for the ``field`` of ``model_cls`` as the upload route stores one: checked,
-        optimized when the field is an ImageField, in the directory of the table and the storage the model routes
-        to. Bytes take ``mime_type``. Given the ``record``, its field takes the path and the file it held goes once
+        optimized when the field is an ImageField, in the directory of the model (its metadata name) and the storage
+        the model routes to. Bytes take ``mime_type``. Given the ``record``, its field takes the path and the file it held goes once
         the transaction commits (see schedule_file_cleanup); the caller saves the record."""
+        from fastedgy.metadata_model.generator import generate_metadata_name
         from fastedgy.storage.cleanup import schedule_file_cleanup
         from fastedgy.storage.routing import is_global_storage_model
 
@@ -806,7 +807,10 @@ class Storage:
 
         global_storage = is_global_storage_model(model_cls)
         path = await self.upload(
-            file, model_cls.meta.tablename, global_storage=global_storage, image=stored_image_of(model_cls, field)
+            file,
+            generate_metadata_name(model_cls),
+            global_storage=global_storage,
+            image=stored_image_of(model_cls, field),
         )
 
         if record is not None:

@@ -25,7 +25,7 @@ async def test_bytes_for_an_image_field_are_stored_optimized(setup_db: FastEdgy)
     path = await get_service(Storage).upload_to_field(Product, "image", _png(), mime_type="image/png")
     stored = described_image(stored_file_path(path))
 
-    assert path.startswith("test_products/") and path.endswith(".webp")
+    assert path.startswith("product/") and path.endswith(".webp")
     assert stored == ("WEBP", (2560, 1280))
 
 
@@ -47,5 +47,5 @@ async def test_a_file_for_a_field_of_a_record_replaces_the_one_it_held(setup_db:
 async def test_a_file_for_a_field_that_is_no_image_is_stored_as_is(setup_db: FastEdgy) -> None:
     path = await get_service(Storage).upload_to_field(Category, "description", b"plain text", mime_type="text/plain")
 
-    assert path.startswith("test_categories/") and path.endswith(".txt")
+    assert path.startswith("category/") and path.endswith(".txt")
     assert Path(stored_file_path(path)).read_bytes() == b"plain text"

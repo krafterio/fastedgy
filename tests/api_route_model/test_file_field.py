@@ -32,7 +32,7 @@ async def test_a_data_url_written_at_creation_is_stored_optimized(auth_http: htt
     product = await make_product(auth_http, image=_data_url())
     path = await _image(auth_http, product["id"])
 
-    assert path is not None and path.startswith("test_products/") and path.endswith(".webp")
+    assert path is not None and path.startswith("product/") and path.endswith(".webp")
     assert described_image(stored_file_path(path))[1] == (2560, 1280)
 
 

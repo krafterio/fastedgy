@@ -49,7 +49,7 @@ def _cache(path: str) -> str:
 
 
 def _stored_files() -> set[str]:
-    directory = stored_file_path("test_products")
+    directory = stored_file_path("product")
 
     return set(os.listdir(directory)) if os.path.isdir(directory) else set()
 
@@ -152,7 +152,7 @@ async def test_adding_a_file_ends_the_same_both_ways(auth_http: httpx.AsyncClien
         results[way] = (_shape(path), *stored, list(hooks))
 
     assert results["route"] == results["api"]
-    assert results["api"][:3] == ("test_products/<uuid>.webp", "WEBP", (2560, 1280))
+    assert results["api"][:3] == ("product/<uuid>.webp", "WEBP", (2560, 1280))
 
 
 async def test_a_data_url_at_creation_is_stored_like_an_upload(auth_http: httpx.AsyncClient) -> None:
@@ -162,8 +162,22 @@ async def test_a_data_url_at_creation_is_stored_like_an_upload(auth_http: httpx.
     created = await auth_http.post("/api/test_products", json={"name": "Laptop", "price": "10.00", "image": data_url})
     paths = [await _image(uploaded), await _image(created.json()["id"])]
 
-    assert [_shape(path) for path in paths] == ["test_products/<uuid>.webp"] * 2
+    assert [_shape(path) for path in paths] == ["product/<uuid>.webp"] * 2
     assert [described_image(stored_file_path(str(path)))[1] for path in paths] == [(2560, 1280)] * 2
+
+
+@pytest.mark.parametrize("segment", ["product", "test_products"])
+async def test_an_upload_is_stored_under_the_model_whichever_name_the_route_takes(
+    auth_http: httpx.AsyncClient, segment: str
+) -> None:
+    product_id = await _product()
+
+    response = await auth_http.post(
+        f"/api/storage/upload/{segment}/{product_id}/image", files={"file": ("a.png", _png((40, 20)), "image/png")}
+    )
+
+    assert response.status_code == 200, response.text
+    assert _shape(await _image(product_id)) == "product/<uuid>.webp"
 
 
 async def test_replacing_a_file_ends_the_same_both_ways(auth_http: httpx.AsyncClient, hooks: list[str]) -> None:
@@ -185,7 +199,7 @@ async def test_replacing_a_file_ends_the_same_both_ways(auth_http: httpx.AsyncCl
         )
 
     assert results["route"] == results["api"]
-    assert results["api"][:4] == ("test_products/<uuid>.webp", True, False, False)
+    assert results["api"][:4] == ("product/<uuid>.webp", True, False, False)
 
 
 async def test_removing_a_file_ends_the_same_both_ways(auth_http: httpx.AsyncClient, hooks: list[str]) -> None:

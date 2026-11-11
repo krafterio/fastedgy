@@ -10,6 +10,7 @@ from functools import partial
 from typing import Any
 
 from fastedgy.dependencies import get_service
+from fastedgy.metadata_model.generator import generate_metadata_name
 from fastedgy.models.base import BaseView
 from fastedgy.orm import Registry
 from fastedgy.orm.fields import FileField
@@ -41,13 +42,15 @@ def schedule_file_cleanup(model_cls: Any, field: str, path: str | None, global_s
     """Queue, once the transaction commits, the removal of a file the ``field`` of a ``model_cls`` record let go.
 
     A field that is no file field holds a path only the storage routes write: its file goes only when it lies in the
-    directory of the record's table, where the routes store them, since other columns may hold the files of others."""
+    directory of the record's model, where the routes store them, or of its table, where 1.8.9 stored them, since
+    other columns may hold the files of others."""
     if not path:
         return
 
     tablename = model_cls.meta.tablename
+    own = (f"{generate_metadata_name(model_cls)}/", f"{tablename}/")
 
-    if not isinstance(model_cls.meta.fields.get(field), FileField) and not path.startswith(f"{tablename}/"):
+    if not isinstance(model_cls.meta.fields.get(field), FileField) and not path.startswith(own):
         return
 
     def queue() -> None:

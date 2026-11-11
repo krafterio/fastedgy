@@ -10,6 +10,8 @@ import httpx
 
 from fastedgy.dependencies import get_service
 from fastedgy.storage import Storage
+from fastedgy.storage.cleanup import schedule_file_cleanup
+from fastedgy.storage.routing import is_global_storage_model
 from fastedgy.test.factories import run_queued_tasks
 from fastedgy.test.fixtures import STORAGE_ROOT, stored_file_path
 from fastedgy.test.images import encoded_image
@@ -90,3 +92,19 @@ async def test_a_deleted_record_takes_its_files_with_it(auth_http: httpx.AsyncCl
 
     assert response.is_success, response.text
     assert (_kept(by_route), _kept(by_query)) == ((False, False), (False, False))
+
+
+async def test_a_text_field_lets_go_only_the_files_of_the_directory_of_its_model(auth_http: httpx.AsyncClient) -> None:
+    storage = get_service(Storage)
+    global_storage = is_global_storage_model(Category)
+    own = await storage.upload_from_bytes(b"own", "category", mime_type="text/plain", global_storage=global_storage)
+    table = await storage.upload_from_bytes(
+        b"table", "test_categories", mime_type="text/plain", global_storage=global_storage
+    )
+
+    schedule_file_cleanup(Category, "description", own, global_storage)
+    schedule_file_cleanup(Category, "description", table, global_storage)
+    await run_queued_tasks()
+
+    assert not os.path.exists(stored_file_path(own))
+    assert os.path.exists(stored_file_path(table))

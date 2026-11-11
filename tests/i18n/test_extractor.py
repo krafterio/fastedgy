@@ -64,3 +64,17 @@ def test_post_processing_names_the_plural_forms(tmp_path: Path) -> None:
     content = _clean(tmp_path, catalog)
 
     assert '"Plural-Forms: nplurals=2; plural=(n > 1);\\n"' in content
+
+
+def test_a_message_keeps_the_apostrophes_and_quotes_its_other_delimiter_holds(tmp_path: Path) -> None:
+    (tmp_path / "views.py").write_text(
+        '_t("Ce lien n\'est plus valide")\n'
+        "_ts('Il dit \"bonjour\"', name=1)\n"
+        "_t(\"L'objet est requis\", field='subject')\n"
+        "_('Plain')\n",
+        encoding="utf-8",
+    )
+
+    messages = I18nExtractor.__new__(I18nExtractor)._extract_messages(str(tmp_path))
+
+    assert messages == {"Ce lien n'est plus valide", 'Il dit "bonjour"', "L'objet est requis", "Plain"}

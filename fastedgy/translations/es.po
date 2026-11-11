@@ -768,3 +768,48 @@ msgstr "Ninguna lista responde al modelo {model}"
 
 msgid "A view of this list already has this name"
 msgstr "Una vista de esta lista ya tiene este nombre"
+
+msgid "'{model}' is not an allowed target of '{field}', expected one of: {allowed}"
+msgstr "«{model}» no es un destino permitido de «{field}»; se espera uno de: {allowed}"
+
+msgid "An entry with this value already exists for the field '{field_name}'."
+msgstr "Ya existe una entrada con este valor para el campo «{field_name}»."
+
+msgid "Invalid value '{value}' for field '{field}'. Please check the format."
+msgstr "Valor «{value}» no válido para el campo «{field}». Compruebe el formato."
+
+msgid "No record found with {field} = '{value}'."
+msgstr "No se encontró ningún registro con {field} = «{value}»."
+
+msgid "Relation operation '{op}' is not allowed on {model} for field '{field}'"
+msgstr "La operación de relación «{op}» no está permitida en {model} para el campo «{field}»"
+
+msgid "Sync operation '{op}' is not allowed for {model}"
+msgstr "La operación de sincronización «{op}» no está permitida para {model}"
+
+msgid "The 'meta' field holds no writable Attachment value: {keys}"
+msgstr "El campo «meta» no contiene ningún valor de Attachment modificable: {keys}"
+
+msgid "The 'meta' field is not valid JSON"
+msgstr "El campo «meta» no es un JSON válido"
+
+msgid "The 'meta' field mixes per-file keys and attachment values"
+msgstr "El campo «meta» mezcla claves por archivo y valores de adjunto"
+
+msgid "The 'meta' field must be a JSON object"
+msgstr "El campo «meta» debe ser un objeto JSON"
+
+msgid "The '{field}' field is required."
+msgstr "El campo «{field}» es obligatorio."
+
+msgid "The '{field}' field must be a number."
+msgstr "El campo «{field}» debe ser un número."
+
+msgid "The '{field}' field must be a text value."
+msgstr "El campo «{field}» debe ser un texto."
+
+msgid "The '{field}' field must be an integer."
+msgstr "El campo «{field}» debe ser un número entero."
+
+msgid "The '{field}' field must be true or false."
+msgstr "El campo «{field}» debe ser verdadero o falso."

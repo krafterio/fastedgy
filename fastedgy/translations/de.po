@@ -768,3 +768,48 @@ msgstr "Keine Liste gehört zum Modell {model}"
 
 msgid "A view of this list already has this name"
 msgstr "Eine Ansicht dieser Liste trägt bereits diesen Namen"
+
+msgid "'{model}' is not an allowed target of '{field}', expected one of: {allowed}"
+msgstr "„{model}“ ist kein erlaubtes Ziel von „{field}“, erwartet wird eines von: {allowed}"
+
+msgid "An entry with this value already exists for the field '{field_name}'."
+msgstr "Für das Feld „{field_name}“ existiert bereits ein Eintrag mit diesem Wert."
+
+msgid "Invalid value '{value}' for field '{field}'. Please check the format."
+msgstr "Ungültiger Wert „{value}“ für das Feld „{field}“. Bitte prüfen Sie das Format."
+
+msgid "No record found with {field} = '{value}'."
+msgstr "Kein Datensatz mit {field} = „{value}“ gefunden."
+
+msgid "Relation operation '{op}' is not allowed on {model} for field '{field}'"
+msgstr "Die Beziehungsoperation „{op}“ ist auf {model} für das Feld „{field}“ nicht erlaubt"
+
+msgid "Sync operation '{op}' is not allowed for {model}"
+msgstr "Die Synchronisierungsoperation „{op}“ ist für {model} nicht erlaubt"
+
+msgid "The 'meta' field holds no writable Attachment value: {keys}"
+msgstr "Das Feld „meta“ enthält keinen beschreibbaren Attachment-Wert: {keys}"
+
+msgid "The 'meta' field is not valid JSON"
+msgstr "Das Feld „meta“ ist kein gültiges JSON"
+
+msgid "The 'meta' field mixes per-file keys and attachment values"
+msgstr "Das Feld „meta“ mischt dateibezogene Schlüssel und Anhangwerte"
+
+msgid "The 'meta' field must be a JSON object"
+msgstr "Das Feld „meta“ muss ein JSON-Objekt sein"
+
+msgid "The '{field}' field is required."
+msgstr "Das Feld „{field}“ ist erforderlich."
+
+msgid "The '{field}' field must be a number."
+msgstr "Das Feld „{field}“ muss eine Zahl sein."
+
+msgid "The '{field}' field must be a text value."
+msgstr "Das Feld „{field}“ muss ein Text sein."
+
+msgid "The '{field}' field must be an integer."
+msgstr "Das Feld „{field}“ muss eine ganze Zahl sein."
+
+msgid "The '{field}' field must be true or false."
+msgstr "Das Feld „{field}“ muss wahr oder falsch sein."

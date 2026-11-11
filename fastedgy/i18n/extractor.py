@@ -204,11 +204,9 @@ class I18nExtractor:
         """Extract translatable messages from Python files."""
         messages = set()
 
-        # Pattern for _ts(), _t() or _() function calls
+        # A literal of _ts(), _t() or _() holds the quote it is not delimited by: "n'est", '"bonjour"'.
         patterns = [
-            r'_ts\s*\(\s*["\']([^"\']+)["\']\s*[,\)]',
-            r'_t\s*\(\s*["\']([^"\']+)["\']\s*[,\)]',
-            r'_\s*\(\s*["\']([^"\']+)["\']\s*[,\)]',
+            r"""(?<!\w)_(?:ts|t)?\s*\(\s*(?:"((?:[^"\\\n]|\\.)+)"|'((?:[^'\\\n]|\\.)+)')\s*[,\)]""",
         ]
 
         for root, dirs, files in os.walk(server_path):
@@ -222,8 +220,8 @@ class I18nExtractor:
                             content = f.read()
 
                         for pattern in patterns:
-                            matches = re.findall(pattern, content)
-                            messages.update(matches)
+                            for double, single in re.findall(pattern, content):
+                                messages.add(re.sub(r"\\([\"'\\])", r"\1", double or single))
 
                     except Exception:
                         continue

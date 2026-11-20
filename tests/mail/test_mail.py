@@ -54,3 +54,18 @@ async def test_mail_send_delivers_through_the_adapter(setup_db: FastEdgy) -> Non
 
     assert adapter.count == 1
     assert adapter.was_sent_to("someone@example.io")
+
+
+async def test_mail_send_adds_the_default_headers_an_email_does_not_set(setup_db: FastEdgy, monkeypatch) -> None:
+    mail = get_service(Mail)
+    adapter = mail.adapter
+    assert isinstance(adapter, MockAdapter)
+    monkeypatch.setattr(mail.settings, "mail_default_headers", {"X-Set": "default", "X-Kept": "default"})
+    email = _message("someone@example.io")
+    email["X-Kept"] = "own"
+
+    adapter.clear()
+    await mail.send(email)
+
+    assert adapter.last is not None
+    assert (adapter.last["X-Set"], adapter.last.get_all("X-Kept")) == ("default", ["own"])

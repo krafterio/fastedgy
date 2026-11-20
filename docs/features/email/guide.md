@@ -13,6 +13,8 @@ SMTP_USERNAME=your-email@gmail.com
 SMTP_PASSWORD=your-app-password
 SMTP_DEFAULT_FROM=no-reply@yourapp.com
 SMTP_USE_TLS=true
+# Headers added to every email that does not set them, as JSON (here the Amazon SES configuration set)
+MAIL_DEFAULT_HEADERS={"X-SES-CONFIGURATION-SET": "myapp"}
 ```
 
 ## Basic email sending

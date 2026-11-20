@@ -315,6 +315,8 @@ class BaseSettings(PydanticBaseSettings):
     smtp_username: str = ""
     smtp_password: str = ""
     smtp_default_from: str = ""
+    # Headers added to every email that does not set them, e.g. the SES configuration set of the project.
+    mail_default_headers: dict[str, str] = {}
 
     # I18n
     fallback_locale: str = "en"

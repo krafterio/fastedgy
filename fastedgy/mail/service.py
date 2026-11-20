@@ -162,6 +162,10 @@ class Mail:
         if not email["From"] and self.settings.smtp_default_from:
             email["From"] = self.settings.smtp_default_from
 
+        for name, value in self.settings.mail_default_headers.items():
+            if name not in email:
+                email[name] = value
+
         for header in ("To", "Cc", "Bcc"):
             if email.get(header):
                 email.replace_header(header, self._encode_email_address(email.get(header, "")))

@@ -115,6 +115,18 @@ class StorageAdapter(ABC):
         Empty by default: an adapter able to list its files overrides it."""
         return {}
 
+    async def move(self, path: str, new_path: str) -> None:
+        """Move a file to another path, its folders created. Reads and writes it whole by default: an adapter able
+        to move in place overrides it."""
+        await self.write(new_path, await self.read(path))
+        await self.delete(path)
+
+    async def files(self, prefix: str = "") -> list[tuple[str, int]]:
+        """The files under prefix, each with its path from the root of the store and its bytes.
+
+        Empty by default: an adapter able to list its files overrides it."""
+        return []
+
 
 __all__ = [
     "StorageAdapter",

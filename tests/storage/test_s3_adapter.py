@@ -279,3 +279,39 @@ def test_two_adapters_on_the_same_bucket_and_prefix_share_their_location() -> No
 
     assert first.location == S3Adapter(bucket="b", endpoint="https://s3.gra.io.cloud.ovh.net", prefix="/data/").location
     assert first.location != S3Adapter(bucket="b", endpoint="https://s3.gra.io.cloud.ovh.net", prefix="cache").location
+
+
+async def test_files_lists_each_key_under_the_prefix_from_the_root_of_the_store(
+    adapter: S3Adapter, stub: Stubber
+) -> None:
+    stub.add_response(
+        "list_objects_v2",
+        {
+            "Contents": [
+                {"Key": "data/workspace/1/a.txt", "Size": 5},
+                {"Key": "data/workspace/1/sub/b.txt", "Size": 2},
+                {"Key": "data/workspace/1/sub/", "Size": 0},
+            ]
+        },
+        {"Bucket": "my-bucket", "Prefix": "data/workspace/1/"},
+    )
+
+    assert await adapter.files("workspace/1") == [("workspace/1/a.txt", 5), ("workspace/1/sub/b.txt", 2)]
+
+
+async def test_move_copies_the_key_in_the_bucket_then_deletes_it(adapter: S3Adapter, stub: Stubber) -> None:
+    stub.add_response(
+        "copy_object",
+        {},
+        {
+            "Bucket": "my-bucket",
+            "Key": "data/_trash/workspace/1/a.txt",
+            "CopySource": {"Bucket": "my-bucket", "Key": "data/workspace/1/a.txt"},
+            "MetadataDirective": "COPY",
+        },
+    )
+    stub.add_response("delete_object", {}, {"Bucket": "my-bucket", "Key": "data/workspace/1/a.txt"})
+
+    await adapter.move("workspace/1/a.txt", "_trash/workspace/1/a.txt")
+
+    stub.assert_no_pending_responses()

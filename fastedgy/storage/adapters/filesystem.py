@@ -105,6 +105,21 @@ class FilesystemAdapter(StorageAdapter):
 
         return usage
 
+    @staticmethod
+    def _files_under(root: Path, base: Path) -> list[tuple[str, int]]:
+        found: list[tuple[str, int]] = []
+
+        for dirpath, _, filenames in os.walk(base):
+            for name in filenames:
+                full = os.path.join(dirpath, name)
+
+                try:
+                    found.append((Path(os.path.relpath(full, root)).as_posix(), os.lstat(full).st_size))
+                except OSError:
+                    pass
+
+        return found
+
     async def exists(self, path: str) -> bool:
         return self._full_path(path).exists()
 
@@ -150,6 +165,15 @@ class FilesystemAdapter(StorageAdapter):
     async def write_file(self, path: str, file: BinaryIO, content_type: str | None = None) -> None:
         await to_thread.run_sync(self._store, path, lambda target: shutil.copyfileobj(file, target, 1024 * 1024))
 
+    async def move(self, path: str, new_path: str) -> None:
+        target = self._full_path(new_path)
+
+        def rename() -> None:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            os.replace(self._full_path(path), target)
+
+        await to_thread.run_sync(rename)
+
     async def delete(self, path: str) -> None:
         full = self._full_path(path)
         if full.exists():
@@ -175,6 +199,9 @@ class FilesystemAdapter(StorageAdapter):
 
     async def usage(self, prefix: str = "") -> dict[str, tuple[int, int]]:
         return await to_thread.run_sync(self._usage_under, self._full_path(prefix))
+
+    async def files(self, prefix: str = "") -> list[tuple[str, int]]:
+        return await to_thread.run_sync(self._files_under, Path(self.root), self._full_path(prefix))
 
 
 __all__ = [

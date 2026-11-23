@@ -346,3 +346,95 @@ async def test_a_jpeg_variant_is_rendered_at_its_size(setup_db: FastEdgy) -> Non
 
     assert data is not None
     assert described_image(data) == ("JPEG", (100, 75))
+
+
+class _Recorded:
+    def __init__(self) -> None:
+        self.calls: list[tuple] = []
+
+    def hooks(self, storage: Storage, monkeypatch) -> None:
+        async def before_write(path: str, size: int, replaced: int) -> None:
+            self.calls.append(("before_write", path, size, replaced))
+
+        async def after_write(path: str, size: int, replaced: int) -> None:
+            self.calls.append(("after_write", path, size, replaced))
+
+        async def after_delete(path: str, size: int) -> None:
+            self.calls.append(("after_delete", path, size))
+
+        monkeypatch.setattr(storage, "before_write", before_write)
+        monkeypatch.setattr(storage, "after_write", after_write)
+        monkeypatch.setattr(storage, "after_delete", after_delete)
+
+
+async def test_an_upload_tells_the_hooks_its_full_path_and_size(setup_db: FastEdgy, monkeypatch) -> None:
+    from starlette.datastructures import UploadFile
+
+    storage = get_service(Storage)
+    recorded = _Recorded()
+    recorded.hooks(storage, monkeypatch)
+
+    path = await storage.upload(UploadFile(io.BytesIO(b"hello"), filename="a.txt"), "docs", global_storage=True)
+
+    assert recorded.calls == [
+        ("before_write", f"global/{path}", 5, 0),
+        ("after_write", f"global/{path}", 5, 0),
+    ]
+
+
+async def test_an_upload_over_a_file_tells_the_hooks_the_size_it_replaces(setup_db: FastEdgy, monkeypatch) -> None:
+    from starlette.datastructures import UploadFile
+
+    storage = get_service(Storage)
+    await storage.adapter.write("global/docs/a.txt", b"0123456789")
+    recorded = _Recorded()
+    recorded.hooks(storage, monkeypatch)
+
+    await storage.upload(UploadFile(io.BytesIO(b"hey"), filename="a.txt"), "docs", "a.txt", global_storage=True)
+
+    assert recorded.calls[-1] == ("after_write", "global/docs/a.txt", 3, 10)
+
+
+async def test_a_refusing_hook_leaves_the_file_unwritten(setup_db: FastEdgy, monkeypatch) -> None:
+    from starlette.datastructures import UploadFile
+
+    storage = get_service(Storage)
+
+    async def before_write(path: str, size: int, replaced: int) -> None:
+        raise ValueError("full")
+
+    monkeypatch.setattr(storage, "before_write", before_write)
+
+    with pytest.raises(ValueError, match="full"):
+        await storage.upload(
+            UploadFile(io.BytesIO(b"hello"), filename="refused.txt"), "docs", "refused.txt", global_storage=True
+        )
+
+    assert await storage.file_exists("docs/refused.txt", global_storage=True) is False
+
+
+async def test_a_delete_tells_the_hook_the_size_it_frees_and_a_missing_file_nothing(
+    setup_db: FastEdgy, monkeypatch
+) -> None:
+    storage = get_service(Storage)
+    await storage.adapter.write("global/docs/a.txt", b"hello")
+    recorded = _Recorded()
+    recorded.hooks(storage, monkeypatch)
+
+    await storage.delete("docs/a.txt", global_storage=True)
+    await storage.delete("docs/missing.txt", global_storage=True)
+
+    assert recorded.calls == [("after_delete", "global/docs/a.txt", 5)]
+
+
+async def test_delete_directory_takes_its_files_and_their_cached_variants(setup_db: FastEdgy) -> None:
+    storage = get_service(Storage)
+    await storage.adapter.write("global/posts/1/a.png", b"a")
+    await storage.adapter.write("global/posts/1/sub/b.png", b"b")
+    await storage.adapter.write("global/posts/2/c.png", b"c")
+    await storage.cache_adapter.write(f"{services.CACHE_PREFIX}/global/posts/1/a.png/contain_w32_h0.png", b"v")
+
+    await storage.delete_directory("posts/1", global_storage=True)
+
+    assert await storage.adapter.files("global/posts") == [("global/posts/2/c.png", 1)]
+    assert await storage.cache_adapter.files(f"{services.CACHE_PREFIX}/global/posts/1") == []

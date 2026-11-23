@@ -89,3 +89,21 @@ async def test_usage_counts_the_files_by_first_folder(adapter: FilesystemAdapter
     assert await adapter.usage() == {"workspace": (2, 7), "global": (1, 3), "": (1, 1)}
     assert await adapter.usage("workspace") == {"1": (1, 5), "2": (1, 2)}
     assert await adapter.usage("missing") == {}
+
+
+async def test_files_lists_each_file_under_the_prefix_with_its_bytes(adapter: FilesystemAdapter) -> None:
+    await adapter.write("workspace/1/a.txt", b"hello")
+    await adapter.write("workspace/1/sub/b.txt", b"hi")
+    await adapter.write("workspace/2/c.txt", b"abc")
+
+    assert sorted(await adapter.files("workspace/1")) == [("workspace/1/a.txt", 5), ("workspace/1/sub/b.txt", 2)]
+    assert await adapter.files("missing") == []
+
+
+async def test_move_puts_the_file_at_its_new_path_with_its_folders(adapter: FilesystemAdapter) -> None:
+    await adapter.write("workspace/1/a.txt", b"hello")
+
+    await adapter.move("workspace/1/a.txt", "_trash/workspace/1/a.txt")
+
+    assert await adapter.exists("workspace/1/a.txt") is False
+    assert await adapter.read("_trash/workspace/1/a.txt") == b"hello"

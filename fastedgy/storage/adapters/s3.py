@@ -157,6 +157,23 @@ class S3Adapter(StorageAdapter):
 
         return usage
 
+    def _files_under(self, s3: "S3Client", prefix: str) -> list[tuple[str, int]]:
+        found: list[tuple[str, int]] = []
+        base = self._key(prefix)
+        base = f"{base}/" if base and not base.endswith("/") else base
+        root = f"{self.prefix}/" if self.prefix else ""
+
+        for page in s3.get_paginator("list_objects_v2").paginate(Bucket=self.bucket, Prefix=base):
+            for obj in page.get("Contents", []):
+                key = obj.get("Key", "")
+
+                if key.endswith("/"):
+                    continue
+
+                found.append((key[len(root) :], obj.get("Size", 0)))
+
+        return found
+
     def _move_to_class(self, s3: "S3Client", storage_class: str, dry_run: bool, workers: int) -> tuple[int, int, int]:
         moved = size = skipped = 0
         prefix = f"{self.prefix}/" if self.prefix else ""
@@ -275,6 +292,21 @@ class S3Adapter(StorageAdapter):
         except Exception:
             pass
 
+    async def move(self, path: str, new_path: str) -> None:
+        def copy_then_delete(s3: "S3Client") -> None:
+            source = self._key(path)
+            options: dict[str, Any] = {"StorageClass": self.storage_class} if self.storage_class else {}
+            s3.copy_object(
+                Bucket=self.bucket,
+                Key=self._key(new_path),
+                CopySource={"Bucket": self.bucket, "Key": source},
+                MetadataDirective="COPY",
+                **options,
+            )
+            s3.delete_object(Bucket=self.bucket, Key=source)
+
+        await self._run(copy_then_delete)
+
     async def delete_directory(self, path: str) -> None:
         await self._run(lambda s3: self._delete_under(s3, path))
 
@@ -289,6 +321,9 @@ class S3Adapter(StorageAdapter):
 
     async def usage(self, prefix: str = "") -> dict[str, tuple[int, int]]:
         return await self._run(lambda s3: self._usage_under(s3, prefix))
+
+    async def files(self, prefix: str = "") -> list[tuple[str, int]]:
+        return await self._run(lambda s3: self._files_under(s3, prefix))
 
 
 __all__ = [

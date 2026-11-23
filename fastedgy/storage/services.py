@@ -537,7 +537,9 @@ class Storage:
         directory = path.rsplit("/", 1)[0] if "/" in path else ""
         name = f"{uuid.uuid4()}{mimetypes.guess_extension(mime_type) or ''}"
         new_path = f"{directory}/{name}" if directory else name
-        await self.adapter.write(self._resolve_path(new_path, global_storage), content, mime_type)
+        full_path = self._resolve_path(new_path, global_storage)
+        await self.adapter.write(full_path, content, mime_type)
+        await self.after_write(full_path, len(content), 0)
 
         return RewrittenImage(new_path, mime_type, width, height, len(data), len(content))
 
@@ -968,7 +970,11 @@ class Storage:
 
             # Delete the file via adapter
             full_path = self._resolve_path(file_path, global_storage)
+            size = await self._stored_size(full_path)
             await self.adapter.delete(full_path)
+
+            if size:
+                await self.after_delete(full_path, size)
 
             # Delete optimized cache (best-effort)
             try:
@@ -980,6 +986,16 @@ class Storage:
             return True
         except Exception:
             return False
+
+    async def delete_directory(self, path: str, global_storage: bool = False) -> None:
+        """Delete a folder with every file under it and their optimized images. No error if it doesn't exist."""
+        resolved = self._resolve_path(path, global_storage)
+        await self.adapter.delete_directory(resolved)
+
+        try:
+            await self.cache_adapter.delete_directory(f"{CACHE_PREFIX}/{resolved}")
+        except Exception:
+            pass
 
     async def delete_workspace(self, workspace_id: int | None = None) -> bool:
         if workspace_id is None:
@@ -1028,8 +1044,29 @@ class Storage:
         )
 
     # --------------------
+    # Hooks
+    # --------------------
+    async def before_write(self, path: str, size: int, replaced: int) -> None:
+        """Called before ``size`` bytes are written at ``path``, the full path in the store, over a file of
+        ``replaced`` bytes, 0 when there is none. Raises to refuse the write. Does nothing by default."""
+
+    async def after_write(self, path: str, size: int, replaced: int) -> None:
+        """Called once ``size`` bytes are written at ``path``, the full path in the store, over a file of
+        ``replaced`` bytes, 0 when there was none. Does nothing by default."""
+
+    async def after_delete(self, path: str, size: int) -> None:
+        """Called once the file of ``size`` bytes at ``path``, the full path in the store, is deleted. Does
+        nothing by default."""
+
+    # --------------------
     # Internal helpers
     # --------------------
+    async def _stored_size(self, full_path: str) -> int:
+        try:
+            return await self.adapter.file_size(full_path)
+        except Exception:
+            return 0
+
     def _ensure_filename(self, filename: str | None, ext: str) -> str:
         if not filename:
             filename = str(uuid.uuid4()) + ".{ext}"
@@ -1054,6 +1091,9 @@ class Storage:
 
         safe_filename = self._ensure_filename(filename, ext)
         relative_path = f"{directory_path.strip('/')}/{safe_filename}"
+        full_path = self._resolve_path(relative_path, global_storage)
+        replaced = await self._stored_size(full_path)
+        await self.before_write(full_path, size, replaced)
 
         # Delete existing cache if file is being overwritten
         try:
@@ -1062,9 +1102,8 @@ class Storage:
         except Exception:
             pass
 
-        # Write via adapter
-        full_path = self._resolve_path(relative_path, global_storage)
         await self.adapter.write_file(full_path, file, mime_type)
+        await self.after_write(full_path, size, replaced)
 
         if not create_attachment:
             return relative_path
@@ -1109,6 +1148,7 @@ class Storage:
             if attachment_values:
                 try:
                     await self.adapter.delete(full_path)
+                    await self.after_delete(full_path, size)
                 except Exception:
                     logger.warning("Could not remove '%s' after a failed attachment creation", relative_path)
 

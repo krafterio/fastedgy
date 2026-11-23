@@ -171,6 +171,22 @@ class DatabaseConnectionFilter(logging.Filter):
         return True
 
 
+class InfoAsDebugFilter(logging.Filter):
+    """Tell at DEBUG what a library logs at INFO, step by step: libvips, through pyvips,
+    reports each stage of every thumbnail it makes, a dozen lines an image."""
+
+    def filter(self, record):
+        if record.levelno == logging.INFO:
+            record.levelno = logging.DEBUG
+            record.levelname = logging.getLevelName(logging.DEBUG)
+
+        return True
+
+
+# The loggers whose INFO records are told at DEBUG (`InfoAsDebugFilter`).
+VERBOSE_LIBRARY_LOGGERS = ("pyvips",)
+
+
 def setup_logging(
     level: LogLevel = LogLevel.WARNING,
     output: LogOutput = LogOutput.CONSOLE,
@@ -197,6 +213,11 @@ def setup_logging(
         formatter = logging.Formatter(format)
 
     db_connection_filter = DatabaseConnectionFilter()
+
+    for name in VERBOSE_LIBRARY_LOGGERS:
+        library_logger = logging.getLogger(name)
+        if not any(isinstance(existing, InfoAsDebugFilter) for existing in library_logger.filters):
+            library_logger.addFilter(InfoAsDebugFilter())
 
     # The configured level is enforced on the HANDLERS, not only on the root
     # logger: a root-only level is bypassed by any library that pins an
@@ -232,7 +253,9 @@ def setup_logging(
 
 
 __all__ = [
+    "VERBOSE_LIBRARY_LOGGERS",
     "DatabaseConnectionFilter",
+    "InfoAsDebugFilter",
     "JsonFormatter",
     "LogFormat",
     "LogLevel",

@@ -49,3 +49,33 @@ def test_warnings_are_visible_at_warning_level(capsys):
     library_logger.warning("visible at the configured level")
 
     assert "visible at the configured level" in _read_streams(capsys)
+
+
+@pytest.fixture
+def pyvips_logger():
+    library_logger = logging.getLogger("pyvips")
+    previous_filters = library_logger.filters[:]
+    yield library_logger
+    library_logger.filters[:] = previous_filters
+
+
+def test_the_steps_libvips_reports_at_info_stay_out_of_an_info_output(capsys, pyvips_logger):
+    setup_logging(level=LogLevel.INFO, output=LogOutput.CONSOLE, format=LogFormat.JSON)
+
+    pyvips_logger.info("VIPS: thumbnailing 1250341 bytes of data")
+    pyvips_logger.warning("VIPS: a real warning")
+
+    output = _read_streams(capsys)
+    assert "thumbnailing" not in output
+    assert "a real warning" in output
+
+
+def test_the_steps_libvips_reports_show_at_debug(capsys, pyvips_logger):
+    setup_logging(level=LogLevel.DEBUG, output=LogOutput.CONSOLE, format=LogFormat.TEXT)
+    setup_logging(level=LogLevel.DEBUG, output=LogOutput.CONSOLE, format=LogFormat.TEXT)
+
+    pyvips_logger.info("VIPS: thumbnailing 1250341 bytes of data")
+
+    output = _read_streams(capsys)
+    assert "thumbnailing" in output and "DEBUG" in output
+    assert len([f for f in pyvips_logger.filters if type(f).__name__ == "InfoAsDebugFilter"]) == 1

@@ -3825,6 +3825,18 @@
             "title": "Id",
             "type": "integer"
           },
+          "image": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image"
+          },
           "name": {
             "maxLength": 100,
             "title": "Name",
@@ -3899,6 +3911,17 @@
               ]
             ],
             "title": "Category"
+          },
+          "image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image"
           },
           "name": {
             "maxLength": 100,
@@ -4041,6 +4064,17 @@
               ]
             ],
             "title": "Category"
+          },
+          "image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image"
           },
           "name": {
             "anyOf": [

@@ -11,6 +11,7 @@ class Folder(BaseModel):
     name = fields.CharField(max_length=100)
     parent = fields.ForeignKey("Folder", null=True, on_delete="CASCADE")
     category = fields.ForeignKey("Category", on_delete="CASCADE", related_name="folders")
+    image = fields.ImageField(max_length=500, null=True)
 
     class Meta(BaseModel.Meta):
         tablename = "test_folders"

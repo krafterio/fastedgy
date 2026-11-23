@@ -108,3 +108,20 @@ async def test_a_text_field_lets_go_only_the_files_of_the_directory_of_its_model
 
     assert not os.path.exists(stored_file_path(own))
     assert os.path.exists(stored_file_path(table))
+
+
+async def test_a_record_an_sql_cascade_deletes_takes_its_files_with_it(auth_http: httpx.AsyncClient) -> None:
+    from fastedgy.test.models.folder import Folder
+
+    category = await Category.query.create(name="Office")
+    folder = await Folder.query.create(name="Bills", category=category)
+    response = await auth_http.post(
+        f"/api/storage/upload/folder/{folder.id}/image", files={"file": ("photo.png", _png(), "image/png")}
+    )
+    assert response.status_code == 200, response.text
+    path = response.json()["path"]
+
+    await category.delete()
+    await run_queued_tasks()
+
+    assert _kept(path) == (False, False)

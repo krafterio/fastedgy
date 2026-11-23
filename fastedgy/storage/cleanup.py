@@ -100,11 +100,69 @@ async def _let_go_with_their_records(sender: Any, instance: Any, model_instance:
             schedule_file_cleanup(sender, name, row.get(name), global_storage)
 
 
+type CascadingChild = tuple[Any, str, list[str]]
+
+_children: dict[type, list[CascadingChild]] = {}
+
+
+def _cascading_children() -> dict[type, list[CascadingChild]]:
+    """The models holding a file field whose rows an SQL cascade deletes with a row of another model, by that model:
+    (model, foreign key, file fields). The workspace of a record is left out: its folder goes whole with it
+    (`Storage.delete_workspace`)."""
+    children: dict[type, list[CascadingChild]] = {}
+    names_of: dict[Any, list[str]] = {}
+
+    for model_cls, name in field_columns():
+        names_of.setdefault(model_cls, []).append(name)
+
+    for model_cls, names in names_of.items():
+        for fk_name, model_field in model_cls.meta.fields.items():
+            target = getattr(model_field, "target", None)
+
+            if (
+                fk_name != "workspace"
+                and getattr(model_field, "on_delete", None) == "CASCADE"
+                and not getattr(model_field, "is_m2m", False)
+                and isinstance(target, type)
+                and target is not model_cls
+            ):
+                children.setdefault(target, []).append((model_cls, fk_name, names))
+
+    return children
+
+
+async def _let_go_with_their_parents(sender: Any, instance: Any, model_instance: Any = None, **kwargs: Any) -> None:
+    """A row an SQL cascade deletes sends no signal: its parent reads the files of the children it takes with it,
+    before the cascade runs. One level deep: a deeper chain lies in a workspace folder its purge removes whole."""
+    if model_instance is not None:
+        ids = [model_instance.pk] if model_instance.pk is not None else []
+    else:
+        ids = [row["id"] for row in await instance.values(fields=["id"])]
+
+    if not ids:
+        return
+
+    for child_cls, fk_name, names in _children.get(sender, []):
+        global_storage = is_global_storage_model(child_cls)
+        rows = await child_cls.global_query.filter(R(fk_name, "in", ids), allow_excluded=True).values(fields=names)
+
+        for row in rows:
+            for name in names:
+                schedule_file_cleanup(child_cls, name, row.get(name), global_storage)
+
+
 def register_file_cleanup_signals() -> None:
-    """Remove the files of the records deleted, for every registered model holding a file field."""
+    """Remove the files of the records deleted, for every registered model holding a file field, and the files of
+    the records an SQL cascade deletes with a record of another model."""
     for model_cls in {model_cls for model_cls, _ in field_columns()} - _registered:
         _registered.add(model_cls)
         pre_delete.connect(_let_go_with_their_records, sender=model_cls)
+
+    for parent_cls, children in _cascading_children().items():
+        if parent_cls not in _children:
+            pre_delete.connect(_let_go_with_their_parents, sender=parent_cls)
+
+        _children[parent_cls] = children
 
 
 __all__ = [

@@ -48,8 +48,11 @@ class Mail:
         self.html_converter.unicode_snob = True
         self.html_converter.protect_links = False
 
-    def _build_adapter(self, settings: BaseSettings) -> MailAdapter:
+    def _build_adapter(self, settings: BaseSettings) -> MailAdapter | None:
         adapter = (settings.mail_adapter or "smtp").lower()
+
+        if adapter == "false" or (adapter == "smtp" and not settings.smtp_host):
+            return None
 
         if adapter == "mock":
             return MockAdapter()
@@ -159,6 +162,10 @@ class Mail:
         await self.send(email)
 
     async def send(self, email: EmailMessage) -> None:
+        if self.adapter is None:
+            logger.warning(f"No mail delivery configured, the email '{email['Subject']}' is not sent")
+            return
+
         if not email["From"] and self.settings.smtp_default_from:
             email["From"] = self.settings.smtp_default_from
 

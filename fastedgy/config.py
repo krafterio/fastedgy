@@ -306,7 +306,7 @@ class BaseSettings(PydanticBaseSettings):
     # Resized variants rendered at once by a process: each decodes its source in memory.
     image_render_concurrency: int = 2
 
-    # Mail
+    # Mail: no email is delivered with the adapter "false", or with "smtp" and no host.
     mail_adapter: str = "smtp"
     mail_templates_path: str | None = None
     smtp_host: str = ""

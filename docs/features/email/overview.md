@@ -65,6 +65,9 @@ Set these environment variables:
 - `SMTP_PASSWORD`: SMTP password
 - `SMTP_DEFAULT_FROM`: Default sender email
 - `SMTP_USE_TLS`: Enable TLS (default: true)
+- `MAIL_ADAPTER`: `smtp` (default), `mock` to keep the emails in memory, `false` to send none
+
+Without `SMTP_HOST`, or with `MAIL_ADAPTER=false`, no email is delivered: each one is logged as a warning and dropped.
 
 ## Use cases
 

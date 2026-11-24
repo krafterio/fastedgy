@@ -6,6 +6,7 @@ from email.message import EmailMessage
 import pytest
 
 from fastedgy.app import FastEdgy
+from fastedgy.config import BaseSettings
 from fastedgy.dependencies import get_service
 from fastedgy.mail import Mail, MockAdapter, SmtpAdapter
 
@@ -37,6 +38,15 @@ async def test_mock_adapter_records_and_inspects_messages() -> None:
 def test_smtp_adapter_requires_a_host() -> None:
     with pytest.raises(ValueError):
         SmtpAdapter(host="", port=587, username="user", password="pass")
+
+
+@pytest.mark.parametrize(("adapter", "host"), [("smtp", ""), ("False", "smtp.example.io")])
+async def test_mail_without_delivery_drops_the_email(setup_db: FastEdgy, adapter: str, host: str) -> None:
+    settings = get_service(BaseSettings).model_copy(update={"mail_adapter": adapter, "smtp_host": host})
+    mail = Mail(settings)
+
+    assert mail.adapter is None
+    await mail.send(_message("someone@example.io"))
 
 
 async def test_mail_uses_the_mock_adapter_in_tests(setup_db: FastEdgy) -> None:

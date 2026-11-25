@@ -47,6 +47,12 @@ async def test_a_url_leading_outside_the_public_network_is_refused(url: str) -> 
         await safe_get(url, max_bytes=100, transport=_transport({}))
 
 
+@pytest.mark.parametrize("url", ["https://xn--a.com/", "http://[::1/"])
+async def test_a_url_whose_host_cannot_be_read_is_refused(url: str) -> None:
+    with pytest.raises(UnsafeUrlError):
+        await safe_get(url, max_bytes=100, transport=_transport({}))
+
+
 async def test_a_redirect_into_the_internal_network_is_refused() -> None:
     transport = _transport(
         {"example.io/go": httpx.Response(302, headers={"location": "http://rebind.example.io/admin"})}

@@ -58,15 +58,19 @@ async def public_addresses(host: str) -> list[str]:
 
 
 async def ensure_public_url(url: str) -> list[str]:
-    target = httpx.URL(url)
+    try:
+        target = httpx.URL(url)
+        host = target.host
+    except (httpx.InvalidURL, UnicodeError) as exc:
+        raise UnsafeUrlError(f"{url} is not a valid url") from exc
 
-    if target.scheme not in ("http", "https") or not target.host:
+    if target.scheme not in ("http", "https") or not host:
         raise UnsafeUrlError(f"{url} is not an http or https url")
 
-    addresses = await public_addresses(target.host)
+    addresses = await public_addresses(host)
 
     if not addresses:
-        raise UnsafeUrlError(f"{target.host} does not lead to a public address")
+        raise UnsafeUrlError(f"{host} does not lead to a public address")
 
     return addresses
 
@@ -124,8 +128,8 @@ async def safe_get(
 ) -> FetchedResponse:
     async with httpx.AsyncClient(timeout=timeout, follow_redirects=False, transport=transport) as client:
         for _ in range(max_redirects + 1):
-            target = httpx.URL(url)
             address = (await ensure_public_url(url))[0]
+            target = httpx.URL(url)
             request_headers = {**(headers or {}), "Host": target.netloc.decode("ascii")}
             extensions = {"sni_hostname": target.host} if target.scheme == "https" else {}
 

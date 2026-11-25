@@ -21,8 +21,14 @@ the name of the relation, a column the target does not carry. The batch covers
 every row it was built from, so a key it does not hold is an empty relation and
 is answered as such.
 
-TODO: drop once Edgy bakes per model, answers an empty relation itself and
-keeps a prefetch to the model queried (still all three in 0.36.1).
+The batch read also names every row of the batch in a bound parameter of its
+own, and PostgreSQL takes 32767 of them at most: a list longer than that failed
+before it read anything. The batch is read here in chunks, merged into the one
+prefetch the rows are handed.
+
+TODO: drop once Edgy bakes per model, answers an empty relation itself, keeps a
+prefetch to the model queried and bounds the parameters of its batch read
+(still all four in 0.36.1).
 """
 
 import asyncio
@@ -30,9 +36,10 @@ from collections import defaultdict
 from typing import Any
 
 from edgy.core.db.models.mixins.row import ModelRowMixin
+from edgy.core.db.querysets.executor import QueryExecutor
 from edgy.core.db.querysets.prefetch import Prefetch
 
-_init_bake = Prefetch.init_bake
+PREFETCH_CHUNK_SIZE = 5000
 
 
 class _BakedResults(dict):
@@ -52,6 +59,18 @@ def _carries_relation(model_class: Any, related_name: str) -> bool:
     fields = getattr(getattr(model_class, "meta", None), "fields", {})
 
     return related_name.split("__", 1)[0] in fields
+
+
+async def _init_bake(self: Prefetch, model_class: Any) -> None:
+    if self._baked or not self._is_finished or self.queryset is None:
+        return
+
+    self._baked = True
+
+    for queryset in self.__dict__.get("_fs_chunks") or [self.queryset]:
+        async for result in queryset._execute_iterate(True):
+            model_key = model_class.create_model_key_from_sqla_row(queryset._current_row, row_prefix=self._bake_prefix)
+            self._baked_results[model_key].append(result)
 
 
 async def _shared_init_bake(self: Prefetch, model_class: Any) -> None:
@@ -81,6 +100,28 @@ async def _shared_init_bake(self: Prefetch, model_class: Any) -> None:
 
 
 Prefetch.init_bake = _shared_init_bake  # type: ignore[method-assign]
+
+
+_prepare_prefetches_for_batch = QueryExecutor._prepare_prefetches_for_batch
+
+
+async def _chunked_prefetches_for_batch(self: QueryExecutor, batch: Any, tables_and_models: Any) -> list[Prefetch]:
+    if len(batch) <= PREFETCH_CHUNK_SIZE:
+        return await _prepare_prefetches_for_batch(self, batch, tables_and_models)
+
+    chunks = [
+        await _prepare_prefetches_for_batch(self, batch[start : start + PREFETCH_CHUNK_SIZE], tables_and_models)
+        for start in range(0, len(batch), PREFETCH_CHUNK_SIZE)
+    ]
+    prefetches = chunks[0]
+
+    for index, prefetch in enumerate(prefetches):
+        prefetch.__dict__["_fs_chunks"] = [chunk[index].queryset for chunk in chunks]
+
+    return prefetches
+
+
+QueryExecutor._prepare_prefetches_for_batch = _chunked_prefetches_for_batch  # type: ignore[method-assign]
 
 
 _handle_prefetch_related = ModelRowMixin._ModelRowMixin__handle_prefetch_related.__func__  # type: ignore[attr-defined]

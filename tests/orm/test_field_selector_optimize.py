@@ -505,3 +505,56 @@ async def test_a_page_reads_its_to_many_from_the_link_table_alone(auth_http: htt
     selects = " ".join(_select_part(statement) for statement in statements)
 
     assert not [column for column in ("description", "price", "quantity") if column in selects]
+
+
+async def test_a_batch_longer_than_a_chunk_reads_its_to_many_in_chunks(setup_db: FastEdgy, monkeypatch) -> None:
+    """The batch read names every row of the batch in a bound parameter, and
+    PostgreSQL takes 32767 of them at most: a longer list failed before it read
+    anything. Past a chunk the batch is read in several queries, merged into the
+    relation of every row."""
+    from fastedgy.orm import prefetch
+
+    tag = await FsoTag.query.create(name="promo")
+    product = await _create_product_graph()
+    category = await FsoCategory.query.get()
+    await product.tags.add(tag)
+
+    for index in range(4):
+        other = await FsoProduct.query.create(name=f"More {index}", category=category)
+
+        if index % 2:
+            await other.tags.add(tag)
+
+    from sqlalchemy import event
+    from sqlalchemy.engine import Engine
+
+    fields = "name,tags.name"
+
+    async def read(chunk_size: int) -> tuple[dict, int]:
+        statements: list[str] = []
+
+        def record(conn, cursor, statement, parameters, context, executemany) -> None:
+            statements.append(statement)
+
+        monkeypatch.setattr(prefetch, "PREFETCH_CHUNK_SIZE", chunk_size)
+        event.listen(Engine, "before_cursor_execute", record)
+
+        try:
+            items = await optimize_query_filter_fields(FsoProduct.query.all(), fields).all()
+            dumps = [await filter_selected_fields(item, fields) for item in items]
+        finally:
+            event.remove(Engine, "before_cursor_execute", record)
+
+        return {dump["name"]: dump for dump in dumps}, len(statements)
+
+    _, whole = await read(100)
+    dumps, chunked = await read(2)
+
+    assert chunked == whole + 2
+    assert {name: [t["name"] for t in dump["tags"]] for name, dump in dumps.items()} == {
+        "Hammer": ["promo"],
+        "More 0": [],
+        "More 1": ["promo"],
+        "More 2": [],
+        "More 3": ["promo"],
+    }

@@ -81,8 +81,6 @@ async def create_report_task(report_id: int, config: dict, tasks: QueuedTasks = 
     return {"task_id": await task_ref.get_task_id()}
 ```
 
-A queued task model gets no generated route (`api_route_model`, console included), and a foreign key leading to one is declared `exclude=True` on any model that has routes: the application fails to start otherwise.
-
 ## Complex Context Management
 
 Detailed progress tracking:

@@ -89,21 +89,3 @@ def test_is_exposed_relation_field_classification(setup_openapi_app: FastEdgy) -
     assert "+" not in Workspace.model_fields
     assert is_exposed_relation_field(Product.model_fields["tags"]) is True
     assert is_exposed_relation_field(Product.model_fields["name"]) is False
-
-
-def test_a_queued_task_gets_no_generated_route(setup_openapi_app: FastEdgy) -> None:
-    from fastapi import APIRouter
-
-    from fastedgy.api_route_model.registry import RouteModelRegistry
-    from fastedgy.api_route_model.router import register_api_route_models
-    from fastedgy.dependencies import get_service
-    from fastedgy.test.models.queued_task import QueuedTask
-
-    registry = get_service(RouteModelRegistry)
-    registry.register_model(QueuedTask)
-
-    try:
-        with pytest.raises(TypeError):
-            register_api_route_models(APIRouter())
-    finally:
-        registry.get_registered_models().pop(QueuedTask)

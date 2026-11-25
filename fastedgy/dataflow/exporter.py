@@ -3,7 +3,8 @@
 
 import csv
 import io
-from collections.abc import Sequence
+import tempfile
+from collections.abc import AsyncIterator, Iterator, Sequence
 from datetime import date, datetime
 from enum import Enum
 from typing import Any
@@ -158,7 +159,9 @@ async def export_data[M: BaseModel | BaseView](
         if limit is not None:
             query = query.limit(limit)
 
-        items = await query.offset(offset).all()
+        query = query.offset(offset)
+        # The SQL is built here, so that a refused filter still answers 422 before the export starts.
+        await query.as_select()
     except InvalidFilterError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except HTTPException:
@@ -194,43 +197,81 @@ async def export_data[M: BaseModel | BaseView](
         field_paths_with_converters = [(name, None) for name in field_names]
 
     columns = expand_columns(field_names, field_paths_with_converters)
-    translated = [name for name, converter in columns if translation_locale(model_cls, name, converter)]
-    documents = await fetch_translations(model_cls, [item.id for item in items], list(dict.fromkeys(translated)))
+    translated = list(
+        dict.fromkeys(name for name, converter in columns if translation_locale(model_cls, name, converter))
+    )
 
-    data_rows = []
-    readable = Readable()
-    await readable.ask_reached(model_cls, items, field_names)
+    async def rows_of(items: list[Any]) -> list[list[str | None]]:
+        documents = await fetch_translations(model_cls, [item.id for item in items], translated)
+        readable = Readable()
+        await readable.ask_reached(model_cls, items, field_names)
+        data_rows = []
 
-    for item in items:
-        row_data = []
+        for item in items:
+            row_data = []
 
-        for field_name, converter in columns:
-            locale = translation_locale(model_cls, field_name, converter)
+            for field_name, converter in columns:
+                locale = translation_locale(model_cls, field_name, converter)
 
-            if locale is not None:
-                value = documents.get(item.id, {}).get(field_name, {}).get(locale)
-            else:
-                value = await get_value_from_path(item, field_name, readable)
+                if locale is not None:
+                    value = documents.get(item.id, {}).get(field_name, {}).get(locale)
+                else:
+                    value = await get_value_from_path(item, field_name, readable)
 
-                if converter is not None:
-                    value = apply_export_converter(model_cls, field_name, value, converter)
+                    if converter is not None:
+                        value = apply_export_converter(model_cls, field_name, value, converter)
 
-            row_data.append(format_value(value, relation_delimiter))
+                row_data.append(format_value(value, relation_delimiter))
 
-        data_rows.append(row_data)
+            data_rows.append(row_data)
+
+        return data_rows
+
+    # Read from start to end where it is consumed: Edgy binds its cursor to the context it opened in.
+    async def row_batches() -> AsyncIterator[list[list[str | None]]]:
+        async for batch in _batches(query):
+            yield await rows_of(batch)
 
     field_labels = [column_label(model_cls, field_name, converter) for field_name, converter in columns]
+    export_format = format.lower()
 
-    if format.lower() == "csv":
-        return generate_csv_export(field_labels, data_rows, f"{model_cls.__name__}_export.csv")
+    if export_format == "csv":
+        return generate_csv_export(field_labels, row_batches(), f"{model_cls.__name__}_export.csv")
 
-    if format.lower() == "xlsx":
-        return generate_xlsx_export(field_labels, data_rows, f"{model_cls.__name__}_export.xlsx")
+    if export_format == "xlsx":
+        workbook, sheet = _xlsx_workbook(field_labels)
 
-    if format.lower() == "ods":
-        return generate_ods_export(field_labels, data_rows, f"{model_cls.__name__}_export.ods")
+        async for data_rows in row_batches():
+            for row in data_rows:
+                sheet.append(row)
+
+        return _xlsx_response(workbook, f"{model_cls.__name__}_export.xlsx")
+
+    if export_format == "ods":
+        all_rows = [row async for data_rows in row_batches() for row in data_rows]
+
+        return generate_ods_export(field_labels, all_rows, f"{model_cls.__name__}_export.ods")
 
     raise HTTPException(status_code=400, detail=_t("Unsupported export format: {format}", format=format))
+
+
+EXPORT_BATCH_SIZE = 500
+
+
+async def _batches(query: QuerySet) -> AsyncIterator[list[Any]]:
+    """The records of the query read through one cursor, a batch at a time: an export holds one
+    batch of records in memory, not all of them."""
+    batch: list[Any] = []
+
+    async for item in query.batch_size(EXPORT_BATCH_SIZE):
+        batch.append(item)
+
+        if len(batch) >= EXPORT_BATCH_SIZE:
+            yield batch
+            batch = []
+
+    if batch:
+        yield batch
 
 
 def format_value(value: Any, relation_delimiter: RelationDelimiter = RelationDelimiter.newline) -> str | None:
@@ -268,62 +309,91 @@ def _as_text(text: str) -> str:
     return f"'{text}" if text.startswith(_FORMULA_STARTS) else text
 
 
-def generate_csv_export(field_names: list[str], data_rows: list[list[str]], filename: str) -> StreamingResponse:
-    """Generate a CSV export file."""
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(field_names)
-    writer.writerows(data_rows)
+def generate_csv_export(
+    field_names: list[str],
+    data_rows: Sequence[Sequence[str | None]] | AsyncIterator[list[list[str | None]]],
+    filename: str,
+) -> StreamingResponse:
+    """Generate a CSV export file, each batch of rows sent as soon as it is written."""
+
+    async def chunks() -> AsyncIterator[str]:
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(field_names)
+
+        if isinstance(data_rows, Sequence):
+            writer.writerows(data_rows)
+            yield output.getvalue()
+
+            return
+
+        yield output.getvalue()
+
+        async for rows in data_rows:
+            output.seek(0)
+            output.truncate(0)
+            writer.writerows(rows)
+            yield output.getvalue()
 
     return StreamingResponse(
-        iter([output.getvalue()]),
+        chunks(),
         media_type="text/csv",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
 
-def generate_xlsx_export(field_names: list[str], data_rows: list[list[str]], filename: str) -> StreamingResponse:
-    """Generate an XLSX export file."""
+def _xlsx_workbook(field_names: list[str]) -> tuple[Any, Any]:
+    """A write-only workbook: openpyxl writes each row appended to a temporary file instead of
+    holding the sheet in memory."""
     try:
         import openpyxl
         from openpyxl.utils import get_column_letter
     except ImportError:
         raise HTTPException(status_code=500, detail=_t("openpyxl library is not installed"))
 
-    wb = openpyxl.Workbook()
-    ws = wb.active
+    workbook = openpyxl.Workbook(write_only=True)
+    sheet = workbook.create_sheet("Export")
 
-    if ws is None:
-        raise HTTPException(status_code=400, detail=_t("Failed to create worksheet"))
-
-    ws.title = "Export"
-
-    # Write header
     for col_idx, field in enumerate(field_names, 1):
-        ws.cell(row=1, column=col_idx, value=field)
+        sheet.column_dimensions[get_column_letter(col_idx)].width = max(len(field), 15)
 
-    # Write data
-    for row_idx, row_data in enumerate(data_rows, 2):
-        for col_idx, value in enumerate(row_data, 1):
-            ws.cell(row=row_idx, column=col_idx, value=value)
+    sheet.append(field_names)
 
-    # Auto-adjust column width
-    for col_idx, field in enumerate(field_names, 1):
-        ws.column_dimensions[get_column_letter(col_idx)].width = max(len(field), 15)
+    return workbook, sheet
 
-    # Save to buffer
-    output = io.BytesIO()
-    wb.save(output)
-    output.seek(0)
 
+def _xlsx_response(workbook: Any, filename: str) -> StreamingResponse:
     return StreamingResponse(
-        output,
+        _saved_chunks(workbook),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
 
-def generate_ods_export(field_names: list[str], data_rows: list[list[str]], filename: str) -> StreamingResponse:
+def _saved_chunks(workbook: Any, size: int = 64 * 1024) -> Iterator[bytes]:
+    with tempfile.SpooledTemporaryFile(max_size=8 * 1024 * 1024) as output:
+        workbook.save(output)
+        output.seek(0)
+
+        while chunk := output.read(size):
+            yield chunk
+
+
+def generate_xlsx_export(
+    field_names: list[str], data_rows: Sequence[Sequence[str | None]], filename: str
+) -> StreamingResponse:
+    """Generate an XLSX export file."""
+    workbook, sheet = _xlsx_workbook(field_names)
+
+    for row in data_rows:
+        sheet.append(list(row))
+
+    return _xlsx_response(workbook, filename)
+
+
+def generate_ods_export(
+    field_names: list[str], data_rows: Sequence[Sequence[str | None]], filename: str
+) -> StreamingResponse:
     """Generate an ODS export file."""
     try:
         from pyexcel_ods import save_data

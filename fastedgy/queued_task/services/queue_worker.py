@@ -337,7 +337,9 @@ class QueueWorker:
             except Exception as hook_err:
                 logger.error(f"post_run hook failed for task {getattr(task, 'id', '?')}: {hook_err}")
 
-            logger.error(f"Worker {self.worker_id} failed task {task.id}: {e}")
+            logger.error(
+                f"Worker {self.worker_id} failed task {task.id} ({task.module_name}.{task.function_name}): {e}"
+            )
 
             return {
                 "status": "error",

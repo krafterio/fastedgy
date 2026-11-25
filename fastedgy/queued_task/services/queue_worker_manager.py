@@ -1344,7 +1344,10 @@ class QueueWorkerManager:
                 self.stats["tasks_retried"] = self.stats.get("tasks_retried", 0) + 1
             else:
                 self.stats["tasks_failed"] += 1
-                logger.error(f"Task {task.id} failed in worker {worker.worker_id}: {result.get('error')}")
+                logger.error(
+                    f"Task {task.id} ({task.module_name}.{task.function_name}) failed in worker "
+                    f"{worker.worker_id}: {result.get('error')}"
+                )
 
         except Exception as e:
             self.stats["tasks_failed"] += 1

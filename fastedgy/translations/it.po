@@ -811,3 +811,36 @@ msgstr "Il campo «{field}» deve essere un numero intero."
 
 msgid "The '{field}' field must be true or false."
 msgstr "Il campo «{field}» deve essere vero o falso."
+
+msgid "Rolling 5 hours"
+msgstr "5 ore mobili"
+
+msgid "Day"
+msgstr "Giorno"
+
+msgid "Subscription week"
+msgstr "Settimana dell'abbonamento"
+
+msgid "Calendar month"
+msgstr "Mese solare"
+
+msgid "The limit of this usage is reached. It opens again later."
+msgstr "Il limite di questo utilizzo è stato raggiunto. Riaprirà più tardi."
+
+msgid "Window"
+msgstr "Finestra"
+
+msgid "Limit"
+msgstr "Limite"
+
+msgid "Credits"
+msgstr "Crediti"
+
+msgid "Used credits"
+msgstr "Crediti usati"
+
+msgid "Expires at"
+msgstr "Scade il"
+
+msgid "Empty: the stock does not expire, it lasts until it is spent."
+msgstr "Vuoto: lo stock non scade, dura fino a esaurimento."

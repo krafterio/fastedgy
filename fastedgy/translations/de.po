@@ -813,3 +813,36 @@ msgstr "Das Feld „{field}“ muss eine ganze Zahl sein."
 
 msgid "The '{field}' field must be true or false."
 msgstr "Das Feld „{field}“ muss wahr oder falsch sein."
+
+msgid "Rolling 5 hours"
+msgstr "Gleitende 5 Stunden"
+
+msgid "Day"
+msgstr "Tag"
+
+msgid "Subscription week"
+msgstr "Abo-Woche"
+
+msgid "Calendar month"
+msgstr "Kalendermonat"
+
+msgid "The limit of this usage is reached. It opens again later."
+msgstr "Das Limit dieser Nutzung ist erreicht. Sie öffnet später wieder."
+
+msgid "Window"
+msgstr "Zeitfenster"
+
+msgid "Limit"
+msgstr "Limit"
+
+msgid "Credits"
+msgstr "Guthaben"
+
+msgid "Used credits"
+msgstr "Verbrauchtes Guthaben"
+
+msgid "Expires at"
+msgstr "Läuft ab am"
+
+msgid "Empty: the stock does not expire, it lasts until it is spent."
+msgstr "Leer: Der Vorrat läuft nicht ab, er hält bis zum Verbrauch."
